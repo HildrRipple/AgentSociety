@@ -17,6 +17,8 @@ from .utils import *
 logging.getLogger("zhipuai").setLevel(logging.WARNING)
 os.environ["GRPC_VERBOSITY"] = "ERROR"
 
+logger = logging.getLogger("agentsociety")
+
 __all__ = [
     "LLM",
 ]
@@ -47,17 +49,30 @@ class LLM:
         self.semaphore = asyncio.Semaphore(200)
         self._current_client_index = 0
         self._log_list = []
+        
+        # 错误统计相关变量
+        self._total_calls = 0
+        self._total_errors = 0
+        self._error_types = {
+            "connection_error": 0,
+            "openai_error": 0,
+            "zhipuai_error": 0,
+            "other_error": 0,
+        }
 
         api_keys = self.config.api_key
         if not isinstance(api_keys, list):
             api_keys = [api_keys]
+        base_url = self.config.base_url
+        if base_url is not None:
+            base_url = base_url.rstrip("/")
 
         self._aclients = []
         self._client_usage = []
 
         for api_key in api_keys:
             if self.config.request_type == LLMRequestType.OpenAI:
-                client = AsyncOpenAI(api_key=api_key, timeout=300)
+                client = AsyncOpenAI(api_key=api_key, timeout=300, base_url=base_url)
             elif self.config.request_type == LLMRequestType.DeepSeek:
                 client = AsyncOpenAI(
                     api_key=api_key,
@@ -232,6 +247,7 @@ class LLM:
         """
         start_time = time.time()
         log = {"request_time": start_time}
+        self._total_calls += 1  # 增加总调用次数
         assert (
             self.semaphore is not None
         ), "Please set semaphore with `set_semaphore` first!"
@@ -279,26 +295,39 @@ class LLM:
                         else:
                             return response.choices[0].message.content
                     except APIConnectionError as e:
-                        print(
-                            f"API connection error: `{e}` original response: `{response}`"
+                        logger.warning(
+                            f"API connection error: `{e}`, original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
+                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
+                            self._total_errors += 1
+                            self._error_types["connection_error"] += 1
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
                     except OpenAIError as e:
                         if hasattr(e, "http_status"):
-                            print(f"HTTP status code: {e.http_status}")  # type: ignore
+                            logger.warning(
+                                f"HTTP status code: {e.http_status}. Retry {attempt+1} of {retries}"
+                            )  # type: ignore
                         else:
-                            print(f"OpenAIError: `{e}` original response: `{response}`")
+                            logger.warning(
+                                f"OpenAIError: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
+                            )
+                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
+                            self._total_errors += 1
+                            self._error_types["openai_error"] += 1
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
                     except Exception as e:
-                        print(
-                            f"LLM Error (OpenAI): `{e}` original response: `{response}`"
+                        logger.warning(
+                            f"LLM Error (OpenAI): `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
+                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
+                            self._total_errors += 1
+                            self._error_types["other_error"] += 1
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
@@ -351,18 +380,47 @@ class LLM:
                         else:
                             return result_response.choices[0].message.content  # type: ignore
                     except APIConnectionError as e:
-                        print(
-                            f"API connection error: `{e}` original response: `{response}`"
+                        logger.warning(
+                            f"API connection error: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
+                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
+                            self._total_errors += 1
+                            self._error_types["connection_error"] += 1
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
                     except Exception as e:
-                        print(f"LLM Error: `{e}` original response: `{response}`")
+                        logger.warning(
+                            f"LLM Error: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
+                        )
+                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
+                            self._total_errors += 1
+                            self._error_types["zhipuai_error"] += 1
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
             else:
                 raise ValueError("ERROR: Wrong Config")
+
+    def get_error_statistics(self):
+        """
+        Returns statistics about LLM API calls and errors.
+
+        - **Description**:
+            - This method provides statistics on the total number of API calls,
+              the total number of errors, and counts for specific error types.
+
+        - **Returns**:
+            - A dictionary containing the call and error statistics.
+        """
+        stats = {
+            "total": self._total_calls,
+            "error": self._total_errors,
+        }
+        # 添加各种错误类型的统计
+        for error_type, count in self._error_types.items():
+            stats[f"{error_type}"] = count
+        
+        return stats

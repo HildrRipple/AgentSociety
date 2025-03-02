@@ -66,9 +66,11 @@ class PlanAndActionBlock(Block):
 
     async def plan_generation(self):
         """Generate plan"""
+        cognition = None
         current_plan = await self.memory.status.get("current_plan")
         if current_plan is None:
-            await self.planBlock.forward()
+            cognition = await self.planBlock.forward()
+        return cognition
 
     async def step_execution(self):
         """Execute the current step"""
@@ -146,10 +148,14 @@ class PlanAndActionBlock(Block):
         await self.monthPlanBlock.forward()
 
         # update needs
-        await self.needsBlock.forward()
+        cognition = await self.needsBlock.forward()
+        if cognition:
+            await self._agent.save_agent_thought(cognition)
 
         # plan generation
-        await self.plan_generation()
+        cognition = await self.plan_generation()
+        if cognition:
+            await self._agent.save_agent_thought(cognition)
 
         # step execution
         await self.step_execution()

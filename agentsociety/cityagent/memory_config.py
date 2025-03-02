@@ -1,5 +1,7 @@
 import random
 from collections import deque
+import json
+from typing import Any, Type, List, Union, Optional, Callable, Tuple
 
 import numpy as np
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
@@ -27,11 +29,273 @@ async def memory_config_init(simulation):
     ]
 
 
+# Distribution system for memory configuration
+class Distribution:
+    """
+    Abstract base class for all distribution types.
+    - **Description**:
+        - Provides an interface for sampling values from a distribution.
+
+    - **Args**:
+        - None
+
+    - **Returns**:
+        - None
+    """
+    def sample(self) -> Any:
+        """
+        Sample a value from this distribution.
+        - **Description**:
+            - Abstract method to be implemented by subclasses.
+
+        - **Args**:
+            - None
+
+        - **Returns**:
+            - Any: A value sampled from the distribution.
+        """
+        raise NotImplementedError("Subclasses must implement sample()")
+    
+    @staticmethod
+    def create(dist_type: str, **kwargs) -> 'Distribution':
+        """
+        Factory method to create a distribution of the specified type.
+        - **Description**:
+            - Creates and returns a distribution instance based on the provided type.
+
+        - **Args**:
+            - `dist_type` (str): Type of distribution to create ('uniform', 'normal', etc.)
+            - `**kwargs`: Parameters specific to the distribution type
+
+        - **Returns**:
+            - Distribution: A distribution instance
+        """
+        if dist_type == "choice":
+            return ChoiceDistribution(**kwargs)
+        elif dist_type == "uniform_int":
+            return UniformIntDistribution(**kwargs)
+        elif dist_type == "uniform_float":
+            return UniformFloatDistribution(**kwargs)
+        elif dist_type == "normal":
+            return NormalDistribution(**kwargs)
+        elif dist_type == "constant":
+            return ConstantDistribution(**kwargs)
+        else:
+            raise ValueError(f"Unknown distribution type: {dist_type}")
+
+
+class ChoiceDistribution(Distribution):
+    """
+    Distribution that samples from a list of choices with equal probability.
+    - **Description**:
+        - Randomly selects one item from a provided list of choices.
+
+    - **Args**:
+        - `choices` (List[Any]): List of possible values to sample from
+        - `weights` (Optional[List[float]]): Optional probability weights for choices
+
+    - **Returns**:
+        - None
+    """
+    def __init__(self, choices: List[Any], weights: Optional[List[float]] = None):
+        self.choices = choices
+        self.weights = weights
+    
+    def sample(self) -> Any:
+        return random.choices(self.choices, weights=self.weights, k=1)[0]
+
+
+class UniformIntDistribution(Distribution):
+    """
+    Distribution that samples integers uniformly from a range.
+    - **Description**:
+        - Samples integers with equal probability from [min_value, max_value].
+
+    - **Args**:
+        - `min_value` (int): Minimum value (inclusive)
+        - `max_value` (int): Maximum value (inclusive)
+
+    - **Returns**:
+        - None
+    """
+    def __init__(self, min_value: int, max_value: int):
+        self.min_value = min_value
+        self.max_value = max_value
+    
+    def sample(self) -> int:
+        return random.randint(self.min_value, self.max_value)
+
+
+class UniformFloatDistribution(Distribution):
+    """
+    Distribution that samples floats uniformly from a range.
+    - **Description**:
+        - Samples floating point values with equal probability from [min_value, max_value).
+
+    - **Args**:
+        - `min_value` (float): Minimum value (inclusive)
+        - `max_value` (float): Maximum value (exclusive)
+
+    - **Returns**:
+        - None
+    """
+    def __init__(self, min_value: float, max_value: float):
+        self.min_value = min_value
+        self.max_value = max_value
+    
+    def sample(self) -> float:
+        return self.min_value + random.random() * (self.max_value - self.min_value)
+
+
+class NormalDistribution(Distribution):
+    """
+    Distribution that samples from a normal (Gaussian) distribution.
+    - **Description**:
+        - Samples values from a normal distribution with given mean and standard deviation.
+
+    - **Args**:
+        - `mean` (float): Mean of the distribution
+        - `std` (float): Standard deviation of the distribution
+        - `min_value` (Optional[float]): Minimum allowed value (for truncation)
+        - `max_value` (Optional[float]): Maximum allowed value (for truncation)
+
+    - **Returns**:
+        - None
+    """
+    def __init__(self, mean: float, std: float, min_value: Optional[float] = None, 
+                 max_value: Optional[float] = None):
+        self.mean = mean
+        self.std = std
+        self.min_value = min_value
+        self.max_value = max_value
+    
+    def sample(self) -> float:
+        value = random.normalvariate(self.mean, self.std)
+        if self.min_value is not None:
+            value = max(value, self.min_value)
+        if self.max_value is not None:
+            value = min(value, self.max_value)
+        return value
+
+
+class ConstantDistribution(Distribution):
+    """
+    Distribution that always returns the same value.
+    - **Description**:
+        - Returns a constant value every time sample() is called.
+
+    - **Args**:
+        - `value` (Any): The constant value to return
+
+    - **Returns**:
+        - None
+    """
+    def __init__(self, value: Any):
+        self.value = value
+    
+    def sample(self) -> Any:
+        return self.value
+
+
+# Default distributions for different profile fields
+DEFAULT_DISTRIBUTIONS = {
+    "name": ChoiceDistribution(choices=[
+        "Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Helen", 
+        "Ivy", "Jack", "Kelly", "Lily", "Mike", "Nancy", "Oscar", "Peter", 
+        "Queen", "Rose", "Sam", "Tom", "Ulysses", "Vicky", "Will", "Xavier", 
+        "Yvonne", "Zack"
+    ]),
+    "gender": ChoiceDistribution(choices=["male", "female"]),
+    "age": UniformIntDistribution(min_value=18, max_value=65),
+    "education": ChoiceDistribution(choices=[
+        "Doctor", "Master", "Bachelor", "College", "High School"
+    ]),
+    "skill": ChoiceDistribution(choices=[
+        "Good at problem-solving", "Good at communication", 
+        "Good at creativity", "Good at teamwork", "Other"
+    ]),
+    "occupation": ChoiceDistribution(choices=[
+        "Student", "Teacher", "Doctor", "Engineer", "Manager", 
+        "Businessman", "Artist", "Athlete", "Other"
+    ]),
+    "family_consumption": ChoiceDistribution(choices=["low", "medium", "high"]),
+    "consumption": ChoiceDistribution(choices=[
+        "low", "slightly low", "medium", "slightly high", "high"
+    ]),
+    "personality": ChoiceDistribution(choices=[
+        "outgoint", "introvert", "ambivert", "extrovert"
+    ]),
+    "income": UniformIntDistribution(min_value=1000, max_value=20000),
+    "currency": UniformIntDistribution(min_value=1000, max_value=100000),
+    "residence": ChoiceDistribution(choices=["city", "suburb", "rural"]),
+    "city": ConstantDistribution(value="New York"),
+    "race": ChoiceDistribution(choices=[
+        "Chinese", "American", "British", "French", "German", 
+        "Japanese", "Korean", "Russian", "Other"
+    ]),
+    "religion": ChoiceDistribution(choices=[
+        "none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"
+    ]),
+    "marital_status": ChoiceDistribution(choices=[
+        "not married", "married", "divorced", "widowed"
+    ]),
+}
+
+# User-configurable distributions
+CUSTOM_DISTRIBUTIONS = {}
+
+def set_distribution(field: str, dist_type: str, **kwargs):
+    """
+    Set a custom distribution for a specific field.
+    - **Description**:
+        - Configures a custom distribution for sampling values for a specific field.
+
+    - **Args**:
+        - `field` (str): The field name to configure
+        - `dist_type` (str): Type of distribution (e.g., 'choice', 'uniform_int')
+        - `**kwargs`: Parameters specific to the distribution type
+
+    - **Returns**:
+        - None
+    """
+    CUSTOM_DISTRIBUTIONS[field] = Distribution.create(dist_type, **kwargs)
+
+def get_distribution(field: str) -> Distribution:
+    """
+    Get the distribution for a specific field.
+    - **Description**:
+        - Returns the configured distribution for a field, preferring custom over default.
+
+    - **Args**:
+        - `field` (str): The field name
+
+    - **Returns**:
+        - Distribution: The distribution to use for sampling values
+    """
+    return CUSTOM_DISTRIBUTIONS.get(field, DEFAULT_DISTRIBUTIONS.get(field))
+
+def sample_field_value(field: str) -> Any:
+    """
+    Sample a value for a specific field using its configured distribution.
+    - **Description**:
+        - Samples a value using the field's configured distribution.
+
+    - **Args**:
+        - `field` (str): The field name
+
+    - **Returns**:
+        - Any: A sampled value for the field
+    """
+    dist = get_distribution(field)
+    if dist:
+        return dist.sample()
+    raise ValueError(f"No distribution configured for field: {field}")
+
+
 def memory_config_societyagent():
     global work_locations
     EXTRA_ATTRIBUTES = {
         "type": (str, "citizen"),
-        "city": (str, "New York", True),
         # Needs Model
         "hunger_satisfaction": (float, random.random(), False),  # hunger satisfaction
         "energy_satisfaction": (float, random.random(), False),  # energy satisfaction
@@ -98,120 +362,22 @@ def memory_config_societyagent():
     }
 
     PROFILE = {
-        "name": (
-            str,
-            random.choice(
-                [
-                    "Alice",
-                    "Bob",
-                    "Charlie",
-                    "David",
-                    "Eve",
-                    "Frank",
-                    "Grace",
-                    "Helen",
-                    "Ivy",
-                    "Jack",
-                    "Kelly",
-                    "Lily",
-                    "Mike",
-                    "Nancy",
-                    "Oscar",
-                    "Peter",
-                    "Queen",
-                    "Rose",
-                    "Sam",
-                    "Tom",
-                    "Ulysses",
-                    "Vicky",
-                    "Will",
-                    "Xavier",
-                    "Yvonne",
-                    "Zack",
-                ]
-            ),
-            True,
-        ),
-        "gender": (str, random.choice(["male", "female"]), True),
-        "age": (int, random.randint(18, 65), True),
-        "education": (
-            str,
-            random.choice(["Doctor", "Master", "Bachelor", "College", "High School"]),
-            True,
-        ),
-        "skill": (
-            str,
-            random.choice(
-                [
-                    "Good at problem-solving",
-                    "Good at communication",
-                    "Good at creativity",
-                    "Good at teamwork",
-                    "Other",
-                ]
-            ),
-            True,
-        ),
-        "occupation": (
-            str,
-            random.choice(
-                [
-                    "Student",
-                    "Teacher",
-                    "Doctor",
-                    "Engineer",
-                    "Manager",
-                    "Businessman",
-                    "Artist",
-                    "Athlete",
-                    "Other",
-                ]
-            ),
-            True,
-        ),
-        "family_consumption": (str, random.choice(["low", "medium", "high"]), True),
-        "consumption": (
-            str,
-            random.choice(["low", "slightly low", "medium", "slightly high", "high"]),
-            True,
-        ),
-        "personality": (
-            str,
-            random.choice(["outgoint", "introvert", "ambivert", "extrovert"]),
-            True,
-        ),
-        "income": (float, random.randint(1000, 20000), True),
-        "currency": (float, random.randint(1000, 100000), True),
-        "residence": (str, random.choice(["city", "suburb", "rural"]), True),
-        "race": (
-            str,
-            random.choice(
-                [
-                    "Chinese",
-                    "American",
-                    "British",
-                    "French",
-                    "German",
-                    "Japanese",
-                    "Korean",
-                    "Russian",
-                    "Other",
-                ]
-            ),
-            True,
-        ),
-        "religion": (
-            str,
-            random.choice(
-                ["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]
-            ),
-            True,
-        ),
-        "marital_status": (
-            str,
-            random.choice(["not married", "married", "divorced", "widowed"]),
-            True,
-        ),
+        "name": (str, sample_field_value("name"), True),
+        "gender": (str, sample_field_value("gender"), True),
+        "age": (int, sample_field_value("age"), True),
+        "education": (str, sample_field_value("education"), True),
+        "skill": (str, sample_field_value("skill"), True),
+        "occupation": (str, sample_field_value("occupation"), True),
+        "family_consumption": (str, sample_field_value("family_consumption"), True),
+        "consumption": (str, sample_field_value("consumption"), True),
+        "personality": (str, sample_field_value("personality"), True),
+        "income": (float, sample_field_value("income"), True),
+        "currency": (float, sample_field_value("currency"), True),
+        "residence": (str, sample_field_value("residence"), True),
+        "city": (str, sample_field_value("city"), True),
+        "race": (str, sample_field_value("race"), True),
+        "religion": (str, sample_field_value("religion"), True),
+        "marital_status": (str, sample_field_value("marital_status"), True),
     }
 
     BASE = {
@@ -348,3 +514,67 @@ def memory_config_nbs():
         "forward_times": (int, 0),
     }
     return EXTRA_ATTRIBUTES, {}, {}
+
+
+def memory_config_load_file(file_path):
+    """
+    Loads the memory configuration from the given file.
+    - **Description**:
+        - Loads the memory configuration from the given file.
+
+    - **Args**:
+        - `file_path` (str): The path to the file containing the memory configuration.
+
+    - **Returns**:
+        - `memory_data` (list): The memory data.
+    """
+    with open(file_path, 'r') as f:
+        memory_data = json.load(f)
+    return memory_data
+
+
+def memory_config_merge(file_data, base_extra_attrs, base_profile, base_base):
+    """
+    Merges memory configuration from file with base configuration.
+    
+    - **Description**:
+        - Takes file data and merges it with base configuration components.
+        - Special handling for 'home' and 'work' fields which may need to be placed in correct section.
+    
+    - **Args**:
+        - `file_data` (dict): Memory configuration data loaded from file.
+        - `base_extra_attrs` (dict): Base extra attributes configuration.
+        - `base_profile` (dict): Base profile configuration.
+        - `base_base` (dict): Base memory configuration.
+    
+    - **Returns**:
+        - `dict`: Merged memory configuration with proper structure.
+    """
+    # Create copies to avoid modifying the originals
+    extra_attrs = base_extra_attrs.copy()
+    profile = base_profile.copy()
+    base = base_base.copy()
+    
+    # Special handling for home and work locations
+    location_fields = ['home', 'work']
+    
+    for key, value in file_data.items():
+        # Check where this key exists in the base configuration
+        if key in extra_attrs:
+            extra_attrs[key] = value
+        elif key in profile:
+            profile[key] = value
+        elif key in location_fields:
+            # Typically these would go in profile, but follow your specific needs
+            profile[key] = {
+                "aoi_position": {"aoi_id": value}
+            }
+        else:
+            # For any new fields not in base config, add to extra_attrs
+            extra_attrs[key] = value
+    
+    return {
+        "extra_attributes": extra_attrs,
+        "profile": profile,
+        "base": base
+    }

@@ -34,7 +34,7 @@ class AgentGroup:
         self,
         agent_class: Union[type[Agent], list[type[Agent]]],
         number_of_agents: Union[int, list[int]],
-        memory_config_function_group: dict[type[Agent], Callable],
+        memory_values_dict: dict[type[Agent], list[dict]],
         config: SimConfig,
         map_ref: ray.ObjectRef,
         exp_name: str,
@@ -63,7 +63,7 @@ class AgentGroup:
         - **Args**:
             - `agent_class` (Union[Type[Agent], List[Type[Agent]]]): A single or list of agent classes to instantiate.
             - `number_of_agents` (Union[int, List[int]]): Number of instances to create for each agent class.
-            - `memory_config_function_group` (Dict[Type[Agent], Callable]): Functions to configure memory for each agent type.
+            - `memory_values_dict` (Dict[Type[Agent], List[Dict]]): Functions to configure memory for each agent type.
             - `config` (SimConfig): Configuration settings for the agent group.
             - `map_ref` (ray.ObjectRef): Reference to the map object.
             - `exp_name` (str): Name of the experiment.
@@ -87,7 +87,7 @@ class AgentGroup:
             number_of_agents = [number_of_agents]
         self.agent_class = agent_class
         self.number_of_agents = number_of_agents
-        self.memory_config_function_group = memory_config_function_group
+        self.memory_values_dict = memory_values_dict
         self.agents: list[Agent] = []
         self.id2agent: dict[str, Agent] = {}
         self.config = config
@@ -164,11 +164,12 @@ class AgentGroup:
         for i in range(len(number_of_agents)):
             agent_class_i = agent_class[i]
             number_of_agents_i = number_of_agents[i]
+            memory_values_dict_i = memory_values_dict[agent_class_i]
             for j in range(number_of_agents_i):
-                memory_config_function_group_i = memory_config_function_group[
-                    agent_class_i
-                ]
-                extra_attributes, profile, base = memory_config_function_group_i()
+                memory_values = memory_values_dict_i[j]
+                extra_attributes = memory_values.get("extra_attributes", {})
+                profile = memory_values.get("profile", {})
+                base = memory_values.get("base", {})
                 memory = Memory(config=extra_attributes, profile=profile, base=base)
                 agent = agent_class_i(
                     name=f"{agent_class_i.__name__}_{i}",  # type: ignore
@@ -733,6 +734,12 @@ class AgentGroup:
             - The consumption data provided by the LLM client.
         """
         return self.llm.get_consumption()
+    
+    async def get_llm_error_statistics(self):
+        """
+        Retrieves the error statistics from the LLM client.
+        """
+        return self.llm.get_error_statistics()
 
     async def step(self):
         """

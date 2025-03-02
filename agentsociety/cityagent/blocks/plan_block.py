@@ -1,7 +1,7 @@
 import json
 import logging
 import random
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import ray
 
@@ -168,12 +168,13 @@ class PlanBlock(Block):
         # configurable fields
         self.max_plan_steps = 6
 
-    async def select_guidance(self, current_need: str) -> Dict:
+    async def select_guidance(self, current_need: str) -> Tuple[Dict, str]:
         """Select guidance plan"""
+        cognition = None
         position_now = await self.memory.status.get("position")
         home_location = await self.memory.status.get("home")
         work_location = await self.memory.status.get("work")
-        current_location = "Out"
+        current_location = "Outside"
         if (
             "aoi_position" in position_now
             and position_now["aoi_position"] == home_location["aoi_position"]
@@ -215,11 +216,12 @@ class PlanBlock(Block):
                     raise ValueError(
                         "Evaluation must include attitude, subjective_norm, perceived_control, and reasoning"
                     )
-                return result
+                cognition = f"I choose to {result['selected_option']} because {result['evaluation']['reasoning']}"
+                return result, cognition
             except Exception as e:
                 logger.warning(f"Error parsing guidance selection response: {str(e)}")
                 retry -= 1
-        return None
+        return None, cognition
 
     async def generate_detailed_plan(
         self, selected_option: str
@@ -272,11 +274,12 @@ class PlanBlock(Block):
         return None
 
     async def forward(self):
+        cognition = None
         # Step 1: Select guidance plan
         current_need = await self.memory.status.get("current_need")
-        guidance_result = await self.select_guidance(current_need)
+        guidance_result, cognition = await self.select_guidance(current_need)
         if not guidance_result:
-            return
+            return None
 
         # Step 2: Generate detailed plan
         detailed_plan = await self.generate_detailed_plan(
@@ -288,7 +291,7 @@ class PlanBlock(Block):
             await self.memory.status.update(
                 "current_step", {"intention": "", "type": ""}
             )
-            return
+            return None
 
         # Step 3: Update plan and current step
         steps = detailed_plan["plan"]["steps"]
@@ -316,3 +319,5 @@ Execution Steps: \n{formated_steps}
             "current_step", steps[0] if steps else {"intention": "", "type": ""}
         )
         await self.memory.status.update("execution_context", {"plan": formated_plan})
+        await self.memory.stream.add_cognition(description=cognition)
+        return cognition

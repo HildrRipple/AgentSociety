@@ -31,9 +31,9 @@ class AgentConfig(BaseModel):
     embedding_model: Any = Field(None, description="Embedding model")
     extra_agent_class: Optional[dict[Any, int]] = None
     agent_class_configs: Optional[dict[Any, dict[str, Any]]] = None
+    memory_from_file: Optional[dict[Any, str]] = None
     memory_config_func: Optional[dict[type["Any"], Callable]] = None
     memory_config_init_func: Optional[Callable] = Field(None)
-    # init_func: Optional[list[Callable[["AgentSimulation"], None]]] = None
     init_func: Optional[list[Callable[[Any], None]]] = None
 
 
@@ -95,6 +95,7 @@ class ExpConfig(BaseModel):
         embedding_model: Any = None,
         extra_agent_class: Optional[dict[Any, int]] = None,
         agent_class_configs: Optional[dict[Any, dict[str, Any]]] = None,
+        memory_from_file: Optional[dict[Any, str]] = None,
         memory_config_func: Optional[dict[type["Any"], Callable]] = None,
         memory_config_init_func: Optional[Callable] = None,
         init_func: Optional[list[Callable[[Any], None]]] = None,
@@ -109,6 +110,7 @@ class ExpConfig(BaseModel):
             embedding_model=embedding_model,
             extra_agent_class=extra_agent_class,
             agent_class_configs=agent_class_configs,
+            memory_from_file=memory_from_file,
             memory_config_func=memory_config_func,
             memory_config_init_func=memory_config_init_func,
             init_func=init_func,

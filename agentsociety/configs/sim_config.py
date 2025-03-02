@@ -13,6 +13,9 @@ class LLMRequestConfig(BaseModel):
     request_type: LLMRequestType = Field(
         ..., description="The type of the request or provider"
     )
+    base_url: Optional[str] = Field(
+        None, description="The base URL for the request or provider"
+    )
     api_key: Union[list[str], str] = Field(
         ..., description="API key for accessing the service"
     )
@@ -127,10 +130,10 @@ class SimConfig(BaseModel):
         return self.metric_request  # type:ignore
 
     def SetLLMRequest(
-        self, request_type: LLMRequestType, api_key: Union[list[str], str], model: str
+        self, request_type: LLMRequestType, api_key: Union[list[str], str], model: str, base_url: Optional[str] = None
     ) -> "SimConfig":
         self.llm_request = LLMRequestConfig(
-            request_type=request_type, api_key=api_key, model=model
+            request_type=request_type, api_key=api_key, model=model, base_url=base_url
         )
         return self
 

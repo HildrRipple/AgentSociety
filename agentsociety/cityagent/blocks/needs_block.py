@@ -212,6 +212,7 @@ class NeedsBlock(Block):
             await self.memory.status.update("execution_context", {})
 
     async def determine_current_need(self):
+        cognition = None
         hunger_satisfaction = await self.memory.status.get("hunger_satisfaction")
         energy_satisfaction = await self.memory.status.get("energy_satisfaction")
         safety_satisfaction = await self.memory.status.get("safety_satisfaction")
@@ -227,17 +228,29 @@ class NeedsBlock(Block):
             # 按优先级顺序检查需求
             if hunger_satisfaction <= self.T_H:
                 await self.memory.status.update("current_need", "hungry")
+                await self.memory.stream.add_cognition(description="I feel hungry")
+                cognition = "I feel hungry"
             elif energy_satisfaction <= self.T_D:
                 await self.memory.status.update("current_need", "tired")
+                await self.memory.stream.add_cognition(description="I feel tired")
+                cognition = "I feel tired"
             elif self.need_work:
                 await self.memory.status.update("current_need", "safe")
+                await self.memory.stream.add_cognition(description="I need to work")
+                cognition = "I need to work"
                 self.need_work = False
             elif safety_satisfaction <= self.T_P:
                 await self.memory.status.update("current_need", "safe")
+                await self.memory.stream.add_cognition(description="I have safe needs right now")
+                cognition = "I have safe needs right now"
             elif social_satisfaction <= self.T_C:
                 await self.memory.status.update("current_need", "social")
+                await self.memory.stream.add_cognition(description="I have social needs right now")
+                cognition = "I have social needs right now"
             else:
                 await self.memory.status.update("current_need", "whatever")
+                await self.memory.stream.add_cognition(description="I have no specific needs right now")
+                cognition = "I have no specific needs right now"
         else:
             # 有正在执行的计划时,只在出现更高优先级需求时调整
             needs_changed = False
@@ -270,11 +283,13 @@ class NeedsBlock(Block):
                 new_need = "social"
                 needs_changed = True
 
-            # 如果需求发生变化,中断当前计划
+            # If needs changed, evaluate and adjust needs
             if needs_changed:
                 await self.evaluate_and_adjust_needs(current_plan)
                 history = await self.memory.status.get("plan_history")
                 history.append(current_plan)
+                await self.memory.stream.add_cognition(description=f"I need to change my plan because {new_need} needs is more important than {current_need} needs")
+                cognition = f"I need to change my plan because {new_need} needs is more important than {current_need} needs"
                 await self.memory.status.update("current_need", new_need)
                 await self.memory.status.update("plan_history", history)
                 await self.memory.status.update("current_plan", None)
@@ -282,9 +297,10 @@ class NeedsBlock(Block):
                     "current_step", {"intention": "", "type": ""}
                 )
                 await self.memory.status.update("execution_context", {})
+        return cognition
 
     async def evaluate_and_adjust_needs(self, completed_plan):
-        # 获取执行的计划和评估结果
+        # Get the executed plan and evaluation results
         evaluation_results = []
         for step in completed_plan["steps"]:
             if "evaluation" in step["evaluation"]:
@@ -294,7 +310,7 @@ class NeedsBlock(Block):
             evaluation_results.append(f"- {step['intention']} ({step['type']}): {eva_}")
         evaluation_results = "\n".join(evaluation_results)
 
-        # 使用 LLM 进行评估
+        # Use LLM to evaluate and adjust needs
         current_need = await self.memory.status.get("current_need")
         self.evaluation_prompt.format(
             current_need=current_need,
@@ -311,7 +327,7 @@ class NeedsBlock(Block):
             response = await self.llm.atext_request(self.evaluation_prompt.to_dialog(), response_format={"type": "json_object"})
             try:
                 new_satisfaction = json.loads(clean_json_response(response))  # type: ignore
-                # 更新所有需求的数值
+                # Update all needs values
                 for need_type, new_value in new_satisfaction.items():
                     if need_type in [
                         "hunger_satisfaction",
@@ -332,6 +348,8 @@ class NeedsBlock(Block):
                 retry -= 1
 
     async def forward(self):
+        cognition = None
+
         await self.initialize()
 
         # satisfaction decay with time
@@ -341,4 +359,6 @@ class NeedsBlock(Block):
         await self.update_when_plan_completed()
 
         # determine current need
-        await self.determine_current_need()
+        cognition = await self.determine_current_need()
+
+        return cognition

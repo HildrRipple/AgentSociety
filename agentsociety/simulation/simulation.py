@@ -20,7 +20,8 @@ from ..cityagent.initial import bind_agent_info, initialize_social_network
 from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
                                        memory_config_government,
                                        memory_config_init, memory_config_nbs,
-                                       memory_config_societyagent)
+                                       memory_config_societyagent, memory_config_load_file,
+                                       memory_config_merge)
 from ..cityagent.message_intercept import (EdgeMessageBlock,
                                            MessageBlockListener,
                                            PointMessageBlock)
@@ -227,6 +228,7 @@ class AgentSimulation:
         - llm_semaphore: Optional[int], default is 200
         - agent_config:
             - agent_config_file: Optional[dict[type[Agent], str]]
+            - memory_from_file: Optional[dict[type[Agent], str]]
             - memory_config_init_func: Optional[Callable]
             - memory_config_func: Optional[dict[type[Agent], Callable]]
             - metric_extractors: Optional[list[tuple[int, Callable]]]
@@ -324,6 +326,7 @@ class AgentSimulation:
             embedding_model=embedding_model,
             memory_config_func=agent_config.memory_config_func,
             memory_config_init_func=agent_config.memory_config_init_func,
+            memory_from_file=agent_config.memory_from_file,
             **_message_intercept_kwargs,
             environment=environment,
             llm_semaphore=config.llm_semaphore,
@@ -377,7 +380,18 @@ class AgentSimulation:
                 _func = cast(Callable, step.func)
                 await _func(simulation)
         logger.info("Simulation finished")
-        return llm_log_lists, mqtt_log_lists, simulator_log_lists, agent_time_log_lists
+        tasks = []
+        for group in simulation._groups.values():
+            tasks.append(group.get_llm_error_statistics.remote())
+        llm_error_statistics_groups = await asyncio.gather(*tasks)
+        llm_error_statistics = {}
+        for group in llm_error_statistics_groups:
+            for key, value in group.items():
+                if key in llm_error_statistics:
+                    llm_error_statistics[key] += value
+                else:
+                    llm_error_statistics[key] = value
+        return llm_log_lists, mqtt_log_lists, simulator_log_lists, agent_time_log_lists, llm_error_statistics
 
     @property
     def enable_avro(
@@ -500,6 +514,7 @@ class AgentSimulation:
         embedding_model: Embeddings = SimpleEmbedding(),
         memory_config_init_func: Optional[Callable] = None,
         memory_config_func: Optional[dict[type[Agent], Callable]] = None,
+        memory_from_file: Optional[dict[type[Agent], str]] = None,
         environment: dict[str, str] = {},
         llm_semaphore: int = 200,
     ) -> None:
@@ -522,6 +537,7 @@ class AgentSimulation:
             - `embedding_model` (Embeddings, optional): Model used for generating embeddings for agents' memories. Defaults to SimpleEmbedding().
             - `memory_config_init_func` (Optional[Callable], optional): Initialization function for setting up memory configuration. Defaults to None.
             - `memory_config_func` (Optional[Dict[Type[Agent], Callable]], optional): Dictionary mapping agent classes to their memory configuration functions. Defaults to None.
+            - `memory_from_file` (Optional[Dict[Type[Agent], str]], optional): Dictionary mapping agent classes to their memory file paths. Defaults to None.
             - `environment` (Optional[Dict[str, str]], optional): Environment variables to update in the simulation. Defaults to None.
 
         - **Raises**:
@@ -539,6 +555,12 @@ class AgentSimulation:
         if memory_config_func is None:
             memory_config_func = self.default_memory_config_func  # type:ignore
 
+        # load memory data from file
+        memory_data_from_file = {}
+        if memory_from_file is not None:
+            for agent_class, file_path in memory_from_file.items():
+                memory_data_from_file[agent_class] = memory_config_load_file(file_path)
+
         # use thread pool to create AgentGroup
         group_creation_params = []
 
@@ -550,10 +572,40 @@ class AgentSimulation:
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
             agent_count_i = agent_count[agent_class]
+            
+            # prepare memory config data
             assert memory_config_func is not None
             memory_config_func_i = memory_config_func.get(
                 agent_class, self.default_memory_config_func[agent_class]  # type:ignore
             )
+            
+            # merge data loaded from file (if any)
+            memory_values = []
+            if agent_class in memory_data_from_file and agent_count_i > 0:
+                file_data = memory_data_from_file[agent_class]
+                # use data from file (may not be enough, need to use data generated by function to supplement)
+                for i in range(agent_count_i):
+                    # get base memory config (generated by function)
+                    extra_attrs, profile, base = memory_config_func_i()
+                    if i < len(file_data):
+                        memory_values.append(memory_config_merge(file_data[i], extra_attrs, profile, base))
+                    else:
+                        # if data from file is not enough, use data generated by function to supplement
+                        memory_values.append({
+                            "extra_attributes": extra_attrs,
+                            "profile": profile,
+                            "base": base
+                        })
+            else:
+                # if there is no data from file, use data generated by function to supplement
+                for _ in range(agent_count_i):
+                    # get base memory config (generated by function)
+                    extra_attrs, profile, base = memory_config_func_i()
+                    memory_values.append({
+                        "extra_attributes": extra_attrs,
+                        "profile": profile,
+                        "base": base
+                    })
 
             if self.agent_class_configs is not None:
                 config_file = self.agent_class_configs.get(agent_class, None)
@@ -562,11 +614,11 @@ class AgentSimulation:
 
             if issubclass(agent_class, InstitutionAgent):
                 institution_params.append(
-                    (agent_class, agent_count_i, memory_config_func_i, config_file)
+                    (agent_class, agent_count_i, memory_values, config_file)
                 )
             else:
                 citizen_params.append(
-                    (agent_class, agent_count_i, memory_config_func_i, config_file)
+                    (agent_class, agent_count_i, memory_values, config_file)
                 )
 
         # process institution group
@@ -583,16 +635,18 @@ class AgentSimulation:
 
                 agent_classes = []
                 agent_counts = []
-                memory_config_funcs = {}
+                memory_values_dict = {}
                 config_files = {}
 
                 # assign each type of institution agent to current group
                 curr_start = start_idx
-                for agent_class, count, mem_func, conf_file in institution_params:
+                for agent_class, count, memory_vals, conf_file in institution_params:
                     if curr_start < count:
                         agent_classes.append(agent_class)
-                        agent_counts.append(min(count - curr_start, number_of_agents))
-                        memory_config_funcs[agent_class] = mem_func
+                        agents_in_group = min(count - curr_start, number_of_agents)
+                        agent_counts.append(agents_in_group)
+                        # only take memory values needed for current group
+                        memory_values_dict[agent_class] = memory_vals[curr_start:curr_start+agents_in_group]
                         config_files[agent_class] = conf_file
                     curr_start = max(0, curr_start - count)
 
@@ -600,7 +654,7 @@ class AgentSimulation:
                     (
                         agent_classes,
                         agent_counts,
-                        memory_config_funcs,
+                        memory_values_dict,
                         f"InstitutionGroup_{k}",
                         config_files,
                     )
@@ -618,16 +672,18 @@ class AgentSimulation:
 
                 agent_classes = []
                 agent_counts = []
-                memory_config_funcs = {}
+                memory_values_dict = {}
                 config_files = {}
 
                 # assign each type of citizen agent to current group
                 curr_start = start_idx
-                for agent_class, count, mem_func, conf_file in citizen_params:
+                for agent_class, count, memory_vals, conf_file in citizen_params:
                     if curr_start < count:
                         agent_classes.append(agent_class)
-                        agent_counts.append(min(count - curr_start, number_of_agents))
-                        memory_config_funcs[agent_class] = mem_func
+                        agents_in_group = min(count - curr_start, number_of_agents)
+                        agent_counts.append(agents_in_group)
+                        # only take memory values needed for current group
+                        memory_values_dict[agent_class] = memory_vals[curr_start:curr_start+agents_in_group]
                         config_files[agent_class] = conf_file
                     curr_start = max(0, curr_start - count)
 
@@ -635,7 +691,7 @@ class AgentSimulation:
                     (
                         agent_classes,
                         agent_counts,
-                        memory_config_funcs,
+                        memory_values_dict,
                         f"CitizenGroup_{k}",
                         config_files,
                     )
@@ -695,7 +751,7 @@ class AgentSimulation:
         for i, (
             agent_class,
             number_of_agents,
-            memory_config_function_group,
+            memory_values_dict,
             group_name,
             config_file,
         ) in enumerate(group_creation_params):
@@ -703,7 +759,7 @@ class AgentSimulation:
             group = AgentGroup.remote(
                 agent_class,
                 number_of_agents,
-                memory_config_function_group,
+                memory_values_dict,
                 self.config,
                 self._map_ref,
                 self.exp_name,
