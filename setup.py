@@ -2,7 +2,7 @@ import os
 import platform
 import stat
 
-from setuptools import Extension, setup
+from setuptools import Extension, setup, find_packages
 from setuptools.command.build_ext import build_ext
 
 PACKAGE_NAME = "agentsociety"
@@ -100,6 +100,25 @@ setup(
         BinExtension("agentsociety-ui"),
     ],
     cmdclass=dict(build_ext=DownloadBin),
+    packages=find_packages(),
+    entry_points={
+        'console_scripts': [
+            'agentsociety-webapi=agentsociety.webapi.cli:main',
+        ],
+    },
+    install_requires=[
+        'fastapi>=0.103.1',
+        'uvicorn>=0.23.2',
+        'sqlalchemy>=2.0.20',
+        'pydantic>=2.3.0',
+        'pydantic-settings>=2.0.3',
+        'python-dotenv>=1.0.0',
+        'psycopg2-binary>=2.9.7',
+        'paho-mqtt>=2.0.0',
+        'python-multipart>=0.0.6',
+        'email-validator>=2.0.0',
+        'ujson>=5.8.0',
+    ],
 )
 
 # # How to run it to build the distribution package
