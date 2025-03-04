@@ -3,6 +3,7 @@
 ## [1.3.0] - 2025-03-XX
 
 ### Added
+- Move the `agentsociety-ui` frontend (`frontend/`) and backend (`agentsociety/webapi/`) into the project.
 - Add tenant_id column to experiment and survey tables to support multi-user online usage.
 - Add `llm_error` statistics for `Simulation.run_from_config`(Based on `LLM`).
 - Add `MemoryConfig` in `AgentConfig`. Support three ways to set memory configuration:
@@ -30,7 +31,8 @@
         - Provide `step_interval` to set the step interval to extract the metric.
 
 ### Changed
-- Migrate MQTT to Redis.
+- **BREAKING** Change the prefix of database tables from `agentsociety_` to `as_` to avoid conflicts with the length limit of table names in PostgreSQL.
+- **BREAKING** Migrate MQTT to Redis.
 - `Simulation.run_from_config` raise error if `number_of_citizen` is 0 and `extra_agent_class` is not provided.
 
 ### Deprecated
@@ -44,7 +46,6 @@
 
 ### Security
 - N/A
-
 
 ## [1.2.4] - 2025-03-04
 
