@@ -332,7 +332,7 @@ class AgentSimulation:
             if step.type not in {t.value for t in WorkflowType}:
                 raise ValueError(f"Invalid step type: {step.type}")
             if step.type == WorkflowType.RUN:
-                _days = cast(int, step.days)
+                _days = cast(float, step.days)
                 llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list = (
                     await simulation.run(_days)
                 )
@@ -449,9 +449,9 @@ class AgentSimulation:
         if self.enable_pgsql:
             worker: ray.ObjectRef = self._pgsql_writers[0]  # type:ignore
             prompt_info = {
-                "prompt": prompt,
                 "day": day,
                 "t": t,
+                "prompt": prompt,
                 "created_at": datetime.now(timezone.utc),
             }
             await worker.async_save_global_prompt.remote(prompt_info)
@@ -984,6 +984,20 @@ class AgentSimulation:
                 break
             await asyncio.sleep(3)
 
+    async def send_intervention_message(self, intervention_message: str, agent_uuids: list[str]):
+        """
+        Send an intervention message to specified agents.
+
+        - **Description**:
+            - Send an intervention message to specified agents.
+
+        - **Args**:
+            - `intervention_message` (str): The content of the intervention message to send.
+            - `agent_uuids` (list[str]): A list of agent UUIDs to receive the intervention message.
+        """
+        for group in self._groups.values():
+            await group.react_to_intervention.remote(intervention_message, agent_uuids)
+
     async def extract_metric(self, metric_extractors: list[Callable]):
         """
         Extract metrics using provided extractors.
@@ -1075,13 +1089,13 @@ class AgentSimulation:
 
     async def run(
         self,
-        day: int = 1,
+        day: float = 1,
     ):
         """
         Run the simulation for a specified number of days.
 
         - **Args**:
-            - `day` (int, optional): The number of days to run the simulation. Defaults to 1.
+            - `day` (float, optional): The number of days to run the simulation. Defaults to 1.
 
         - **Description**:
             - Updates the experiment status to running and sets up monitoring for the experiment's status.
@@ -1108,12 +1122,11 @@ class AgentSimulation:
             monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
 
             try:
-                end_day = self._simulator_day + day
+                total_steps = int(day * 24 * 60 * 60)
+                current_step = 0
                 while True:
-                    current_day = await self._simulator.get_simulator_day()
-                    if current_day > self._simulator_day:
-                        self._simulator_day = current_day
-                    if current_day >= end_day:  # type:ignore
+                    current_step += self.config.prop_simulator_request.steps_per_simulation_day
+                    if current_step >= total_steps:
                         break
                     (
                         llm_log_list,

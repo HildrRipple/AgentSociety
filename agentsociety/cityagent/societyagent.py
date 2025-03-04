@@ -374,11 +374,11 @@ class SocietyAgent(CitizenAgent):
                 if not content:
                     return ""
 
-                # 添加记忆
+                # add social memory
                 description = f"You received a social message: {content}"
                 await self.memory.stream.add_social(description=description)
                 if self.enable_cognition:
-                    # 更新情绪
+                    # update emotion
                     await self.mindBlock.cognitionBlock.emotion_update(description)
 
                 # Get chat histories and ensure proper format
@@ -420,19 +420,20 @@ class SocietyAgent(CitizenAgent):
         2. Would it be natural for someone with my personality to respond?
         3. Is our relationship close enough to warrant a response?
 
-        Answer only YES or NO."""
+        Answer only YES or NO, in JSON format, e.g. {{"should_respond": "YES"}}"""
 
                 should_respond = await self._llm_client.atext_request(  # type:ignore
-                    [
-                        {
-                            "role": "system",
-                            "content": "You are helping decide whether to respond to a message.",
-                        },
-                        {"role": "user", "content": should_respond_prompt},
-                    ]
+                    dialog = [
+                            {
+                                "role": "system",
+                                "content": "You are helping decide whether to respond to a message.",
+                            },
+                            {"role": "user", "content": should_respond_prompt},
+                        ],
+                    response_format={"type": "json_object"}
                 )
-
-                if should_respond.strip().upper() != "YES":  # type:ignore
+                should_respond = json.loads(should_respond)["should_respond"]
+                if should_respond == "NO":
                     return ""
 
                 response_prompt = f"""Based on:
@@ -498,3 +499,15 @@ class SocietyAgent(CitizenAgent):
             )
             if self.enable_cognition:
                 await self.mindBlock.cognitionBlock.emotion_update(description)
+
+    async def react_to_intervention(self, intervention_message: str):
+        """React to an intervention"""
+        # cognition
+        conclusion = await self.mindBlock.cognitionBlock.emotion_update(
+            intervention_message
+        )
+        await self.save_agent_thought(conclusion)
+        await self.memory.stream.add_cognition(
+            description=conclusion
+        )
+        # TODO: other influence

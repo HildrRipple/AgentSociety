@@ -522,6 +522,14 @@ class AgentGroup:
                     social_satisfaction = await agent.status.get("social_satisfaction")
                     action = await agent.status.get("current_step")
                     action = action["intention"]
+                    emotion = await agent.status.get("emotion", {})
+                    emotion_types = await agent.status.get("emotion_types", "")
+                    sadness = emotion.get("sadness", 0)
+                    joy = emotion.get("joy", 0)
+                    fear = emotion.get("fear", 0)
+                    disgust = emotion.get("disgust", 0)
+                    anger = emotion.get("anger", 0)
+                    surprise = emotion.get("surprise", 0)
                     avro = {
                         "id": agent._uuid,
                         "day": _day,
@@ -534,6 +542,13 @@ class AgentGroup:
                         "tired": energy_satisfaction,
                         "safe": safety_satisfaction,
                         "social": social_satisfaction,
+                        "sadness": sadness,
+                        "joy": joy,
+                        "fear": fear,
+                        "disgust": disgust,
+                        "anger": anger,
+                        "surprise": surprise,
+                        "emotion_types": emotion_types,
                         "created_at": int(_date_time.timestamp() * 1000),
                     }
                     avros.append(avro)
@@ -631,6 +646,13 @@ class AgentGroup:
                         friend_ids = await agent.status.get("friends")
                         action = await agent.status.get("current_step")
                         action = action["intention"]
+                        emotion = await agent.status.get("emotion", {})
+                        emotion_types = await agent.status.get("emotion_types", "")
+                        sadness = emotion.get("sadness", 0)
+                        joy = emotion.get("joy", 0)
+                        fear = emotion.get("fear", 0)
+                        disgust = emotion.get("disgust", 0)
+                        anger = emotion.get("anger", 0)
                         _status_dict = {
                             "id": agent._uuid,
                             "day": _day,
@@ -646,6 +668,12 @@ class AgentGroup:
                             "tired": energy_satisfaction,
                             "safe": safety_satisfaction,
                             "social": social_satisfaction,
+                            "sadness": sadness,
+                            "joy": joy,
+                            "fear": fear,
+                            "disgust": disgust,
+                            "anger": anger,
+                            "emotion_types": emotion_types,
                             "created_at": _date_time,
                         }
                         _statuses_time_list.append((_status_dict, _date_time))
@@ -740,6 +768,29 @@ class AgentGroup:
         Retrieves the error statistics from the LLM client.
         """
         return self.llm.get_error_statistics()
+    
+    async def react_to_intervention(self, intervention_message: str, agent_uuids: list[str]):
+        """
+        React to an intervention.
+        """
+        react_tasks = []
+        for agent in self.agents:
+            if agent._uuid in agent_uuids:
+                react_tasks.append(agent.react_to_intervention(intervention_message))
+        await asyncio.gather(*react_tasks)
+
+    async def update_environment(self, key: str, value: str):
+        """
+        Update the environment variables for the simulation and all agent groups.
+
+        - **Description**:
+            - Update the environment variables for the simulation and all agent groups.
+
+        - **Args**:
+            - `key` (str): The key to update.
+            - `value` (str): The value to update.
+        """
+        self.simulator.update_environment(key, value)
 
     async def step(self):
         """

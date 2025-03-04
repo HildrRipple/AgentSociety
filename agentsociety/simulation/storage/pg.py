@@ -134,12 +134,12 @@ class PgWriter:
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             async with aconn.cursor() as cur:
                 copy_sql = psycopg.sql.SQL(
-                    "COPY {} (prompt, day, t, created_at) FROM STDIN"
+                    "COPY {} (day, t, prompt, created_at) FROM STDIN"
                 ).format(psycopg.sql.Identifier(table_name))
                 row = (
-                    prompt_info["prompt"],
                     prompt_info["day"],
                     prompt_info["t"],
+                    prompt_info["prompt"],
                     prompt_info["created_at"],
                 )
                 async with cur.copy(copy_sql) as copy:

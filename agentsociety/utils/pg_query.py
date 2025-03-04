@@ -32,9 +32,9 @@ PGSQL_DICT: dict[str, list[Any]] = {
     "global_prompt": [
         """
     CREATE TABLE IF NOT EXISTS {table_name} (
-        prompt TEXT,
         day INT4,
         t FLOAT,
+        prompt TEXT,
         created_at TIMESTAMPTZ
     )
 """,

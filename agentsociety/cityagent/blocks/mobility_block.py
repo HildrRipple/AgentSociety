@@ -24,6 +24,8 @@ PLACE_TYPE_SELECTION_PROMPT = """
 As an intelligent decision system, please determine the type of place the user needs to visit based on their input requirement.
 User Plan: {plan}
 User requirement: {intention}
+Other information: {global_prompt}
+
 Your output must be a single selection from {poi_category} without any additional text or explanation.
 
 Please response in json format (Do not return any other text), example:
@@ -36,6 +38,8 @@ PLACE_SECOND_TYPE_SELECTION_PROMPT = """
 As an intelligent decision system, please determine the type of place the user needs to visit based on their input requirement.
 User Plan: {plan}
 User requirement: {intention}
+Other information: {global_prompt}
+
 Your output must be a single selection from {poi_category} without any additional text or explanation.
 
 Please response in json format (Do not return any other text), example:
@@ -48,8 +52,9 @@ PLACE_ANALYSIS_PROMPT = """
 As an intelligent analysis system, please determine the type of place the user needs to visit based on their input requirement.
 User Plan: {plan}
 User requirement: {intention}
+Other information: {global_prompt}
 
-Your output must be a single selection from ['home', 'workplace', 'other'] without any additional text or explanation.
+Your output must be a single selection from {place_list} without any additional text or explanation.
 
 Please response in json format (Do not return any other text), example:
 {{
@@ -61,6 +66,7 @@ RADIUS_PROMPT = """As an intelligent decision system, please determine the maxim
 
 Current weather: {weather}
 Current temperature: {temperature}
+Other information: {global_prompt}
 Your current emotion: {emotion_types}
 Your current thought: {thought}
 
@@ -164,6 +170,7 @@ class PlaceSelectionBlock(Block):
             plan=context["plan"],
             intention=step["intention"],
             poi_category=list(poi_cate.keys()),
+            global_prompt=self.simulator.environment.get("global_prompt", ""),
         )
         levelOneType = await self.llm.atext_request(self.typeSelectionPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
@@ -175,7 +182,7 @@ class PlaceSelectionBlock(Block):
             levelOneType = random.choice(list(poi_cate.keys()))
             sub_category = poi_cate[levelOneType]
         self.secondTypeSelectionPrompt.format(
-            plan=context["plan"], intention=step["intention"], poi_category=sub_category
+            plan=context["plan"], intention=step["intention"], poi_category=sub_category, global_prompt=self.simulator.environment.get("global_prompt", ""),
         )
         levelTwoType = await self.llm.atext_request(self.secondTypeSelectionPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
@@ -191,6 +198,7 @@ class PlaceSelectionBlock(Block):
             thought=await self.memory.status.get("thought"),
             weather=self.simulator.sence("weather"),
             temperature=self.simulator.sence("temperature"),
+            global_prompt=self.simulator.environment.get("global_prompt", ""),
         )
         radius = await self.llm.atext_request(self.radiusPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
@@ -264,8 +272,11 @@ class MoveBlock(Block):
 
     async def forward(self, step, context):
         agent_id = await self.memory.status.get("id")
+        place_knowledge = await self.memory.status.get("location_knowledge")
+        known_places = list(place_knowledge.keys())
+        places = ["home", "workplace"] + known_places + ["other"]
         self.placeAnalysisPrompt.format(
-            plan=context["plan"], intention=step["intention"]
+            plan=context["plan"], intention=step["intention"], place_list=places, global_prompt=self.simulator.environment.get("global_prompt", ""),
         )
         response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
@@ -339,6 +350,37 @@ class MoveBlock(Block):
                 "consumed_time": 45,
                 "node_id": node_id,
             }
+        elif response in known_places:
+            the_place = place_knowledge[response]["id"]
+            nowPlace = await self.memory.status.get("position")
+            node_id = await self.memory.stream.add_mobility(
+                description=f"I went to {response}"
+            )
+            if (
+                "aoi_position" in nowPlace
+                and nowPlace["aoi_position"]["aoi_id"] == the_place
+            ):
+                return {
+                    "success": True,
+                    "evaluation": f"Successfully reached {response} (already at {response})",
+                    "to_place": the_place,
+                    "consumed_time": 0,
+                    "node_id": node_id,
+                }
+            await self.simulator.set_aoi_schedules(
+                person_id=agent_id,
+                target_positions=the_place,
+            )
+            number_poi_visited = await self.memory.status.get("number_poi_visited")
+            number_poi_visited += 1
+            await self.memory.status.update("number_poi_visited", number_poi_visited)
+            return {
+                "success": True,
+                "evaluation": f"Successfully reached {response}",
+                "to_place": the_place,
+                "consumed_time": 45,
+                "node_id": node_id,
+            }
         else:
             # 移动到其他地点
             next_place = context.get("next_place", None)
@@ -378,7 +420,6 @@ class MoveBlock(Block):
 
 class MobilityNoneBlock(Block):
     """
-    空操作
     MobilityNoneBlock
     """
 

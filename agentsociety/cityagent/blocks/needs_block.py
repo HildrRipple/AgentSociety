@@ -105,7 +105,7 @@ class NeedsBlock(Block):
             0.2,
             0.3,
         )  # Hunger threshold, Energy threshold, Safety threshold, Social threshold
-
+        self._checked_emergency = False
     async def initialize(self):
         day = await self.simulator.get_simulator_day()
         if day != self.now_day:
@@ -147,7 +147,10 @@ class NeedsBlock(Block):
                     )
                     break
                 except json.JSONDecodeError:
-                    logger.warning(f"初始化响应不是有效的JSON格式: {response}")
+                    logger.warning(f"Initial response is not a valid JSON format: {response}")
+                    retry -= 1
+                except Exception as e:
+                    logger.warning(f"Initial response error: {e}")
                     retry -= 1
 
             current_plan = await self.memory.status.get("current_plan")
@@ -162,7 +165,7 @@ class NeedsBlock(Block):
             self.initialized = True
 
     async def time_decay(self):
-        # 计算时间差
+        # calculate time difference
         time_now = await self.simulator.get_time()
         if self.last_evaluation_time is None:
             self.last_evaluation_time = time_now
@@ -171,13 +174,13 @@ class NeedsBlock(Block):
             time_diff = (time_now - self.last_evaluation_time) / 3600
             self.last_evaluation_time = time_now
 
-        # 获取当前需求的满意度
+        # get current need satisfaction
         hunger_satisfaction = await self.memory.status.get("hunger_satisfaction")
         energy_satisfaction = await self.memory.status.get("energy_satisfaction")
         safety_satisfaction = await self.memory.status.get("safety_satisfaction")
         social_satisfaction = await self.memory.status.get("social_satisfaction")
 
-        # 根据经过的时间计算饥饿与疲劳的衰减
+        # calculate hungry and fatigue decay
         hungry_decay = self.alpha_H * time_diff
         energy_decay = self.alpha_D * time_diff
         safety_decay = self.alpha_P * time_diff
@@ -187,21 +190,22 @@ class NeedsBlock(Block):
         safety_satisfaction = max(0, safety_satisfaction - safety_decay)
         social_satisfaction = max(0, social_satisfaction - social_decay)
 
-        # 更新满意度
+        # update satisfaction
         await self.memory.status.update("hunger_satisfaction", hunger_satisfaction)
         await self.memory.status.update("energy_satisfaction", energy_satisfaction)
         await self.memory.status.update("safety_satisfaction", safety_satisfaction)
         await self.memory.status.update("social_satisfaction", social_satisfaction)
 
     async def update_when_plan_completed(self):
-        # 判断当前是否有正在执行的plan
+        # check if there is a plan being executed
         current_plan = await self.memory.status.get("current_plan")
         if current_plan and (
             current_plan.get("completed") or current_plan.get("failed")
         ):
-            # 评估计划执行过程并调整需求
+            pre_need = await self.memory.status.get("current_need")
+            # evaluate plan execution and adjust needs
             await self.evaluate_and_adjust_needs(current_plan)
-            # 将完成的计划添加到历史记录
+            # add completed plan to history
             history = await self.memory.status.get("plan_history")
             history.append(current_plan)
             await self.memory.status.update("plan_history", history)
@@ -210,6 +214,8 @@ class NeedsBlock(Block):
                 "current_step", {"intention": "", "type": ""}
             )
             await self.memory.status.update("execution_context", {})
+            if pre_need == "emergency":
+                self._checked_emergency = True
 
     async def determine_current_need(self):
         cognition = None
@@ -219,15 +225,15 @@ class NeedsBlock(Block):
         social_satisfaction = await self.memory.status.get("social_satisfaction")
         emergency_level = await self.memory.status.get("emergency_level")
 
-        # 如果需要调整需求，更新当前需求
-        # 调整方案为，如果当前的需求为空，或有更高级的需求出现，则调整需求
+        # if needs need to be adjusted, update current need
+        # adjustment scheme: if current need is empty or a higher priority need appears, adjust need
         current_plan = await self.memory.status.get("current_plan")
         current_need = await self.memory.status.get("current_need")
 
-        # 当前没有计划或计划已执行完毕，获取所有需求值，按优先级检查各需求是否达到阈值
+        # if there is no plan or the plan is completed, get all need values and check each need whether it reaches the threshold
         if not current_plan or current_plan.get("completed"):
-            # 按优先级顺序检查需求
-            if emergency_level > 0.8:
+            # check needs in priority order
+            if emergency_level >= 0.8 and not self._checked_emergency:
                 await self.memory.status.update("current_need", "emergency")
                 await self.memory.stream.add_cognition(description="There is an emergency")
                 cognition = "There is an emergency"
@@ -256,22 +262,27 @@ class NeedsBlock(Block):
                 await self.memory.status.update("current_need", "whatever")
                 await self.memory.stream.add_cognition(description="I have no specific needs right now")
                 cognition = "I have no specific needs right now"
+
+            if emergency_level < 0.8 and self._checked_emergency:
+                self._checked_emergency = False
         else:
-            # 有正在执行的计划时,只在出现更高优先级需求时调整
+            # when there is a plan being executed, adjust need only when a higher priority need appears
             needs_changed = False
             new_need = None
-            if emergency_level > 0.8:
+            if emergency_level >= 0.8 and current_need not in ["emergency"]:
                 new_need = "emergency"
                 needs_changed = True
             elif hunger_satisfaction <= self.T_H and current_need not in [
                 "hungry",
                 "tired",
+                "emergency",
             ]:
                 new_need = "hungry"
                 needs_changed = True
             elif energy_satisfaction <= self.T_D and current_need not in [
                 "hungry",
                 "tired",
+                "emergency",
             ]:
                 new_need = "tired"
                 needs_changed = True
@@ -279,6 +290,7 @@ class NeedsBlock(Block):
                 "hungry",
                 "tired",
                 "safe",
+                "emergency",
             ]:
                 new_need = "safe"
                 needs_changed = True
@@ -287,11 +299,12 @@ class NeedsBlock(Block):
                 "tired",
                 "safe",
                 "social",
+                "emergency",
             ]:
                 new_need = "social"
                 needs_changed = True
 
-            # If needs changed, evaluate and adjust needs
+            # if needs changed, evaluate and adjust needs
             if needs_changed:
                 await self.evaluate_and_adjust_needs(current_plan)
                 history = await self.memory.status.get("plan_history")
@@ -308,7 +321,7 @@ class NeedsBlock(Block):
         return cognition
 
     async def evaluate_and_adjust_needs(self, completed_plan):
-        # Get the executed plan and evaluation results
+        # get the executed plan and evaluation results
         evaluation_results = []
         for step in completed_plan["steps"]:
             if "evaluation" in step["evaluation"]:
@@ -318,7 +331,7 @@ class NeedsBlock(Block):
             evaluation_results.append(f"- {step['intention']} ({step['type']}): {eva_}")
         evaluation_results = "\n".join(evaluation_results)
 
-        # Use LLM to evaluate and adjust needs
+        # use LLM to evaluate and adjust needs
         current_need = await self.memory.status.get("current_need")
         self.evaluation_prompt.format(
             current_need=current_need,
@@ -335,7 +348,7 @@ class NeedsBlock(Block):
             response = await self.llm.atext_request(self.evaluation_prompt.to_dialog(), response_format={"type": "json_object"})
             try:
                 new_satisfaction = json.loads(clean_json_response(response))  # type: ignore
-                # Update all needs values
+                # update all needs values
                 for need_type, new_value in new_satisfaction.items():
                     if need_type in [
                         "hunger_satisfaction",

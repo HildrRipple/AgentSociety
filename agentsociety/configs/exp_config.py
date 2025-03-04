@@ -15,7 +15,7 @@ from ..utils import WorkflowType, DistributionType
 class WorkflowStep(BaseModel):
     type: WorkflowType
     func: Optional[Callable] = None
-    days: int = 1
+    days: float = 1.0
     times: int = 1
     description: str = "no description"
 

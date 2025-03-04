@@ -18,6 +18,7 @@ The Environment will influence the choice of steps.
 
 Current weather: {weather}
 Current temperature: {temperature}
+Other information: {global_prompt}
 
 Current need: Need to satisfy {current_need}
 Available options: {options}
@@ -47,6 +48,7 @@ DETAILED_PLAN_PROMPT = """Generate specific execution steps based on the selecte
 
 Current weather: {weather}
 Current temperature: {temperature}
+Other information: {global_prompt}
 
 Selected plan: {selected_option}
 Current location: {current_location} 
@@ -160,9 +162,9 @@ class PlanBlock(Block):
         self.guidance_options = {
             "hungry": ["Eat at home", "Eat outside"],
             "tired": ["Sleep"],
-            "safe": ["Go to work"],
-            "social": ["Contact with friends", "Shopping"],
-            "whatever": ["Contact with friends", "Hang out", "Entertainment"],
+            "safe": ["Work", "Shopping"],
+            "social": ["Contact with friends"],
+            "whatever": ["Contact with friends", "Entertainment"],
             "emergency": ["Go to shelter"],
         }
 
@@ -175,6 +177,9 @@ class PlanBlock(Block):
         position_now = await self.memory.status.get("position")
         home_location = await self.memory.status.get("home")
         work_location = await self.memory.status.get("work")
+        location_knowledge = await self.memory.status.get("location_knowledge")
+        known_locations = [item["id"] for item in location_knowledge.values()]
+        id_to_name = {info["id"]: f"{name}({info['description']})" for name, info in location_knowledge.items()}
         current_location = "Outside"
         if (
             "aoi_position" in position_now
@@ -186,11 +191,14 @@ class PlanBlock(Block):
             and position_now["aoi_position"] == work_location["aoi_position"]
         ):
             current_location = "At workplace"
+        elif "aoi_position" in position_now and position_now["aoi_position"] in known_locations:
+            current_location = id_to_name[position_now["aoi_position"]]
         current_time = await self.simulator.get_time(format_time=True)
         options = self.guidance_options.get(current_need, [])
         self.guidance_prompt.format(
             weather=self.simulator.sence("weather"),
             temperature=self.simulator.sence("temperature"),
+            global_prompt=self.simulator.environment.get("global_prompt", ""),
             current_need=current_need,
             options=options,
             current_location=current_location,
@@ -246,6 +254,7 @@ class PlanBlock(Block):
         self.detail_prompt.format(
             weather=self.simulator.sence("weather"),
             temperature=self.simulator.sence("temperature"),
+            global_prompt=self.simulator.environment.get("global_prompt", ""),
             selected_option=selected_option,
             current_location=current_location,
             current_time=current_time,

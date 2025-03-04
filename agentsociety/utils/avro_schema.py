@@ -59,6 +59,13 @@ STATUS_SCHEMA = {
         {"name": "tired", "type": "float"},
         {"name": "safe", "type": "float"},
         {"name": "social", "type": "float"},
+        {"name": "sadness", "type": "int"},
+        {"name": "joy", "type": "int"},
+        {"name": "fear", "type": "int"},
+        {"name": "disgust", "type": "int"},
+        {"name": "anger", "type": "int"},
+        {"name": "surprise", "type": "int"},
+        {"name": "emotion_types", "type": "string"},
         {
             "name": "created_at",
             "type": {"type": "long", "logicalType": "timestamp-millis"},
