@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from agentsociety import CitizenAgent, Simulator
 from agentsociety.agent import Agent

@@ -1,13 +1,14 @@
 import random
 from collections import deque
 import json
-from typing import Any, Type, List, Union, Optional, Callable, Tuple
+from typing import Any, List, Union, Optional
+from pydantic import BaseModel
 
 import numpy as np
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
 from mosstool.map._map_util.const import AOI_START_ID
 
-from .firmagent import FirmAgent
+from ..configs.exp_config import DistributionConfig
 
 pareto_param = 8
 payment_max_skill_multiplier_base = 950
@@ -17,16 +18,6 @@ pareto_samples = np.random.pareto(pareto_param, size=(1000, 10))
 clipped_skills = np.minimum(pmsm, (pmsm - 1) * pareto_samples + 1)
 sorted_clipped_skills = np.sort(clipped_skills, axis=1)
 agent_skills = list(sorted_clipped_skills.mean(axis=0))
-
-work_locations = [AOI_START_ID + random.randint(1000, 10000) for _ in range(1000)]
-
-
-async def memory_config_init(simulation):
-    global work_locations
-    number_of_firm = simulation.agent_count[FirmAgent]
-    work_locations = [
-        AOI_START_ID + random.randint(1000, 10000) for _ in range(number_of_firm)
-    ]
 
 
 # Distribution system for memory configuration
@@ -82,6 +73,30 @@ class Distribution:
             return ConstantDistribution(**kwargs)
         else:
             raise ValueError(f"Unknown distribution type: {dist_type}")
+
+    @staticmethod
+    def from_config(config: DistributionConfig) -> 'Distribution':
+        """
+        Create a distribution from a configuration.
+        - **Description**:
+            - Creates a distribution instance from a DistributionConfig object.
+
+        - **Args**:
+            - `config` (DistributionConfig): The distribution configuration.
+
+        - **Returns**:
+            - Distribution: A distribution instance
+        """
+        return Distribution.create(
+            dist_type=config.dist_type.value,
+            choices=config.choices,
+            weights=config.weights,
+            min_value=config.min_value,
+            max_value=config.max_value,
+            mean=config.mean,
+            std=config.std,
+            value=config.value
+        )
 
 
 class ChoiceDistribution(Distribution):
@@ -272,7 +287,12 @@ def get_distribution(field: str) -> Distribution:
     - **Returns**:
         - Distribution: The distribution to use for sampling values
     """
-    return CUSTOM_DISTRIBUTIONS.get(field, DEFAULT_DISTRIBUTIONS.get(field))
+    if field in CUSTOM_DISTRIBUTIONS:
+        return CUSTOM_DISTRIBUTIONS[field]
+    elif field in DEFAULT_DISTRIBUTIONS:
+        return DEFAULT_DISTRIBUTIONS[field]
+    else:
+        return None
 
 def sample_field_value(field: str) -> Any:
     """
@@ -293,7 +313,6 @@ def sample_field_value(field: str) -> Any:
 
 
 def memory_config_societyagent():
-    global work_locations
     EXTRA_ATTRIBUTES = {
         "type": (str, "citizen"),
         # Needs Model
@@ -301,6 +320,7 @@ def memory_config_societyagent():
         "energy_satisfaction": (float, random.random(), False),  # energy satisfaction
         "safety_satisfaction": (float, random.random(), False),  # safety satisfaction
         "social_satisfaction": (float, random.random(), False),  # social satisfaction
+        "emergency_level": (float, 0.0, False),  # emergency level
         "current_need": (str, "none", False),
         # Plan Behavior Model
         "current_plan": (list, [], False),
@@ -359,6 +379,7 @@ def memory_config_societyagent():
         "interactions": (dict, {}, False),  # all interaction records
         # mobility
         "number_poi_visited": (int, 1, False),
+        "location_knowledge": (dict, {}, False),  # location knowledge
     }
 
     PROFILE = {
@@ -384,17 +405,18 @@ def memory_config_societyagent():
         "home": {
             "aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}
         },
-        "work": {"aoi_position": {"aoi_id": random.choice(work_locations)}},
+        "work": {
+            "aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}
+        },
     }
 
     return EXTRA_ATTRIBUTES, PROFILE, BASE
 
 
 def memory_config_firm():
-    global work_locations
     EXTRA_ATTRIBUTES = {
         "type": (int, economyv2.ORG_TYPE_FIRM),
-        "location": {"aoi_position": {"aoi_id": random.choice(work_locations)}},
+        "location": {"aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}},
         "price": (float, float(np.mean(agent_skills))),
         "inventory": (int, 0),
         "employees": (list, []),

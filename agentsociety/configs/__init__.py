@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from .exp_config import AgentConfig, ExpConfig, WorkflowStep
+from .exp_config import AgentConfig, ExpConfig, WorkflowStep, MemoryConfig
 from .sim_config import (LLMRequestConfig, MapRequestConfig, MlflowConfig,
                          SimConfig, SimulatorRequestConfig)
 from .utils import load_config_from_file
@@ -15,4 +15,5 @@ __all__ = [
     "load_config_from_file",
     "WorkflowStep",
     "AgentConfig",
+    "MemoryConfig",
 ]

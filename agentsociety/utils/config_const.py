@@ -16,3 +16,11 @@ class LLMRequestType(str, Enum):
     Qwen = "qwen"
     ZhipuAI = "zhipuai"
     SiliconFlow = "siliconflow"
+
+
+class DistributionType(str, Enum):
+    CHOICE = "choice"
+    UNIFORM_INT = "uniform_int"
+    UNIFORM_FLOAT = "uniform_float"
+    NORMAL = "normal"
+    CONSTANT = "constant"

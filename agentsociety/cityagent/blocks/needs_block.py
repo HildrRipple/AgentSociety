@@ -217,6 +217,7 @@ class NeedsBlock(Block):
         energy_satisfaction = await self.memory.status.get("energy_satisfaction")
         safety_satisfaction = await self.memory.status.get("safety_satisfaction")
         social_satisfaction = await self.memory.status.get("social_satisfaction")
+        emergency_level = await self.memory.status.get("emergency_level")
 
         # 如果需要调整需求，更新当前需求
         # 调整方案为，如果当前的需求为空，或有更高级的需求出现，则调整需求
@@ -226,7 +227,11 @@ class NeedsBlock(Block):
         # 当前没有计划或计划已执行完毕，获取所有需求值，按优先级检查各需求是否达到阈值
         if not current_plan or current_plan.get("completed"):
             # 按优先级顺序检查需求
-            if hunger_satisfaction <= self.T_H:
+            if emergency_level > 0.8:
+                await self.memory.status.update("current_need", "emergency")
+                await self.memory.stream.add_cognition(description="There is an emergency")
+                cognition = "There is an emergency"
+            elif hunger_satisfaction <= self.T_H:
                 await self.memory.status.update("current_need", "hungry")
                 await self.memory.stream.add_cognition(description="I feel hungry")
                 cognition = "I feel hungry"
@@ -255,7 +260,10 @@ class NeedsBlock(Block):
             # 有正在执行的计划时,只在出现更高优先级需求时调整
             needs_changed = False
             new_need = None
-            if hunger_satisfaction <= self.T_H and current_need not in [
+            if emergency_level > 0.8:
+                new_need = "emergency"
+                needs_changed = True
+            elif hunger_satisfaction <= self.T_H and current_need not in [
                 "hungry",
                 "tired",
             ]:

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union, List
 
 from pydantic import BaseModel, Field
 
-from ..utils import WorkflowType
+from ..utils import WorkflowType, DistributionType
 
 # if TYPE_CHECKING:
 #     from ..simulation import AgentSimulation
@@ -20,6 +20,35 @@ class WorkflowStep(BaseModel):
     description: str = "no description"
 
 
+class DistributionConfig(BaseModel):
+    """
+    Configuration for a distribution.
+    - **Description**:
+        - Defines the parameters for a specific distribution type.
+
+    - **Args**:
+        - `dist_type` (DistributionType): Type of distribution
+        - Various parameters specific to each distribution type
+
+    - **Returns**:
+        - None
+    """
+    dist_type: DistributionType
+    choices: Optional[List[Any]] = None
+    weights: Optional[List[float]] = None
+    min_value: Optional[Union[int, float]] = None
+    max_value: Optional[Union[int, float]] = None
+    mean: Optional[float] = None
+    std: Optional[float] = None
+    value: Optional[Any] = None
+
+
+class MemoryConfig(BaseModel):
+    memory_from_file: Optional[Dict[Any, str]] = None
+    memory_config_func: Optional[Dict[type[Any], Callable]] = None
+    memory_distributions: Optional[Dict[str, DistributionConfig]] = None
+
+
 class AgentConfig(BaseModel):
 
     number_of_citizen: int = Field(1, description="Number of citizens")
@@ -31,19 +60,33 @@ class AgentConfig(BaseModel):
     embedding_model: Any = Field(None, description="Embedding model")
     extra_agent_class: Optional[dict[Any, int]] = None
     agent_class_configs: Optional[dict[Any, dict[str, Any]]] = None
-    memory_from_file: Optional[dict[Any, str]] = None
-    memory_config_func: Optional[dict[type["Any"], Callable]] = None
-    memory_config_init_func: Optional[Callable] = Field(None)
     init_func: Optional[list[Callable[[Any], None]]] = None
+    memory_config: Optional[MemoryConfig] = None
 
-
+    @property
+    def prop_memory_config(self) -> MemoryConfig:
+        if self.memory_config is None:
+            return MemoryConfig()
+        return self.memory_config  # type:ignore
+    
+    def SetMemoryConfig(
+        self,
+        memory_from_file: Optional[Dict[Any, str]] = None,
+        memory_config_func: Optional[Dict[type[Any], Callable]] = None,
+        memory_distributions: Optional[Dict[str, DistributionConfig]] = None,
+    ) -> "AgentConfig":
+        self.memory_config = MemoryConfig(
+            memory_from_file=memory_from_file,
+            memory_config_func=memory_config_func,
+            memory_distributions=memory_distributions,
+        )
+        return self
+    
 class EnvironmentConfig(BaseModel):
     weather: str = Field(default="The weather is normal")
-    crime: str = Field(default="The crime rate is low")
-    pollution: str = Field(default="The pollution level is low")
     temperature: str = Field(default="The temperature is normal")
     day: str = Field(default="Workday")
-
+    global_prompt: str = Field(default="")
 
 class MessageInterceptConfig(BaseModel):
     mode: Optional[Union[Literal["point"], Literal["edge"]]] = None
@@ -95,9 +138,7 @@ class ExpConfig(BaseModel):
         embedding_model: Any = None,
         extra_agent_class: Optional[dict[Any, int]] = None,
         agent_class_configs: Optional[dict[Any, dict[str, Any]]] = None,
-        memory_from_file: Optional[dict[Any, str]] = None,
-        memory_config_func: Optional[dict[type["Any"], Callable]] = None,
-        memory_config_init_func: Optional[Callable] = None,
+        memory_config: Optional[MemoryConfig] = None,
         init_func: Optional[list[Callable[[Any], None]]] = None,
     ) -> "ExpConfig":
         self.agent_config = AgentConfig(
@@ -110,9 +151,7 @@ class ExpConfig(BaseModel):
             embedding_model=embedding_model,
             extra_agent_class=extra_agent_class,
             agent_class_configs=agent_class_configs,
-            memory_from_file=memory_from_file,
-            memory_config_func=memory_config_func,
-            memory_config_init_func=memory_config_init_func,
+            memory_config=memory_config,
             init_func=init_func,
         )
         return self
@@ -120,17 +159,15 @@ class ExpConfig(BaseModel):
     def SetEnvironment(
         self,
         weather: str = "The weather is normal",
-        crime: str = "The crime rate is low",
-        pollution: str = "The pollution level is low",
         temperature: str = "The temperature is normal",
         day: str = "Workday",
+        global_prompt: str = "",
     ) -> "ExpConfig":
         self.environment = EnvironmentConfig(
             weather=weather,
-            crime=crime,
-            pollution=pollution,
             temperature=temperature,
             day=day,
+            global_prompt=global_prompt,
         )
         return self
 

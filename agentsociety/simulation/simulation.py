@@ -19,13 +19,13 @@ from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
 from ..cityagent.initial import bind_agent_info, initialize_social_network
 from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
                                        memory_config_government,
-                                       memory_config_init, memory_config_nbs,
+                                       memory_config_nbs,
                                        memory_config_societyagent, memory_config_load_file,
-                                       memory_config_merge)
+                                       memory_config_merge, set_distribution)
 from ..cityagent.message_intercept import (EdgeMessageBlock,
                                            MessageBlockListener,
                                            PointMessageBlock)
-from ..configs import ExpConfig, SimConfig
+from ..configs import ExpConfig, SimConfig, MemoryConfig
 from ..environment import EconomyClient, Simulator
 from ..llm import SimpleEmbedding
 from ..message import (MessageBlockBase, MessageBlockListenerBase,
@@ -222,39 +222,20 @@ class AgentSimulation:
 
     @classmethod
     async def run_from_config(cls, config: ExpConfig, sim_config: SimConfig):
-        """Directly run from config file
-        Basic config file should contain:
-        - simulation_config: file_path
-        - llm_semaphore: Optional[int], default is 200
-        - agent_config:
-            - agent_config_file: Optional[dict[type[Agent], str]]
-            - memory_from_file: Optional[dict[type[Agent], str]]
-            - memory_config_init_func: Optional[Callable]
-            - memory_config_func: Optional[dict[type[Agent], Callable]]
-            - metric_extractors: Optional[list[tuple[int, Callable]]]
-            - init_func: Optional[list[Callable[AgentSimulation, None]]]
-            - group_size: Optional[int]
-            - embedding_model: Optional[EmbeddingModel]
-            - number_of_citizen: required, int
-            - number_of_firm: required, int
-            - number_of_government: required, int
-            - number_of_bank: required, int
-            - number_of_nbs: required, int
-        - environment: Optional[dict[str, str]]
-            - default: {'weather': 'The weather is normal', 'crime': 'The crime rate is low', 'pollution': 'The pollution level is low', 'temperature': 'The temperature is normal', 'day': 'Workday'}
-        - workflow:
-            - list[Step]
-            - Step:
-                - type: str, "step", "run", "interview", "survey", "intervene", "pause", "resume", "function"
-                - days: int if type is "run", else None
-                - times: int if type is "step", else None
-                - description: Optional[str], description of the step
-                - func: Optional[Callable[AgentSimulation, None]], only used when type is "interview", "survey", "intervene", "function"
-        - message_intercept
-            - mode: "point"|"edge"
-            - max_violation_time: Optional[int], default to 3. The maximum time for someone to send bad message before banned. Used only in `point` mode.
-        - logging_level: Optional[int]
-        - exp_name: Optional[str]
+        """
+        Directly run from config file
+        
+        - **Args**:
+            - `config` (ExpConfig): The configuration for the experiment.
+            - `sim_config` (SimConfig): The configuration for the simulation.
+
+        - **Returns**:
+            - Tuple[list[dict], list[dict], list[dict], list[dict], dict]:
+                - llm_log_lists: list of llm log lists
+                - mqtt_log_lists: list of mqtt log lists
+                - simulator_log_lists: list of simulator log lists
+                - agent_time_log_lists: list of agent time log lists
+                - llm_error_statistics: dictionary of llm error statistics
         """
 
         agent_config = config.prop_agent_config
@@ -324,9 +305,7 @@ class AgentSimulation:
             agent_count=agent_count,
             group_size=agent_config.group_size,
             embedding_model=embedding_model,
-            memory_config_func=agent_config.memory_config_func,
-            memory_config_init_func=agent_config.memory_config_init_func,
-            memory_from_file=agent_config.memory_from_file,
+            memory_config=agent_config.prop_memory_config,
             **_message_intercept_kwargs,
             environment=environment,
             llm_semaphore=config.llm_semaphore,
@@ -465,6 +444,18 @@ class AgentSimulation:
         self._exp_info["updated_at"] = self._exp_updated_time.isoformat()
         await self._save_exp_info()
 
+    async def _save_global_prompt(self, prompt: str, day: int, t: float) -> None:
+        """Save global prompt"""
+        if self.enable_pgsql:
+            worker: ray.ObjectRef = self._pgsql_writers[0]  # type:ignore
+            prompt_info = {
+                "prompt": prompt,
+                "day": day,
+                "t": t,
+                "created_at": datetime.now(timezone.utc),
+            }
+            await worker.async_save_global_prompt.remote(prompt_info)
+
     async def _monitor_exp_status(self, stop_event: asyncio.Event):
         """Monitor experiment status and update
 
@@ -512,9 +503,7 @@ class AgentSimulation:
         social_black_list: Optional[list[tuple[str, str]]] = None,
         message_listener: Optional[MessageBlockListenerBase] = None,
         embedding_model: Embeddings = SimpleEmbedding(),
-        memory_config_init_func: Optional[Callable] = None,
-        memory_config_func: Optional[dict[type[Agent], Callable]] = None,
-        memory_from_file: Optional[dict[type[Agent], str]] = None,
+        memory_config: Optional[MemoryConfig] = None,
         environment: dict[str, str] = {},
         llm_semaphore: int = 200,
     ) -> None:
@@ -535,9 +524,7 @@ class AgentSimulation:
             - `social_black_list` (Optional[List[Tuple[str, str]]], optional): List of tuples representing pairs of agents that should not communicate. Defaults to None.
             - `message_listener` (Optional[MessageBlockListenerBase], optional): Listener for intercepted messages. Defaults to None.
             - `embedding_model` (Embeddings, optional): Model used for generating embeddings for agents' memories. Defaults to SimpleEmbedding().
-            - `memory_config_init_func` (Optional[Callable], optional): Initialization function for setting up memory configuration. Defaults to None.
-            - `memory_config_func` (Optional[Dict[Type[Agent], Callable]], optional): Dictionary mapping agent classes to their memory configuration functions. Defaults to None.
-            - `memory_from_file` (Optional[Dict[Type[Agent], str]], optional): Dictionary mapping agent classes to their memory file paths. Defaults to None.
+            - `memory_config` (Optional[MemoryConfig], optional): Memory configuration for agents. Defaults to None.
             - `environment` (Optional[Dict[str, str]], optional): Environment variables to update in the simulation. Defaults to None.
 
         - **Raises**:
@@ -549,9 +536,11 @@ class AgentSimulation:
         self.agent_count = agent_count
         if len(self.agent_class) != len(agent_count):
             raise ValueError("The length of agent_class and agent_count does not match")
+        
+        memory_config_func = memory_config.memory_config_func
+        memory_from_file = memory_config.memory_from_file
+        memory_distributions = memory_config.memory_distributions
 
-        if memory_config_init_func is not None:
-            await memory_config_init(self)
         if memory_config_func is None:
             memory_config_func = self.default_memory_config_func  # type:ignore
 
@@ -560,6 +549,11 @@ class AgentSimulation:
         if memory_from_file is not None:
             for agent_class, file_path in memory_from_file.items():
                 memory_data_from_file[agent_class] = memory_config_load_file(file_path)
+
+        # set memory distributions
+        if memory_distributions is not None:
+            for field, distribution_config in memory_distributions.items():
+                set_distribution(field, distribution_config.dist_type, **distribution_config.kwargs)
 
         # use thread pool to create AgentGroup
         group_creation_params = []
@@ -1057,6 +1051,12 @@ class AgentSimulation:
             for group in self._groups.values():
                 save_tasks.append(group.save.remote(simulator_day, simulator_time))
             await asyncio.gather(*save_tasks)
+            # save global prompt
+            await self._save_global_prompt(
+                prompt=self._simulator.environment["global_prompt"],
+                day=simulator_day,
+                t=simulator_time,
+            )
             self._total_steps += 1
             if self.metric_extractors is not None:  # type:ignore
                 to_excute_metric = [

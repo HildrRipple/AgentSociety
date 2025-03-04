@@ -129,6 +129,24 @@ class PgWriter:
             logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
+    async def async_save_global_prompt(self, prompt_info: dict[str, Any]):
+        table_name = f"socialcity_{self.exp_id.replace('-', '_')}_global_prompt"
+        async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
+            async with aconn.cursor() as cur:
+                copy_sql = psycopg.sql.SQL(
+                    "COPY {} (prompt, day, t, created_at) FROM STDIN"
+                ).format(psycopg.sql.Identifier(table_name))
+                row = (
+                    prompt_info["prompt"],
+                    prompt_info["day"],
+                    prompt_info["t"],
+                    prompt_info["created_at"],
+                )
+                async with cur.copy(copy_sql) as copy:
+                    await copy.write_row(row)
+                logger.debug(f"table:{table_name} sql: {copy_sql} values: {row}")
+
+    @lock_decorator
     async def async_update_exp_info(self, exp_info: dict[str, Any]):
         # timestamp不做类型转换
         table_name = f"socialcity_experiment"

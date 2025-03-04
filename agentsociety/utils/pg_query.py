@@ -28,6 +28,18 @@ PGSQL_DICT: dict[str, list[Any]] = {
     )
 """,
     ],
+    # Global Prompt
+    "global_prompt": [
+        """
+    CREATE TABLE IF NOT EXISTS {table_name} (
+        prompt TEXT,
+        day INT4,
+        t FLOAT,
+        created_at TIMESTAMPTZ
+    )
+""",
+        "CREATE INDEX {table_name}_day_t_idx ON {table_name} (day,t)",
+    ],
     # Agent Dialog
     "agent_dialog": [
         """

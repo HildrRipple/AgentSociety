@@ -163,6 +163,7 @@ class PlanBlock(Block):
             "safe": ["Go to work"],
             "social": ["Contact with friends", "Shopping"],
             "whatever": ["Contact with friends", "Hang out", "Entertainment"],
+            "emergency": ["Go to shelter"],
         }
 
         # configurable fields

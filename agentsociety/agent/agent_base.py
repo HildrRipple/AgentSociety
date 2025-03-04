@@ -446,6 +446,18 @@ class Agent(ABC):
             raise RuntimeError("Messager is not set")
         return await self._messager.ping.remote()  # type:ignore
 
+    async def react_to_intervention(self, intervention_message: str):
+        """
+        React to an intervention.
+
+        - **Args**:
+            - `intervention_message` (`str`): The message of the intervention.
+
+        - **Description**:
+            - React to an intervention.
+        """
+        pass
+
     async def generate_user_survey_response(self, survey: dict) -> str:
         """
         Generate a response to a user survey based on the agent's memory and current state.
