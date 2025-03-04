@@ -92,6 +92,10 @@ def cli(
         final_config["pg_dsn"] = final_config["pg_dsn"].replace(
             "postgres://", "postgresql+asyncpg://", 1
         )
+    if final_config["pg_dsn"].startswith("postgresql://"):
+        final_config["pg_dsn"] = final_config["pg_dsn"].replace(
+            "postgresql://", "postgresql+asyncpg://", 1
+        )
 
     app = create_app(
         pg_dsn=final_config["pg_dsn"],

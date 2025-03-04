@@ -2,7 +2,7 @@ import os
 import platform
 import stat
 
-from setuptools import Extension, setup, find_packages
+from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
 PACKAGE_NAME = "agentsociety"
@@ -16,9 +16,11 @@ BIN_SOURCES = {
 
 
 class BinExtension(Extension):
-    def __init__(self, name):
+    def __init__(self, name: str, type: str):
+        # if type == "download" -> download the binary from url
         super().__init__(name, sources=[])
         self.name = name
+        self.type = type
 
 
 class BuildExtension(build_ext):
@@ -41,9 +43,10 @@ class BuildExtension(build_ext):
         # build the extension
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(PACKAGE_NAME)))
         for ext in self.extensions:
-            self._download_bin(
-                ext.name, plat_dir, arch, os.path.join(extdir, PACKAGE_NAME)
-            )
+            if ext.type == "download":
+                self._download_bin(
+                    ext.name, plat_dir, arch, os.path.join(extdir, PACKAGE_NAME)
+                )
 
     def _download_bin(self, binary_name, plat_dir, arch, bin_dir):
         import os
@@ -71,7 +74,7 @@ class BuildExtension(build_ext):
 
 setup(
     ext_modules=[
-        BinExtension("agentsociety-sim"),
+        BinExtension("agentsociety-sim", "download"),
     ],
     cmdclass=dict(build_ext=BuildExtension),
 )

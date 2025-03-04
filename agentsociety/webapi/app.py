@@ -1,18 +1,15 @@
-import json
-import logging
 import os
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
 from contextlib import asynccontextmanager
-import uvicorn
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from .api import api_router
 from .models._base import Base
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 __all__ = ["create_app"]
 
@@ -66,7 +63,7 @@ def create_app(
     app.include_router(api_router)
 
     # serve frontend files
-    frontend_path = Path(_parent_dir) / "dist"
+    frontend_path = Path(_parent_dir) / "_dist"
     app.mount("/", StaticFiles(directory=frontend_path, html=True))
 
     # 404 handler, redirect all 404 to index.html except /api
