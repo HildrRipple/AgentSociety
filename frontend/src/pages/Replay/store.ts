@@ -145,7 +145,7 @@ export class ReplayStore {
                 // merge status with profile
                 agentStatuses.forEach((status) => {
                     if (!this.mapCenterDone) {
-                        if (status.lng !== undefined && status.lat !== undefined) {
+                        if (status.lng !== undefined && status.lng !== null && status.lat !== undefined && status.lat !== null) {
                             center.lng += status.lng
                             center.lat += status.lat
                             cnt += 1

@@ -1,8 +1,6 @@
 """
-SocialCity Web API
+AgentSociety Web API
 =================
 
-这是SocialCity Web的FastAPI后端实现，用于提供Agent Society的Web API服务。
+AgentSociety Web API is a FastAPI-based web API for AgentSociety.
 """
-
-__version__ = "0.1.0"

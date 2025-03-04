@@ -1,95 +1,172 @@
+import enum
 import uuid
-from datetime import datetime
-from typing import Optional, Dict, Any, List
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text, JSON, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from pydantic import BaseModel
+from typing import Any, Optional
 
-from ..database import Base
+from pydantic import BaseModel, AwareDatetime
+from sqlalchemy import TIMESTAMP, Column, Float, Integer, MetaData, String, Table
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+
+__all__ = [
+    "agent_dialog",
+    "agent_profile",
+    "agent_status",
+    "agent_survey",
+    "AgentDialogType",
+    "ApiAgentDialog",
+    "ApiAgentProfile",
+    "ApiAgentStatus",
+    "ApiAgentSurvey",
+]
+
+# Database Models
 
 
-# 注意：这些模型在实际使用时会动态创建表，这里只是定义结构
-class AgentProfile(BaseModel):
-    """代理资料模型"""
+def agent_profile(table_name: str):
+    """Create agent profile table"""
+    metadata = MetaData()
+    return Table(
+        table_name,
+        metadata,
+        Column("id", UUID),
+        Column("name", String),
+        Column("profile", JSONB),
+    ), ["id", "name", "profile"]
+
+
+def agent_status(table_name: str):
+    """Create agent status table"""
+    metadata = MetaData()
+    return Table(
+        table_name,
+        metadata,
+        Column("id", UUID),
+        Column("day", Integer),
+        Column("t", Float),
+        Column("lng", Float, nullable=True),
+        Column("lat", Float, nullable=True),
+        Column("parent_id", Integer),
+        Column("action", String),
+        Column("status", JSONB),
+        Column("created_at", TIMESTAMP(timezone=True)),
+    ), ["id", "day", "t", "lng", "lat", "parent_id", "action", "status", "created_at"]
+
+
+def agent_survey(table_name: str):
+    """Create agent survey table"""
+    metadata = MetaData()
+    return Table(
+        table_name,
+        metadata,
+        Column("id", UUID),
+        Column("day", Integer),
+        Column("t", Float),
+        Column("survey_id", UUID),
+        Column("result", JSONB),
+        Column("created_at", TIMESTAMP(timezone=True)),
+    ), ["id", "day", "t", "survey_id", "result", "created_at"]
+
+
+def agent_dialog(table_name: str):
+    """Create agent dialog table"""
+    metadata = MetaData()
+    return Table(
+        table_name,
+        metadata,
+        Column("id", UUID),
+        Column("day", Integer),
+        Column("t", Float),
+        Column("type", Integer),
+        Column("speaker", String),
+        Column("content", String),
+        Column("created_at", TIMESTAMP(timezone=True)),
+    ), ["id", "day", "t", "type", "speaker", "content", "created_at"]
+
+
+class AgentDialogType(enum.IntEnum):
+    """Agent dialog type"""
+
+    Thought = 0  # Dialog in agent self
+    Talk = 1  # Dialog with other agents
+    User = 2  # Dialog with user
+
+
+class ApiAgentProfile(BaseModel):
+    """Agent profile model for API"""
+
     id: uuid.UUID
+    """Agent ID"""
     name: str
-    age: int
-    gender: str
-    occupation: str
-    personality: str
-    background: str
-    interests: List[str]
-    relationships: Dict[str, Any] = {}
-    extra: Dict[str, Any] = {}
-    
+    """Agent name"""
+    profile: Any
+    """Agent profile (any JSON object)"""
+
     class Config:
         from_attributes = True
 
 
-class AgentStatus(BaseModel):
-    """代理状态模型"""
+class ApiAgentStatus(BaseModel):
+    """Agent status model for API"""
+
     id: uuid.UUID
+    """Agent ID"""
     day: int
+    """Day"""
     t: float
-    location: str
-    activity: str
-    emotion: str
-    energy: float
-    hunger: float
-    social: float
-    hygiene: float
-    bladder: float
-    fun: float
-    extra: Dict[str, Any] = {}
-    
+    """Time (second)"""
+    lng: Optional[float]
+    """Longitude"""
+    lat: Optional[float]
+    """Latitude"""
+    parent_id: int
+    """Parent agent ID"""
+    action: str
+    """Action"""
+    status: Any
+    """Status (any JSON object)"""
+    created_at: AwareDatetime
+    """Created time"""
+
     class Config:
         from_attributes = True
 
 
-class AgentDialog(BaseModel):
-    """代理对话模型"""
+class ApiAgentSurvey(BaseModel):
+    """Agent survey model for API"""
+
     id: uuid.UUID
+    """Agent ID"""
     day: int
+    """Day"""
     t: float
-    speaker_id: uuid.UUID
-    speaker_name: str
-    listener_id: uuid.UUID
-    listener_name: str
-    content: str
-    location: str
-    extra: Dict[str, Any] = {}
-    
-    class Config:
-        from_attributes = True
-
-
-class AgentDialogCreate(BaseModel):
-    """创建代理对话请求模型"""
-    day: int
-    t: float
-    speaker_id: uuid.UUID
-    speaker_name: str
-    listener_id: uuid.UUID
-    listener_name: str
-    content: str
-    location: str
-    extra: Dict[str, Any] = {}
-
-
-class AgentSurvey(BaseModel):
-    """代理调查模型"""
-    id: uuid.UUID
+    """Time (second)"""
     survey_id: uuid.UUID
-    answers: Dict[str, Any]
-    extra: Dict[str, Any] = {}
-    created_at: datetime
-    
+    """Survey ID"""
+    result: Any
+    """Survey result (any JSON object)"""
+    created_at: AwareDatetime
+    """Created time"""
+
     class Config:
         from_attributes = True
 
 
-class AgentSurveyCreate(BaseModel):
-    """创建代理调查请求模型"""
-    survey_id: uuid.UUID
-    answers: Dict[str, Any]
-    extra: Dict[str, Any] = {} 
+class ApiAgentDialog(BaseModel):
+    """Agent dialog model for API"""
+
+    id: uuid.UUID
+    """Agent ID"""
+    day: int
+    """Day"""
+    t: float
+    """Time (second)"""
+    type: AgentDialogType
+    """Dialog type"""
+    speaker: str
+    """Speaker"""
+    content: str
+    """Content"""
+    created_at: AwareDatetime
+    """Created time"""
+
+    class Config:
+        from_attributes = True

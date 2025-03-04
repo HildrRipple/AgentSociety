@@ -1,83 +1,110 @@
-import uuid
 import enum
+import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text
-from sqlalchemy.dialects.postgresql import UUID
-from pydantic import BaseModel, Field
-from typing import Optional
 
-from ..database import Base
-from ..config import settings
+from pydantic import AwareDatetime, BaseModel
+from sqlalchemy.orm import Mapped, mapped_column
+
+from ._base import TABLE_PREFIX, Base
+
+__all__ = ["Experiment", "ExperimentStatus", "ApiExperiment", "ApiTime"]
+
+# Database Models
 
 
 class ExperimentStatus(enum.IntEnum):
-    """实验状态枚举"""
-    NOT_STARTED = 0  # 未开始
-    RUNNING = 1      # 运行中
-    FINISHED = 2     # 运行结束
-    ERROR = 3        # 错误中断
+    """Experiment status"""
+
+    NOT_STARTED = 0  # The experiment is not started
+    RUNNING = 1  # The experiment is running
+    FINISHED = 2  #  The experiment is finished
+    ERROR = 3  # The experiment has error and stopped
 
 
 class Experiment(Base):
-    """实验数据库模型"""
-    __tablename__ = f"{settings.TABLE_PREFIX}experiment"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String, nullable=False)
-    num_day = Column(Integer, nullable=False)
-    status = Column(Integer, nullable=False, default=ExperimentStatus.NOT_STARTED)
-    cur_day = Column(Integer, nullable=False, default=0)
-    cur_t = Column(Float, nullable=False, default=0.0)
-    config = Column(Text, nullable=True)
-    error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    def get_agent_profile_table_name(self):
-        """获取代理资料表名"""
-        return f"{settings.TABLE_PREFIX}{str(self.id).replace('-', '_')}_agent_profile"
-    
-    def get_agent_status_table_name(self):
-        """获取代理状态表名"""
-        return f"{settings.TABLE_PREFIX}{str(self.id).replace('-', '_')}_agent_status"
-    
-    def get_agent_dialog_table_name(self):
-        """获取代理对话表名"""
-        return f"{settings.TABLE_PREFIX}{str(self.id).replace('-', '_')}_agent_dialog"
-    
-    def get_agent_survey_table_name(self):
-        """获取代理调查表名"""
-        return f"{settings.TABLE_PREFIX}{str(self.id).replace('-', '_')}_agent_survey"
+    """Experiment model"""
+
+    __tablename__ = f"{TABLE_PREFIX}experiment"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column()
+    num_day: Mapped[int] = mapped_column()
+    status: Mapped[int] = mapped_column()
+    cur_day: Mapped[int] = mapped_column()
+    cur_t: Mapped[float] = mapped_column()
+    config: Mapped[str] = mapped_column()
+    error: Mapped[str] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(
+        default=datetime.now, onupdate=datetime.now
+    )
+
+    @property
+    def agent_profile_tablename(self):
+        """Get agent profile table name"""
+        return f"{TABLE_PREFIX}{str(self.id).replace('-', '_')}_agent_profile"
+
+    @property
+    def agent_status_tablename(self):
+        """Get agent status table name"""
+        return f"{TABLE_PREFIX}{str(self.id).replace('-', '_')}_agent_status"
+
+    @property
+    def agent_dialog_tablename(self):
+        """Get agent dialog table name"""
+        return f"{TABLE_PREFIX}{str(self.id).replace('-', '_')}_agent_dialog"
+
+    @property
+    def agent_survey_tablename(self):
+        """Get agent survey table name"""
+        return f"{TABLE_PREFIX}{str(self.id).replace('-', '_')}_agent_survey"
 
 
-# Pydantic模型用于API请求和响应
-class ExperimentBase(BaseModel):
-    """实验基础模型"""
-    name: str
-    num_day: int
-    config: Optional[str] = None
+# API Request & Response Models
+# class ExperimentBase(BaseModel):
+#     """TODO"""
+
+#     name: str
+#     num_day: int
+#     config: Optional[str] = None
 
 
-class ExperimentCreate(ExperimentBase):
-    """创建实验请求模型"""
-    pass
+# class ExperimentCreate(ExperimentBase):
+#     """TODO"""
+
+#     pass
 
 
-class ExperimentResponse(ExperimentBase):
-    """实验响应模型"""
+class ApiExperiment(BaseModel):
+    """Experiment model for API"""
+
     id: uuid.UUID
-    status: int
+    """Experiment ID"""
+    name: str
+    """Experiment name"""
+    num_day: int
+    """Number of days"""
+    status: ExperimentStatus
+    """Experiment status"""
     cur_day: int
+    """Current day"""
     cur_t: float
-    error: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-    
+    """Current time (second)"""
+    config: str
+    """Experiment configuration"""
+    error: str
+    """Error message"""
+    created_at: AwareDatetime
+    """Created time"""
+    updated_at: AwareDatetime
+    """Updated time"""
+
     class Config:
         from_attributes = True
 
 
-class TimeModel(BaseModel):
-    """时间模型"""
+class ApiTime(BaseModel):
+    """Time model for API"""
+
     day: int
-    t: float 
+    t: float

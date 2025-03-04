@@ -7,7 +7,7 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent_dir = os.path.dirname(_script_dir)
 
 
-def wrapper(bin: str):
+def _wrapper(bin: str):
     binary_path = os.path.join(_parent_dir, bin)
     if not os.path.exists(binary_path):
         print(f"Error: {binary_path} not found")
@@ -41,8 +41,8 @@ def wrapper(bin: str):
 
 
 def agentsociety_sim():
-    wrapper("agentsociety-sim")
+    _wrapper("agentsociety-sim")
 
 
-def agentsociety_ui():
-    wrapper("agentsociety-ui")
+if __name__ == "__main__":
+    agentsociety_sim()

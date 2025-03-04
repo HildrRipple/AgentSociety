@@ -81,7 +81,7 @@ export const ChatBox = observer(() => {
             } else {
                 const otherId = m.speaker;
                 const otherAgent = store.agents.get(otherId);
-                console.log('get role for', JSON.stringify(m), 'get agent', JSON.stringify(otherAgent));
+                // console.log('get role for', JSON.stringify(m), 'get agent', JSON.stringify(otherAgent));
                 return { role: "otherAgent", name: otherAgent?.name };
             }
         }

@@ -60,14 +60,20 @@ const Page = () => {
                     <Popconfirm
                         title="Are you sure to delete this experiment?"
                         onConfirm={async () => {
-                            const res = await fetch(`/api/experiments/${record.id}`, {
-                                method: 'DELETE',
-                            })
-                            if (res.ok) {
-                                message.success('Delete experiment successfully');
-                                actionRef.current?.reload();
-                            } else {
-                                message.error('Failed to delete experiment');
+                            try {
+                                const res = await fetch(`/api/experiments/${record.id}`, {
+                                    method: 'DELETE',
+                                })
+                                if (res.ok) {
+                                    message.success('Delete experiment successfully');
+                                    actionRef.current?.reload();
+                                } else {
+                                    // Read the error message as text
+                                    const errMessage = await res.text();
+                                    throw new Error(errMessage);
+                                }
+                            } catch (err) {
+                                message.error('Failed to delete experiment: ' + err);
                             }
                         }}
                     >

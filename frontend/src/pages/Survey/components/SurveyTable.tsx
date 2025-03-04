@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, message, Space, Flex, Col, Row, Alert } from 'antd';
+import { Table, Button, Modal, Form, Input, message, Space, Flex, Col, Row, Alert, Popconfirm } from 'antd';
 import dayjs from 'dayjs';
 import { Model, Survey as SurveyUI } from 'survey-react-ui';
 import 'survey-core/defaultV2.min.css';
@@ -48,20 +48,30 @@ const SurveyTable = () => {
     const fetchSurveys = async () => {
         try {
             const res = await fetch('/api/surveys');
+            if (!res.ok) {
+                // Read the error message as text
+                const errMessage = await res.text();
+                throw new Error(errMessage);
+            }
             const data = await res.json();
             setSurveys(data.data);
         } catch (err) {
-            message.error('Failed to fetch surveys');
+            message.error('Failed to fetch surveys', err);
         }
     };
 
     const handleDelete = async (id) => {
         try {
-            await fetch(`/api/surveys/${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/surveys/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                // Read the error message as text
+                const errMessage = await res.text();
+                throw new Error(errMessage);
+            }
             message.success('Delete success');
             await fetchSurveys();
         } catch (err) {
-            message.error('Delete failed');
+            message.error('Delete failed', err);
         }
     };
 
@@ -84,7 +94,7 @@ const SurveyTable = () => {
         console.log(editingSurvey);
         if (editingSurvey.id !== '') {
             try {
-                await fetch(`/api/surveys/${editingSurvey.id}`, {
+                const res = await fetch(`/api/surveys/${editingSurvey.id}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -94,6 +104,11 @@ const SurveyTable = () => {
                         data: JSON.parse(values.data),
                     }),
                 });
+                if (!res.ok) {
+                    // Read the error message as text
+                    const errMessage = await res.text();
+                    throw new Error(errMessage);
+                }
                 message.success('Update success');
                 setOpen(false);
                 await fetchSurveys();
@@ -102,7 +117,7 @@ const SurveyTable = () => {
             }
         } else {
             try {
-                await fetch('/api/surveys', {
+                const res = await fetch('/api/surveys', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -112,6 +127,11 @@ const SurveyTable = () => {
                         data: JSON.parse(values.data),
                     }),
                 });
+                if (!res.ok) {
+                    // Read the error message as text
+                    const errMessage = await res.text();
+                    throw new Error(errMessage);
+                }
                 message.success('Create success');
                 setOpen(false);
                 await fetchSurveys();
@@ -154,7 +174,9 @@ const SurveyTable = () => {
             render: (record) => (
                 <Space size="middle">
                     <Button type="primary" onClick={() => handleEdit(record)}>Edit & Preview</Button>
-                    <Button type="primary" danger onClick={() => handleDelete(record.id)}>Delete</Button>
+                    <Popconfirm title="Are you sure to delete this survey?" onConfirm={() => handleDelete(record.id)}>
+                        <Button type="primary" danger>Delete</Button>
+                    </Popconfirm>
                 </Space>
             ),
         },

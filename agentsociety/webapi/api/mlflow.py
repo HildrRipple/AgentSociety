@@ -1,11 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
-from ..config import settings
+__all__ = ["router"]
 
 router = APIRouter(tags=["mlflow"])
 
 
 @router.get("/mlflow/url")
-def get_mlflow_base_url():
-    """获取MLFlow基础URL"""
-    return {"data": settings.MLFLOW_URL} 
+async def get_mlflow_base_url(request: Request):
+    mlflow_url = request.app.state.mlflow_url
+    return {"data": mlflow_url}
