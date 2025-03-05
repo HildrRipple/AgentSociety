@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import DeckGL from '@deck.gl/react';
 import { FlyToInterpolator, MapView, MapViewState } from '@deck.gl/core';
-import { GeoJsonLayer, TextLayer, IconLayer, ScatterplotLayer } from 'deck.gl';
+import { HeatmapLayer, TextLayer, IconLayer, ScatterplotLayer } from 'deck.gl';
 import { Map as MapGL } from 'react-map-gl';
 import tinycolor from "tinycolor2";
 import { LngLat } from './components/type';
@@ -42,7 +42,7 @@ const Deck = observer((props: {
     const [curZoom, setCurZoom] = useState(10.5);
     const [hovering, setHovering] = useState(false);
 
-    const layers = [];
+    let layers = [];
 
     // const aoiLayers = props.showAoi ? [new GeoJsonLayer({
     //     id: 'aoi',
@@ -176,6 +176,24 @@ const Deck = observer((props: {
             getFillColor: d => d.color,
         });
         layers.push(pointLayer);
+    }
+
+    if (store.heatmapKeyInStatus !== undefined) {
+        const heatmapLayer = new HeatmapLayer({
+            id: 'heatmap',
+            data: agentList.map((a) => {
+                return {
+                    position: [a.lng, a.lat],
+                    weight: a.status[store.heatmapKeyInStatus] ?? 0,
+                }
+            }),
+            getPosition: d => d.position,
+            getWeight: d => d.weight,
+            threshold: 0.05,
+            radiusPixels: 100,
+            intensity: 1,
+        });
+        layers = [heatmapLayer, ...layers];
     }
 
     const mapCenter = store.mapCenter;

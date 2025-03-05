@@ -11,11 +11,13 @@ __all__ = [
     "agent_profile",
     "agent_status",
     "agent_survey",
+    "global_prompt",
     "AgentDialogType",
     "ApiAgentDialog",
     "ApiAgentProfile",
     "ApiAgentStatus",
     "ApiAgentSurvey",
+    "ApiGlobalPrompt",
 ]
 
 # Database Models
@@ -80,6 +82,19 @@ def agent_dialog(table_name: str):
         Column("content", String),
         Column("created_at", TIMESTAMP(timezone=True)),
     ), ["id", "day", "t", "type", "speaker", "content", "created_at"]
+
+
+def global_prompt(table_name: str):
+    """Create global prompt table"""
+    metadata = MetaData()
+    return Table(
+        table_name,
+        metadata,
+        Column("day", Integer),
+        Column("t", Float),
+        Column("prompt", String),
+        Column("created_at", TIMESTAMP(timezone=True)),
+    ), ["day", "t", "prompt", "created_at"]
 
 
 class AgentDialogType(enum.IntEnum):
@@ -165,6 +180,22 @@ class ApiAgentDialog(BaseModel):
     """Speaker"""
     content: str
     """Content"""
+    created_at: AwareDatetime
+    """Created time"""
+
+    class Config:
+        from_attributes = True
+
+
+class ApiGlobalPrompt(BaseModel):
+    """Global prompt model for API"""
+
+    day: int
+    """Day"""
+    t: float
+    """Time (second)"""
+    prompt: str
+    """Prompt"""
     created_at: AwareDatetime
     """Created time"""
 

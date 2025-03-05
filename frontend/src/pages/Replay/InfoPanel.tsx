@@ -77,10 +77,21 @@ const InfoPanel = observer(() => {
                     <span>{agent.action}</span>
                     <Flex wrap justify="left">
                         {agent.status && Object.entries(agent.status).map(([k, v]) => (
-                            <Flex className='left-info-block' justify='space-between' key={k}>
-                                <span style={{ fontWeight: 400, color: "#909399" }}>{k}:&nbsp;&nbsp;</span>
-                                <span style={{ fontWeight: 600, color: "#007AFF" }}>{v}</span>
-                            </Flex>
+                            <Tooltip title="Click to show as heatmap" key={k}>
+                                <Flex className={store.heatmapKeyInStatus === k ? 'left-info-block selected' : 'left-info-block'} justify='space-between' key={k} onClick={() => {
+                                    if (typeof v !== "number") {
+                                        return;
+                                    }
+                                    if (store.heatmapKeyInStatus === k) {
+                                        store.setHeatmapKeyInStatus(undefined);
+                                        return;
+                                    }
+                                    store.setHeatmapKeyInStatus(k);
+                                }}>
+                                    <span style={{ fontWeight: 400, color: "#909399" }}>{k}:&nbsp;&nbsp;</span>
+                                    <span style={{ fontWeight: 600, color: "#007AFF" }}>{v}</span>
+                                </Flex>
+                            </Tooltip>
                         ))}
                     </Flex>
                 </Flex>

@@ -37,6 +37,7 @@ export class ReplayStore {
     _timeline: Time[] = []
     _currentTime?: Time = undefined
     _agent2Profile: Map<string, AgentProfile> = new Map()
+    globalPrompt?: string = undefined
     agents: Map<string, Agent> = new Map()
     clickedAgentID?: string = undefined
     _clickedAgentStatuses: AgentStatus[] = []
@@ -45,12 +46,19 @@ export class ReplayStore {
 
     _id2surveys: Map<string, Survey> = new Map()
 
+    heatmapKeyInStatus?: string = undefined
+
     constructor() {
         makeAutoObservable(this)
     }
 
     setCenter(center: LngLat) {
         this.mapCenter = center
+    }
+
+    setHeatmapKeyInStatus(key?: string) {
+        console.log('set heatmap key: ', key)
+        this.heatmapKeyInStatus = key
     }
 
     get timeline() {
@@ -124,7 +132,7 @@ export class ReplayStore {
         }
     }
 
-    async _fetchAllAgentStatus(time?: Time) {
+    async _fetchAllAgentStatusAndPrompt(time?: Time) {
         if (this.expID === undefined) {
             return
         }
@@ -179,6 +187,24 @@ export class ReplayStore {
         } catch (err) {
             message.error(`Failed to fetch data: ${JSON.stringify(err)}`, 3);
             console.error('Failed to fetch data: ', err);
+        }
+        try {
+            let url = `/api/experiments/${this.expID}/prompt`
+            if (time !== undefined) {
+                url += `?day=${time.day}&t=${time.t}`
+            }
+            const res = await fetch(url)
+            let prompt = undefined
+            if (res.ok) {
+                const data = await res.json()
+                prompt = data.data.prompt
+            }
+            runInAction(() => {
+                this.globalPrompt = prompt
+            })
+        } catch (err) {
+            // message.error(`Failed to fetch prompt: ${JSON.stringify(err)}`, 3);
+            console.error('Failed to fetch prompt: ', err);
         }
     }
 
@@ -236,10 +262,10 @@ export class ReplayStore {
             await this._fetchAgentProfile()
             if (this.experiment?.status === 2) {
                 // completed -> fetch the newest data
-                await this._fetchAllAgentStatus(this._currentTime)
+                await this._fetchAllAgentStatusAndPrompt(this._currentTime)
             } else if (this.experiment?.status === 1) {
                 // running -> fetch the newest data
-                await this._fetchAllAgentStatus()
+                await this._fetchAllAgentStatusAndPrompt()
             }
         }
         message.destroy("loading")
@@ -250,7 +276,7 @@ export class ReplayStore {
             return
         }
         this._currentTime = time
-        await this._fetchAllAgentStatus(time)
+        await this._fetchAllAgentStatusAndPrompt(time)
         await this._fetchClickedAgent()
     }
 
@@ -259,7 +285,7 @@ export class ReplayStore {
         // 1. 刷新experiment数据
         await this._fetchExperiment()
         // 2. 刷新所有agent数据
-        await this._fetchAllAgentStatus(this._currentTime)
+        await this._fetchAllAgentStatusAndPrompt(this._currentTime)
         // 3. 刷新clickedAgent数据
         await this._fetchClickedAgent()
     }

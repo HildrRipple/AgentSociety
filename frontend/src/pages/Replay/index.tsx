@@ -36,32 +36,11 @@ const Replay: React.FC = observer(() => {
             <div className="left">
                 <InfoPanel />
             </div>
-
-            {/* <div style={{
-                position: "absolute",
-                top: "7vh",
-                left: 0,
-                zIndex: 1
-            }}>
-                <Col>
-                    {statusCol}
-                    <Row justify='space-between' align="middle" style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100vw',
-                        backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                    }}>
-                        <Col>
-                            <Space>
-                                <LngLatJump onFlyTo={store.setCenter} />
-                                <span>
-                                    Location:{store.mouse ? `${store.mouse.lng.toFixed(6)}, ${store.mouse.lat.toFixed(6)}` : "Unknown"}
-                                </span>
-                            </Space>
-                        </Col>
-                    </Row>
-                </Col> */}
+            {(store.globalPrompt ?? "") !== "" &&
+                < div className='global-prompt'>
+                    <p className='global-prompt-inner'>{store.globalPrompt}</p>
+                </div >
+            }
 
             <div className='control-progress'>
                 <TimelinePlayer initialInterval={1000} />

@@ -60,6 +60,11 @@ class Experiment(Base):
         """Get agent survey table name"""
         return f"{TABLE_PREFIX}{str(self.id).replace('-', '_')}_agent_survey"
 
+    @property
+    def global_prompt_tablename(self):
+        """Get global prompt table name"""
+        return f"{TABLE_PREFIX}{str(self.id).replace('-', '_')}_global_prompt"
+
 
 # API Request & Response Models
 # class ExperimentBase(BaseModel):

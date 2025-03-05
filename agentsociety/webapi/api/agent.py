@@ -12,10 +12,12 @@ from ..models.agent import (
     ApiAgentProfile,
     ApiAgentStatus,
     ApiAgentSurvey,
+    ApiGlobalPrompt,
     agent_dialog,
     agent_profile,
     agent_status,
     agent_survey,
+    global_prompt,
 )
 from ..models.experiment import Experiment, ExperimentStatus
 
@@ -201,3 +203,34 @@ async def get_agent_survey_by_exp_id_and_agent_id(
             surveys.append(ApiAgentSurvey(**survey))
 
         return ApiResponseWrapper(data=surveys)
+
+
+@router.get("/experiments/{exp_id}/prompt")
+async def get_global_prompt_by_day_t(
+    request: Request,
+    exp_id: uuid.UUID,
+    day: Optional[int] = Query(None, description="the day for getting agent status"),
+    t: Optional[float] = Query(None, description="the time for getting agent status"),
+) -> ApiResponseWrapper[ApiGlobalPrompt]:
+    """Get global prompt by experiment ID, day and time"""
+
+    async with request.app.state.get_db() as db:
+        db = cast(AsyncSession, db)
+        experiment = await _find_started_experiment_by_id(db, exp_id)
+
+        if day is None:
+            day = experiment.cur_day
+        if t is None:
+            t = experiment.cur_t
+
+        table_name = experiment.global_prompt_tablename
+        table, columns = global_prompt(table_name)
+        stmt = select(table).where(table.c.day == day).where(table.c.t == t)
+        row = (await db.execute(stmt)).first()
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Global prompt not found"
+            )
+        prompt = ApiGlobalPrompt(**{columns[i]: row[i] for i in range(len(columns))})
+
+        return ApiResponseWrapper(data=prompt)
