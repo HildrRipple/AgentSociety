@@ -39,6 +39,7 @@ class AgentGroup:
         map_ref: ray.ObjectRef,
         exp_name: str,
         exp_id: Union[str, UUID],
+        tenant_id: str,
         enable_avro: bool,
         avro_path: Path,
         enable_pgsql: bool,
@@ -68,6 +69,7 @@ class AgentGroup:
             - `map_ref` (ray.ObjectRef): Reference to the map object.
             - `exp_name` (str): Name of the experiment.
             - `exp_id` (str | UUID): Identifier for the experiment.
+            - `tenant_id` (str): Identifier for the tenant.
             - `enable_avro` (bool): Flag to enable AVRO file support.
             - `avro_path` (Path): Path where AVRO files will be stored.
             - `enable_pgsql` (bool): Flag to enable PostgreSQL support.
@@ -92,6 +94,7 @@ class AgentGroup:
         self.id2agent: dict[int, Agent] = {}
         self.config = config
         self.exp_id = exp_id
+        self.tenant_id = tenant_id
         self.enable_avro = enable_avro
         self.enable_pgsql = enable_pgsql
         self.embedding_model = embedding_model
@@ -180,6 +183,7 @@ class AgentGroup:
                     simulator=self.simulator,
                 )
                 agent.set_exp_id(self.exp_id)  # type: ignore
+                agent.set_tenant_id(self.tenant_id)
                 if self.messager is not None:
                     agent.set_messager(self.messager)
                 if self.mlflow_client is not None:
@@ -766,7 +770,9 @@ class AgentGroup:
             )
             group_logs = {
                 "llm_log": self.llm.get_log_list(),
-                "redis_log": ray.get(self.messager.get_log_list.remote()),  # type:ignore
+                "redis_log": ray.get(
+                    self.messager.get_log_list.remote()  # type:ignore
+                ),
                 "simulator_log": simulator_log,
                 "agent_time_log": agent_time_log,
             }

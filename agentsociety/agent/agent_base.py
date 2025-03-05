@@ -89,6 +89,7 @@ class Agent(ABC):
         self._memory = memory
         self._exp_id = -1
         self._agent_id = -1
+        self._tenant_id = ""
         self._has_bound_to_simulator = False
         self._has_bound_to_economy = False
         self._blocked = False
@@ -346,10 +347,21 @@ class Agent(ABC):
         """
         self._message_interceptor = message_interceptor
 
+    def set_tenant_id(self, tenant_id: str):
+        """
+        Set the tenant_id of the agent.
+        """
+        self._tenant_id = tenant_id
+
     @property
     def id(self):
         """The Agent's Simulator ID"""
         return self._agent_id
+
+    @property
+    def tenant_id(self):
+        """The Agent's Tenant ID"""
+        return self._tenant_id
 
     @property
     def llm(self):
@@ -505,6 +517,7 @@ class Agent(ABC):
         response_to_avro = [
             {
                 "id": self.id,
+                "tenant_id": self.tenant_id,
                 "day": await self.simulator.get_simulator_day(),
                 "t": await self.simulator.get_simulator_second_from_start_of_day(),
                 "survey_id": survey["id"],
@@ -521,6 +534,7 @@ class Agent(ABC):
                 await self._last_asyncio_pg_task
             _keys = [
                 "id",
+                "tenant_id",
                 "day",
                 "t",
                 "survey_id",

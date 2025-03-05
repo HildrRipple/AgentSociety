@@ -3,10 +3,10 @@
 ## [1.3.0] - 2025-03-XX
 
 ### Added
-- N/A
+- Add tenant_id column to experiment and survey tables to support multi-user online usage.
 
 ### Changed
-- N/A
+- Migrate MQTT to Redis.
 
 ### Deprecated
 - N/A

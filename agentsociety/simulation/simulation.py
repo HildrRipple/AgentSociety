@@ -91,6 +91,8 @@ class AgentSimulation:
             - None
         """
         self.exp_id = str(uuid.uuid4())
+        # TODO: set tenant_id
+        self.tenant_id = str(uuid.uuid4())
         if isinstance(agent_class, list):
             self.agent_class = agent_class
         elif agent_class is None:
@@ -201,6 +203,7 @@ class AgentSimulation:
         self._exp_updated_time = datetime.now(timezone.utc)
         self._exp_info = {
             "id": self.exp_id,
+            "tenant_id": self.tenant_id,
             "name": exp_name,
             "num_day": 0,  # will be updated in run method
             "status": 0,
@@ -364,9 +367,12 @@ class AgentSimulation:
                 raise ValueError(f"Invalid step type: {step.type}")
             if step.type == WorkflowType.RUN:
                 _days = cast(int, step.days)
-                llm_log_list, redis_log_list, simulator_log_list, agent_time_log_list = (
-                    await simulation.run(_days)
-                )
+                (
+                    llm_log_list,
+                    redis_log_list,
+                    simulator_log_list,
+                    agent_time_log_list,
+                ) = await simulation.run(_days)
                 llm_log_lists.extend(llm_log_list)
                 redis_log_lists.extend(redis_log_list)
                 simulator_log_lists.extend(simulator_log_list)
@@ -721,6 +727,7 @@ class AgentSimulation:
                 self._map_ref,
                 self.exp_name,
                 self.exp_id,
+                self.tenant_id,
                 self.enable_avro,
                 self.avro_path,
                 self.enable_pgsql,
@@ -791,9 +798,7 @@ class AgentSimulation:
                 agent_ids, firm_ids, bank_ids, nbs_ids, government_ids
             )
 
-    async def gather(
-        self, content: str, target_agent_ids: Optional[list[int]] = None
-    ):
+    async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None):
         """
         Collect specific information from agents.
 

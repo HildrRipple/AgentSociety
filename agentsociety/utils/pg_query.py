@@ -6,6 +6,7 @@ PGSQL_DICT: dict[str, list[Any]] = {
         """
     CREATE TABLE IF NOT EXISTS {table_name} (
         id UUID PRIMARY KEY,
+        tenant_id UUID,
         name TEXT,
         num_day INT4,
         status INT4, 
@@ -68,6 +69,7 @@ PGSQL_DICT: dict[str, list[Any]] = {
         """
     CREATE TABLE IF NOT EXISTS {table_name} (
         id INT,
+        tenant_id UUID,
         day INT4,
         t FLOAT,
         survey_id UUID,
@@ -81,6 +83,7 @@ PGSQL_DICT: dict[str, list[Any]] = {
 }
 TO_UPDATE_EXP_INFO_KEYS_AND_TYPES: list[tuple[str, Any]] = [
     ("id", None),
+    ("tenant_id", str),
     ("name", str),
     ("num_day", int),
     ("status", int),
