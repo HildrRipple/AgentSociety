@@ -5,8 +5,8 @@ PGSQL_DICT: dict[str, list[Any]] = {
     "experiment": [
         """
     CREATE TABLE IF NOT EXISTS {table_name} (
-        tenant_id UUID,
-        id UUID PRIMARY KEY,
+        tenant_id TEXT,
+        id UUID,
         name TEXT,
         num_day INT4,
         status INT4, 
@@ -15,7 +15,8 @@ PGSQL_DICT: dict[str, list[Any]] = {
         config TEXT,
         error TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (tenant_id, id)
     )
 """,
     ],
@@ -80,13 +81,14 @@ PGSQL_DICT: dict[str, list[Any]] = {
     "agent_survey": [
         """
     CREATE TABLE IF NOT EXISTS {table_name} (
-        tenant_id UUID,
+        tenant_id TEXT,
         id INT,
         day INT4,
         t FLOAT,
         survey_id UUID,
         result JSONB,
-        created_at TIMESTAMPTZ
+        created_at TIMESTAMPTZ,
+        PRIMARY KEY (tenant_id, id)
     )
 """,
         "CREATE INDEX {table_name}_id_idx ON {table_name} (id)",
