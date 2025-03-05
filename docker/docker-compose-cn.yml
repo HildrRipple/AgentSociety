@@ -29,7 +29,7 @@ services:
 
   redis:
     image: swr.cn-north-4.myhuaweicloud.com/tsinghua-fib-lab/redis:7.2
-    container_name: redis 
+    container_name: redis
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "CHANGE_ME", "ping"]
       interval: 5s

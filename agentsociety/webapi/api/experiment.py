@@ -30,7 +30,6 @@ async def list_experiments(
         stmt = select(Experiment)
         results = await db.execute(stmt)
         db_experiments = [row[0] for row in results.all() if len(row) > 0]
-        logging.info(f"db_experiments: {db_experiments}")
         experiments = cast(List[ApiExperiment], db_experiments)
         return ApiResponseWrapper(data=experiments)
 

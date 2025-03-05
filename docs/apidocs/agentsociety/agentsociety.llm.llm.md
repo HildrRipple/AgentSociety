@@ -27,6 +27,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`logger <agentsociety.llm.llm.logger>`
+  - ```{autodoc2-docstring} agentsociety.llm.llm.logger
+    :summary:
+    ```
 * - {py:obj}`__all__ <agentsociety.llm.llm.__all__>`
   - ```{autodoc2-docstring} agentsociety.llm.llm.__all__
     :summary:
@@ -34,6 +38,16 @@
 ````
 
 ### API
+
+````{py:data} logger
+:canonical: agentsociety.llm.llm.logger
+:value: >
+   'getLogger(...)'
+
+```{autodoc2-docstring} agentsociety.llm.llm.logger
+```
+
+````
 
 ````{py:data} __all__
 :canonical: agentsociety.llm.llm.__all__
@@ -126,6 +140,14 @@
 :async:
 
 ```{autodoc2-docstring} agentsociety.llm.llm.LLM.atext_request
+```
+
+````
+
+````{py:method} get_error_statistics()
+:canonical: agentsociety.llm.llm.LLM.get_error_statistics
+
+```{autodoc2-docstring} agentsociety.llm.llm.LLM.get_error_statistics
 ```
 
 ````

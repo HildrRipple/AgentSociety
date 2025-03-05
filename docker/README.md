@@ -68,7 +68,7 @@ docker compose -f ./docker-compose-cn.yml down # if you are in China
   - The default username and password are `postgres` and `CHANGE_ME`, respectively.
   - The default database is `postgres`.
   - You can use some GUI tools to access the database, e.g., [DBeaver](https://dbeaver.io/).
-- Redis Server: tcp://localhost:6379
+- Redis Server: localhost:6379
 
 ## Attention
 

@@ -16,11 +16,17 @@
 :align: left
 
 * - {py:obj}`EdgeMessageBlock <agentsociety.cityagent.message_intercept.EdgeMessageBlock>`
-  -
+  - ```{autodoc2-docstring} agentsociety.cityagent.message_intercept.EdgeMessageBlock
+    :summary:
+    ```
 * - {py:obj}`PointMessageBlock <agentsociety.cityagent.message_intercept.PointMessageBlock>`
-  -
+  - ```{autodoc2-docstring} agentsociety.cityagent.message_intercept.PointMessageBlock
+    :summary:
+    ```
 * - {py:obj}`MessageBlockListener <agentsociety.cityagent.message_intercept.MessageBlockListener>`
-  -
+  - ```{autodoc2-docstring} agentsociety.cityagent.message_intercept.MessageBlockListener
+    :summary:
+    ```
 ````
 
 ### Functions
@@ -50,6 +56,15 @@
 
 Bases: {py:obj}`agentsociety.message.MessageBlockBase`
 
+```{autodoc2-docstring} agentsociety.cityagent.message_intercept.EdgeMessageBlock
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} agentsociety.cityagent.message_intercept.EdgeMessageBlock.__init__
+```
+
 ````{py:method} forward(from_id: int, to_id: int, msg: str, violation_counts: dict[int, int], black_list: list[tuple[int, int]])
 :canonical: agentsociety.cityagent.message_intercept.EdgeMessageBlock.forward
 :async:
@@ -65,6 +80,15 @@ Bases: {py:obj}`agentsociety.message.MessageBlockBase`
 :canonical: agentsociety.cityagent.message_intercept.PointMessageBlock
 
 Bases: {py:obj}`agentsociety.message.MessageBlockBase`
+
+```{autodoc2-docstring} agentsociety.cityagent.message_intercept.PointMessageBlock
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} agentsociety.cityagent.message_intercept.PointMessageBlock.__init__
+```
 
 ````{py:method} forward(from_id: int, to_id: int, msg: str, violation_counts: dict[int, int], black_list: list[tuple[int, int]])
 :canonical: agentsociety.cityagent.message_intercept.PointMessageBlock.forward
@@ -82,9 +106,21 @@ Bases: {py:obj}`agentsociety.message.MessageBlockBase`
 
 Bases: {py:obj}`agentsociety.message.MessageBlockListenerBase`
 
+```{autodoc2-docstring} agentsociety.cityagent.message_intercept.MessageBlockListener
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} agentsociety.cityagent.message_intercept.MessageBlockListener.__init__
+```
+
 ````{py:method} forward()
 :canonical: agentsociety.cityagent.message_intercept.MessageBlockListener.forward
 :async:
+
+```{autodoc2-docstring} agentsociety.cityagent.message_intercept.MessageBlockListener.forward
+```
 
 ````
 

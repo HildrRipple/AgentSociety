@@ -116,7 +116,7 @@ Bases: {py:obj}`agentsociety.workflow.Block`
 
 ````
 
-````{py:method} select_guidance(current_need: str) -> dict
+````{py:method} select_guidance(current_need: str) -> typing.Tuple[dict, str]
 :canonical: agentsociety.cityagent.blocks.plan_block.PlanBlock.select_guidance
 :async:
 

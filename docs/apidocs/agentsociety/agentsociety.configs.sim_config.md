@@ -77,6 +77,17 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
+````{py:attribute} base_url
+:canonical: agentsociety.configs.sim_config.LLMRequestConfig.base_url
+:type: typing.Optional[str]
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} agentsociety.configs.sim_config.LLMRequestConfig.base_url
+```
+
+````
+
 ````{py:attribute} api_key
 :canonical: agentsociety.configs.sim_config.LLMRequestConfig.api_key
 :type: typing.Union[list[str], str]
@@ -584,7 +595,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} SetLLMRequest(request_type: agentsociety.utils.LLMRequestType, api_key: typing.Union[list[str], str], model: str) -> agentsociety.configs.sim_config.SimConfig
+````{py:method} SetLLMRequest(request_type: agentsociety.utils.LLMRequestType, api_key: typing.Union[list[str], str], model: str, base_url: typing.Optional[str] = None) -> agentsociety.configs.sim_config.SimConfig
 :canonical: agentsociety.configs.sim_config.SimConfig.SetLLMRequest
 
 ```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetLLMRequest

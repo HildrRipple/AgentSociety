@@ -291,10 +291,26 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
+````{py:method} set_tenant_id(tenant_id: str)
+:canonical: agentsociety.agent.agent_base.Agent.set_tenant_id
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_tenant_id
+```
+
+````
+
 ````{py:property} id
 :canonical: agentsociety.agent.agent_base.Agent.id
 
 ```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.id
+```
+
+````
+
+````{py:property} tenant_id
+:canonical: agentsociety.agent.agent_base.Agent.tenant_id
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.tenant_id
 ```
 
 ````
@@ -368,6 +384,15 @@ Bases: {py:obj}`abc.ABC`
 :async:
 
 ```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.messager_ping
+```
+
+````
+
+````{py:method} react_to_intervention(intervention_message: str)
+:canonical: agentsociety.agent.agent_base.Agent.react_to_intervention
+:async:
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.react_to_intervention
 ```
 
 ````

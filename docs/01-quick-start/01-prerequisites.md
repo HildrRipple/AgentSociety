@@ -39,6 +39,9 @@ Redis is a high-performance, in-memory key-value store used as a database, cache
 
 The "X" contains agents and the GUI.
 
+Due to the open-source license problem, you can also use valkey as a substitute for Redis.
+But we have not tested it yet.
+
 ## PostgreSQL
 
 PostgreSQL is a powerful, open-source object-relational database system.
@@ -62,6 +65,6 @@ In short, the steps are as follows:
 5. Access the services by the following URLs:
    - MLflow: http://localhost:59000
    - PostgreSQL: postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres
-   - Redis Server: tcp://localhost:6379
+   - Redis Server: localhost:6379
 6. Change EMQX Dashboard default password by its GUI.
 7. Go ahead and start your first simulation!

@@ -19,11 +19,10 @@ def _load_config(ctx: click.Context, param: click.Parameter, value: str) -> Dict
     if value:
         config_path = Path(value)
     else:
-        config_path = Path("config.yaml")
+        return {}
 
-    if config_path.exists():
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
     return config
 
 

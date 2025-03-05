@@ -4,6 +4,7 @@
 
 ### Added
 - Move the `agentsociety-ui` frontend (`frontend/`) and backend (`agentsociety/webapi/`) into the project.
+- Add `_global_prompt` table in the database to store global prompt changes.
 - Add tenant_id column to experiment and survey tables to support multi-user online usage.
 - Add `llm_error` statistics for `Simulation.run_from_config`(Based on `LLM`).
 - Add `MemoryConfig` in `AgentConfig`. Support three ways to set memory configuration:
