@@ -14,28 +14,41 @@ import yaml
 from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, InstitutionAgent
-from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
-                         SocietyAgent)
+from ..cityagent import BankAgent, FirmAgent, GovernmentAgent, NBSAgent, SocietyAgent
 from ..cityagent.initial import bind_agent_info, initialize_social_network
-from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
-                                       memory_config_government,
-                                       memory_config_load_file,
-                                       memory_config_merge, memory_config_nbs,
-                                       memory_config_societyagent,
-                                       set_distribution)
-from ..cityagent.message_intercept import (EdgeMessageBlock,
-                                           MessageBlockListener,
-                                           PointMessageBlock)
+from ..cityagent.memory_config import (
+    memory_config_bank,
+    memory_config_firm,
+    memory_config_government,
+    memory_config_load_file,
+    memory_config_merge,
+    memory_config_nbs,
+    memory_config_societyagent,
+    set_distribution,
+)
+from ..cityagent.message_intercept import (
+    EdgeMessageBlock,
+    MessageBlockListener,
+    PointMessageBlock,
+)
 from ..configs import ExpConfig, MemoryConfig, MetricExtractor, SimConfig
 from ..environment import EconomyClient, Simulator
 from ..llm import SimpleEmbedding
-from ..message import (MessageBlockBase, MessageBlockListenerBase,
-                       MessageInterceptor, Messager)
+from ..message import (
+    MessageBlockBase,
+    MessageBlockListenerBase,
+    MessageInterceptor,
+    Messager,
+)
 from ..metrics import init_mlflow_connection
 from ..metrics.mlflow_client import MlflowClient
 from ..survey import Survey
-from ..utils import (SURVEY_SENDER_UUID, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES,
-                     MetricType, WorkflowType)
+from ..utils import (
+    SURVEY_SENDER_UUID,
+    TO_UPDATE_EXP_INFO_KEYS_AND_TYPES,
+    MetricType,
+    WorkflowType,
+)
 from .agentgroup import AgentGroup
 from .storage.pg import PgWriter, create_pg_tables
 
@@ -67,7 +80,7 @@ class AgentSimulation:
         agent_class: Union[None, type[Agent], list[type[Agent]]] = None,
         agent_class_configs: Optional[dict] = None,
         metric_extractors: Optional[list[MetricExtractor]] = None,
-        tenant_id:str = "",
+        tenant_id: str = "",
         agent_prefix: str = "agent_",
         exp_name: str = "default_experiment",
         logging_level: int = logging.WARNING,
@@ -229,7 +242,7 @@ class AgentSimulation:
     async def run_from_config(cls, config: ExpConfig, sim_config: SimConfig):
         """
         Directly run from config file
-        
+
         - **Args**:
             - `config` (ExpConfig): The configuration for the experiment.
             - `sim_config` (SimConfig): The configuration for the simulation.
@@ -265,8 +278,13 @@ class AgentSimulation:
         }
         if agent_config.extra_agent_class is not None:
             agent_count.update(agent_config.extra_agent_class)
-        if agent_count.get(SocietyAgent, 0) == 0 and agent_config.extra_agent_class is None:
-            raise ValueError("if number_of_citizen is 0, extra_agent_class should be provided")
+        if (
+            agent_count.get(SocietyAgent, 0) == 0
+            and agent_config.extra_agent_class is None
+        ):
+            raise ValueError(
+                "if number_of_citizen is 0, extra_agent_class should be provided"
+            )
 
         # support MessageInterceptor
         if config.message_intercept is not None:
@@ -380,34 +398,50 @@ class AgentSimulation:
                 target_agents = step.target_agent
                 interview_message = step.interview_message
                 if target_agents is None or interview_message is None:
-                    raise ValueError("target_agent and interview_message are required for INTERVIEW step")
-                await simulation.send_interview_message(interview_message, target_agents)
+                    raise ValueError(
+                        "target_agent and interview_message are required for INTERVIEW step"
+                    )
+                await simulation.send_interview_message(
+                    interview_message, target_agents
+                )
             elif step.type == WorkflowType.SURVEY:
                 target_agents = step.target_agent
                 survey = step.survey
                 if target_agents is None or survey is None:
-                    raise ValueError("target_agent and survey are required for SURVEY step")
+                    raise ValueError(
+                        "target_agent and survey are required for SURVEY step"
+                    )
                 await simulation.send_survey(survey, target_agents)
             elif step.type == WorkflowType.ENVIRONMENT_INTERVENE:
                 key = step.key
                 value = step.value
                 if key is None or value is None:
-                    raise ValueError("key and value are required for ENVIRONMENT_INTERVENE step")
+                    raise ValueError(
+                        "key and value are required for ENVIRONMENT_INTERVENE step"
+                    )
                 await simulation.update_environment(key, value)
             elif step.type == WorkflowType.UPDATE_STATE_INTERVENE:
                 key = step.key
                 value = step.value
                 target_agents = step.target_agent
                 if key is None or value is None or target_agents is None:
-                    raise ValueError("key, value and target_agent are required for UPDATE_STATE_INTERVENE step")
+                    raise ValueError(
+                        "key, value and target_agent are required for UPDATE_STATE_INTERVENE step"
+                    )
                 await simulation.update(target_agents, key, value)
             elif step.type == WorkflowType.MESSAGE_INTERVENE:
-                logger.warning("MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congition of target agents")
+                logger.warning(
+                    "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congition of target agents"
+                )
                 target_agents = step.target_agent
                 intervene_message = step.intervene_message
                 if target_agents is None or intervene_message is None:
-                    raise ValueError("target_agent and intervene_message are required for MESSAGE_INTERVENE step")
-                await simulation.send_intervention_message(intervene_message, target_agents)
+                    raise ValueError(
+                        "target_agent and intervene_message are required for MESSAGE_INTERVENE step"
+                    )
+                await simulation.send_intervention_message(
+                    intervene_message, target_agents
+                )
             else:
                 _func = cast(Callable, step.func)
                 await _func(simulation)
@@ -423,7 +457,13 @@ class AgentSimulation:
                     llm_error_statistics[key] += value
                 else:
                     llm_error_statistics[key] = value
-        return llm_log_lists, redis_log_lists, simulator_log_lists, agent_time_log_lists, llm_error_statistics
+        return (
+            llm_log_lists,
+            redis_log_lists,
+            simulator_log_lists,
+            agent_time_log_lists,
+            llm_error_statistics,
+        )
 
     @property
     def enable_avro(
@@ -507,7 +547,7 @@ class AgentSimulation:
                 "prompt": prompt,
                 "created_at": datetime.now(timezone.utc),
             }
-            await worker.async_save_global_prompt.remote(prompt_info) # type:ignore
+            await worker.async_save_global_prompt.remote(prompt_info)  # type:ignore
 
     async def _monitor_exp_status(self, stop_event: asyncio.Event):
         """Monitor experiment status and update
@@ -606,7 +646,9 @@ class AgentSimulation:
         # set memory distributions
         if memory_distributions is not None:
             for field, distribution_config in memory_distributions.items():
-                set_distribution(field, distribution_config.dist_type, **distribution_config.kwargs) # type:ignore
+                set_distribution(
+                    field, distribution_config.dist_type, **distribution_config.kwargs
+                )  # type:ignore
 
         # use thread pool to create AgentGroup
         group_creation_params = []
@@ -619,13 +661,13 @@ class AgentSimulation:
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
             agent_count_i = agent_count[agent_class]
-            
+
             # prepare memory config data
             assert memory_config_func is not None
             memory_config_func_i = memory_config_func.get(
                 agent_class, self.default_memory_config_func[agent_class]  # type:ignore
             )
-            
+
             # merge data loaded from file (if any)
             memory_values = []
             if agent_class in memory_data_from_file and agent_count_i > 0:
@@ -635,24 +677,32 @@ class AgentSimulation:
                     # get base memory config (generated by function)
                     extra_attrs, profile, base = memory_config_func_i()
                     if i < len(file_data):
-                        memory_values.append(memory_config_merge(file_data[i], extra_attrs, profile, base))
+                        memory_values.append(
+                            memory_config_merge(
+                                file_data[i], extra_attrs, profile, base
+                            )
+                        )
                     else:
                         # if data from file is not enough, use data generated by function to supplement
-                        memory_values.append({
-                            "extra_attributes": extra_attrs,
-                            "profile": profile,
-                            "base": base
-                        })
+                        memory_values.append(
+                            {
+                                "extra_attributes": extra_attrs,
+                                "profile": profile,
+                                "base": base,
+                            }
+                        )
             else:
                 # if there is no data from file, use data generated by function to supplement
                 for _ in range(agent_count_i):
                     # get base memory config (generated by function)
                     extra_attrs, profile, base = memory_config_func_i()
-                    memory_values.append({
-                        "extra_attributes": extra_attrs,
-                        "profile": profile,
-                        "base": base
-                    })
+                    memory_values.append(
+                        {
+                            "extra_attributes": extra_attrs,
+                            "profile": profile,
+                            "base": base,
+                        }
+                    )
 
             if self.agent_class_configs is not None:
                 config_file = self.agent_class_configs.get(agent_class, None)
@@ -693,7 +743,9 @@ class AgentSimulation:
                         agents_in_group = min(count - curr_start, number_of_agents)
                         agent_counts.append(agents_in_group)
                         # only take memory values needed for current group
-                        memory_values_dict[agent_class] = memory_vals[curr_start:curr_start+agents_in_group]
+                        memory_values_dict[agent_class] = memory_vals[
+                            curr_start : curr_start + agents_in_group
+                        ]
                         config_files[agent_class] = conf_file
                     curr_start = max(0, curr_start - count)
 
@@ -730,7 +782,9 @@ class AgentSimulation:
                         agents_in_group = min(count - curr_start, number_of_agents)
                         agent_counts.append(agents_in_group)
                         # only take memory values needed for current group
-                        memory_values_dict[agent_class] = memory_vals[curr_start:curr_start+agents_in_group]
+                        memory_values_dict[agent_class] = memory_vals[
+                            curr_start : curr_start + agents_in_group
+                        ]
                         config_files[agent_class] = conf_file
                     curr_start = max(0, curr_start - count)
 
@@ -882,7 +936,12 @@ class AgentSimulation:
                 agent_ids, firm_ids, bank_ids, nbs_ids, government_ids
             )
 
-    async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None, flatten: bool = False):
+    async def gather(
+        self,
+        content: str,
+        target_agent_ids: Optional[list[int]] = None,
+        flatten: bool = False,
+    ):
         """
         Collect specific information from agents.
 
@@ -963,7 +1022,9 @@ class AgentSimulation:
         for group in self._groups.values():
             await group.update_environment.remote(key, value)
 
-    async def update(self, target_agent_id: Union[int, list[int]], target_key: str, content: Any):
+    async def update(
+        self, target_agent_id: Union[int, list[int]], target_key: str, content: Any
+    ):
         """
         Update the memory of a specified agent.
 
@@ -1066,7 +1127,9 @@ class AgentSimulation:
                 break
             await asyncio.sleep(3)
 
-    async def send_intervention_message(self, intervention_message: str, agent_uuids: list[str]):
+    async def send_intervention_message(
+        self, intervention_message: str, agent_uuids: list[str]
+    ):
         """
         Send an intervention message to specified agents.
 
@@ -1098,9 +1161,13 @@ class AgentSimulation:
                 await metric_extractor.func(self)
             elif metric_extractor.type == MetricType.STATE:
                 assert metric_extractor.key is not None
-                values = await self.gather(metric_extractor.key, metric_extractor.target_agent, flatten=True)
+                values = await self.gather(
+                    metric_extractor.key, metric_extractor.target_agent, flatten=True
+                )
                 if values is None or len(values) == 0:
-                    logger.warning(f"No values found for metric extractor {metric_extractor.key} in extraction step {metric_extractor.extract_time}")
+                    logger.warning(
+                        f"No values found for metric extractor {metric_extractor.key} in extraction step {metric_extractor.extract_time}"
+                    )
                     return
                 if type(values[0]) == float or type(values[0]) == int:
                     if metric_extractor.method == "mean":
@@ -1112,12 +1179,17 @@ class AgentSimulation:
                     elif metric_extractor.method == "min":
                         value = min(values)
                     else:
-                        raise ValueError(f"method {metric_extractor.method} is not supported")
-                    assert self.mlflow_client is not None and metric_extractor.key is not None
+                        raise ValueError(
+                            f"method {metric_extractor.method} is not supported"
+                        )
+                    assert (
+                        self.mlflow_client is not None
+                        and metric_extractor.key is not None
+                    )
                     await self.mlflow_client.log_metric(
-                        key = metric_extractor.key,
-                        value = value,
-                        step = metric_extractor.extract_time
+                        key=metric_extractor.key,
+                        value=value,
+                        step=metric_extractor.extract_time,
                     )
                 else:
                     raise ValueError(f"values type {type(values[0])} is not supported")
@@ -1191,7 +1263,7 @@ class AgentSimulation:
                             # For STATE type, we need to gather data from target agents
                             if metric_extractor.target_agent and metric_extractor.key:
                                 to_execute_metric.append(metric_extractor)
-                
+
                 if to_execute_metric:
                     await self.extract_metric(to_execute_metric)
 
@@ -1240,7 +1312,9 @@ class AgentSimulation:
                 total_steps = int(day * 24 * 60 * 60)
                 current_step = 0
                 while True:
-                    current_step += self.config.prop_simulator_request.steps_per_simulation_day
+                    current_step += (
+                        self.config.prop_simulator_request.steps_per_simulation_day
+                    )
                     if current_step >= total_steps:
                         break
                     (

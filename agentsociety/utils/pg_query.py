@@ -81,14 +81,12 @@ PGSQL_DICT: dict[str, list[Any]] = {
     "agent_survey": [
         """
     CREATE TABLE IF NOT EXISTS {table_name} (
-        tenant_id TEXT,
         id INT,
         day INT4,
         t FLOAT,
         survey_id UUID,
         result JSONB,
-        created_at TIMESTAMPTZ,
-        PRIMARY KEY (tenant_id, id)
+        created_at TIMESTAMPTZ
     )
 """,
         "CREATE INDEX {table_name}_id_idx ON {table_name} (id)",

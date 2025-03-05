@@ -114,7 +114,7 @@ class PgWriter:
         table_name = f"as_{self.exp_id.replace('-', '_')}_agent_survey"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
-                "COPY {} (tenant_id, id, day, t, survey_id, result, created_at) FROM STDIN"
+                "COPY {} (id, day, t, survey_id, result, created_at) FROM STDIN"
             ).format(psycopg.sql.Identifier(table_name))
             _rows: list[Any] = []
             async with aconn.cursor() as cur:

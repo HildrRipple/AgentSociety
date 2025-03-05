@@ -529,7 +529,6 @@ class Agent(ABC):
         response_to_avro = [
             {
                 "id": self.id,
-                "tenant_id": self.tenant_id,
                 "day": await self.simulator.get_simulator_day(),
                 "t": await self.simulator.get_simulator_second_from_start_of_day(),
                 "survey_id": survey["id"],
@@ -545,7 +544,6 @@ class Agent(ABC):
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
             _keys = [
-                "tenant_id",
                 "id",
                 "day",
                 "t",
