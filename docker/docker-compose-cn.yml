@@ -1,6 +1,6 @@
 services:
   mlflow:
-    image: bitnami/mlflow:2.19.0
+    image: swr.cn-north-4.myhuaweicloud.com/tsinghua-fib-lab/mlflow:2.19.0
     container_name: mlflow
     restart: always
     entrypoint: ["bash", "/entrypoint.sh"]
@@ -17,7 +17,7 @@ services:
       - postgresql
 
   postgresql:
-    image: bitnami/postgresql:17
+    image: swr.cn-north-4.myhuaweicloud.com/tsinghua-fib-lab/postgresql:17
     container_name: postgresql
     restart: unless-stopped
     ports:
@@ -28,7 +28,7 @@ services:
       POSTGRESQL_PASSWORD: CHANGE_ME
 
   redis:
-    image: bitnami/redis:7.2
+    image: swr.cn-north-4.myhuaweicloud.com/tsinghua-fib-lab/redis:7.2
     container_name: redis 
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "CHANGE_ME", "ping"]
@@ -43,7 +43,6 @@ services:
       - 6379:6379 # TCP Listener for Redis
       # - 26379:26379 # TCP Listener for Redis Sentinel
       # - 6380:6380 # TCP Listener for Redis (Cluster)
-      
 
 volumes:
   mlflow:

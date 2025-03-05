@@ -37,7 +37,7 @@
 
 ### API
 
-````{py:function} check_message(from_uuid: str, to_uuid: str, llm_client: agentsociety.llm.LLM, content: str) -> bool
+````{py:function} check_message(from_id: str, to_id: str, llm_client: agentsociety.llm.LLM, content: str) -> bool
 :canonical: agentsociety.cityagent.message_intercept.check_message
 :async:
 
@@ -50,7 +50,7 @@
 
 Bases: {py:obj}`agentsociety.message.MessageBlockBase`
 
-````{py:method} forward(from_uuid: str, to_uuid: str, msg: str, violation_counts: dict[str, int], black_list: list[tuple[str, str]])
+````{py:method} forward(from_id: int, to_id: int, msg: str, violation_counts: dict[int, int], black_list: list[tuple[int, int]])
 :canonical: agentsociety.cityagent.message_intercept.EdgeMessageBlock.forward
 :async:
 
@@ -66,7 +66,7 @@ Bases: {py:obj}`agentsociety.message.MessageBlockBase`
 
 Bases: {py:obj}`agentsociety.message.MessageBlockBase`
 
-````{py:method} forward(from_uuid: str, to_uuid: str, msg: str, violation_counts: dict[str, int], black_list: list[tuple[str, str]])
+````{py:method} forward(from_id: int, to_id: int, msg: str, violation_counts: dict[int, int], black_list: list[tuple[int, int]])
 :canonical: agentsociety.cityagent.message_intercept.PointMessageBlock.forward
 :async:
 

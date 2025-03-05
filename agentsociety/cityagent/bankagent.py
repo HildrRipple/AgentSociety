@@ -15,6 +15,22 @@ logger = logging.getLogger("agentsociety")
 
 
 def calculate_inflation(prices):
+    """
+    Calculate annual inflation rates based on historical price data.
+
+    Args:
+        prices (list/np.array): A list of monthly price values
+
+    Returns:
+        list: Annual inflation rates in percentages. Returns empty list if
+              insufficient data (less than 2 full years of data).
+
+    Logic:
+        1. Truncates input to full years of data (multiples of 12 months)
+        2. Reshapes monthly data into yearly groups
+        3. Computes average price per year
+        4. Calculates year-over-year inflation rates
+    """
     # Make sure the length of price data is a multiple of 12
     length = len(prices)
     months_in_year = 12
@@ -38,6 +54,18 @@ def calculate_inflation(prices):
 
 
 class BankAgent(InstitutionAgent):
+    """
+    A central banking agent that manages monetary policy in the simulation.
+
+    Key Responsibilities:
+    1. Adjusts interest rates based on inflation trends (Taylor Rule implementation)
+    2. Applies interest to citizens' savings periodically
+    3. Interacts with economic simulation components via EconomyClient
+
+    Configurable Parameters:
+    - time_diff: Frequency of policy updates in simulation seconds (default: 30 days)
+    """
+
     configurable_fields = ["time_diff"]
     default_values = {
         "time_diff": 30 * 24 * 60 * 60,
@@ -56,6 +84,18 @@ class BankAgent(InstitutionAgent):
         messager: Optional[Messager] = None,  # type:ignore
         avro_file: Optional[dict] = None,
     ) -> None:
+        """
+        Initialize the banking agent.
+
+        Args:
+            name: Unique identifier for the agent
+            llm_client: Language model client for decision-making (unused in current implementation)
+            simulator: Simulation time controller
+            memory: Agent memory system (unused in current implementation)
+            economy_client: Interface for economic data operations
+            messager: Communication subsystem (unused in current implementation)
+            avro_file: Data schema configuration (unused in current implementation)
+        """
         super().__init__(
             name=name,
             llm_client=llm_client,
@@ -71,6 +111,15 @@ class BankAgent(InstitutionAgent):
         self.forward_times = 0
 
     async def month_trigger(self):
+        """
+        Check if monthly policy update should be triggered.
+
+        Returns:
+            bool: True if required time interval has passed since last update
+
+        Note:
+            Uses simulation time rather than real-world time
+        """
         now_time = await self.simulator.get_time()
         now_time = cast(int, now_time)
         if self.last_time_trigger is None:
@@ -82,26 +131,40 @@ class BankAgent(InstitutionAgent):
         return False
 
     async def gather_messages(self, agent_ids, content):  # type:ignore
+        """
+        Collect messages from other agents.
+
+        Returns:
+            list: Message contents stripped of metadata
+        """
         infos = await super().gather_messages(agent_ids, content)
         return [info["content"] for info in infos]
 
     async def forward(self):
+        """
+        Execute monthly policy update cycle.
+
+        Performs two main actions:
+        1. Applies interest to citizens' savings
+        2. Adjusts interest rate based on inflation (Taylor Rule)
+        """
         if await self.month_trigger():
+            bank_id = self._agent_id
             print("bank forward")
-            interest_rate = await self.economy_client.get(
-                self._agent_id, "interest_rate"
+            interest_rate, citizens = await self.economy_client.get(
+                bank_id,
+                ["interest_rate", "citizens"],
             )
-            citizens = await self.economy_client.get(self._agent_id, "citizens")
-            for citizen in citizens:
-                wealth = await self.economy_client.get(citizen, "currency")
-                await self.economy_client.add_delta_value(
-                    citizen, "currency", interest_rate * wealth
+            currencies = await self.economy_client.get(citizens, "currency")
+            # update currency with interest
+            for citizen, wealth in zip(citizens, currencies):
+                await self.economy_client.delta_update_agents(
+                    citizen, delta_currency=interest_rate * wealth
                 )
-            nbs_id = await self.economy_client.get_org_entity_ids(
-                economyv2.ORG_TYPE_NBS
-            )
+            nbs_id = await self.economy_client.get_nbs_ids()
             nbs_id = nbs_id[0]
             prices = await self.economy_client.get(nbs_id, "prices")
+            prices = list(prices.values())
             inflations = calculate_inflation(prices)
             natural_interest_rate = 0.01
             target_inflation = 0.02
@@ -117,7 +180,5 @@ class BankAgent(InstitutionAgent):
                 )
             else:
                 interest_rate = natural_interest_rate + target_inflation
-            await self.economy_client.update(
-                self._agent_id, "interest_rate", interest_rate
-            )
+            await self.economy_client.update(bank_id, "interest_rate", interest_rate)
             print("bank forward end")

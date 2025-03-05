@@ -2,28 +2,32 @@ import asyncio
 import json
 import logging
 import numbers
-import pickle as pkl
 import random
 
 import numpy as np
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
 
-from agentsociety.environment import EconomyClient
-from agentsociety.environment.simulator import Simulator
+from agentsociety.environment import EconomyClient, Simulator
 from agentsociety.llm import LLM
-from agentsociety.llm.llm import LLM
 from agentsociety.memory import Memory
-from agentsociety.workflow import Block
-from agentsociety.workflow.block import Block
-from agentsociety.workflow.prompt import FormatPrompt
+from agentsociety.workflow import Block, FormatPrompt
 
 from .dispatcher import BlockDispatcher
 from .utils import *
-from .utils import TIME_ESTIMATE_PROMPT, clean_json_response
 
 logger = logging.getLogger("agentsociety")
 
+
 def softmax(x, gamma=1.0):
+    """Compute softmax values with temperature scaling.
+
+    Args:
+        x: Input values (array or list)
+        gamma: Temperature parameter (higher values make distribution sharper)
+
+    Returns:
+        Probability distribution over input values
+    """
     if not isinstance(x, np.ndarray):
         x = np.array(x)
     x *= gamma
@@ -32,21 +36,45 @@ def softmax(x, gamma=1.0):
 
 
 class WorkBlock(Block):
-    """WorkPlace Block"""
+    """Handles work-related economic activities and time tracking.
+
+    Attributes:
+        guidance_prompt: Template for time estimation queries
+    """
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
+        """Initialize with dependencies.
+
+        Args:
+            llm: Language model for time estimation
+            memory: Agent's memory system
+            simulator: Time tracking simulator
+        """
         super().__init__("WorkBlock", llm=llm, memory=memory, simulator=simulator)
         self.description = "Do work related tasks"
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
-    async def forward(self, step, context):
+    async def forward(self, step, context):  # type:ignore
+        """Process work task and track time expenditure.
+
+        Workflow:
+            1. Format prompt with work context
+            2. Request time estimation from LLM
+            3. Record work experience in memory
+            4. Fallback to random time on parsing failures
+
+        Returns:
+            Execution result with time consumption details
+        """
         self.guidance_prompt.format(
             plan=context["plan"],
             intention=step["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),
         )
-        result = await self.llm.atext_request(self.guidance_prompt.to_dialog(), response_format={"type": "json_object"})
-        result = clean_json_response(result)
+        result = await self.llm.atext_request(
+            self.guidance_prompt.to_dialog(), response_format={"type": "json_object"}
+        )
+        result = clean_json_response(result)  # type:ignore
         try:
             result = json.loads(result)
             time = result["time"]
@@ -96,8 +124,11 @@ class WorkBlock(Block):
 
 
 class ConsumptionBlock(Block):
-    """
-    determine the consumption amount, and items
+    """Manages consumption behavior and budget constraints.
+
+    Attributes:
+        economy_client: Interface to economic simulation
+        forward_times: Counter for execution attempts
     """
 
     def __init__(
@@ -107,6 +138,11 @@ class ConsumptionBlock(Block):
         simulator: Simulator,
         economy_client: EconomyClient,
     ):
+        """Initialize consumption processor.
+
+        Args:
+            economy_client: Client for economic system interactions
+        """
         super().__init__(
             "ConsumptionBlock", llm=llm, memory=memory, simulator=simulator
         )
@@ -114,10 +150,21 @@ class ConsumptionBlock(Block):
         self.forward_times = 0
         self.description = "Used to determine the consumption amount, and items"
 
-    async def forward(self, step, context):
+    async def forward(self, step, context):  # type:ignore
+        """Execute consumption decision-making.
+
+        Workflow:
+            1. Check monthly consumption limits
+            2. Calculate price-weighted demand distribution
+            3. Execute transactions through economy client
+            4. Record consumption in memory stream
+
+        Returns:
+            Consumption evaluation with financial details
+        """
         self.forward_times += 1
         agent_id = await self.memory.status.get("id")  # agent_id
-        firms_id = await self.economy_client.get_org_entity_ids(economyv2.ORG_TYPE_FIRM)
+        firms_id = await self.economy_client.get_firm_ids()
         intention = step["intention"]
         month_consumption = await self.memory.status.get("to_consumption_currency")
         consumption_currency = await self.economy_client.get(agent_id, "consumption")
@@ -134,10 +181,7 @@ class ConsumptionBlock(Block):
         consumption = min(
             month_consumption / 1, month_consumption - consumption_currency
         )
-        prices = []
-        for this_firm_id in firms_id:
-            price = await self.economy_client.get(this_firm_id, "price")
-            prices.append(price)
+        prices = await self.economy_client.get(firms_id, "price")
         consumption_each_firm = consumption * softmax(prices, gamma=-0.01)
         demand_each_firm = []
         for i in range(len(firms_id)):
@@ -159,15 +203,15 @@ class ConsumptionBlock(Block):
 
 class EconomyNoneBlock(Block):
     """
-    Do anything else
-    NoneBlock
+    Fallback block for non-economic/non-specified activities.
     """
 
     def __init__(self, llm: LLM, memory: Memory):
         super().__init__("NoneBlock", llm=llm, memory=memory)
         self.description = "Do anything else"
 
-    async def forward(self, step, context):
+    async def forward(self, step, context):  # type:ignore
+        """Log generic activities in economy stream."""
         node_id = await self.memory.stream.add_economy(
             description=f"I {step['intention']}"
         )
@@ -180,6 +224,15 @@ class EconomyNoneBlock(Block):
 
 
 class EconomyBlock(Block):
+    """Orchestrates economic activities through specialized sub-blocks.
+
+    Attributes:
+        dispatcher: Routes tasks to appropriate sub-blocks
+        work_block: Work activity handler
+        consumption_block: Consumption manager
+        none_block: Fallback activities
+    """
+
     work_block: WorkBlock
     consumption_block: ConsumptionBlock
     none_block: EconomyNoneBlock
@@ -205,7 +258,13 @@ class EconomyBlock(Block):
             [self.work_block, self.consumption_block, self.none_block]
         )
 
-    async def forward(self, step, context):
+    async def forward(self, step, context):  # type:ignore
+        """Coordinate economic activity execution.
+
+        Workflow:
+            1. Use dispatcher to select appropriate handler
+            2. Delegate execution to selected block
+        """
         self.trigger_time += 1
         selected_block = await self.dispatcher.dispatch(step)
         result = await selected_block.forward(step, context)  # type: ignore
@@ -213,7 +272,13 @@ class EconomyBlock(Block):
 
 
 class MonthPlanBlock(Block):
-    """Monthly Planning"""
+    """Manages monthly economic planning and mental health assessment.
+
+    Attributes:
+        configurable_fields: Economic policy parameters
+        economy_client: Interface to economic system
+        llm_error: Counter for LLM failures
+    """
 
     configurable_fields = [
         "UBI",
@@ -254,39 +319,43 @@ class MonthPlanBlock(Block):
         self.time_diff = 30 * 24 * 60 * 60
 
     async def month_trigger(self):
+        """Check if monthly planning cycle should activate."""
         now_time = await self.simulator.get_time()
         if (
             self.last_time_trigger is None
-            or now_time - self.last_time_trigger >= self.time_diff
+            or now_time - self.last_time_trigger >= self.time_diff  # type:ignore
         ):
             self.last_time_trigger = now_time
             return True
         return False
 
     async def forward(self):
+        """Execute monthly planning workflow.
+
+        Workflow:
+            1. Collect economic indicators
+            2. Generate LLM prompts for work/consumption propensity
+            3. Update agent's economic status
+            4. Periodically conduct mental health assessments
+            5. Handle UBI policy evaluations
+        """
         if await self.month_trigger():
             agent_id = await self.memory.status.get("id")
-            firms_id = await self.economy_client.get_org_entity_ids(
-                economyv2.ORG_TYPE_FIRM
-            )
+            firms_id = await self.economy_client.get_firm_ids()
             firm_id = await self.memory.status.get("firm_id")
-            bank_id = await self.economy_client.get_org_entity_ids(
-                economyv2.ORG_TYPE_BANK
-            )
+            bank_id = await self.economy_client.get_bank_ids()
             bank_id = bank_id[0]
             name = await self.memory.status.get("name")
             age = await self.memory.status.get("age")
             city = await self.memory.status.get("city")
             job = await self.memory.status.get("occupation")
-            skill = await self.economy_client.get(agent_id, "skill")
-            consumption = await self.economy_client.get(agent_id, "consumption")
+            skill, consumption, wealth = await self.economy_client.get(
+                agent_id, ["skill", "consumption", "currency"]
+            )
+            logger.debug(f"type of skill: {type(skill)}, value: {skill}")
             tax_paid = await self.memory.status.get("tax_paid")
-            prices = []
-            for this_firm_id in firms_id:
-                price = await self.economy_client.get(this_firm_id, "price")
-                prices.append(price)
+            prices = await self.economy_client.get(firms_id, "price")
             price = np.mean(prices)
-            wealth = await self.economy_client.get(agent_id, "currency")
             interest_rate = await self.economy_client.get(bank_id, "interest_rate")
 
             problem_prompt = f"""
@@ -365,8 +434,8 @@ class MonthPlanBlock(Block):
             wealth = await self.economy_client.get(agent_id, "currency")
             wealth += work_hours * work_skill
             await self.economy_client.update(agent_id, "currency", wealth)
-            await self.economy_client.add_delta_value(
-                firm_id, "inventory", int(work_hours * self.productivity_per_labor)
+            await self.economy_client.delta_update_firms(
+                firm_id, delta_inventory=int(work_hours * self.productivity_per_labor)
             )
 
             if self.UBI and self.forward_times >= 96:

@@ -41,20 +41,20 @@ simulator_request:
   log_dir: log # Directory where simulator logs will be stored.
   min_step_time: 1000 # Minimum execution time (in milliseconds) per step.
 
-mqtt:
-  server: <MQTT-BROKER> # Specify the MQTT server address here.
-  port: 1883 # Port number on which the MQTT service is running.
-  username: <USER-NAME> # Username for MQTT server authentication.
-  password: <PASSWORD> # Password for MQTT server authentication.
+redis:
+  server: <REDIS-SERVER> # Specify the Redis server address here.
+  port: 6379 # Port number on which the Redis service is running.
+  username: <USER-NAME> # Username for Redis server authentication.
+  password: <USER-NAME> # Password for Redis server authentication.
 
 map_request:
   file_path: data/beijing_map.pb # Path to the map file, reference to step1.
 
 metric_request:
   mlflow: 
-      username: <USER-NAME> # Username for MLflow authentication.
-      password: <PASSWORD> # Password for MLflow authentication.
-      mlflow_uri: <MLFLOW-URI> # URI pointing to the MLflow tracking server.
+    username: <USER-NAME> # Username for MLflow authentication.
+    password: <PASSWORD> # Password for MLflow authentication.
+    mlflow_uri: <MLFLOW-URI> # URI pointing to the MLflow tracking server.
 
 pgsql:
   enabled: true # Whether PostgreSQL database integration is enabled.
@@ -120,7 +120,7 @@ After adjusting the configuration files, running the Python code above will prod
 
 ```{admonition} Caution
 :class: caution
-To use this interface, you MUST deploy PostgreSQL, MLflow and MQTT first.
+To use this interface, you MUST deploy PostgreSQL, MLflow and Redis first.
 ```
 
 When the simulation is done, you can use our visualization tool within the python package `agentsociety-ui` to replay the simulation.
@@ -128,9 +128,9 @@ An example config file (assumed filename: `ui_config.yaml`) is as follow:
 
 ```yaml
 addr: localhost:8080 # Address for the UI service
-mqtt_broker: <MQTT-BROKER> # MQTT broker address, e.g. `localhost:1883`
-mqtt_username: <USER-NAME> # Username for MQTT.
-mqtt_password: <PASSWORD> # Password for MQTT.
+redis_server: <REDIS-SERVER> # Redis server address, e.g. `localhost:6379`
+redis_username: <USER-NAME> # Username for Redis.
+redis_password: <PASSWORD> # Password for Redis.
 pg_dsn: <DSN> # PostgreSQL DSN for database connection, e.g. `postgresql://postgres:CHANGE_ME@postgresql:5432/postgres`
 mlflow_url: <MLFLOW-URI> # URL for MLflow server, e.g. `localhost:59000`
 ```

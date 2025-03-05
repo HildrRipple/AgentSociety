@@ -10,6 +10,7 @@ import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
 from ..environment import EconomyClient, Simulator
+from ..environment.economy import EconomyEntityType
 from ..llm import LLM
 from ..memory import Memory
 from ..message import MessageInterceptor, Messager
@@ -139,7 +140,7 @@ class CitizenAgent(Agent):
             return
         if not self._has_bound_to_economy:
             try:
-                await self._economy_client.remove_agents([self._agent_id])
+                await self.economy_client.remove_agents([self._agent_id])
             except:
                 pass
             person_id = await self.status.get("id")
@@ -147,7 +148,7 @@ class CitizenAgent(Agent):
             skill = await self.status.get("work_skill")
             consumption = 0.0
             income = 0.0
-            await self._economy_client.add_agents(
+            await self.economy_client.add_agents(
                 {
                     "id": person_id,
                     "currency": currency,
@@ -170,13 +171,13 @@ class CitizenAgent(Agent):
             - Retrieves the content associated with the target attribute from the agent's status.
             - Prepares a response payload with the retrieved content and sends it back to the sender using `_send_message`.
         """
-        # 处理收到的消息，识别发送者
-        # 从消息中解析发送者 ID 和消息内容
+        # Process the received message, identify the sender
+        # Parse sender ID and message content from the message
         target = payload["target"]
         sender_id = payload["from"]
         content = await self.status.get(f"{target}")
         payload = {
-            "from": self._uuid,
+            "from": self.id,
             "content": content,
         }
         await self._send_message(sender_id, payload, "gather")
@@ -208,7 +209,7 @@ class InstitutionAgent(Agent):
 
     - **Attributes**:
         - `_mlflow_client`: An optional client for integrating with MLflow for experiment tracking and management.
-        - `_gather_responses`: A dictionary mapping agent UUIDs to `asyncio.Future` objects used for collecting responses to gather requests.
+        - `_gather_responses`: A dictionary mapping agent IDs to `asyncio.Future` objects used for collecting responses to gather requests.
     """
 
     def __init__(
@@ -251,7 +252,7 @@ class InstitutionAgent(Agent):
             avro_file=avro_file,
         )
         self._mlflow_client = None
-        # 添加响应收集器
+        # add response collector
         self._gather_responses: dict[str, asyncio.Future] = {}
 
     async def bind_to_simulator(self):
@@ -305,10 +306,6 @@ class InstitutionAgent(Agent):
             )
             await self.status.update("id", _id, protect_llm_read_only_fields=False)
             try:
-                await self._economy_client.remove_orgs([self._agent_id])
-            except:
-                pass
-            try:
                 _status = self.status
                 _id = await _status.get("id")
                 _type = await _status.get("type")
@@ -333,7 +330,7 @@ class InstitutionAgent(Agent):
                 citizens = await _status.get("citizens", [])
                 demand = await _status.get("demand", 0)
                 sales = await _status.get("sales", 0)
-                await self._economy_client.add_orgs(
+                await self.economy_client.add_orgs(
                     {
                         "id": _id,
                         "type": _type,
@@ -360,7 +357,9 @@ class InstitutionAgent(Agent):
                         "sales": sales,
                     }
                 )
+                print(f"Binding to Institution {_type} `{_id}` just added to Economy")
             except Exception as e:
+                print(f"Failed to bind to Economy: {e}, {_type}, {_id}")
                 logger.error(f"Failed to bind to Economy: {e}")
             self._has_bound_to_economy = True
 
@@ -378,7 +377,7 @@ class InstitutionAgent(Agent):
         content = payload["content"]
         sender_id = payload["from"]
 
-        # 将响应存储到对应的Future中
+        # Store the response into the corresponding Future
         response_key = str(sender_id)
         if response_key in self._gather_responses:
             self._gather_responses[response_key].set_result(
@@ -388,43 +387,43 @@ class InstitutionAgent(Agent):
                 }
             )
 
-    async def gather_messages(self, agent_uuids: list[str], target: str) -> list[dict]:
+    async def gather_messages(self, agent_ids: list[int], target: str) -> list[dict]:
         """
         Gather messages from multiple agents.
 
         - **Args**:
-            - `agent_uuids` (`list[str]`): A list of UUIDs for the target agents.
+            - `agent_ids` (`list[int]`): A list of IDs for the target agents.
             - `target` (`str`): The type of information to collect from each agent.
 
         - **Returns**:
             - `list[dict]`: A list of dictionaries containing the collected responses.
 
         - **Description**:
-            - For each agent UUID provided, creates a `Future` object to wait for its response.
+            - For each agent ID provided, creates a `Future` object to wait for its response.
             - Sends a gather request to each specified agent.
             - Waits for all responses and returns them as a list of dictionaries.
             - Ensures cleanup of Futures after collecting responses.
         """
-        # 为每个agent创建Future
+        # Create a Future for each agent
         futures = {}
-        for agent_uuid in agent_uuids:
-            futures[agent_uuid] = asyncio.Future()
-            self._gather_responses[agent_uuid] = futures[agent_uuid]
+        for agent_id in agent_ids:
+            futures[agent_id] = asyncio.Future()
+            self._gather_responses[agent_id] = futures[agent_id]
 
-        # 发送gather请求
+        # Send gather requests
         payload = {
-            "from": self._uuid,
+            "from": self.id,
             "target": target,
         }
-        for agent_uuid in agent_uuids:
-            await self._send_message(agent_uuid, payload, "gather")
+        for agent_id in agent_ids:
+            await self._send_message(agent_id, payload, "gather")
 
         try:
-            # 等待所有响应
+            # Wait for all responses
             responses = await asyncio.gather(*futures.values())
             return responses
         finally:
-            # 清理Future
+            # Cleanup Futures
             for key in futures:
                 self._gather_responses.pop(key, None)
 

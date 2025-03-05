@@ -79,10 +79,10 @@
 
 ````
 
-````{py:property} agent_uuids
-:canonical: agentsociety.simulation.agentgroup.AgentGroup.agent_uuids
+````{py:property} agent_ids
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.agent_ids
 
-```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.agent_uuids
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.agent_ids
 ```
 
 ````
@@ -104,7 +104,7 @@
 
 ````
 
-````{py:method} set_economy_ids(agent_ids: set[int], org_ids: set[int])
+````{py:method} set_economy_ids(agent_ids: set[int], firm_ids: set[int], bank_ids: set[int], nbs_ids: set[int], government_ids: set[int])
 :canonical: agentsociety.simulation.agentgroup.AgentGroup.set_economy_ids
 :async:
 
@@ -121,10 +121,10 @@
 
 ````
 
-````{py:method} get_agent_uuids()
-:canonical: agentsociety.simulation.agentgroup.AgentGroup.get_agent_uuids
+````{py:method} get_agent_ids()
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.get_agent_ids
 
-```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.get_agent_uuids
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.get_agent_ids
 ```
 
 ````
@@ -173,7 +173,7 @@
 
 ````
 
-````{py:method} gather(content: str, target_agent_uuids: typing.Optional[list[str]] = None)
+````{py:method} gather(content: str, target_agent_ids: typing.Optional[list[int]] = None)
 :canonical: agentsociety.simulation.agentgroup.AgentGroup.gather
 :async:
 
@@ -182,7 +182,7 @@
 
 ````
 
-````{py:method} update(target_agent_uuid: str, target_key: str, content: typing.Any)
+````{py:method} update(target_agent_id: int, target_key: str, content: typing.Any)
 :canonical: agentsociety.simulation.agentgroup.AgentGroup.update
 :async:
 

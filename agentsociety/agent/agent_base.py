@@ -4,7 +4,6 @@ import asyncio
 import inspect
 import json
 import logging
-import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
@@ -82,7 +81,6 @@ class Agent(ABC):
         """
         self._name = name
         self._type = type
-        self._uuid = str(uuid.uuid4())
         self._llm_client = llm_client
         self._economy_client = economy_client
         self._messager = messager
@@ -91,18 +89,19 @@ class Agent(ABC):
         self._memory = memory
         self._exp_id = -1
         self._agent_id = -1
+        self._tenant_id = ""
         self._has_bound_to_simulator = False
         self._has_bound_to_economy = False
         self._blocked = False
-        self._interview_history: list[dict] = []  # 存储采访历史
+        self._interview_history: list[dict] = []  # Store interview history
         self._person_template = PersonService.default_dict_person()
         self._avro_file = avro_file
         self._pgsql_writer = copy_writer
-        self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
+        self._last_asyncio_pg_task = None  # Hide SQL writes behind computational tasks
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        # 排除锁对象
+        # Exclude lock objects
         del state["_llm_client"]
         return state
 
@@ -145,7 +144,7 @@ class Agent(ABC):
             field: cls.fields_description.get(field, "")
             for field in cls.configurable_fields
         }
-        # 解析类中的注解，找到Block类型的字段
+        # Parse class annotations to find fields of type Block
         hints = get_type_hints(cls)
         for attr_name, attr_type in hints.items():
             if inspect.isclass(attr_type) and issubclass(attr_type, Block):
@@ -163,7 +162,7 @@ class Agent(ABC):
     @classmethod
     def _export_subblocks(cls, block_cls: type[Block]) -> list[dict]:
         children = []
-        hints = get_type_hints(block_cls)  # 获取类的注解
+        hints = get_type_hints(block_cls)  # Get class annotations
         for attr_name, attr_type in hints.items():
             if inspect.isclass(attr_type) and issubclass(attr_type, Block):
                 block_config = attr_type.export_class_config()
@@ -218,12 +217,11 @@ class Agent(ABC):
             block_instance = block_cls.import_config(block_data)
             return block_instance
 
-        # 创建顶层Block
+        # Create top-level Blocks
         for block_data in config["blocks"]:
             assert isinstance(block_data, dict)
             block = build_block(block_data)
             setattr(agent, block.name.lower(), block)
-
         return agent
 
     @classmethod
@@ -349,15 +347,21 @@ class Agent(ABC):
         """
         self._message_interceptor = message_interceptor
 
-    @property
-    def uuid(self):
-        """The Agent's UUID"""
-        return self._uuid
+    def set_tenant_id(self, tenant_id: str):
+        """
+        Set the tenant_id of the agent.
+        """
+        self._tenant_id = tenant_id
 
     @property
-    def sim_id(self):
+    def id(self):
         """The Agent's Simulator ID"""
         return self._agent_id
+
+    @property
+    def tenant_id(self):
+        """The Agent's Tenant ID"""
+        return self._tenant_id
 
     @property
     def llm(self):
@@ -478,11 +482,11 @@ class Agent(ABC):
         survey_prompt = process_survey_for_llm(survey)
         dialog = []
 
-        # 添加系统提示
+        # Add system prompt
         system_prompt = "Please answer the survey question in first person. Follow the format requirements strictly and provide clear and specific answers."
         dialog.append({"role": "system", "content": system_prompt})
 
-        # 添加记忆上下文
+        # Add memory context
         if self._memory:
             profile_and_states = await self.status.search(survey_prompt)
             relevant_activities = await self.stream.search(survey_prompt)
@@ -494,10 +498,10 @@ class Agent(ABC):
                 }
             )
 
-        # 添加问卷问题
+        # Add survey question
         dialog.append({"role": "user", "content": survey_prompt})
 
-        # 使用LLM生成回答
+        # Use LLM to generate a response
         if not self._llm_client:
             return "Sorry, I cannot answer survey questions right now."
 
@@ -524,7 +528,8 @@ class Agent(ABC):
         # Avro
         response_to_avro = [
             {
-                "id": self._uuid,
+                "id": self.id,
+                "tenant_id": self.tenant_id,
                 "day": await self.simulator.get_simulator_day(),
                 "t": await self.simulator.get_simulator_second_from_start_of_day(),
                 "survey_id": survey["id"],
@@ -541,6 +546,7 @@ class Agent(ABC):
                 await self._last_asyncio_pg_task
             _keys = [
                 "id",
+                "tenant_id",
                 "day",
                 "t",
                 "survey_id",
@@ -587,11 +593,11 @@ class Agent(ABC):
         """
         dialog = []
 
-        # 添加系统提示
+        # Add system prompt
         system_prompt = "Please answer the question in first person and keep the response concise and clear."
         dialog.append({"role": "system", "content": system_prompt})
 
-        # 添加记忆上下文
+        # Add memory context
         if self._memory:
             profile_and_states = await self.status.search(question, top_k=10)
             relevant_activities = await self.stream.search(question, top_k=10)
@@ -603,10 +609,10 @@ class Agent(ABC):
                 }
             )
 
-        # 添加用户问题
+        # Add user question
         dialog.append({"role": "user", "content": question})
 
-        # 使用LLM生成回答
+        # Use LLM to generate a response
         if not self._llm_client:
             return "Sorry, I cannot answer questions right now."
 
@@ -633,7 +639,7 @@ class Agent(ABC):
         auros: list[dict] = []
         _date_time = datetime.now(timezone.utc)
         _interview_dict = {
-            "id": self._uuid,
+            "id": self.id,
             "day": await self.simulator.get_simulator_day(),
             "t": await self.simulator.get_simulator_second_from_start_of_day(),
             "type": 2,
@@ -647,7 +653,7 @@ class Agent(ABC):
         response = await self.generate_user_chat_response(question)
         _date_time = datetime.now(timezone.utc)
         _interview_dict = {
-            "id": self._uuid,
+            "id": self.id,
             "day": await self.simulator.get_simulator_day(),
             "t": await self.simulator.get_simulator_second_from_start_of_day(),
             "type": 2,
@@ -692,7 +698,7 @@ class Agent(ABC):
         """
         _date_time = datetime.now(timezone.utc)
         _thought_dict = {
-            "id": self._uuid,
+            "id": self.id,
             "day": await self.simulator.get_simulator_day(),
             "t": await self.simulator.get_simulator_second_from_start_of_day(),
             "type": 0,
@@ -735,7 +741,7 @@ class Agent(ABC):
             - Logs the receipt of a chat response from another agent.
             - Returns a formatted string for logging purposes.
         """
-        resp = f"Agent {self._uuid} received agent chat response: {payload}"
+        resp = f"Agent {self.id} received agent chat response: {payload}"
         logger.info(resp)
         return resp
 
@@ -757,7 +763,7 @@ class Agent(ABC):
         auros: list[dict] = []
         _date_time = datetime.now(timezone.utc)
         _chat_dict = {
-            "id": self._uuid,
+            "id": self.id,
             "day": payload["day"],
             "t": payload["t"],
             "type": 1,
@@ -787,7 +793,7 @@ class Agent(ABC):
                 )
             )
 
-    # Callback functions for MQTT message
+    # Callback functions for Redis message
     async def handle_agent_chat_message(self, payload: dict):
         """
         Handle an incoming chat message from another agent.
@@ -798,11 +804,11 @@ class Agent(ABC):
         - **Description**:
             - Logs receipt of a chat message from another agent.
             - Delegates the processing of the chat message to `_process_agent_chat`.
-            - This method is typically used as a callback function for MQTT messages.
+            - This method is typically used as a callback function for Redis messages.
         """
-        # 处理收到的消息，识别发送者
-        # 从消息中解析发送者 ID 和消息内容
-        logger.info(f"Agent {self._uuid} received agent chat message: {payload}")
+        # Process the received message, identify the sender
+        # Parse sender ID and message content from the message
+        logger.info(f"Agent {self.id} received agent chat message: {payload}")
         asyncio.create_task(self._process_agent_chat(payload))
 
     async def handle_user_chat_message(self, payload: dict):
@@ -815,11 +821,11 @@ class Agent(ABC):
         - **Description**:
             - Logs receipt of a chat message from a user.
             - Delegates the processing of the interview (which includes generating a response) to `_process_interview`.
-            - This method is typically used as a callback function for MQTT messages.
+            - This method is typically used as a callback function for Redis messages.
         """
-        # 处理收到的消息，识别发送者
-        # 从消息中解析发送者 ID 和消息内容
-        logger.info(f"Agent {self._uuid} received user chat message: {payload}")
+        # Process the received message, identify the sender
+        # Parse sender ID and message content from the message
+        logger.info(f"Agent {self.id} received user chat message: {payload}")
         asyncio.create_task(self._process_interview(payload))
 
     async def handle_user_survey_message(self, payload: dict):
@@ -832,11 +838,11 @@ class Agent(ABC):
         - **Description**:
             - Logs receipt of a survey message from a user.
             - Extracts the survey data from the payload and delegates its processing to `_process_survey`.
-            - This method is typically used as a callback function for MQTT messages.
+            - This method is typically used as a callback function for Redis messages.
         """
-        # 处理收到的消息，识别发送者
-        # 从消息中解析发送者 ID 和消息内容
-        logger.info(f"Agent {self._uuid} received user survey message: {payload}")
+        # Process the received message, identify the sender
+        # Parse sender ID and message content from the message
+        logger.info(f"Agent {self.id} received user survey message: {payload}")
         asyncio.create_task(self._process_survey(payload["data"]))
 
     async def handle_gather_message(self, payload: Any):
@@ -852,45 +858,44 @@ class Agent(ABC):
         - **Description**:
             - This method is intended to handle specific types of gather messages but has not been implemented yet.
         """
-        raise NotImplementedError
 
-    # MQTT send message
-    async def _send_message(self, to_agent_uuid: str, payload: dict, sub_topic: str):
+    # Redis send message
+    async def _send_message(self, to_agent_id: int, payload: dict, sub_topic: str):
         """
         Send a message to another agent through the Messager.
 
         - **Args**:
-            - `to_agent_uuid` (`str`): The UUID of the recipient agent.
+            - `to_agent_id` (`int`): The ID of the recipient agent.
             - `payload` (`dict`): The content of the message to send.
-            - `sub_topic` (`str`): The sub-topic for the MQTT topic structure.
+            - `sub_topic` (`str`): The sub-topic for the Redis topic structure.
 
         - **Raises**:
             - `RuntimeError`: If the Messager is not set.
 
         - **Description**:
-            - Constructs the full MQTT topic based on the experiment ID, recipient UUID, and sub-topic.
+            - Constructs the full Redis topic based on the experiment ID, recipient ID, and sub-topic.
             - Sends the message asynchronously through the Messager.
             - Used internally by other methods like `send_message_to_agent`.
         """
-        # 通过 Messager 发送消息
+        # send message with `Messager`
         if self._messager is None:
             raise RuntimeError("Messager is not set")
-        topic = f"exps/{self._exp_id}/agents/{to_agent_uuid}/{sub_topic}"
+        topic = f"exps/{self._exp_id}/agents/{to_agent_id}/{sub_topic}"
         await self._messager.send_message.remote(  # type:ignore
             topic,
             payload,
-            self._uuid,
-            to_agent_uuid,
+            self.id,
+            to_agent_id,
         )
 
     async def send_message_to_agent(
-        self, to_agent_uuid: str, content: str, type: str = "social"
+        self, to_agent_id: int, content: str, type: str = "social"
     ):
         """
         Send a social or economy message to another agent.
 
         - **Args**:
-            - `to_agent_uuid` (`str`): The UUID of the recipient agent.
+            - `to_agent_id` (`int`): The ID of the recipient agent.
             - `content` (`str`): The content of the message to send.
             - `type` (`str`, optional): The type of the message ("social" or "economy"). Defaults to "social".
 
@@ -904,29 +909,29 @@ class Agent(ABC):
             - Optionally records the message in Avro format and PostgreSQL if it's a "social" type message.
             - Ensures thread-safe operations when writing to PostgreSQL by waiting for any previous write task to complete before starting a new one.
         """
-        # 通过 Messager 发送消息
+        # send message with `Messager`
         if self._messager is None:
             raise RuntimeError("Messager is not set")
         if type not in ["social", "economy"]:
-            logger.warning(f"Invalid message type: {type}, sent from {self._uuid}")
+            logger.warning(f"Invalid message type: {type}, sent from {self.id}")
         payload = {
-            "from": self._uuid,
+            "from": self.id,
             "content": content,
             "type": type,
             "timestamp": int(datetime.now().timestamp() * 1000),
             "day": await self.simulator.get_simulator_day(),
             "t": await self.simulator.get_simulator_second_from_start_of_day(),
         }
-        await self._send_message(to_agent_uuid, payload, "agent-chat")
+        await self._send_message(to_agent_id, payload, "agent-chat")
         pg_list: list[tuple[dict, datetime]] = []
         auros: list[dict] = []
         _date_time = datetime.now(timezone.utc)
         _message_dict = {
-            "id": self._uuid,
+            "id": self.id,
             "day": await self.simulator.get_simulator_day(),
             "t": await self.simulator.get_simulator_second_from_start_of_day(),
             "type": 1,
-            "speaker": self._uuid,
+            "speaker": self.id,
             "content": content,
             "created_at": int(datetime.now().timestamp() * 1000),
         }
@@ -964,7 +969,6 @@ class Agent(ABC):
             - This abstract method should contain the core logic for what the agent does at each step of its operation.
             - It is intended to be overridden by subclasses to define specific behaviors.
         """
-        # 智能体行为逻辑
         raise NotImplementedError
 
     async def run(self) -> None:

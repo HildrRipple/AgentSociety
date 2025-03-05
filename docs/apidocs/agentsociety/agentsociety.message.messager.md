@@ -59,7 +59,7 @@
 
 ````
 
-`````{py:class} Messager(hostname: str, port: int = 1883, username=None, password=None, timeout=60, message_interceptor: typing.Optional[ray.ObjectRef] = None)
+`````{py:class} Messager(hostname: str, port: int = 6379, username=None, password=None, timeout=60, message_interceptor: typing.Optional[ray.ObjectRef] = None)
 :canonical: agentsociety.message.messager.Messager
 
 ```{autodoc2-docstring} agentsociety.message.messager.Messager
@@ -149,20 +149,11 @@
 
 ````
 
-````{py:method} subscribe(topics: typing.Union[str, list[str]], agents: typing.Union[typing.Any, list[typing.Any]])
+````{py:method} subscribe(channels: typing.Union[str, list[str]], agents: typing.Union[typing.Any, list[typing.Any]])
 :canonical: agentsociety.message.messager.Messager.subscribe
 :async:
 
 ```{autodoc2-docstring} agentsociety.message.messager.Messager.subscribe
-```
-
-````
-
-````{py:method} receive_messages()
-:canonical: agentsociety.message.messager.Messager.receive_messages
-:async:
-
-```{autodoc2-docstring} agentsociety.message.messager.Messager.receive_messages
 ```
 
 ````
@@ -176,11 +167,20 @@
 
 ````
 
-````{py:method} send_message(topic: str, payload: dict, from_uuid: typing.Optional[str] = None, to_uuid: typing.Optional[str] = None)
+````{py:method} send_message(channel: str, payload: dict, from_id: typing.Optional[int] = None, to_id: typing.Optional[int] = None)
 :canonical: agentsociety.message.messager.Messager.send_message
 :async:
 
 ```{autodoc2-docstring} agentsociety.message.messager.Messager.send_message
+```
+
+````
+
+````{py:method} stop()
+:canonical: agentsociety.message.messager.Messager.stop
+:async:
+
+```{autodoc2-docstring} agentsociety.message.messager.Messager.stop
 ```
 
 ````
@@ -194,11 +194,20 @@
 
 ````
 
-````{py:method} stop()
-:canonical: agentsociety.message.messager.Messager.stop
+````{py:method} _listen_for_messages(pubsub)
+:canonical: agentsociety.message.messager.Messager._listen_for_messages
 :async:
 
-```{autodoc2-docstring} agentsociety.message.messager.Messager.stop
+```{autodoc2-docstring} agentsociety.message.messager.Messager._listen_for_messages
+```
+
+````
+
+````{py:method} _update_subscribe(pubsub, new_topics)
+:canonical: agentsociety.message.messager.Messager._update_subscribe
+:async:
+
+```{autodoc2-docstring} agentsociety.message.messager.Messager._update_subscribe
 ```
 
 ````

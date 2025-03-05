@@ -4,7 +4,7 @@ PROFILE_SCHEMA = {
     "namespace": "com.socialcity",
     "type": "record",
     "fields": [
-        {"name": "id", "type": "string"},  # uuid as string
+        {"name": "id", "type": "int"},
         {"name": "name", "type": "string"},
         {"name": "gender", "type": "string"},
         {"name": "age", "type": "float"},
@@ -29,7 +29,7 @@ DIALOG_SCHEMA = {
     "namespace": "com.socialcity",
     "type": "record",
     "fields": [
-        {"name": "id", "type": "string"},  # uuid as string
+        {"name": "id", "type": "int"},
         {"name": "day", "type": "int"},
         {"name": "t", "type": "float"},
         {"name": "type", "type": "int"},
@@ -48,7 +48,7 @@ STATUS_SCHEMA = {
     "namespace": "com.socialcity",
     "type": "record",
     "fields": [
-        {"name": "id", "type": "string"},  # uuid as string
+        {"name": "id", "type": "int"},
         {"name": "day", "type": "int"},
         {"name": "t", "type": "float"},
         {"name": "lng", "type": "double"},
@@ -79,7 +79,7 @@ INSTITUTION_STATUS_SCHEMA = {
     "namespace": "com.socialcity",
     "type": "record",
     "fields": [
-        {"name": "id", "type": "string"},  # uuid as string
+        {"name": "id", "type": "int"},
         {"name": "day", "type": "int"},
         {"name": "t", "type": "float"},
         {"name": "type", "type": "int"},
@@ -103,7 +103,7 @@ SURVEY_SCHEMA = {
     "namespace": "com.socialcity",
     "type": "record",
     "fields": [
-        {"name": "id", "type": "string"},  # uuid as string
+        {"name": "id", "type": "int"},
         {"name": "day", "type": "int"},
         {"name": "t", "type": "float"},
         {"name": "survey_id", "type": "string"},

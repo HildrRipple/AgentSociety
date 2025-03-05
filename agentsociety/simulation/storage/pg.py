@@ -50,7 +50,7 @@ class PgWriter:
 
     @lock_decorator
     async def async_write_dialog(self, rows: list[tuple]):
-        _tuple_types = [str, int, float, int, str, str, str, None]
+        _tuple_types = [int, int, float, int, str, str, str, None]
         table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_dialog"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
@@ -70,7 +70,7 @@ class PgWriter:
 
     @lock_decorator
     async def async_write_status(self, rows: list[tuple]):
-        _tuple_types = [str, int, float, float, float, int, list, str, str, None]
+        _tuple_types = [int, int, float, float, float, int, list, str, str, None]
         table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_status"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
@@ -90,7 +90,7 @@ class PgWriter:
 
     @lock_decorator
     async def async_write_profile(self, rows: list[tuple]):
-        _tuple_types = [str, str, str]
+        _tuple_types = [int, str, str]
         table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_profile"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL("COPY {} (id, name, profile) FROM STDIN").format(
@@ -110,7 +110,7 @@ class PgWriter:
 
     @lock_decorator
     async def async_write_survey(self, rows: list[tuple]):
-        _tuple_types = [str, int, float, str, str, None]
+        _tuple_types = [int, str, int, float, str, str, None]
         table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_survey"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(

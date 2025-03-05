@@ -1,8 +1,9 @@
 # Changelog
 
-## [1.2.4] - 2025-03-05
+## [1.3.0] - 2025-03-XX
 
 ### Added
+- Add tenant_id column to experiment and survey tables to support multi-user online usage.
 - Add `llm_error` statistics for `Simulation.run_from_config`(Based on `LLM`).
 - Add `MemoryConfig` in `AgentConfig`. Support three ways to set memory configuration:
     - `memory_config_func`: A dictionary that maps agent class to a function that returns memory configuration.
@@ -29,6 +30,7 @@
         - Provide `step_interval` to set the step interval to extract the metric.
 
 ### Changed
+- Migrate MQTT to Redis.
 - `Simulation.run_from_config` raise error if `number_of_citizen` is 0 and `extra_agent_class` is not provided.
 
 ### Deprecated
@@ -43,8 +45,138 @@
 ### Security
 - N/A
 
-### Other
+
+## [1.2.4] - 2025-03-04
+
+### Added
 - N/A
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- Remove `Agent._uuid`
+
+### Fixed
+- Fixed issue with `EconomyClient.update` when handling InstitutionAgent updates.
+- Fixed bug for `MobilityBlock.MoveBlock.forward`.
+- Added adjustment logic to ensure the sum of the returned employee counts exactly equals N in matching firms and employees.
+
+### Security
+- N/A
+
+
+## [1.2.3] - 2025-03-03
+
+### Added
+- N/A
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- Fix typo in quick start docs.
+
+### Security
+- N/A
+
+
+
+## [1.2.2] - 2025-03-02
+
+### Added
+- N/A
+
+### Changed
+- Change the download URL for `agentsociety-sim` to a publicly accessible address that does not require authentication in `setup.py`.
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- Missed match between the dictionary and `economyv2.Firm` as input arguments in the `EconomyClient.update` method.
+
+### Security
+- N/A
+
+
+
+## [1.2.1] - 2025-03-01
+
+### Added
+- Add docker compose for china user (use huawei cloud docker registry)
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- Definition bug of `EconomyEntityType`
+
+### Security
+- N/A
+
+
+## [1.2.0] - 2025-02-28
+
+### Added
+- N/A
+
+### Changed
+- Update `pycityproto` version to v2.2.8, splitting organization into bank, firm, government and statistical bureau.
+- Adapt `environment.economy` to align with the new definitions of economic entities.
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
+## [1.1.5] - 2025-02-28
+
+### Added
+- N/A
+
+### Changed
+- Update doc at `04-custom-agents`.
+- Add more comments in agentsociety.cityagent
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
+
 
 ## [1.1.4] - 2025-02-27
 

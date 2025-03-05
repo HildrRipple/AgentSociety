@@ -1,7 +1,16 @@
 # AgentSociety
 
 **AgentSociety** is a social simulation engine and a toolkit for social science research, constructed based on the first principles of sociology, utilizing large model agents. It aims to catalyze a paradigm shift in the methodology of social science research, promoting developments from behavioral simulation to mental modeling, from static deduction to dynamic coexistence, and from laboratory tools to social infrastructure.
-The paper is available at [arXiv](https://arxiv.org/abs/2502.08691).
+The paper is available at [arXiv](https://arxiv.org/abs/2502.08691):
+
+```
+@article{piao2025agentsociety,
+  title={AgentSociety: Large-Scale Simulation of LLM-Driven Generative Agents Advances Understanding of Human Behaviors and Society},
+  author={Piao, Jinghua and Yan, Yuwei and Zhang, Jun and Li, Nian and Yan, Junbo and Lan, Xiaochong and Lu, Zhihong and Zheng, Zhiheng and Wang, Jing Yi and Zhou, Di and others},
+  journal={arXiv preprint arXiv:2502.08691},
+  year={2025}
+}
+```
 
 <img src="_static/framework-overview.jpg" alt="Overall Structure of AgentSociety" style="zoom=28%;" />
 
@@ -9,7 +18,7 @@ The paper is available at [arXiv](https://arxiv.org/abs/2502.08691).
 
 - 🌟 **Large Model-driven Social Human Agents**: Based on sociological theories, it constructs social agents with "human-like minds," endowing them with emotions, needs, motivations, and cognitive abilities. These agents perform complex social behaviors such as movement, employment, consumption, and social interactions driven by these mental attributes. We also support [customization of agents](./04-custom-agents/index.md).
 - 🌟 **Realistic Urban Social Environment**: It accurately simulates urban spaces that are crucial for the survival of social humans, reproducing transportation, infrastructure, and public resources. This enables agents to interact under real-world constraints, forming a vivid social ecosystem.
-- 🌟 **Large-scale Social Simulation Engine**: By employing an asynchronous simulation architecture and the [Ray](https://www.ray.io/) distributed computing framework, combined with agent grouping and [MQTT](https://mqtt.org/) high-concurrency communication, it achieves efficient, scalable interaction among agents and simulation of social behavior.
+- 🌟 **Large-scale Social Simulation Engine**: By employing an asynchronous simulation architecture and the [Ray](https://www.ray.io/) distributed computing framework, combined with agent grouping and [Redis](https://redis.io/) high-concurrency communication, it achieves efficient, scalable interaction among agents and simulation of social behavior.
 - 🌟 **Social Science Research Toolkit**: It comprehensively supports a series of sociological research methods including [interviews & surveys](./03-experiment-design/01-survey-and-interview.md), [message control tool](./03-experiment-design/03-message-interception.md), and [metrics extractors](./03-experiment-design/02-metrics-collection.md), providing various automated data analysis tools that facilitate in-depth social science research from qualitative studies to quantitative analyses.
 
 ## Online Demo

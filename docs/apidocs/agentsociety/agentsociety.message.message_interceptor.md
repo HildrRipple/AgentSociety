@@ -138,7 +138,7 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:method} forward(from_uuid: str, to_uuid: str, msg: str, violation_counts: dict[str, int], black_list: list[tuple[str, str]]) -> tuple[bool, str]
+````{py:method} forward(from_id: int, to_id: int, msg: str, violation_counts: dict[str, int], black_list: list[tuple[str, str]]) -> tuple[bool, str]
 :canonical: agentsociety.message.message_interceptor.MessageBlockBase.forward
 :async:
 
@@ -149,7 +149,7 @@ Bases: {py:obj}`abc.ABC`
 
 `````
 
-`````{py:class} MessageInterceptor(blocks: typing.Optional[list[agentsociety.message.message_interceptor.MessageBlockBase]] = None, black_list: typing.Optional[list[tuple[str, str]]] = None, llm_config: typing.Optional[agentsociety.configs.LLMRequestConfig] = None, queue: typing.Optional[ray.util.queue.Queue] = None)
+`````{py:class} MessageInterceptor(blocks: typing.Optional[list[agentsociety.message.message_interceptor.MessageBlockBase]] = None, black_list: typing.Optional[list[tuple[int, int]]] = None, llm_config: typing.Optional[agentsociety.configs.LLMRequestConfig] = None, queue: typing.Optional[ray.util.queue.Queue] = None)
 :canonical: agentsociety.message.message_interceptor.MessageInterceptor
 
 ```{autodoc2-docstring} agentsociety.message.message_interceptor.MessageInterceptor
@@ -188,7 +188,7 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:method} violation_counts() -> dict[str, int]
+````{py:method} violation_counts() -> dict[int, int]
 :canonical: agentsociety.message.message_interceptor.MessageInterceptor.violation_counts
 :async:
 
@@ -206,7 +206,7 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:method} black_list() -> list[tuple[str, str]]
+````{py:method} black_list() -> list[tuple[int, int]]
 :canonical: agentsociety.message.message_interceptor.MessageInterceptor.black_list
 :async:
 
@@ -296,7 +296,7 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:method} forward(from_uuid: str, to_uuid: str, msg: str)
+````{py:method} forward(from_id: int, to_id: int, msg: str)
 :canonical: agentsociety.message.message_interceptor.MessageInterceptor.forward
 :async:
 

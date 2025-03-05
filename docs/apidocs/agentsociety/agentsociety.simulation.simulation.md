@@ -124,18 +124,18 @@
 
 ````
 
-````{py:property} agent_uuids
-:canonical: agentsociety.simulation.simulation.AgentSimulation.agent_uuids
+````{py:property} agent_ids
+:canonical: agentsociety.simulation.simulation.AgentSimulation.agent_ids
 
-```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation.agent_uuids
+```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation.agent_ids
 ```
 
 ````
 
-````{py:property} agent_uuid2group
-:canonical: agentsociety.simulation.simulation.AgentSimulation.agent_uuid2group
+````{py:property} agent_id2group
+:canonical: agentsociety.simulation.simulation.AgentSimulation.agent_id2group
 
-```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation.agent_uuid2group
+```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation.agent_id2group
 ```
 
 ````
@@ -212,7 +212,7 @@
 
 ````
 
-````{py:method} gather(content: str, target_agent_uuids: typing.Optional[list[str]] = None)
+````{py:method} gather(content: str, target_agent_ids: typing.Optional[list[int]] = None)
 :canonical: agentsociety.simulation.simulation.AgentSimulation.gather
 :async:
 
@@ -221,7 +221,7 @@
 
 ````
 
-````{py:method} filter(types: typing.Optional[list[typing.Type[agentsociety.agent.Agent]]] = None, keys: typing.Optional[list[str]] = None, values: typing.Optional[list[typing.Any]] = None) -> list[str]
+````{py:method} filter(types: typing.Optional[list[typing.Type[agentsociety.agent.Agent]]] = None, keys: typing.Optional[list[str]] = None, values: typing.Optional[list[typing.Any]] = None) -> list[int]
 :canonical: agentsociety.simulation.simulation.AgentSimulation.filter
 :async:
 
@@ -239,7 +239,7 @@
 
 ````
 
-````{py:method} update(target_agent_uuid: str, target_key: str, content: typing.Any)
+````{py:method} update(target_agent_id: int, target_key: str, content: typing.Any)
 :canonical: agentsociety.simulation.simulation.AgentSimulation.update
 :async:
 
@@ -257,7 +257,7 @@
 
 ````
 
-````{py:method} send_survey(survey: agentsociety.survey.Survey, agent_uuids: list[str] = [])
+````{py:method} send_survey(survey: agentsociety.survey.Survey, agent_ids: list[int] = [])
 :canonical: agentsociety.simulation.simulation.AgentSimulation.send_survey
 :async:
 
@@ -266,7 +266,7 @@
 
 ````
 
-````{py:method} send_interview_message(content: str, agent_uuids: typing.Union[str, list[str]])
+````{py:method} send_interview_message(content: str, agent_ids: typing.Union[int, list[int]])
 :canonical: agentsociety.simulation.simulation.AgentSimulation.send_interview_message
 :async:
 

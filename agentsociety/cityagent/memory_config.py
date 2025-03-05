@@ -5,9 +5,9 @@ from typing import Any, List, Union, Optional
 from pydantic import BaseModel
 
 import numpy as np
-import pycityproto.city.economy.v2.economy_pb2 as economyv2
 from mosstool.map._map_util.const import AOI_START_ID
 
+from ..environment.economy import EconomyEntityType
 from ..configs.exp_config import DistributionConfig
 
 pareto_param = 8
@@ -414,7 +414,7 @@ def memory_config_societyagent():
 
 def memory_config_firm():
     EXTRA_ATTRIBUTES = {
-        "type": (int, economyv2.ORG_TYPE_FIRM),
+        "type": (int, EconomyEntityType.Firm),
         "location": {"aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}},
         "price": (float, float(np.mean(agent_skills))),
         "inventory": (int, 0),
@@ -438,8 +438,7 @@ def memory_config_firm():
         ),
         "bracket_rates": (list, [0.1, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]),
         "interest_rate": (float, 0.03),
-        "citizens": (list, []),
-        "citizens_agent_id": (list, []),
+        "citizen_ids": (list, []),
         "firm_id": (int, 0),
     }
     return EXTRA_ATTRIBUTES, {"currency": 1e12}, {}
@@ -447,14 +446,14 @@ def memory_config_firm():
 
 def memory_config_government():
     EXTRA_ATTRIBUTES = {
-        "type": (int, economyv2.ORG_TYPE_GOVERNMENT),
+        "type": (int, EconomyEntityType.Government),
         # 'bracket_cutoffs': (list, list(np.array([0, 97, 394.75, 842, 1607.25, 2041, 5103])*100/12)),
         "bracket_cutoffs": (
             list,
             list(np.array([0, 9875, 40125, 85525, 163300, 207350, 518400]) / 12),
         ),
         "bracket_rates": (list, [0.1, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37]),
-        "citizens": (list, []),
+        "citizen_ids": (list, []),
         "citizens_agent_id": (list, []),
         "nominal_gdp": (list, []),  # useless
         "real_gdp": (list, []),
@@ -470,7 +469,6 @@ def memory_config_government():
         "interest_rate": (float, 0.03),
         "price": (float, float(np.mean(agent_skills))),
         "employees": (list, []),
-        "employees_agent_id": (list, []),
         "firm_id": (int, 0),
     }
     return EXTRA_ATTRIBUTES, {"currency": 1e12}, {}
@@ -478,10 +476,9 @@ def memory_config_government():
 
 def memory_config_bank():
     EXTRA_ATTRIBUTES = {
-        "type": (int, economyv2.ORG_TYPE_BANK),
+        "type": (int, EconomyEntityType.Bank),
         "interest_rate": (float, 0.03),
-        "citizens": (list, []),
-        "citizens_agent_id": (list, []),
+        "citizen_ids": (list, []),
         "bracket_cutoffs": (
             list,
             list(np.array([0, 9875, 40125, 85525, 163300, 207350, 518400]) / 12),
@@ -500,7 +497,6 @@ def memory_config_bank():
         "locus_control": (list, []),
         "price": (float, float(np.mean(agent_skills))),
         "employees": (list, []),
-        "employees_agent_id": (list, []),
         "firm_id": (int, 0),
     }
     return EXTRA_ATTRIBUTES, {"currency": 1e12}, {}
@@ -508,19 +504,21 @@ def memory_config_bank():
 
 def memory_config_nbs():
     EXTRA_ATTRIBUTES = {
-        "type": (int, economyv2.ORG_TYPE_NBS),
-        "nominal_gdp": (list, []),
-        "real_gdp": (list, []),
-        "unemployment": (list, []),
-        "wages": (list, []),
-        "prices": (list, [float(np.mean(agent_skills))]),
-        "working_hours": (list, []),
-        "depression": (list, []),
-        "consumption_currency": (list, []),
-        "income_currency": (list, []),
-        "locus_control": (list, []),
-        "citizens": (list, []),
-        "citizens_agent_id": (list, []),
+        "type": (int, EconomyEntityType.NBS),
+        # economy simulator
+        "citizen_ids": (list, []),
+        "nominal_gdp": (dict, {}),
+        "real_gdp": (dict, {}),
+        "unemployment": (dict, {}),
+        "wages": (dict, {}),
+        "prices": (dict, {"0": float(np.mean(agent_skills))}),
+        "working_hours": (dict, {}),
+        "depression": (dict, {}),
+        "consumption_currency": (dict, {}),
+        "income_currency": (dict, {}),
+        "locus_control": (dict, {}),
+        "currency": (float, 1e12),
+        # other
         "firm_id": (int, 0),
         "bracket_cutoffs": (
             list,
@@ -531,7 +529,6 @@ def memory_config_nbs():
         "interest_rate": (float, 0.03),
         "price": (float, float(np.mean(agent_skills))),
         "employees": (list, []),
-        "employees_agent_id": (list, []),
         "forward_times": (int, 0),
     }
     return EXTRA_ATTRIBUTES, {}, {}

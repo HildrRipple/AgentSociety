@@ -3,14 +3,13 @@ import logging
 import random
 from typing import Dict, List, Tuple
 
-import ray
-
-from agentsociety.environment.simulator import Simulator
+from agentsociety.environment import Simulator
 from agentsociety.llm import LLM
 from agentsociety.memory import Memory
-from agentsociety.workflow import Block
-from agentsociety.workflow.prompt import FormatPrompt
+from agentsociety.workflow import Block, FormatPrompt
+
 from .utils import clean_json_response
+
 logger = logging.getLogger("agentsociety")
 
 GUIDANCE_SELECTION_PROMPT = """As an intelligent agent's decision system, please select the most suitable option from the following choices to satisfy the current need.
@@ -123,11 +122,28 @@ Please response in json format (Do not return any other text), example:
 
 
 class PlanBlock(Block):
-    configurable_fields: List[str] = ["max_plan_steps"]
+    """A block for generating and managing execution plans through LLM-guided decision making.
+
+    Attributes:
+        configurable_fields: List of configurable parameter names
+        default_values: Default values for configurable parameters
+        fields_description: Human-readable descriptions for configurable parameters
+        guidance_options: Predefined options mapped to specific needs
+        max_plan_steps: Maximum allowed steps in generated plans (configurable)
+    """
+
+    configurable_fields: list[str] = ["max_plan_steps"]
     default_values = {"max_plan_steps": 6}
     fields_description = {"max_plan_steps": "The maximum number of steps in a plan"}
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
+        """Initialize PlanBlock with required components.
+
+        Args:
+            llm: Language Model interface for decision making
+            memory: Agent's memory storage for status tracking
+            simulator: Environment simulator for contextual data
+        """
         super().__init__("PlanBlock", llm=llm, memory=memory, simulator=simulator)
         self.guidance_prompt = FormatPrompt(template=GUIDANCE_SELECTION_PROMPT)
         self.detail_prompt = FormatPrompt(template=DETAILED_PLAN_PROMPT)
@@ -143,8 +159,15 @@ class PlanBlock(Block):
         # configurable fields
         self.max_plan_steps = 6
 
-    async def select_guidance(self, current_need: str) -> Tuple[Dict, str]:
-        """Select guidance plan"""
+    async def select_guidance(self, current_need: str) -> Tuple[dict, str]:
+        """Select optimal guidance option using Theory of Planned Behavior evaluation.
+
+        Args:
+            current_need: The agent's current need to fulfill
+
+        Returns:
+            dict: Selected option with TPB evaluation scores and reasoning
+        """
         cognition = None
         position_now = await self.memory.status.get("position")
         home_location = await self.memory.status.get("home")
@@ -204,12 +227,17 @@ class PlanBlock(Block):
             except Exception as e:
                 logger.warning(f"Error parsing guidance selection response: {str(e)}")
                 retry -= 1
-        return None, cognition
+        return None, cognition  # type:ignore
 
-    async def generate_detailed_plan(
-        self, selected_option: str
-    ) -> Dict:
-        """Generate detailed execution plan"""
+    async def generate_detailed_plan(self, selected_option: str) -> dict:
+        """Generate executable steps for selected guidance option.
+
+        Args:
+            selected_option: The chosen guidance option from select_guidance()
+
+        Returns:
+            dict: Structured plan with target and typed execution steps
+        """
         position_now = await self.memory.status.get("position")
         home_location = await self.memory.status.get("home")
         work_location = await self.memory.status.get("work")
@@ -255,9 +283,10 @@ class PlanBlock(Block):
             except Exception as e:
                 logger.warning(f"Error parsing detailed plan: {str(e)}")
                 retry -= 1
-        return None
+        return None  # type:ignore
 
     async def forward(self):
+        """Main workflow: Guidance selection -> Plan generation -> Memory update"""
         cognition = None
         # Step 1: Select guidance plan
         current_need = await self.memory.status.get("current_need")

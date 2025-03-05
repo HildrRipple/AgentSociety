@@ -39,6 +39,7 @@ class AgentGroup:
         map_ref: ray.ObjectRef,
         exp_name: str,
         exp_id: Union[str, UUID],
+        tenant_id: str,
         enable_avro: bool,
         avro_path: Path,
         enable_pgsql: bool,
@@ -56,7 +57,7 @@ class AgentGroup:
 
         - **Description**:
             - Manages the creation and initialization of multiple agents, each potentially of different types,
-            with associated memory configurations, and connects them to various services such as MLflow, MQTT messager,
+            with associated memory configurations, and connects them to various services such as MLflow, Redis messager,
             PostgreSQL writer, message interceptor, and LLM client. It also sets up an economy client and simulator for
             agent interaction within a simulated environment.
 
@@ -68,6 +69,7 @@ class AgentGroup:
             - `map_ref` (ray.ObjectRef): Reference to the map object.
             - `exp_name` (str): Name of the experiment.
             - `exp_id` (str | UUID): Identifier for the experiment.
+            - `tenant_id` (str): Identifier for the tenant.
             - `enable_avro` (bool): Flag to enable AVRO file support.
             - `avro_path` (Path): Path where AVRO files will be stored.
             - `enable_pgsql` (bool): Flag to enable PostgreSQL support.
@@ -89,9 +91,10 @@ class AgentGroup:
         self.number_of_agents = number_of_agents
         self.memory_values_dict = memory_values_dict
         self.agents: list[Agent] = []
-        self.id2agent: dict[str, Agent] = {}
+        self.id2agent: dict[int, Agent] = {}
         self.config = config
         self.exp_id = exp_id
+        self.tenant_id = tenant_id
         self.enable_avro = enable_avro
         self.enable_pgsql = enable_pgsql
         self.embedding_model = embedding_model
@@ -120,13 +123,13 @@ class AgentGroup:
             self.mlflow_client = None
 
         # prepare Messager
-        mqtt_config = config.prop_mqtt
-        if mqtt_config is not None:
+        redis_config = config.prop_redis
+        if redis_config is not None:
             self.messager = Messager.remote(
-                hostname=mqtt_config.server,  # type:ignore
-                port=mqtt_config.port,
-                username=mqtt_config.username,
-                password=mqtt_config.password,
+                hostname=redis_config.server,  # type:ignore
+                port=redis_config.port,
+                username=redis_config.username,
+                password=redis_config.password,
             )
         else:
             self.messager = None
@@ -134,7 +137,9 @@ class AgentGroup:
         self.message_dispatch_task = None
         self._pgsql_writer = pgsql_writer
         self._message_interceptor = message_interceptor
-        self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
+        self._last_asyncio_pg_task = (
+            None  # Hide the SQL write IO behind the computation task
+        )
         self.initialized = False
         self.id2agent = {}
         # prepare LLM client
@@ -179,6 +184,7 @@ class AgentGroup:
                     simulator=self.simulator,
                 )
                 agent.set_exp_id(self.exp_id)  # type: ignore
+                agent.set_tenant_id(self.tenant_id)
                 if self.messager is not None:
                     agent.set_messager(self.messager)
                 if self.mlflow_client is not None:
@@ -195,14 +201,13 @@ class AgentGroup:
                 if self._message_interceptor is not None:
                     agent.set_message_interceptor(self._message_interceptor)
                 self.agents.append(agent)
-                self.id2agent[agent._uuid] = agent
 
     @property
     def agent_count(self):
         return self.number_of_agents
 
     @property
-    def agent_uuids(self):
+    def agent_ids(self):
         return list(self.id2agent.keys())
 
     @property
@@ -212,14 +217,27 @@ class AgentGroup:
     async def get_economy_ids(self):
         return await self.economy_client.get_ids()
 
-    async def set_economy_ids(self, agent_ids: set[int], org_ids: set[int]):
-        await self.economy_client.set_ids(agent_ids, org_ids)
+    async def set_economy_ids(
+        self,
+        agent_ids: set[int],
+        firm_ids: set[int],
+        bank_ids: set[int],
+        nbs_ids: set[int],
+        government_ids: set[int],
+    ):
+        await self.economy_client.set_ids(
+            agent_ids=agent_ids,
+            firm_ids=firm_ids,
+            bank_ids=bank_ids,
+            nbs_ids=nbs_ids,
+            government_ids=government_ids,
+        )
 
     def get_agent_count(self):
         return self.agent_count
 
-    def get_agent_uuids(self):
-        return self.agent_uuids
+    def get_agent_ids(self):
+        return self.agent_ids
 
     def get_agent_type(self):
         return self.agent_type
@@ -243,7 +261,8 @@ class AgentGroup:
                 break
             await asyncio.sleep(1)
         await self.insert_agent()
-        self.id2agent = {agent._uuid: agent for agent in self.agents}
+        logger.warning(f"-----Agents in AgentGroup {self._uuid} initialized")
+        self.id2agent = {agent.id: agent for agent in self.agents}
         logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
         assert self.messager is not None
         await self.messager.connect.remote()
@@ -253,9 +272,9 @@ class AgentGroup:
             agents = []
             for agent in self.agents:
                 agent.set_messager(self.messager)
-                topic = (f"exps/{self.exp_id}/agents/{agent._uuid}/#", 1)
+                topic = (f"exps/{self.exp_id}/agents/{agent.id}/#", 1)
                 topics.append(topic)
-                agents.append(agent.uuid)
+                agents.append(agent.id)
             await self.messager.subscribe.remote(topics, agents)
         self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
         if self.enable_avro:
@@ -268,7 +287,7 @@ class AgentGroup:
                     for agent in self.agents:
                         profile = await agent.status.profile.export()
                         profile = profile[0]
-                        profile["id"] = agent._uuid
+                        profile["id"] = agent.id
                         profiles.append(profile)
                     fastavro.writer(f, PROFILE_SCHEMA, profiles)
 
@@ -299,10 +318,10 @@ class AgentGroup:
                 for agent in self.agents:
                     profile = await agent.status.profile.export()
                     profile = profile[0]
-                    profile["id"] = agent._uuid
+                    profile["id"] = agent.id
                     profiles.append(
                         (
-                            agent._uuid,
+                            agent.id,
                             profile.get("name", ""),
                             json.dumps(
                                 {
@@ -318,10 +337,10 @@ class AgentGroup:
                 for agent in self.agents:
                     profile = await agent.status.profile.export()
                     profile = profile[0]
-                    profile["id"] = agent._uuid
+                    profile["id"] = agent.id
                     profiles.append(
                         (
-                            agent._uuid,
+                            agent.id,
                             profile.get("name", ""),
                             json.dumps(
                                 {
@@ -367,7 +386,7 @@ class AgentGroup:
         - **Returns**:
             - `List[str]`: A list of UUIDs for agents that match the filter criteria.
         """
-        filtered_uuids = []
+        filtered_ids = []
         for agent in self.agents:
             add = True
             if types:
@@ -379,7 +398,7 @@ class AgentGroup:
                                 add = False
                                 break
                     if add:
-                        filtered_uuids.append(agent._uuid)
+                        filtered_ids.append(agent.id)
             elif keys:
                 for key in keys:
                     assert values is not None
@@ -387,58 +406,56 @@ class AgentGroup:
                         add = False
                         break
                 if add:
-                    filtered_uuids.append(agent._uuid)
-        return filtered_uuids
+                    filtered_ids.append(agent.id)
+        return filtered_ids
 
-    async def gather(
-        self, content: str, target_agent_uuids: Optional[list[str]] = None
-    ):
+    async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None):
         """
         Gathers specific content from all or targeted agents within the group.
 
         - **Args**:
             - `content` (str): The key of the status content to gather from the agents.
-            - `target_agent_uuids` (Optional[List[str]]): A list of agent UUIDs to target. If None, targets all agents.
+            - `target_agent_ids` (Optional[List[int]]): A list of agent IDs to target. If None, targets all agents.
 
         - **Returns**:
-            - `Dict[str, Any]`: A dictionary mapping agent UUIDs to the gathered content.
+            - `Dict[str, Any]`: A dictionary mapping agent IDs to the gathered content.
         """
         logger.debug(f"-----Gathering {content} from all agents in group {self._uuid}")
         results = {}
-        if target_agent_uuids is None:
-            target_agent_uuids = self.agent_uuids
+        if target_agent_ids is None:
+            target_agent_ids = self.agent_ids
         if content == "stream_memory":
             for agent in self.agents:
-                if agent._uuid in target_agent_uuids:
-                    results[agent._uuid] = await agent.stream.get_all()
+                if agent.id in target_agent_ids:
+                    results[agent.id] = await agent.stream.get_all()
         else:
             for agent in self.agents:
-                if agent._uuid in target_agent_uuids:
-                    results[agent._uuid] = await agent.status.get(content)
+                if agent.id in target_agent_ids:
+                    results[agent.id] = await agent.status.get(content)
         return results
 
-    async def update(self, target_agent_uuid: str, target_key: str, content: Any):
+    async def update(self, target_agent_id: int, target_key: str, content: Any):
         """
         Updates a specific key in the status of a targeted agent.
 
         - **Args**:
-            - `target_agent_uuid` (str): The UUID of the agent to update.
+            - `target_agent_id` (int): The ID of the agent to update.
             - `target_key` (str): The key in the agent's status to update.
             - `content` (Any): The new value for the specified key.
         """
         logger.debug(
-            f"-----Updating {target_key} for agent {target_agent_uuid} in group {self._uuid}"
+            f"-----Updating {target_key} for agent {target_agent_id} in group {self._uuid}"
         )
-        agent = self.id2agent[target_agent_uuid]
+        agent = self.id2agent[target_agent_id]
         await agent.status.update(target_key, content)
 
     async def message_dispatch(self):
         """
-        Dispatches messages received via MQTT to the appropriate agents.
+        Dispatches messages received via Redis to the appropriate agents.
 
         - **Description**:
-            - Continuously listens for incoming MQTT messages and dispatches them to the relevant agents based on the topic.
-            - Messages are expected to have a topic formatted as "exps/{exp_id}/agents/{agent_uuid}/{topic_type}".
+            - Continuously listens for incoming Redis messages and dispatches them to the relevant agents based on the topic.
+            - Messages are expected to have a topic formatted as "exps/{exp_id}/agents/{agent.id}/{topic_type}".
             - The payload is decoded from bytes to string and then parsed as JSON.
             - Depending on the `topic_type`, different handler methods on the agent are called to process the message.
         """
@@ -451,25 +468,25 @@ class AgentGroup:
                 )
                 break
 
-            # Step 1: 获取消息
+            # Step 1: Fetch messages
             messages = await self.messager.fetch_messages.remote()
             logger.info(f"Group {self._uuid} received {len(messages)} messages")
 
-            # Step 2: 分发消息到对应的 Agent
+            # Step 2: Distribute messages to corresponding Agents
             for message in messages:
                 topic = message.topic.value
                 payload = message.payload
 
-                # 添加解码步骤，将bytes转换为str
+                # Add a decoding step to convert bytes to str
                 if isinstance(payload, bytes):
                     payload = payload.decode("utf-8")
                     payload = json.loads(payload)
 
-                # 提取 agent_id（主题格式为 "exps/{exp_id}/agents/{agent_uuid}/{topic_type}"）
-                _, _, _, agent_uuid, topic_type = topic.strip("/").split("/")
+                # Extract agent_id (topic format is "exps/{exp_id}/agents/{agent_id}/{topic_type}")
+                _, _, _, agent_id, topic_type = topic.strip("/").split("/")
 
-                if agent_uuid in self.id2agent:
-                    agent = self.id2agent[agent_uuid]
+                if agent_id in self.id2agent:
+                    agent = self.id2agent[agent_id]
                     # topic_type: agent-chat, user-chat, user-survey, gather
                     if topic_type == "agent-chat":
                         await agent.handle_agent_chat_message(payload)
@@ -531,7 +548,7 @@ class AgentGroup:
                     anger = emotion.get("anger", 0)
                     surprise = emotion.get("surprise", 0)
                     avro = {
-                        "id": agent._uuid,
+                        "id": agent.id,
                         "day": _day,
                         "t": _t,
                         "lng": lng,
@@ -570,7 +587,7 @@ class AgentGroup:
                     bracket_rates = await agent.status.get("bracket_rates", [])
                     employees = await agent.status.get("employees", [])
                     avro = {
-                        "id": agent._uuid,
+                        "id": agent.id,
                         "day": _day,
                         "t": _t,
                         "type": await agent.status.get("type"),
@@ -654,7 +671,7 @@ class AgentGroup:
                         disgust = emotion.get("disgust", 0)
                         anger = emotion.get("anger", 0)
                         _status_dict = {
-                            "id": agent._uuid,
+                            "id": agent.id,
                             "day": _day,
                             "t": _t,
                             "lng": lng,
@@ -701,7 +718,7 @@ class AgentGroup:
                         employees = await agent.status.get("employees", [])
                         friend_ids = await agent.status.get("friends", [])
                         _status_dict = {
-                            "id": agent._uuid,
+                            "id": agent.id,
                             "day": _day,
                             "t": _t,
                             "lng": lng,
@@ -811,7 +828,9 @@ class AgentGroup:
             )
             group_logs = {
                 "llm_log": self.llm.get_log_list(),
-                "mqtt_log": ray.get(self.messager.get_log_list.remote()),  # type:ignore
+                "redis_log": ray.get(
+                    self.messager.get_log_list.remote()  # type:ignore
+                ),
                 "simulator_log": simulator_log,
                 "agent_time_log": agent_time_log,
             }
@@ -823,7 +842,7 @@ class AgentGroup:
         except Exception as e:
             import traceback
 
-            logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
+            logger.error(f"Simulator Error: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e
 
     async def save(self, day: int, t: int):
@@ -842,5 +861,7 @@ class AgentGroup:
         except Exception as e:
             import traceback
 
-            logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
-            raise RuntimeError(str(e)) from e
+            logger.error(f"Simulator Error: {str(e)}\n{traceback.format_exc()}")
+            raise RuntimeError(
+                str(e) + f" input arg day:({day}, {type(day)}), t:({t}, {type(t)})"
+            ) from e

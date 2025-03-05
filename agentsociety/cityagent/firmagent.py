@@ -13,6 +13,13 @@ logger = logging.getLogger("agentsociety")
 
 
 class FirmAgent(InstitutionAgent):
+    """Agent representing a firm in an economic simulation.
+
+    Manages economic activities including price adjustments, wage policies,
+    inventory control, and employee skill development.
+    Inherits from InstitutionAgent and extends its economic behaviors.
+    """
+
     configurable_fields = ["time_diff", "max_price_inflation", "max_wage_inflation"]
     default_values = {
         "time_diff": 30 * 24 * 60 * 60,
@@ -35,6 +42,17 @@ class FirmAgent(InstitutionAgent):
         messager: Optional[Messager] = None,  # type:ignore
         avro_file: Optional[dict] = None,
     ) -> None:
+        """Initialize a FirmAgent with essential components for economic simulation.
+
+        Args:
+            name: Unique identifier for the agent
+            llm_client: Language model client for decision-making (optional)
+            simulator: Simulation controller (optional)
+            memory: Agent's memory system (optional)
+            economy_client: Client for economic data operations (optional)
+            messager: Communication handler (optional)
+            avro_file: Configuration file in Avro format (optional)
+        """
         super().__init__(
             name=name,
             llm_client=llm_client,
@@ -52,6 +70,12 @@ class FirmAgent(InstitutionAgent):
         self.max_wage_inflation = 0.05
 
     async def month_trigger(self):
+        """Check if monthly adjustment should be triggered.
+
+        Compares current simulation time with last trigger time.
+        Returns:
+            True if time_diff has passed since last trigger, False otherwise
+        """
         now_time = await self.simulator.get_time()
         now_time = cast(int, now_time)
         if self.last_time_trigger is None:
@@ -63,22 +87,38 @@ class FirmAgent(InstitutionAgent):
         return False
 
     async def gather_messages(self, agent_ids, content):  # type:ignore
+        """Collect messages from specified agents.
+
+        Args:
+            agent_ids: List of agent identifiers to gather from
+            content: Message content template
+        Returns:
+            List of message contents from target agents
+        """
         infos = await super().gather_messages(agent_ids, content)
         return [info["content"] for info in infos]
 
     async def forward(self):
+        """Execute monthly economic adjustments.
+
+        Performs:
+        - Employee skill adjustments based on market conditions
+        - Price adjustments based on inventory/demand balance
+        - Economic metrics reset (demand/sales tracking)
+        """
         if await self.month_trigger():
+            firm_id = self._agent_id
             print("firm forward")
-            employees = await self.economy_client.get(self._agent_id, "employees")
-            total_demand = await self.economy_client.get(self._agent_id, "demand")
-            goods_consumption = await self.economy_client.get(self._agent_id, "sales")
-            last_inventory = goods_consumption + await self.economy_client.get(
-                self._agent_id, "inventory"
+            employees, total_demand, goods_consumption, inventory, skills, price = (
+                await self.economy_client.get(
+                    firm_id,
+                    ["employees", "demand", "sales", "inventory", "skill", "price"],
+                )
             )
+            last_inventory = goods_consumption + inventory
             max_change_rate = (total_demand - last_inventory) / (
                 max(total_demand, last_inventory) + 1e-8
             )
-            skills = await self.economy_client.get(employees, "skill")
             skills = np.array(skills)
             skill_change_ratio = np.random.uniform(
                 0, max_change_rate * self.max_wage_inflation
@@ -88,9 +128,8 @@ class FirmAgent(InstitutionAgent):
                 "skill",
                 list(np.maximum(skills * (1 + skill_change_ratio), 1)),
             )
-            price = await self.economy_client.get(self._agent_id, "price")
             await self.economy_client.update(
-                self._agent_id,
+                firm_id,
                 "price",
                 max(
                     price
@@ -103,6 +142,6 @@ class FirmAgent(InstitutionAgent):
                     1,
                 ),
             )
-            await self.economy_client.update(self._agent_id, "demand", 0)
-            await self.economy_client.update(self._agent_id, "sales", 0)
+            await self.economy_client.update(firm_id, "demand", 0)
+            await self.economy_client.update(firm_id, "sales", 0)
             print("firm forward end")

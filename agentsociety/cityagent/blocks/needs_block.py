@@ -1,13 +1,12 @@
 import json
 import logging
-
-import ray
+from typing import cast
 
 from agentsociety import Simulator
 from agentsociety.llm import LLM
 from agentsociety.memory import Memory
-from agentsociety.workflow.block import Block
-from agentsociety.workflow.prompt import FormatPrompt
+from agentsociety.workflow import Block, FormatPrompt
+
 from .utils import clean_json_response
 
 logger = logging.getLogger("agentsociety")
@@ -111,10 +110,32 @@ If you think the agent has to stop the current action and do something to satisf
 
 class NeedsBlock(Block):
     """
-    Generate needs
+    Manages agent's dynamic needs system including:
+    - Initializing satisfaction levels
+    - Time-based decay of satisfaction values
+    - Need prioritization based on thresholds
+    - Plan execution evaluation and satisfaction adjustments
     """
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
+        """
+        Initialize needs management system.
+
+        Args:
+            llm: Language model instance for processing prompts
+            memory: Agent's memory storage interface
+            simulator: Simulation environment controller
+
+        Configuration Parameters:
+            alpha_H: Hunger satisfaction decay rate per hour (default: 0.15)
+            alpha_D: Energy satisfaction decay rate per hour (default: 0.08)
+            alpha_P: Safety satisfaction decay rate per hour (default: 0.05)
+            alpha_C: Social satisfaction decay rate per hour (default: 0.1)
+            T_H: Hunger threshold for triggering need (default: 0.2)
+            T_D: Energy threshold for triggering need (default: 0.2)
+            T_P: Safety threshold for triggering need (default: 0.2)
+            T_C: Social threshold for triggering need (default: 0.3)
+        """
         super().__init__("NeedsBlock", llm=llm, memory=memory, simulator=simulator)
         self.evaluation_prompt = FormatPrompt(EVALUATION_PROMPT)
         self.initial_prompt = FormatPrompt(INITIAL_NEEDS_PROMPT)
@@ -141,6 +162,13 @@ class NeedsBlock(Block):
         self._need_to_do_checked = False
 
     async def initialize(self):
+        """
+        Initialize agent's satisfaction levels using profile data.
+        - Runs once per simulation day
+        - Collects demographic data from memory
+        - Generates initial satisfaction values via LLM
+        - Handles JSON parsing and validation
+        """
         day = await self.simulator.get_simulator_day()
         if day != self.now_day:
             self.now_day = day
@@ -160,8 +188,10 @@ class NeedsBlock(Block):
                 income=await self.memory.status.get("income"),
                 now_time=await self.simulator.get_time(format_time=True),
             )
-            response = await self.llm.atext_request(self.initial_prompt.to_dialog(), response_format={"type": "json_object"})
-            response = clean_json_response(response)
+            response = await self.llm.atext_request(
+                self.initial_prompt.to_dialog(), response_format={"type": "json_object"}
+            )
+            response = clean_json_response(response)  # type:ignore
             retry = 3
             while retry > 0:
                 try:
@@ -236,8 +266,15 @@ class NeedsBlock(Block):
             return None        
 
     async def time_decay(self):
-        # calculate time difference
+        """
+        Apply time-based decay to satisfaction values.
+        - Calculates hours since last update
+        - Applies exponential decay to each satisfaction dimension
+        - Ensures values stay within [0,1] range
+        """
+        # calculate time diff
         time_now = await self.simulator.get_time()
+        time_now = cast(int, time_now)
         if self.last_evaluation_time is None:
             self.last_evaluation_time = time_now
             time_diff = 0
@@ -245,13 +282,13 @@ class NeedsBlock(Block):
             time_diff = (time_now - self.last_evaluation_time) / 3600
             self.last_evaluation_time = time_now
 
-        # get current need satisfaction
+        # acquire current satisfaction
         hunger_satisfaction = await self.memory.status.get("hunger_satisfaction")
         energy_satisfaction = await self.memory.status.get("energy_satisfaction")
         safety_satisfaction = await self.memory.status.get("safety_satisfaction")
         social_satisfaction = await self.memory.status.get("social_satisfaction")
 
-        # calculate hungry and fatigue decay
+        # calculates hunger and fatigue decay based on elapsed time
         hungry_decay = self.alpha_H * time_diff
         energy_decay = self.alpha_D * time_diff
         safety_decay = self.alpha_P * time_diff
@@ -268,11 +305,12 @@ class NeedsBlock(Block):
         await self.memory.status.update("social_satisfaction", social_satisfaction)
 
     async def update_when_plan_completed(self):
-        # check if there is a plan being executed
+        # Check if there is any ongoing plan
         current_plan = await self.memory.status.get("current_plan")
         if current_plan and (
             current_plan.get("completed") or current_plan.get("failed")
         ):
+            # Evaluate the execution process of the plan and adjust needs
             pre_need = await self.memory.status.get("current_need")
             # evaluate plan execution and adjust needs
             await self.evaluate_and_adjust_needs(current_plan)
@@ -289,18 +327,25 @@ class NeedsBlock(Block):
                 self._need_to_do = None
                 self._need_to_do_checked = False
     async def determine_current_need(self):
+        """
+        Determine agent's current dominant need based on:
+        - Satisfaction thresholds
+        - Need priority hierarchy (hungry > tired > safe > social)
+        - Workday requirements
+        - Ongoing plan interruptions
+        """
         cognition = None
         hunger_satisfaction = await self.memory.status.get("hunger_satisfaction")
         energy_satisfaction = await self.memory.status.get("energy_satisfaction")
         safety_satisfaction = await self.memory.status.get("safety_satisfaction")
         social_satisfaction = await self.memory.status.get("social_satisfaction")
 
-        # if needs need to be adjusted, update current need
-        # adjustment scheme: if current need is empty or a higher priority need appears, adjust need
+        # If needs adjustment is required, update current need
+        # The adjustment scheme is to adjust the need if the current need is empty, or a higher priority need appears
         current_plan = await self.memory.status.get("current_plan")
         current_need = await self.memory.status.get("current_need")
 
-        # if there is no plan or the plan is completed, get all need values and check each need whether it reaches the threshold
+        # When there's no plan or the plan has been completed, get all satisfaction values and check each need against its threshold based on priority
         if not current_plan or current_plan.get("completed"):
             # check needs in priority order
             if self._need_to_do:
@@ -335,7 +380,7 @@ class NeedsBlock(Block):
                 cognition = "I have no specific needs right now"
 
         else:
-            # when there is a plan being executed, adjust need only when a higher priority need appears
+            # While there is an ongoing plan, only adjust for higher priority needs
             needs_changed = False
             new_need = None
             if self._need_to_do and not self._need_to_do_checked:
@@ -370,7 +415,7 @@ class NeedsBlock(Block):
                 new_need = "social"
                 needs_changed = True
 
-            # if needs changed, evaluate and adjust needs
+            # If needs have changed, interrupt the current plan
             if needs_changed:
                 await self.evaluate_and_adjust_needs(current_plan)
                 history = await self.memory.status.get("plan_history")
@@ -387,7 +432,14 @@ class NeedsBlock(Block):
         return cognition
 
     async def evaluate_and_adjust_needs(self, completed_plan):
-        # get the executed plan and evaluation results
+        """
+        Evaluate plan execution results and adjust satisfaction values.
+        - Extracts step evaluations from completed plan
+        - Constructs evaluation prompt for LLM
+        - Processes LLM response and updates satisfaction values
+        - Implements retry logic for invalid responses
+        """
+        # Retrieve the executed plan and evaluation results
         evaluation_results = []
         for step in completed_plan["steps"]:
             if "evaluation" in step["evaluation"]:
@@ -397,7 +449,7 @@ class NeedsBlock(Block):
             evaluation_results.append(f"- {step['intention']} ({step['type']}): {eva_}")
         evaluation_results = "\n".join(evaluation_results)
 
-        # use LLM to evaluate and adjust needs
+        # Use LLM for evaluation
         current_need = await self.memory.status.get("current_need")
         self.evaluation_prompt.format(
             current_need=current_need,
@@ -411,10 +463,13 @@ class NeedsBlock(Block):
 
         retry = 3
         while retry > 0:
-            response = await self.llm.atext_request(self.evaluation_prompt.to_dialog(), response_format={"type": "json_object"})
+            response = await self.llm.atext_request(
+                self.evaluation_prompt.to_dialog(),
+                response_format={"type": "json_object"},
+            )
             try:
                 new_satisfaction = json.loads(clean_json_response(response))  # type: ignore
-                # update all needs values
+                # Update values of all needs
                 for need_type, new_value in new_satisfaction.items():
                     if need_type in [
                         "hunger_satisfaction",
@@ -435,6 +490,13 @@ class NeedsBlock(Block):
                 retry -= 1
 
     async def forward(self):
+        """
+        Main execution flow for needs management:
+        1. Initialize satisfaction values (if needed)
+        2. Apply time-based decay
+        3. Handle completed plans
+        4. Determine current dominant need
+        """
         cognition = None
 
         await self.initialize()

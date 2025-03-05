@@ -44,7 +44,7 @@ sim_config = (
     SimConfig()
     .SetLLMRequest(request_type="zhipuai", api_key="", model="GLM-4-Flash")
     .SetSimulatorRequest(min_step_time=1)
-    .SetMQTT(server="mqtt.example.com", username="user", port=1883, password="pass")
+    .SetRedis(server="redis.example.com", username="user", port=6379, password="pass")
     .SetMapRequest(file_path="./ignore/map.pb")
     .SetMetricRequest(
         username="mlflow_user", password="mlflow_pass", mlflow_uri="http://mlflow:5000"

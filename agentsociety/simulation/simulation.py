@@ -92,6 +92,8 @@ class AgentSimulation:
             - None
         """
         self.exp_id = str(uuid.uuid4())
+        # TODO: set tenant_id
+        self.tenant_id = str(uuid.uuid4())
         if isinstance(agent_class, list):
             self.agent_class = agent_class
         elif agent_class is None:
@@ -124,23 +126,23 @@ class AgentSimulation:
         self._economy_addr = economy_addr = server_addr
         self.agent_prefix = agent_prefix
         self._groups: dict[str, AgentGroup] = {}  # type:ignore
-        self._agent_uuid2group: dict[str, AgentGroup] = {}  # type:ignore
-        self._agent_uuids: list[str] = []
+        self._agent_id2group: dict[int, AgentGroup] = {}  # type:ignore
+        self._agent_ids: list[int] = []
         self._type2group: dict[Type[Agent], AgentGroup] = {}
-        self._user_chat_topics: dict[str, str] = {}
-        self._user_survey_topics: dict[str, str] = {}
-        self._user_interview_topics: dict[str, str] = {}
+        self._user_chat_topics: dict[int, str] = {}
+        self._user_survey_topics: dict[int, str] = {}
+        self._user_interview_topics: dict[int, str] = {}
         self._loop = asyncio.get_event_loop()
         self._total_steps = 0
         self._simulator_day = 0
         # self._last_asyncio_pg_task = None  # hide SQL write IO to calculation task
 
-        mqtt_config = config.prop_mqtt
+        redis_config = config.prop_redis
         self._messager = Messager.remote(
-            hostname=mqtt_config.server,  # type:ignore
-            port=mqtt_config.port,
-            username=mqtt_config.username,
-            password=mqtt_config.password,
+            hostname=redis_config.server,  # type:ignore
+            port=redis_config.port,
+            username=redis_config.username,
+            password=redis_config.password,
         )
 
         # storage
@@ -202,6 +204,7 @@ class AgentSimulation:
         self._exp_updated_time = datetime.now(timezone.utc)
         self._exp_info = {
             "id": self.exp_id,
+            "tenant_id": self.tenant_id,
             "name": exp_name,
             "num_day": 0,  # will be updated in run method
             "status": 0,
@@ -311,6 +314,19 @@ class AgentSimulation:
             llm_semaphore=config.llm_semaphore,
         )
         logger.info("Running Init Functions...")
+        # # test eco get
+        # for firm_id in simulation.economy_client._firm_ids:
+        #     firm = await simulation.economy_client._get_firm(firm_id)
+        #     print(firm)
+        # for bank_id in simulation.economy_client._bank_ids:
+        #     bank = await simulation.economy_client._get_bank(bank_id)
+        #     print(bank)
+        # for nbs_id in simulation.economy_client._nbs_ids:
+        #     nbs = await simulation.economy_client._get_nbs(nbs_id)
+        #     print(nbs)
+        # for government_id in simulation.economy_client._government_ids:
+        #     government = await simulation.economy_client._get_government(government_id)
+        #     print(government)
         init_funcs = agent_config.init_func
         if init_funcs is None:
             init_funcs = [bind_agent_info, initialize_social_network]
@@ -322,7 +338,7 @@ class AgentSimulation:
                 init_func(simulation)
         logger.info("Starting Simulation...")
         llm_log_lists = []
-        mqtt_log_lists = []
+        redis_log_lists = []
         simulator_log_lists = []
         agent_time_log_lists = []
         for step in config.prop_workflow:
@@ -333,11 +349,14 @@ class AgentSimulation:
                 raise ValueError(f"Invalid step type: {step.type}")
             if step.type == WorkflowType.RUN:
                 _days = cast(float, step.days)
-                llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list = (
-                    await simulation.run(_days)
-                )
+                (
+                    llm_log_list,
+                    redis_log_list,
+                    simulator_log_list,
+                    agent_time_log_list,
+                ) = await simulation.run(_days)
                 llm_log_lists.extend(llm_log_list)
-                mqtt_log_lists.extend(mqtt_log_list)
+                redis_log_lists.extend(redis_log_list)
                 simulator_log_lists.extend(simulator_log_list)
                 agent_time_log_lists.extend(agent_time_log_list)
             elif step.type == WorkflowType.STEP:
@@ -345,14 +364,14 @@ class AgentSimulation:
                 for _ in range(times):
                     (
                         llm_log_list,
-                        mqtt_log_list,
+                        redis_log_list,
                         simulator_log_list,
                         agent_time_log_list,
                     ) = await simulation.step(
                         simulation.config.prop_simulator_request.steps_per_simulation_step
                     )
                     llm_log_lists.extend(llm_log_list)
-                    mqtt_log_lists.extend(mqtt_log_list)
+                    redis_log_lists.extend(redis_log_list)
                     simulator_log_lists.extend(simulator_log_list)
                     agent_time_log_lists.extend(agent_time_log_list)
             elif step.type == WorkflowType.INTERVIEW:
@@ -402,7 +421,7 @@ class AgentSimulation:
                     llm_error_statistics[key] += value
                 else:
                     llm_error_statistics[key] = value
-        return llm_log_lists, mqtt_log_lists, simulator_log_lists, agent_time_log_lists, llm_error_statistics
+        return llm_log_lists, redis_log_lists, simulator_log_lists, agent_time_log_lists, llm_error_statistics
 
     @property
     def enable_avro(
@@ -431,12 +450,12 @@ class AgentSimulation:
         return self._groups
 
     @property
-    def agent_uuids(self):
-        return self._agent_uuids
+    def agent_ids(self):
+        return self._agent_ids
 
     @property
-    def agent_uuid2group(self):
-        return self._agent_uuid2group
+    def agent_id2group(self):
+        return self._agent_id2group
 
     @property
     def messager(self) -> ray.ObjectRef:
@@ -790,6 +809,7 @@ class AgentSimulation:
                 self._map_ref,
                 self.exp_name,
                 self.exp_id,
+                self.tenant_id,
                 self.enable_avro,
                 self.avro_path,
                 self.enable_pgsql,
@@ -802,26 +822,7 @@ class AgentSimulation:
                 llm_semaphore,
                 environment,
             )
-            creation_tasks.append((group_name, group))
-
-        # update data structure
-        for group_name, group in creation_tasks:
             self._groups[group_name] = group
-            group_agent_uuids = ray.get(group.get_agent_uuids.remote())
-            for agent_uuid in group_agent_uuids:
-                self._agent_uuids.append(agent_uuid)
-                self._agent_uuid2group[agent_uuid] = group
-                self._user_chat_topics[agent_uuid] = (
-                    f"exps/{self.exp_id}/agents/{agent_uuid}/user-chat"
-                )
-                self._user_survey_topics[agent_uuid] = (
-                    f"exps/{self.exp_id}/agents/{agent_uuid}/user-survey"
-                )
-            group_agent_type = ray.get(group.get_agent_type.remote())
-            for agent_type in group_agent_type:
-                if agent_type not in self._type2group:
-                    self._type2group[agent_type] = []
-                self._type2group[agent_type].append(group)
 
         # parallel initialize all groups' agents
         init_tasks = []
@@ -834,19 +835,52 @@ class AgentSimulation:
         )
         await self.messager.start_listening.remote()  # type:ignore
 
-        agent_ids = set()
-        org_ids = set()
-        for group in self._groups.values():
-            ids = await group.get_economy_ids.remote()
-            agent_ids.update(ids[0])
-            org_ids.update(ids[1])
-        await self.economy_client.set_ids(agent_ids, org_ids)
-        for group in self._groups.values():
-            await group.set_economy_ids.remote(agent_ids, org_ids)
+        # update data structure
+        for group_name, group in self._groups.items():
+            group_agent_ids = ray.get(group.get_agent_ids.remote())
+            for agent_id in group_agent_ids:
+                self._agent_ids.append(agent_id)
+                self._agent_id2group[agent_id] = group
+                self._user_chat_topics[agent_id] = (
+                    f"exps/{self.exp_id}/agents/{agent_id}/user-chat"
+                )
+                self._user_survey_topics[agent_id] = (
+                    f"exps/{self.exp_id}/agents/{agent_id}/user-survey"
+                )
+            group_agent_type = ray.get(group.get_agent_type.remote())
+            for agent_type in group_agent_type:
+                if agent_type not in self._type2group:
+                    self._type2group[agent_type] = []
+                self._type2group[agent_type].append(group)
 
-    async def gather(
-        self, content: str, target_agent_uuids: Optional[list[str]] = None, flatten: bool = False
-    ):
+        agent_ids = set()
+        bank_ids = set()
+        nbs_ids = set()
+        government_ids = set()
+        firm_ids = set()
+
+        for group in self._groups.values():
+            _agent_ids, _bank_ids, _nbs_ids, _government_ids, _firm_ids = (
+                await group.get_economy_ids.remote()
+            )
+            agent_ids.update(_agent_ids)
+            bank_ids.update(_bank_ids)
+            nbs_ids.update(_nbs_ids)
+            government_ids.update(_government_ids)
+            firm_ids.update(_firm_ids)
+        await self.economy_client.set_ids(
+            agent_ids=agent_ids,
+            firm_ids=firm_ids,
+            bank_ids=bank_ids,
+            nbs_ids=nbs_ids,
+            government_ids=government_ids,
+        )
+        for group in self._groups.values():
+            await group.set_economy_ids.remote(
+                agent_ids, firm_ids, bank_ids, nbs_ids, government_ids
+            )
+
+    async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None, flatten: bool = False):
         """
         Collect specific information from agents.
 
@@ -855,7 +889,7 @@ class AgentSimulation:
 
         - **Args**:
             - `content` (str): The information to collect from the agents.
-            - `target_agent_uuids` (Optional[List[str]], optional): A list of agent UUIDs to target. Defaults to None, meaning all agents are targeted.
+            - `target_agent_ids` (Optional[List[int]], optional): A list of agent IDs to target. Defaults to None, meaning all agents are targeted.
             - `flatten` (bool, optional): Whether to flatten the result. Defaults to False.
 
         - **Returns**:
@@ -863,7 +897,7 @@ class AgentSimulation:
         """
         gather_tasks = []
         for group in self._groups.values():
-            gather_tasks.append(group.gather.remote(content, target_agent_uuids))
+            gather_tasks.append(group.gather.remote(content, target_agent_ids))
         data = await asyncio.gather(*gather_tasks)
         if flatten:
             data_flatten = []
@@ -879,7 +913,7 @@ class AgentSimulation:
         types: Optional[list[Type[Agent]]] = None,
         keys: Optional[list[str]] = None,
         values: Optional[list[Any]] = None,
-    ) -> list[str]:
+    ) -> list[int]:
         """
         Filter out agents of specified types or with matching key-value pairs.
 
@@ -892,10 +926,10 @@ class AgentSimulation:
             - `ValueError`: If neither types nor keys and values are provided, or if the lengths of keys and values do not match.
 
         - **Returns**:
-            - `List[str]`: A list of filtered agent UUIDs.
+            - `List[int]`: A list of filtered agent UUIDs.
         """
         if not types and not keys and not values:
-            return self._agent_uuids
+            return self._agent_ids
         group_to_filter = []
         if types is not None:
             for t in types:
@@ -903,17 +937,17 @@ class AgentSimulation:
                     group_to_filter.extend(self._type2group[t])
                 else:
                     raise ValueError(f"type {t} not found in simulation")
-        filtered_uuids = []
+        filtered_ids = []
         if keys:
             if values is None or len(keys) != len(values):
                 raise ValueError("the length of key and value does not match")
             for group in group_to_filter:
-                filtered_uuids.extend(await group.filter.remote(types, keys, values))
-            return filtered_uuids
+                filtered_ids.extend(await group.filter.remote(types, keys, values))
+            return filtered_ids
         else:
             for group in group_to_filter:
-                filtered_uuids.extend(await group.filter.remote(types))
-            return filtered_uuids
+                filtered_ids.extend(await group.filter.remote(types))
+            return filtered_ids
 
     async def update_environment(self, key: str, value: str):
         """
@@ -927,22 +961,22 @@ class AgentSimulation:
         for group in self._groups.values():
             await group.update_environment.remote(key, value)
 
-    async def update(self, target_agent_uuid: Union[str, list[str]], target_key: str, content: Any):
+    async def update(self, target_agent_id: Union[int, list[int]], target_key: str, content: Any):
         """
         Update the memory of a specified agent.
 
         - **Args**:
-            - `target_agent_uuid` (str): The UUID of the target agent to update.
+            - `target_agent_id` (int): The ID of the target agent to update.
             - `target_key` (str): The key in the agent's memory to update.
             - `content` (Any): The new content to set for the target key.
         """
-        if isinstance(target_agent_uuid, str):
-            group = self._agent_uuid2group[target_agent_uuid]
-            await group.update.remote(target_agent_uuid, target_key, content)
-        elif isinstance(target_agent_uuid, list):
-            for uuid in target_agent_uuid:
-                group = self._agent_uuid2group[uuid]
-                await group.update.remote(uuid, target_key, content)
+        if isinstance(target_agent_id, int):
+            group = self._agent_id2group[target_agent_id]
+            await group.update.remote(target_agent_id, target_key, content)
+        elif isinstance(target_agent_id, list):
+            for id in target_agent_id:
+                group = self._agent_id2group[id]
+                await group.update.remote(id, target_key, content)
 
     async def economy_update(
         self,
@@ -964,13 +998,13 @@ class AgentSimulation:
             id=target_agent_id, key=target_key, value=content, mode=mode
         )
 
-    async def send_survey(self, survey: Survey, agent_uuids: list[str] = []):
+    async def send_survey(self, survey: Survey, agent_ids: list[int] = []):
         """
         Send a survey to specified agents.
 
         - **Args**:
             - `survey` (Survey): The survey object to send.
-            - `agent_uuids` (List[str], optional): List of agent UUIDs to receive the survey. Defaults to an empty list.
+            - `agent_ids` (List[int], optional): List of agent IDs to receive the survey. Defaults to an empty list.
 
         - **Returns**:
             - None
@@ -984,10 +1018,10 @@ class AgentSimulation:
             "data": survey_dict,
             "_date_time": _date_time,
         }
-        for uuid in agent_uuids:
-            topic = self._user_survey_topics[uuid]
+        for id in agent_ids:
+            topic = self._user_survey_topics[id]
             await self.messager.send_message.remote(topic, payload)  # type:ignore
-        remain_payback = len(agent_uuids)
+        remain_payback = len(agent_ids)
         while True:
             messages = await self.messager.fetch_messages.remote()  # type:ignore
             logger.info(f"Received {len(messages)} payback messages [survey]")
@@ -997,14 +1031,14 @@ class AgentSimulation:
             await asyncio.sleep(3)
 
     async def send_interview_message(
-        self, content: str, agent_uuids: Union[str, list[str]]
+        self, content: str, agent_ids: Union[int, list[int]]
     ):
         """
         Send an interview message to specified agents.
 
         - **Args**:
             - `content` (str): The content of the message to send.
-            - `agent_uuids` (Union[str, List[str]]): A single UUID string or a list of UUID strings for the agents to receive the message.
+            - `agent_ids` (Union[int, List[int]]): A single ID or a list of IDs for the agents to receive the message.
 
         - **Returns**:
             - None
@@ -1016,12 +1050,12 @@ class AgentSimulation:
             "timestamp": int(_date_time.timestamp() * 1000),
             "_date_time": _date_time,
         }
-        if not isinstance(agent_uuids, list):
-            agent_uuids = [agent_uuids]
-        for uuid in agent_uuids:
-            topic = self._user_chat_topics[uuid]
+        if not isinstance(agent_ids, list):
+            agent_ids = [agent_ids]
+        for id in agent_ids:
+            topic = self._user_chat_topics[id]
             await self.messager.send_message.remote(topic, payload)  # type:ignore
-        remain_payback = len(agent_uuids)
+        remain_payback = len(agent_ids)
         while True:
             messages = await self.messager.fetch_messages.remote()  # type:ignore
             logger.info(f"Received {len(messages)} payback messages [interview]")
@@ -1119,12 +1153,12 @@ class AgentSimulation:
                 tasks.append(group.step.remote())
             log_messages_groups = await asyncio.gather(*tasks)
             llm_log_list = []
-            mqtt_log_list = []
+            redis_log_list = []
             simulator_log_list = []
             agent_time_log_list = []
             for log_messages_group in log_messages_groups:
                 llm_log_list.extend(log_messages_group["llm_log"])
-                mqtt_log_list.extend(log_messages_group["mqtt_log"])
+                redis_log_list.extend(log_messages_group["redis_log"])
                 simulator_log_list.extend(log_messages_group["simulator_log"])
                 agent_time_log_list.extend(log_messages_group["agent_time_log"])
             # save
@@ -1157,7 +1191,7 @@ class AgentSimulation:
                 if to_execute_metric:
                     await self.extract_metric(to_execute_metric)
 
-            return llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list
+            return llm_log_list, redis_log_list, simulator_log_list, agent_time_log_list
         except Exception as e:
             import traceback
 
@@ -1186,7 +1220,7 @@ class AgentSimulation:
             - None
         """
         llm_log_lists = []
-        mqtt_log_lists = []
+        redis_log_lists = []
         simulator_log_lists = []
         agent_time_log_lists = []
         try:
@@ -1207,14 +1241,14 @@ class AgentSimulation:
                         break
                     (
                         llm_log_list,
-                        mqtt_log_list,
+                        redis_log_list,
                         simulator_log_list,
                         agent_time_log_list,
                     ) = await self.step(
                         self.config.prop_simulator_request.steps_per_simulation_day
                     )
                     llm_log_lists.extend(llm_log_list)
-                    mqtt_log_lists.extend(mqtt_log_list)
+                    redis_log_lists.extend(redis_log_list)
                     simulator_log_lists.extend(simulator_log_list)
                     agent_time_log_lists.extend(agent_time_log_list)
             finally:
@@ -1227,7 +1261,7 @@ class AgentSimulation:
             await self._update_exp_status(2)
             return (
                 llm_log_lists,
-                mqtt_log_lists,
+                redis_log_lists,
                 simulator_log_lists,
                 agent_time_log_lists,
             )
