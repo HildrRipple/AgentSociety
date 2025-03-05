@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union, List
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from ..utils import WorkflowType, DistributionType, MetricType
 from ..survey import Survey
+from ..utils import DistributionType, MetricType, WorkflowType
+
 # if TYPE_CHECKING:
 #     from ..simulation import AgentSimulation
 
@@ -169,6 +170,7 @@ class ExpConfig(BaseModel):
         memory_from_file: Optional[Dict[Any, str]] = None,
         memory_distributions: Optional[Dict[str, DistributionConfig]] = None,
     ) -> "ExpConfig":
+        assert self.agent_config is not None
         self.agent_config.memory_config = MemoryConfig(
             memory_config_func=memory_config_func,
             memory_from_file=memory_from_file,

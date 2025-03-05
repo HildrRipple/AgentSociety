@@ -35,7 +35,7 @@ As shown in the figure below, you will have successfully acquired an API key.
 
 ## Redis
 
-Redis is a high-performance, in-memory key-value store used as a database, cache, and message server. In this framework, Redis facilitates efficient X-to-agent communication through its pub/sub messaging feature. Unlike MQTT, which is specifically designed for IoT, Redis also offers data persistence and additional capabilities, making it ideal for real-time data processing and fast message exchanges.
+Redis is a high-performance, in-memory key-value store used as a database, cache, and message server. In this framework, Redis facilitates efficient X-to-agent communication through its pub/sub messaging feature. Redis offers data persistence and additional capabilities, making it ideal for real-time data processing and fast message exchanges.
 
 The "X" contains agents and the GUI.
 

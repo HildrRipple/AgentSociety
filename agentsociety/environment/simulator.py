@@ -136,7 +136,7 @@ class Simulator:
         self.map_y_gap = None
         self._bbox: tuple[float, float, float, float] = (-1, -1, -1, -1)
         self._lock = asyncio.Lock()
-        self._environment_prompt: dict[str, str] = {}
+        self._environment_prompt: dict[str, Any] = {}
         self._log_list = []
 
     def set_map(self, map: ray.ObjectRef):
@@ -203,20 +203,21 @@ class Simulator:
         """
         self._environment_prompt[key] = value
 
-    def get_environment(self) -> dict[str, Any]:
+    def get_environment(self) -> str:
         global_prompt = ""
         for key in self._environment_prompt:
-            if isinstance(self._environment_prompt[key], str):
-                global_prompt += f"{key}: {self._environment_prompt[key]}\n"
-            elif isinstance(self._environment_prompt[key], dict):
-                for k, v in self._environment_prompt[key].items():
+            value = self._environment_prompt[key]
+            if isinstance(value, str):
+                global_prompt += f"{key}: {value}\n"
+            elif isinstance(value, dict):
+                for k, v in value.items():
                     global_prompt += f"{key}.{k}: {v}\n"
-            elif isinstance(self._environment_prompt[key], bool):
-                global_prompt += f"Is it {key}: {self._environment_prompt[key]}\n"
-            elif isinstance(self._environment_prompt[key], list):
-                global_prompt += f"{key} elements: {self._environment_prompt[key]}\n"
+            elif isinstance(value, bool):
+                global_prompt += f"Is it {key}: {value}\n"
+            elif isinstance(value, list):
+                global_prompt += f"{key} elements: {value}\n"
             else:
-                global_prompt += f"{key}: {self._environment_prompt[key]}\n"
+                global_prompt += f"{key}: {value}\n"
         return global_prompt
 
     @log_execution_time

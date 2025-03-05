@@ -76,7 +76,9 @@ class PlanAndActionBlock(Block):
         cognition = None
         current_plan = await self.memory.status.get("current_plan")
         if current_plan is None:
-            cognition = await self.planBlock.forward()  # Delegate to PlanBlock for plan creation
+            cognition = (
+                await self.planBlock.forward()
+            )  # Delegate to PlanBlock for plan creation
         return cognition
 
     async def step_execution(self):
@@ -441,16 +443,18 @@ class SocietyAgent(CitizenAgent):
         Answer only YES or NO, in JSON format, e.g. {{"should_respond": "YES"}}"""
 
                 should_respond = await self._llm_client.atext_request(  # type:ignore
-                    dialog = [
-                            {
-                                "role": "system",
-                                "content": "You are helping decide whether to respond to a message.",
-                            },
-                            {"role": "user", "content": should_respond_prompt},
-                        ],
-                    response_format={"type": "json_object"}
+                    dialog=[
+                        {
+                            "role": "system",
+                            "content": "You are helping decide whether to respond to a message.",
+                        },
+                        {"role": "user", "content": should_respond_prompt},
+                    ],
+                    response_format={"type": "json_object"},
                 )
-                should_respond = json.loads(should_respond)["should_respond"]
+                should_respond = json.loads(should_respond)[  # type:ignore
+                    "should_respond"
+                ]
                 if should_respond == "NO":
                     return ""
 
@@ -525,8 +529,8 @@ class SocietyAgent(CitizenAgent):
             intervention_message
         )
         await self.save_agent_thought(conclusion)
-        await self.memory.stream.add_cognition(
-            description=conclusion
-        )
+        await self.memory.stream.add_cognition(description=conclusion)
         # needs
-        await self.planAndActionBlock.needsBlock.reflect_to_intervention(intervention_message)
+        await self.planAndActionBlock.needsBlock.reflect_to_intervention(
+            intervention_message
+        )

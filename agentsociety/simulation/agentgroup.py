@@ -21,8 +21,13 @@ from ..llm.llm import LLM
 from ..memory import FaissQuery, Memory
 from ..message import Messager
 from ..metrics import MlflowClient
-from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
-                     STATUS_SCHEMA, SURVEY_SCHEMA)
+from ..utils import (
+    DIALOG_SCHEMA,
+    INSTITUTION_STATUS_SCHEMA,
+    PROFILE_SCHEMA,
+    STATUS_SCHEMA,
+    SURVEY_SCHEMA,
+)
 
 logger = logging.getLogger("agentsociety")
 __all__ = ["AgentGroup"]
@@ -779,20 +784,22 @@ class AgentGroup:
             - The consumption data provided by the LLM client.
         """
         return self.llm.get_consumption()
-    
+
     async def get_llm_error_statistics(self):
         """
         Retrieves the error statistics from the LLM client.
         """
         return self.llm.get_error_statistics()
-    
-    async def react_to_intervention(self, intervention_message: str, agent_uuids: list[str]):
+
+    async def react_to_intervention(
+        self, intervention_message: str, agent_ids: list[int]
+    ):
         """
         React to an intervention.
         """
         react_tasks = []
         for agent in self.agents:
-            if agent._uuid in agent_uuids:
+            if agent.id in agent_ids:
                 react_tasks.append(agent.react_to_intervention(intervention_message))
         await asyncio.gather(*react_tasks)
 

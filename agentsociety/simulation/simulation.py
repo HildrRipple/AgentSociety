@@ -19,13 +19,14 @@ from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
 from ..cityagent.initial import bind_agent_info, initialize_social_network
 from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
                                        memory_config_government,
-                                       memory_config_nbs,
-                                       memory_config_societyagent, memory_config_load_file,
-                                       memory_config_merge, set_distribution)
+                                       memory_config_load_file,
+                                       memory_config_merge, memory_config_nbs,
+                                       memory_config_societyagent,
+                                       set_distribution)
 from ..cityagent.message_intercept import (EdgeMessageBlock,
                                            MessageBlockListener,
                                            PointMessageBlock)
-from ..configs import ExpConfig, SimConfig, MemoryConfig, MetricExtractor
+from ..configs import ExpConfig, MemoryConfig, MetricExtractor, SimConfig
 from ..environment import EconomyClient, Simulator
 from ..llm import SimpleEmbedding
 from ..message import (MessageBlockBase, MessageBlockListenerBase,
@@ -34,7 +35,7 @@ from ..metrics import init_mlflow_connection
 from ..metrics.mlflow_client import MlflowClient
 from ..survey import Survey
 from ..utils import (SURVEY_SENDER_UUID, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES,
-                     WorkflowType, MetricType)
+                     MetricType, WorkflowType)
 from .agentgroup import AgentGroup
 from .storage.pg import PgWriter, create_pg_tables
 
@@ -235,7 +236,7 @@ class AgentSimulation:
         - **Returns**:
             - Tuple[list[dict], list[dict], list[dict], list[dict], dict]:
                 - llm_log_lists: list of llm log lists
-                - mqtt_log_lists: list of mqtt log lists
+                - redis_log_lists: list of redis log lists
                 - simulator_log_lists: list of simulator log lists
                 - agent_time_log_lists: list of agent time log lists
                 - llm_error_statistics: dictionary of llm error statistics
@@ -505,7 +506,7 @@ class AgentSimulation:
                 "prompt": prompt,
                 "created_at": datetime.now(timezone.utc),
             }
-            await worker.async_save_global_prompt.remote(prompt_info)
+            await worker.async_save_global_prompt.remote(prompt_info) # type:ignore
 
     async def _monitor_exp_status(self, stop_event: asyncio.Event):
         """Monitor experiment status and update
@@ -587,7 +588,7 @@ class AgentSimulation:
         self.agent_count = agent_count
         if len(self.agent_class) != len(agent_count):
             raise ValueError("The length of agent_class and agent_count does not match")
-        
+        assert memory_config is not None
         memory_config_func = memory_config.memory_config_func
         memory_from_file = memory_config.memory_from_file
         memory_distributions = memory_config.memory_distributions
@@ -604,7 +605,7 @@ class AgentSimulation:
         # set memory distributions
         if memory_distributions is not None:
             for field, distribution_config in memory_distributions.items():
-                set_distribution(field, distribution_config.dist_type, **distribution_config.kwargs)
+                set_distribution(field, distribution_config.dist_type, **distribution_config.kwargs) # type:ignore
 
         # use thread pool to create AgentGroup
         group_creation_params = []
@@ -1095,6 +1096,7 @@ class AgentSimulation:
             if metric_extractor.type == MetricType.FUNCTION:
                 await metric_extractor.func(self)
             elif metric_extractor.type == MetricType.STATE:
+                assert metric_extractor.key is not None
                 values = await self.gather(metric_extractor.key, metric_extractor.target_agent, flatten=True)
                 if values is None or len(values) == 0:
                     logger.warning(f"No values found for metric extractor {metric_extractor.key} in extraction step {metric_extractor.extract_time}")
@@ -1110,7 +1112,8 @@ class AgentSimulation:
                         value = min(values)
                     else:
                         raise ValueError(f"method {metric_extractor.method} is not supported")
-                    await self._simulator.log_metric(
+                    assert self.mlflow_client is not None and metric_extractor.key is not None
+                    await self.mlflow_client.log_metric(
                         key = metric_extractor.key,
                         value = value,
                         step = metric_extractor.extract_time
