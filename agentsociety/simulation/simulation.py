@@ -67,6 +67,7 @@ class AgentSimulation:
         agent_class: Union[None, type[Agent], list[type[Agent]]] = None,
         agent_class_configs: Optional[dict] = None,
         metric_extractors: Optional[list[MetricExtractor]] = None,
+        tenant_id:str = "",
         agent_prefix: str = "agent_",
         exp_name: str = "default_experiment",
         logging_level: int = logging.WARNING,
@@ -85,6 +86,7 @@ class AgentSimulation:
             - `agent_class_configs` (Optional[dict], optional): An optional configuration dict used to initialize agents. Defaults to None.
             - `metric_extractors` (Optional[List[MetricExtractor]], optional):
                 A list of MetricExtractor for extracting metrics from the simulation. Defaults to None.
+            - `tenant_id` (str, optional): The tenant ID for the simulation. Defaults to "".
             - `agent_prefix` (str, optional): Prefix string for naming agents. Defaults to "agent_".
             - `exp_name` (str, optional): The name of the experiment. Defaults to "default_experiment".
             - `logging_level` (int, optional): Logging level to set for the simulation's logger. Defaults to logging.WARNING.
@@ -93,8 +95,7 @@ class AgentSimulation:
             - None
         """
         self.exp_id = str(uuid.uuid4())
-        # TODO: set tenant_id
-        self.tenant_id = str(uuid.uuid4())
+        self.tenant_id = tenant_id
         if isinstance(agent_class, list):
             self.agent_class = agent_class
         elif agent_class is None:

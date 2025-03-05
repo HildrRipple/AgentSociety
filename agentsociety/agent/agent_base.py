@@ -545,8 +545,8 @@ class Agent(ABC):
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
             _keys = [
-                "id",
                 "tenant_id",
+                "id",
                 "day",
                 "t",
                 "survey_id",
