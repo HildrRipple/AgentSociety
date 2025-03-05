@@ -9,8 +9,8 @@ from agentsociety import AgentSimulation
 from agentsociety.cityagent import memory_config_societyagent
 from agentsociety.cityagent.metrics import economy_metric
 from agentsociety.cityagent.societyagent import SocietyAgent
-from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep
-from agentsociety.utils import LLMRequestType, WorkflowType
+from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep, MetricExtractor
+from agentsociety.utils import LLMRequestType, WorkflowType, MetricType
 
 logging.getLogger("agentsociety").setLevel(logging.INFO)
 
@@ -45,19 +45,23 @@ exp_config = (
     )
     .SetAgentConfig(
         number_of_citizen=100,
-        number_of_firm=5,
-        memory_config_func={SocietyAgent: memory_config_societyagent},
+        number_of_firm=5,        
         agent_class_configs={
             SocietyAgent: json.load(open("society_agent_config.json"))
         },
     )
-    .SetWorkFlow(
+    .SetMemoryConfig(
+        memory_config_func={SocietyAgent: memory_config_societyagent},
+    )
+    .SetMetricExtractors(
+        metric_extractors=[
+            MetricExtractor(type=MetricType.FUNCTION, func=economy_metric, step_interval=1),
+            MetricExtractor(type=MetricType.FUNCTION, func=gather_ubi_opinions, step_interval=12),
+        ]
+    ).SetWorkFlow(
         [
             WorkflowStep(type=WorkflowType.RUN, days=10, times=1, description=""),
         ]
-    )
-    .SetMetricExtractors(
-        metric_extractors=[(1, economy_metric), (12, gather_ubi_opinions)]
     )
 )
 

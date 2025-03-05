@@ -50,7 +50,7 @@ class LLM:
         self._current_client_index = 0
         self._log_list = []
         
-        # 错误统计相关变量
+        # statistics about errors
         self._total_calls = 0
         self._total_errors = 0
         self._error_types = {
@@ -419,7 +419,7 @@ class LLM:
             "total": self._total_calls,
             "error": self._total_errors,
         }
-        # 添加各种错误类型的统计
+        # add statistics about different error types
         for error_type, count in self._error_types.items():
             stats[f"{error_type}"] = count
         

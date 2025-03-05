@@ -1,5 +1,51 @@
 # Changelog
 
+## [1.2.4] - 2025-03-05
+
+### Added
+- Add `llm_error` statistics for `Simulation.run_from_config`(Based on `LLM`).
+- Add `MemoryConfig` in `AgentConfig`. Support three ways to set memory configuration:
+    - `memory_config_func`: A dictionary that maps agent class to a function that returns memory configuration.
+    - `memory_from_file`: A dictionary that maps agent class to the path of the file containing the memory configuration, only supports `.json` or `.jsonl` file types.
+    - `memory_distributions`: A dictionary that maps memory field name to its distribution configuration (for `SocietyAgent` profile attributes).
+- Add `INTERVIEW`, `SURVEY`, `ENVIRONMENT_INTERVENE`, `UPDATE_STATE_INTERVENE`, `MESSAGE_INTERVENE` in `WorkflowType`.
+    - `INTERVIEW`: Send interview request to `Agent`.
+    - `SURVEY`: Send survey request to `Agent`.
+    - `ENVIRONMENT_INTERVENE`: Change environment.
+    - `UPDATE_STATE_INTERVENE`: Update `Agent` state.
+    - `MESSAGE_INTERVENE`: Send message to `Agent` to change its behavior.
+- Add `MetricExtractor` in `ExpConfig`. Support three ways to set metric extractors:
+    - `FUNCTION`: A function that returns a list of metric extractors.
+        - Provide `func` to set the function to be called.
+    - `STATE`: A dictionary that maps metric key to its target agent.
+        - Only support `float` or `int` type values yet.
+        - Provide `key` to set the metric key (which is a state field name of target `Agent`).
+        - Provide `method` to set the method to be used to aggregate the values.
+            - `mean`: Calculate the mean of the values.
+            - `sum`: Calculate the sum of the values.
+            - `max`: Calculate the maximum of the values.
+            - `min`: Calculate the minimum of the values.
+        - Provide `target_agent` to set the target agent.
+        - Provide `step_interval` to set the step interval to extract the metric.
+
+### Changed
+- `Simulation.run_from_config` raise error if `number_of_citizen` is 0 and `extra_agent_class` is not provided.
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
+### Other
+- N/A
+
 ## [1.1.4] - 2025-02-27
 
 ### Added

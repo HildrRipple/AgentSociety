@@ -18,14 +18,21 @@ The Environment will influence the choice of steps.
 
 Current weather: {weather}
 Current temperature: {temperature}
-Other information: {global_prompt}
+Other information: 
+-------------------------
+{other_info}
+-------------------------
 
 Current need: Need to satisfy {current_need}
-Available options: {options}
 Current location: {current_location}
 Current time: {current_time}
 Your emotion: {emotion_types}
 Your thought: {thought}
+
+Available options: 
+-------------------------
+{options}
+-------------------------
 
 Please evaluate and select the most appropriate option based on these three dimensions:
 1. Attitude: Personal preference and evaluation of the option
@@ -34,7 +41,7 @@ Please evaluate and select the most appropriate option based on these three dime
 
 Please response in json format (Do not return any other text), example:
 {{
-    "selected_option": "Select the most suitable option from available options",
+    "selected_option": "Select the most suitable option from available options or do things that can satisfy your needs or actions",
     "evaluation": {{
         "attitude": "Attitude score for the option (0-1)",
         "subjective_norm": "Subjective norm score (0-1)", 
@@ -48,7 +55,10 @@ DETAILED_PLAN_PROMPT = """Generate specific execution steps based on the selecte
 
 Current weather: {weather}
 Current temperature: {temperature}
-Other information: {global_prompt}
+Other information: 
+-------------------------
+{other_info}
+-------------------------
 
 Selected plan: {selected_option}
 Current location: {current_location} 
@@ -109,42 +119,6 @@ Please response in json format (Do not return any other text), example:
         ]
     }}
 }}
-
-{{
-    "plan": {{
-        "target": "Offline social",
-        "steps": [
-            {{
-                "intention": "Contact friends to arrange meeting place",
-                "type": "social"
-            }},
-            {{
-                "intention": "Go to meeting place",
-                "type": "mobility"
-            }},
-            {{
-                "intention": "Chat with friends",
-                "type": "social"
-            }}
-        ]
-    }}
-}}
-
-{{
-    "plan": {{
-        "target": "Work",
-        "steps": [
-            {{
-                "intention": "Go to workplace",
-                "type": "mobility"
-            }},
-            {{
-                "intention": "Work",
-                "type": "other"
-            }}
-        ]
-    }}
-}}
 """
 
 
@@ -160,12 +134,10 @@ class PlanBlock(Block):
         self.trigger_time = 0
         self.token_consumption = 0
         self.guidance_options = {
-            "hungry": ["Eat at home", "Eat outside"],
+            "hungry": ["Eat at home", "Eat outside", "Eat in current location"],
             "tired": ["Sleep"],
             "safe": ["Work", "Shopping"],
             "social": ["Contact with friends"],
-            "whatever": ["Contact with friends", "Entertainment"],
-            "emergency": ["Go to shelter"],
         }
 
         # configurable fields
@@ -195,10 +167,12 @@ class PlanBlock(Block):
             current_location = id_to_name[position_now["aoi_position"]]
         current_time = await self.simulator.get_time(format_time=True)
         options = self.guidance_options.get(current_need, [])
+        if len(options) == 0:
+            options = "Do things that can satisfy your needs or actions."
         self.guidance_prompt.format(
-            weather=self.simulator.sence("weather"),
-            temperature=self.simulator.sence("temperature"),
-            global_prompt=self.simulator.environment.get("global_prompt", ""),
+            weather=self.simulator.sense("weather"),
+            temperature=self.simulator.sense("temperature"),
+            other_info=self.simulator.environment.get("other_information", "None"),
             current_need=current_need,
             options=options,
             current_location=current_location,
@@ -252,9 +226,9 @@ class PlanBlock(Block):
             current_location = "At workplace"
         current_time = await self.simulator.get_time(format_time=True)
         self.detail_prompt.format(
-            weather=self.simulator.sence("weather"),
-            temperature=self.simulator.sence("temperature"),
-            global_prompt=self.simulator.environment.get("global_prompt", ""),
+            weather=self.simulator.sense("weather"),
+            temperature=self.simulator.sense("temperature"),
+            other_info=self.simulator.environment.get("other_information", "None"),
             selected_option=selected_option,
             current_location=current_location,
             current_time=current_time,

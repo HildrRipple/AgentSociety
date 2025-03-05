@@ -320,7 +320,6 @@ def memory_config_societyagent():
         "energy_satisfaction": (float, random.random(), False),  # energy satisfaction
         "safety_satisfaction": (float, random.random(), False),  # safety satisfaction
         "social_satisfaction": (float, random.random(), False),  # social satisfaction
-        "emergency_level": (float, 0.0, False),  # emergency level
         "current_need": (str, "none", False),
         # Plan Behavior Model
         "current_plan": (list, [], False),
@@ -543,16 +542,33 @@ def memory_config_load_file(file_path):
     Loads the memory configuration from the given file.
     - **Description**:
         - Loads the memory configuration from the given file.
+        - Supports both .json and .jsonl file types.
+        - For .json files, returns the parsed JSON content.
+        - For .jsonl files, returns a list of parsed JSON objects from each line.
 
     - **Args**:
         - `file_path` (str): The path to the file containing the memory configuration.
 
     - **Returns**:
-        - `memory_data` (list): The memory data.
+        - `memory_data` (Union[dict, list]): The memory data - either a single object or list of objects.
+        
+    - **Raises**:
+        - `ValueError`: If the file type is not supported.
     """
-    with open(file_path, 'r') as f:
-        memory_data = json.load(f)
-    return memory_data
+    # Check file extension
+    if file_path.endswith('.json'):
+        with open(file_path, 'r') as f:
+            memory_data = json.load(f)
+        return memory_data
+    elif file_path.endswith('.jsonl'):
+        memory_data = []
+        with open(file_path, 'r') as f:
+            for line in f:
+                if line.strip():  # Skip empty lines
+                    memory_data.append(json.loads(line))
+        return memory_data
+    else:
+        raise ValueError(f"Unsupported file type. Only .json or .jsonl files are supported. Got: {file_path}")
 
 
 def memory_config_merge(file_data, base_extra_attrs, base_profile, base_base):

@@ -119,7 +119,7 @@ class ControlSimEnv:
                     "-cache",
                     "",
                     "-log.level",
-                    "debug",
+                    "error",
                 ],
                 # 忽略输出
                 # stdout=DEVNULL,

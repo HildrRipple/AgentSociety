@@ -779,7 +779,7 @@ class AgentGroup:
                 react_tasks.append(agent.react_to_intervention(intervention_message))
         await asyncio.gather(*react_tasks)
 
-    async def update_environment(self, key: str, value: str):
+    async def update_environment(self, key: str, value: Any):
         """
         Update the environment variables for the simulation and all agent groups.
 
@@ -788,7 +788,7 @@ class AgentGroup:
 
         - **Args**:
             - `key` (str): The key to update.
-            - `value` (str): The value to update.
+            - `value` (Any): The value to update.
         """
         self.simulator.update_environment(key, value)
 

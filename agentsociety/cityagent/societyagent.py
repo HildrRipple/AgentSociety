@@ -274,7 +274,11 @@ class SocietyAgent(CitizenAgent):
         time_now = int(await self.simulator.get_time())
         step_start_time = current_step["start_time"]
         step_consumed_time = current_step["evaluation"]["consumed_time"]
-        time_end_plan = step_start_time + int(step_consumed_time) * 60
+        try:
+            time_end_plan = step_start_time + int(step_consumed_time) * 60
+        except Exception as e:
+            logger.warning(f"Error in check_and_update_step: {str(e)}")
+            time_end_plan = time_now
         if time_now >= time_end_plan:
             # The previous step has been completed
             current_plan = await self.memory.status.get("current_plan")
@@ -510,4 +514,5 @@ class SocietyAgent(CitizenAgent):
         await self.memory.stream.add_cognition(
             description=conclusion
         )
-        # TODO: other influence
+        # needs
+        await self.planAndActionBlock.needsBlock.reflect_to_intervention(intervention_message)

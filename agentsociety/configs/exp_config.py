@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union, List
 
 from pydantic import BaseModel, Field
 
-from ..utils import WorkflowType, DistributionType
-
+from ..utils import WorkflowType, DistributionType, MetricType
+from ..survey import Survey
 # if TYPE_CHECKING:
 #     from ..simulation import AgentSimulation
 
@@ -17,22 +17,27 @@ class WorkflowStep(BaseModel):
     func: Optional[Callable] = None
     days: float = 1.0
     times: int = 1
+    target_agent: Optional[list] = None
+    interview_message: Optional[str] = None
+    survey: Optional[Survey] = None
+    key: Optional[str] = None
+    value: Optional[Any] = None
+    intervene_message: Optional[str] = None
+    description: str = "no description"
+
+
+class MetricExtractor(BaseModel):
+    type: MetricType = MetricType.FUNCTION
+    func: Callable
+    step_interval: int = 10
+    target_agent: Optional[list] = None
+    key: Optional[str] = None
+    method: Optional[Literal["mean", "sum", "max", "min"]] = "sum"
+    extract_time: int = 0
     description: str = "no description"
 
 
 class DistributionConfig(BaseModel):
-    """
-    Configuration for a distribution.
-    - **Description**:
-        - Defines the parameters for a specific distribution type.
-
-    - **Args**:
-        - `dist_type` (DistributionType): Type of distribution
-        - Various parameters specific to each distribution type
-
-    - **Returns**:
-        - None
-    """
     dist_type: DistributionType
     choices: Optional[List[Any]] = None
     weights: Optional[List[float]] = None
@@ -44,8 +49,8 @@ class DistributionConfig(BaseModel):
 
 
 class MemoryConfig(BaseModel):
-    memory_from_file: Optional[Dict[Any, str]] = None
     memory_config_func: Optional[Dict[type[Any], Callable]] = None
+    memory_from_file: Optional[Dict[Any, str]] = None
     memory_distributions: Optional[Dict[str, DistributionConfig]] = None
 
 
@@ -71,22 +76,24 @@ class AgentConfig(BaseModel):
     
     def SetMemoryConfig(
         self,
-        memory_from_file: Optional[Dict[Any, str]] = None,
         memory_config_func: Optional[Dict[type[Any], Callable]] = None,
+        memory_from_file: Optional[Dict[Any, str]] = None,
         memory_distributions: Optional[Dict[str, DistributionConfig]] = None,
     ) -> "AgentConfig":
         self.memory_config = MemoryConfig(
-            memory_from_file=memory_from_file,
             memory_config_func=memory_config_func,
+            memory_from_file=memory_from_file,
             memory_distributions=memory_distributions,
         )
         return self
     
+    
 class EnvironmentConfig(BaseModel):
     weather: str = Field(default="The weather is normal")
     temperature: str = Field(default="The temperature is normal")
-    day: str = Field(default="Workday")
-    global_prompt: str = Field(default="")
+    workday: bool = Field(default=True)
+    other_information: str = Field(default="")
+
 
 class MessageInterceptConfig(BaseModel):
     mode: Optional[Union[Literal["point"], Literal["edge"]]] = None
@@ -100,7 +107,7 @@ class ExpConfig(BaseModel):
     workflow: Optional[list[WorkflowStep]] = None
     environment: Optional[EnvironmentConfig] = EnvironmentConfig()
     message_intercept: Optional[MessageInterceptConfig] = None
-    metric_extractors: Optional[list[tuple[int, Callable]]] = None
+    metric_extractors: Optional[list[MetricExtractor]] = None
     logging_level: int = Field(logging.WARNING)
     exp_name: str = Field("default_experiment")
     llm_semaphore: int = Field(200)
@@ -124,7 +131,7 @@ class ExpConfig(BaseModel):
     @property
     def prop_metric_extractors(
         self,
-    ) -> list[tuple[int, Callable]]:
+    ) -> list[MetricExtractor]:
         return self.metric_extractors  # type:ignore
 
     def SetAgentConfig(
@@ -156,18 +163,31 @@ class ExpConfig(BaseModel):
         )
         return self
 
+    def SetMemoryConfig(
+        self,
+        memory_config_func: Optional[Dict[type[Any], Callable]] = None,
+        memory_from_file: Optional[Dict[Any, str]] = None,
+        memory_distributions: Optional[Dict[str, DistributionConfig]] = None,
+    ) -> "ExpConfig":
+        self.agent_config.memory_config = MemoryConfig(
+            memory_config_func=memory_config_func,
+            memory_from_file=memory_from_file,
+            memory_distributions=memory_distributions,
+        )
+        return self
+
     def SetEnvironment(
         self,
         weather: str = "The weather is normal",
         temperature: str = "The temperature is normal",
-        day: str = "Workday",
-        global_prompt: str = "",
+        workday: bool = True,
+        other_information: str = "",
     ) -> "ExpConfig":
         self.environment = EnvironmentConfig(
             weather=weather,
             temperature=temperature,
-            day=day,
-            global_prompt=global_prompt,
+            workday=workday,
+            other_information=other_information,
         )
         return self
 
@@ -186,7 +206,7 @@ class ExpConfig(BaseModel):
         )
         return self
 
-    def SetMetricExtractors(self, metric_extractors: list[tuple[int, Callable]]):
+    def SetMetricExtractors(self, metric_extractors: list[MetricExtractor]):
         self.metric_extractors = metric_extractors
         return self
 

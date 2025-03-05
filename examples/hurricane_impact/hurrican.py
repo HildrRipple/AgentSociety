@@ -10,8 +10,8 @@ from hurrican_memory_config import memory_config_societyagent_hurrican
 from agentsociety import AgentSimulation
 from agentsociety.cityagent import SocietyAgent
 from agentsociety.cityagent.metrics import mobility_metric
-from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep
-from agentsociety.utils import LLMRequestType, WorkflowType
+from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep, MetricExtractor
+from agentsociety.utils import LLMRequestType, WorkflowType, MetricType
 
 logging.getLogger("agentsociety").setLevel(logging.INFO)
 
@@ -52,6 +52,7 @@ exp_config = (
         number_of_citizen=1000,
         number_of_firm=50,
         group_size=50,
+    ).SetMemoryConfig(
         memory_config_func={SocietyAgent: memory_config_societyagent_hurrican},
     )
     .SetWorkFlow(
@@ -69,7 +70,9 @@ exp_config = (
             WorkflowStep(type=WorkflowType.RUN, days=3),
         ]
     )
-    .SetMetricExtractors(metric_extractors=[(1, mobility_metric)])
+    .SetMetricExtractors([
+        MetricExtractor(type=MetricType.FUNCTION, func=mobility_metric, step_interval=1),
+    ])
 )
 
 

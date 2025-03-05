@@ -5,7 +5,7 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
-from typing import Optional, Union, cast
+from typing import Any, Optional, Union, cast
 
 import ray
 from mosstool.type import TripMode
@@ -180,7 +180,7 @@ class Simulator:
         """
         self._environment_prompt = environment
 
-    def sence(self, key: str) -> str:
+    def sense(self, key: str) -> Any:
         """
         Retrieve the value of an environment variable by its key.
 
@@ -188,19 +188,35 @@ class Simulator:
             - `key` (`str`): The key of the environment variable.
 
         - **Returns**:
-            - `str`: The value of the corresponding key, or an empty string if not found.
+            - `Any`: The value of the corresponding key, or an empty string if not found.
         """
         return self._environment_prompt.get(key, "")
 
-    def update_environment(self, key: str, value: str):
+    def update_environment(self, key: str, value: Any):
         """
         Update the value of a single environment variable.
 
         - **Args**:
             - `key` (`str`): The key of the environment variable.
-            - `value` (`str`): The new value to set.
+            - `value` (`Any`): The new value to set.
         """
         self._environment_prompt[key] = value
+
+    def get_environment(self) -> dict[str, Any]:
+        global_prompt = ""
+        for key in self._environment_prompt:
+            if isinstance(self._environment_prompt[key], str):
+                global_prompt += f"{key}: {self._environment_prompt[key]}\n"
+            elif isinstance(self._environment_prompt[key], dict):
+                for k, v in self._environment_prompt[key].items():
+                    global_prompt += f"{key}.{k}: {v}\n"
+            elif isinstance(self._environment_prompt[key], bool):
+                global_prompt += f"Is it {key}: {self._environment_prompt[key]}\n"
+            elif isinstance(self._environment_prompt[key], list):
+                global_prompt += f"{key} elements: {self._environment_prompt[key]}\n"
+            else:
+                global_prompt += f"{key}: {self._environment_prompt[key]}\n"
+        return global_prompt
 
     def get_poi_categories(
         self,

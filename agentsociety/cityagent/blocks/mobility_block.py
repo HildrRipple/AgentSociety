@@ -24,8 +24,10 @@ PLACE_TYPE_SELECTION_PROMPT = """
 As an intelligent decision system, please determine the type of place the user needs to visit based on their input requirement.
 User Plan: {plan}
 User requirement: {intention}
-Other information: {global_prompt}
-
+Other information: 
+-------------------------
+{other_info}
+-------------------------
 Your output must be a single selection from {poi_category} without any additional text or explanation.
 
 Please response in json format (Do not return any other text), example:
@@ -38,7 +40,10 @@ PLACE_SECOND_TYPE_SELECTION_PROMPT = """
 As an intelligent decision system, please determine the type of place the user needs to visit based on their input requirement.
 User Plan: {plan}
 User requirement: {intention}
-Other information: {global_prompt}
+Other information: 
+-------------------------
+{other_info}
+-------------------------
 
 Your output must be a single selection from {poi_category} without any additional text or explanation.
 
@@ -52,7 +57,10 @@ PLACE_ANALYSIS_PROMPT = """
 As an intelligent analysis system, please determine the type of place the user needs to visit based on their input requirement.
 User Plan: {plan}
 User requirement: {intention}
-Other information: {global_prompt}
+Other information: 
+-------------------------
+{other_info}
+-------------------------
 
 Your output must be a single selection from {place_list} without any additional text or explanation.
 
@@ -66,9 +74,12 @@ RADIUS_PROMPT = """As an intelligent decision system, please determine the maxim
 
 Current weather: {weather}
 Current temperature: {temperature}
-Other information: {global_prompt}
 Your current emotion: {emotion_types}
 Your current thought: {thought}
+Other information: 
+-------------------------
+{other_info}
+-------------------------
 
 Please analyze how these emotions would affect travel willingness and return only a single integer number between 3000-200000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
 
@@ -170,7 +181,7 @@ class PlaceSelectionBlock(Block):
             plan=context["plan"],
             intention=step["intention"],
             poi_category=list(poi_cate.keys()),
-            global_prompt=self.simulator.environment.get("global_prompt", ""),
+            other_info=self.simulator.environment.get("other_information", "None"),
         )
         levelOneType = await self.llm.atext_request(self.typeSelectionPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
@@ -182,7 +193,7 @@ class PlaceSelectionBlock(Block):
             levelOneType = random.choice(list(poi_cate.keys()))
             sub_category = poi_cate[levelOneType]
         self.secondTypeSelectionPrompt.format(
-            plan=context["plan"], intention=step["intention"], poi_category=sub_category, global_prompt=self.simulator.environment.get("global_prompt", ""),
+            plan=context["plan"], intention=step["intention"], poi_category=sub_category, other_info=self.simulator.environment.get("other_information", "None"),
         )
         levelTwoType = await self.llm.atext_request(self.secondTypeSelectionPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
@@ -196,9 +207,9 @@ class PlaceSelectionBlock(Block):
         self.radiusPrompt.format(
             emotion_types=await self.memory.status.get("emotion_types"),
             thought=await self.memory.status.get("thought"),
-            weather=self.simulator.sence("weather"),
-            temperature=self.simulator.sence("temperature"),
-            global_prompt=self.simulator.environment.get("global_prompt", ""),
+            weather=self.simulator.sense("weather"),
+            temperature=self.simulator.sense("temperature"),
+            other_info=self.simulator.environment.get("other_information", "None"),
         )
         radius = await self.llm.atext_request(self.radiusPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
@@ -276,7 +287,7 @@ class MoveBlock(Block):
         known_places = list(place_knowledge.keys())
         places = ["home", "workplace"] + known_places + ["other"]
         self.placeAnalysisPrompt.format(
-            plan=context["plan"], intention=step["intention"], place_list=places, global_prompt=self.simulator.environment.get("global_prompt", ""),
+            plan=context["plan"], intention=step["intention"], place_list=places, other_info=self.simulator.environment.get("other_information", "None"),
         )
         response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
@@ -318,7 +329,7 @@ class MoveBlock(Block):
                 "node_id": node_id,
             }
         elif response == "workplace":
-            # 返回到工作地点
+            # back to workplace
             work = await self.memory.status.get("work")
             work = work["aoi_position"]["aoi_id"]
             nowPlace = await self.memory.status.get("position")
@@ -382,7 +393,7 @@ class MoveBlock(Block):
                 "node_id": node_id,
             }
         else:
-            # 移动到其他地点
+            # move to other places
             next_place = context.get("next_place", None)
             nowPlace = await self.memory.status.get("position")
             node_id = await self.memory.stream.add_mobility(
@@ -446,15 +457,15 @@ class MobilityBlock(Block):
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__("MobilityBlock", llm=llm, memory=memory, simulator=simulator)
-        # 初始化所有块
+        # initialize all blocks
         self.place_selection_block = PlaceSelectionBlock(llm, memory, simulator)
         self.move_block = MoveBlock(llm, memory, simulator)
         self.mobility_none_block = MobilityNoneBlock(llm, memory)
         self.trigger_time = 0
         self.token_consumption = 0
-        # 初始化调度器
+        # initialize dispatcher
         self.dispatcher = BlockDispatcher(llm)
-        # 注册所有块
+        # register all blocks
         self.dispatcher.register_blocks(
             [self.place_selection_block, self.move_block, self.mobility_none_block]
         )

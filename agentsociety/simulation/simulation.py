@@ -25,7 +25,7 @@ from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
 from ..cityagent.message_intercept import (EdgeMessageBlock,
                                            MessageBlockListener,
                                            PointMessageBlock)
-from ..configs import ExpConfig, SimConfig, MemoryConfig
+from ..configs import ExpConfig, SimConfig, MemoryConfig, MetricExtractor
 from ..environment import EconomyClient, Simulator
 from ..llm import SimpleEmbedding
 from ..message import (MessageBlockBase, MessageBlockListenerBase,
@@ -34,7 +34,7 @@ from ..metrics import init_mlflow_connection
 from ..metrics.mlflow_client import MlflowClient
 from ..survey import Survey
 from ..utils import (SURVEY_SENDER_UUID, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES,
-                     WorkflowType)
+                     WorkflowType, MetricType)
 from .agentgroup import AgentGroup
 from .storage.pg import PgWriter, create_pg_tables
 
@@ -65,7 +65,7 @@ class AgentSimulation:
         config: SimConfig,
         agent_class: Union[None, type[Agent], list[type[Agent]]] = None,
         agent_class_configs: Optional[dict] = None,
-        metric_extractors: Optional[list[tuple[int, Callable]]] = None,
+        metric_extractors: Optional[list[MetricExtractor]] = None,
         agent_prefix: str = "agent_",
         exp_name: str = "default_experiment",
         logging_level: int = logging.WARNING,
@@ -82,8 +82,8 @@ class AgentSimulation:
             - `agent_class` (Union[None, Type[Agent], List[Type[Agent]]], optional):
                 Either a single agent class or a list of agent classes to instantiate. Defaults to None, which implies a default set of agents.
             - `agent_class_configs` (Optional[dict], optional): An optional configuration dict used to initialize agents. Defaults to None.
-            - `metric_extractors` (Optional[List[Tuple[int, Callable]]], optional):
-                A list of tuples containing intervals and callables for extracting metrics from the simulation. Defaults to None.
+            - `metric_extractors` (Optional[List[MetricExtractor]], optional):
+                A list of MetricExtractor for extracting metrics from the simulation. Defaults to None.
             - `agent_prefix` (str, optional): Prefix string for naming agents. Defaults to "agent_".
             - `exp_name` (str, optional): The name of the experiment. Defaults to "default_experiment".
             - `logging_level` (int, optional): Logging level to set for the simulation's logger. Defaults to logging.WARNING.
@@ -260,8 +260,8 @@ class AgentSimulation:
         }
         if agent_config.extra_agent_class is not None:
             agent_count.update(agent_config.extra_agent_class)
-        if agent_count.get(SocietyAgent, 0) == 0:
-            raise ValueError("number_of_citizen is required")
+        if agent_count.get(SocietyAgent, 0) == 0 and agent_config.extra_agent_class is None:
+            raise ValueError("if number_of_citizen is 0, extra_agent_class should be provided")
 
         # support MessageInterceptor
         if config.message_intercept is not None:
@@ -355,6 +355,38 @@ class AgentSimulation:
                     mqtt_log_lists.extend(mqtt_log_list)
                     simulator_log_lists.extend(simulator_log_list)
                     agent_time_log_lists.extend(agent_time_log_list)
+            elif step.type == WorkflowType.INTERVIEW:
+                target_agents = step.target_agent
+                interview_message = step.interview_message
+                if target_agents is None or interview_message is None:
+                    raise ValueError("target_agent and interview_message are required for INTERVIEW step")
+                await simulation.send_interview_message(interview_message, target_agents)
+            elif step.type == WorkflowType.SURVEY:
+                target_agents = step.target_agent
+                survey = step.survey
+                if target_agents is None or survey is None:
+                    raise ValueError("target_agent and survey are required for SURVEY step")
+                await simulation.send_survey(survey, target_agents)
+            elif step.type == WorkflowType.ENVIRONMENT_INTERVENE:
+                key = step.key
+                value = step.value
+                if key is None or value is None:
+                    raise ValueError("key and value are required for ENVIRONMENT_INTERVENE step")
+                await simulation.update_environment(key, value)
+            elif step.type == WorkflowType.UPDATE_STATE_INTERVENE:
+                key = step.key
+                value = step.value
+                target_agents = step.target_agent
+                if key is None or value is None or target_agents is None:
+                    raise ValueError("key, value and target_agent are required for UPDATE_STATE_INTERVENE step")
+                await simulation.update(target_agents, key, value)
+            elif step.type == WorkflowType.MESSAGE_INTERVENE:
+                logger.warning("MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congition of target agents")
+                target_agents = step.target_agent
+                intervene_message = step.intervene_message
+                if target_agents is None or intervene_message is None:
+                    raise ValueError("target_agent and intervene_message are required for MESSAGE_INTERVENE step")
+                await simulation.send_intervention_message(intervene_message, target_agents)
             else:
                 _func = cast(Callable, step.func)
                 await _func(simulation)
@@ -813,7 +845,7 @@ class AgentSimulation:
             await group.set_economy_ids.remote(agent_ids, org_ids)
 
     async def gather(
-        self, content: str, target_agent_uuids: Optional[list[str]] = None
+        self, content: str, target_agent_uuids: Optional[list[str]] = None, flatten: bool = False
     ):
         """
         Collect specific information from agents.
@@ -824,6 +856,7 @@ class AgentSimulation:
         - **Args**:
             - `content` (str): The information to collect from the agents.
             - `target_agent_uuids` (Optional[List[str]], optional): A list of agent UUIDs to target. Defaults to None, meaning all agents are targeted.
+            - `flatten` (bool, optional): Whether to flatten the result. Defaults to False.
 
         - **Returns**:
             - Result of the gathering process as returned by each group's `gather` method.
@@ -831,7 +864,15 @@ class AgentSimulation:
         gather_tasks = []
         for group in self._groups.values():
             gather_tasks.append(group.gather.remote(content, target_agent_uuids))
-        return await asyncio.gather(*gather_tasks)
+        data = await asyncio.gather(*gather_tasks)
+        if flatten:
+            data_flatten = []
+            for group_data in data:
+                for _, data in group_data.items():
+                    data_flatten.extend(data)
+            return data_flatten
+        else:
+            return data
 
     async def filter(
         self,
@@ -886,7 +927,7 @@ class AgentSimulation:
         for group in self._groups.values():
             await group.update_environment.remote(key, value)
 
-    async def update(self, target_agent_uuid: str, target_key: str, content: Any):
+    async def update(self, target_agent_uuid: Union[str, list[str]], target_key: str, content: Any):
         """
         Update the memory of a specified agent.
 
@@ -895,8 +936,13 @@ class AgentSimulation:
             - `target_key` (str): The key in the agent's memory to update.
             - `content` (Any): The new content to set for the target key.
         """
-        group = self._agent_uuid2group[target_agent_uuid]
-        await group.update.remote(target_agent_uuid, target_key, content)
+        if isinstance(target_agent_uuid, str):
+            group = self._agent_uuid2group[target_agent_uuid]
+            await group.update.remote(target_agent_uuid, target_key, content)
+        elif isinstance(target_agent_uuid, list):
+            for uuid in target_agent_uuid:
+                group = self._agent_uuid2group[uuid]
+                await group.update.remote(uuid, target_key, content)
 
     async def economy_update(
         self,
@@ -998,7 +1044,7 @@ class AgentSimulation:
         for group in self._groups.values():
             await group.react_to_intervention.remote(intervention_message, agent_uuids)
 
-    async def extract_metric(self, metric_extractors: list[Callable]):
+    async def extract_metric(self, metric_extractors: list[MetricExtractor]):
         """
         Extract metrics using provided extractors.
 
@@ -1006,13 +1052,38 @@ class AgentSimulation:
             - Asynchronously applies each metric extractor function to the simulation to collect various metrics.
 
         - **Args**:
-            - `metric_extractors` (List[Callable]): A list of callable functions that take the simulation instance as an argument and return a metric or perform some form of analysis.
+            - `metric_extractors` (List[MetricExtractor]): A list of MetricExtractor for extracting metrics from the simulation.
 
         - **Returns**:
             - None
         """
         for metric_extractor in metric_extractors:
-            await metric_extractor(self)
+            if metric_extractor.type == MetricType.FUNCTION:
+                await metric_extractor.func(self)
+            elif metric_extractor.type == MetricType.STATE:
+                values = await self.gather(metric_extractor.key, metric_extractor.target_agent, flatten=True)
+                if values is None or len(values) == 0:
+                    logger.warning(f"No values found for metric extractor {metric_extractor.key} in extraction step {metric_extractor.extract_time}")
+                    return
+                if type(values[0]) == float or type(values[0]) == int:
+                    if metric_extractor.method == "mean":
+                        value = sum(values) / len(values)
+                    elif metric_extractor.method == "sum":
+                        value = sum(values)
+                    elif metric_extractor.method == "max":
+                        value = max(values)
+                    elif metric_extractor.method == "min":
+                        value = min(values)
+                    else:
+                        raise ValueError(f"method {metric_extractor.method} is not supported")
+                    await self._simulator.log_metric(
+                        key = metric_extractor.key,
+                        value = value,
+                        step = metric_extractor.extract_time
+                    )
+                else:
+                    raise ValueError(f"values type {type(values[0])} is not supported")
+            metric_extractor.extract_time += 1
 
     async def step(self, num_simulator_steps: int = 1):
         """
@@ -1067,18 +1138,24 @@ class AgentSimulation:
             await asyncio.gather(*save_tasks)
             # save global prompt
             await self._save_global_prompt(
-                prompt=self._simulator.environment["global_prompt"],
+                prompt=self._simulator.get_environment(),
                 day=simulator_day,
                 t=simulator_time,
             )
             self._total_steps += 1
             if self.metric_extractors is not None:  # type:ignore
-                to_excute_metric = [
-                    metric[1]
-                    for metric in self.metric_extractors  # type:ignore
-                    if self._total_steps % metric[0] == 0
-                ]
-                await self.extract_metric(to_excute_metric)
+                to_execute_metric = []
+                for metric_extractor in self.metric_extractors:  # type:ignore
+                    if self._total_steps % metric_extractor.step_interval == 0:
+                        if metric_extractor.type == MetricType.FUNCTION:
+                            to_execute_metric.append(metric_extractor)
+                        elif metric_extractor.type == MetricType.STATE:
+                            # For STATE type, we need to gather data from target agents
+                            if metric_extractor.target_agent and metric_extractor.key:
+                                to_execute_metric.append(metric_extractor)
+                
+                if to_execute_metric:
+                    await self.extract_metric(to_execute_metric)
 
             return llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list
         except Exception as e:

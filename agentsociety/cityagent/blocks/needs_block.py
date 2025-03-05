@@ -67,16 +67,47 @@ Notes:
 
 Please response in json format for specific need (hungry here) adjustment (Do not return any other text), example:
 {{
-    "hunger_satisfaction": new_need_value
+    "hunger_satisfaction": new_hunger_satisfaction_value
 }}
 
 Please response in json format for whatever need adjustment (Do not return any other text), example:
 {{
-    "safety_satisfaction": new_safe_value,
-    "social_satisfaction": new_social_value
+    "safety_satisfaction": new_safety_satisfaction_value,
+    "social_satisfaction": new_social_satisfaction_value
 }}
 """
 
+REFLECT_PROMPT = """You are an intelligent agent reflection system. Based on the intervention message below, please help to rebuild the satisfaction levels of the agent.
+
+The agent has received/sense the following intervention message:
+--------------------------------
+{intervention_message}
+--------------------------------
+
+And the agent's current needs are:
+- hunger_satisfaction: {hunger_satisfaction}
+- energy_satisfaction: {energy_satisfaction}
+- safety_satisfaction: {safety_satisfaction}
+- social_satisfaction: {social_satisfaction}
+
+The agent's current action is:
+--------------------------------
+{current_action}
+--------------------------------
+
+Please response in json format, example:
+{{
+    "hunger_satisfaction": new_hunger_satisfaction_value,
+    "energy_satisfaction": new_energy_satisfaction_value,
+    "safety_satisfaction": new_safety_satisfaction_value,
+    "social_satisfaction": new_social_satisfaction_value,
+}}
+If you think the agent has to stop the current action and do something to satisfy the needs, please response in json format, example:
+{{
+    "do_something": True,
+    "description": "Go to the hospital"
+}}
+"""
 
 class NeedsBlock(Block):
     """
@@ -87,6 +118,7 @@ class NeedsBlock(Block):
         super().__init__("NeedsBlock", llm=llm, memory=memory, simulator=simulator)
         self.evaluation_prompt = FormatPrompt(EVALUATION_PROMPT)
         self.initial_prompt = FormatPrompt(INITIAL_NEEDS_PROMPT)
+        self.reflect_prompt = FormatPrompt(REFLECT_PROMPT)
         self.need_work = True
         self.now_day = -1
         self.last_evaluation_time = None
@@ -105,13 +137,15 @@ class NeedsBlock(Block):
             0.2,
             0.3,
         )  # Hunger threshold, Energy threshold, Safety threshold, Social threshold
-        self._checked_emergency = False
+        self._need_to_do = None
+        self._need_to_do_checked = False
+
     async def initialize(self):
         day = await self.simulator.get_simulator_day()
         if day != self.now_day:
             self.now_day = day
-            workday = self.simulator.sence("day")
-            if workday == "Workday":
+            workday = self.simulator.sense("workday")
+            if workday:
                 self.need_work = True
             else:
                 self.need_work = False
@@ -164,6 +198,43 @@ class NeedsBlock(Block):
             await self.memory.status.update("execution_context", {})
             self.initialized = True
 
+    async def reflect_to_intervention(self, intervention: str):
+        # rebuild needs for intervention
+        current_action = await self.memory.status.get("current_step")
+        action_message = f"{current_action['intention']} ({current_action['type']})" if current_action["intention"] != "" else "None"
+        self.reflect_prompt.format(
+            intervention_message=intervention,
+            current_action=action_message,
+            hunger_satisfaction=await self.memory.status.get("hunger_satisfaction"),
+            energy_satisfaction=await self.memory.status.get("energy_satisfaction"),
+            safety_satisfaction=await self.memory.status.get("safety_satisfaction"),
+            social_satisfaction=await self.memory.status.get("social_satisfaction"),
+        )
+        response = await self.llm.atext_request(self.reflect_prompt.to_dialog(), response_format={"type": "json_object"})
+        try:
+            reflection = json.loads(clean_json_response(response))  # type: ignore
+            if "do_something" in reflection:
+                self._need_to_do = reflection["description"]
+            else:
+                # update satisfaction
+                for need_type, new_value in reflection.items():
+                    if need_type in [
+                        "hunger_satisfaction",
+                        "energy_satisfaction",
+                        "safety_satisfaction",
+                        "social_satisfaction",
+                    ]:
+                        await self.memory.status.update(need_type, new_value)
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Reflection response is not a valid JSON format: {response}"
+            )
+            return None
+        except Exception as e:
+            logger.warning(f"Error processing reflection response: {str(e)}")
+            logger.warning(f"Original response: {response}")
+            return None        
+
     async def time_decay(self):
         # calculate time difference
         time_now = await self.simulator.get_time()
@@ -214,16 +285,15 @@ class NeedsBlock(Block):
                 "current_step", {"intention": "", "type": ""}
             )
             await self.memory.status.update("execution_context", {})
-            if pre_need == "emergency":
-                self._checked_emergency = True
-
+            if pre_need == self._need_to_do:
+                self._need_to_do = None
+                self._need_to_do_checked = False
     async def determine_current_need(self):
         cognition = None
         hunger_satisfaction = await self.memory.status.get("hunger_satisfaction")
         energy_satisfaction = await self.memory.status.get("energy_satisfaction")
         safety_satisfaction = await self.memory.status.get("safety_satisfaction")
         social_satisfaction = await self.memory.status.get("social_satisfaction")
-        emergency_level = await self.memory.status.get("emergency_level")
 
         # if needs need to be adjusted, update current need
         # adjustment scheme: if current need is empty or a higher priority need appears, adjust need
@@ -233,10 +303,11 @@ class NeedsBlock(Block):
         # if there is no plan or the plan is completed, get all need values and check each need whether it reaches the threshold
         if not current_plan or current_plan.get("completed"):
             # check needs in priority order
-            if emergency_level >= 0.8 and not self._checked_emergency:
-                await self.memory.status.update("current_need", "emergency")
-                await self.memory.stream.add_cognition(description="There is an emergency")
-                cognition = "There is an emergency"
+            if self._need_to_do:
+                await self.memory.status.update("current_need", self._need_to_do)
+                await self.memory.stream.add_cognition(description=f"I need to do: {self._need_to_do}")
+                cognition = f"I need to do: {self._need_to_do}"
+                self._need_to_do_checked = True
             elif hunger_satisfaction <= self.T_H:
                 await self.memory.status.update("current_need", "hungry")
                 await self.memory.stream.add_cognition(description="I feel hungry")
@@ -263,26 +334,23 @@ class NeedsBlock(Block):
                 await self.memory.stream.add_cognition(description="I have no specific needs right now")
                 cognition = "I have no specific needs right now"
 
-            if emergency_level < 0.8 and self._checked_emergency:
-                self._checked_emergency = False
         else:
             # when there is a plan being executed, adjust need only when a higher priority need appears
             needs_changed = False
             new_need = None
-            if emergency_level >= 0.8 and current_need not in ["emergency"]:
-                new_need = "emergency"
+            if self._need_to_do and not self._need_to_do_checked:
+                new_need = self._need_to_do
                 needs_changed = True
+                self._need_to_do_checked = True
             elif hunger_satisfaction <= self.T_H and current_need not in [
                 "hungry",
                 "tired",
-                "emergency",
             ]:
                 new_need = "hungry"
                 needs_changed = True
             elif energy_satisfaction <= self.T_D and current_need not in [
                 "hungry",
                 "tired",
-                "emergency",
             ]:
                 new_need = "tired"
                 needs_changed = True
@@ -290,7 +358,6 @@ class NeedsBlock(Block):
                 "hungry",
                 "tired",
                 "safe",
-                "emergency",
             ]:
                 new_need = "safe"
                 needs_changed = True
@@ -299,7 +366,6 @@ class NeedsBlock(Block):
                 "tired",
                 "safe",
                 "social",
-                "emergency",
             ]:
                 new_need = "social"
                 needs_changed = True
@@ -309,8 +375,8 @@ class NeedsBlock(Block):
                 await self.evaluate_and_adjust_needs(current_plan)
                 history = await self.memory.status.get("plan_history")
                 history.append(current_plan)
-                await self.memory.stream.add_cognition(description=f"I need to change my plan because {new_need} needs is more important than {current_need} needs")
-                cognition = f"I need to change my plan because {new_need} needs is more important than {current_need} needs"
+                await self.memory.stream.add_cognition(description=f"I need to change my plan because the need of [{new_need}] is more important than [{current_need}]")
+                cognition = f"I need to change my plan because the need of [{new_need}] is more important than [{current_need}]"
                 await self.memory.status.update("current_need", new_need)
                 await self.memory.status.update("plan_history", history)
                 await self.memory.status.update("current_plan", None)
