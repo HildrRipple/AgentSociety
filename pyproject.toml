@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentsociety"
-version = "1.2.4" # change it for each release
+version = "1.3.0" # change it for each release
 description = "LLM-based city environment agent building library"
 authors = [
     { name = "Yuwei Yan", email = "pinkgranite86@gmail.com" },
@@ -39,7 +39,7 @@ dependencies = [
     "zhipuai>=2.1.5.20230904",
     "mosstool>=1.3.0",
     "ray>=2.40.0",
-    "aiomqtt>=2.3.0",
+    "redis >=5.2.1",
     "fastavro>=1.10.0",
     "pandavro>=1.8.0",
     "langchain-core>=0.3.28",

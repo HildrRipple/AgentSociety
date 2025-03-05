@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.3.0] - 2025-03-XX
+
+### Added
+- N/A
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
+
 ## [1.2.4] - 2025-03-04
 
 ### Added
@@ -21,6 +42,7 @@
 
 ### Security
 - N/A
+
 
 ## [1.2.3] - 2025-03-03
 
