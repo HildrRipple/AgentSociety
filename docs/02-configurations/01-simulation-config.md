@@ -105,12 +105,12 @@
         )
     ```
 - Redis Communication (`RedisConfig`)
-    Configures message broker for distributed simulations. 
+    Configures message server for distributed simulations. 
     **Required** for agents communication.
 
     ```python
     class RedisConfig(BaseModel):
-        server: str = Field(  # Broker host
+        server: str = Field(  # server host
             ...,
             example="redis.eclipseprojects.io"
         )

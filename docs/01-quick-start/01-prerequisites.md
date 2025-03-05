@@ -35,7 +35,7 @@ As shown in the figure below, you will have successfully acquired an API key.
 
 ## Redis
 
-Redis is a high-performance, in-memory key-value store used as a database, cache, and message broker. In this framework, Redis facilitates efficient X-to-agent communication through its pub/sub messaging feature. Unlike MQTT, which is specifically designed for IoT, Redis also offers data persistence and additional capabilities, making it ideal for real-time data processing and fast message exchanges.
+Redis is a high-performance, in-memory key-value store used as a database, cache, and message server. In this framework, Redis facilitates efficient X-to-agent communication through its pub/sub messaging feature. Unlike MQTT, which is specifically designed for IoT, Redis also offers data persistence and additional capabilities, making it ideal for real-time data processing and fast message exchanges.
 
 The "X" contains agents and the GUI.
 
@@ -49,7 +49,7 @@ We use it to store the simulation data for the visualization and analysis.
 MLflow is an open-source platform for managing and tracking experiments.
 We use it to help researchers to manage the simulation experiments and record some metrics.
 
-## Install Redis Broker (EMQX), PostgreSQL, and MLflow by Docker
+## Install Redis, PostgreSQL, and MLflow by Docker
 
 We provide a *Docker-based* way to help you install the dependencies quickly.
 Please refer to the [Docker](https://github.com/tsinghua-fib-lab/agentsociety/blob/main/docker/README.md) page for more details.
@@ -62,7 +62,6 @@ In short, the steps are as follows:
 5. Access the services by the following URLs:
    - MLflow: http://localhost:59000
    - PostgreSQL: postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres
-   - Redis Broker: tcp://localhost:6379
-   - EMQX (Redis Broker) Dashboard: http://localhost:18083
+   - Redis Server: tcp://localhost:6379
 6. Change EMQX Dashboard default password by its GUI.
 7. Go ahead and start your first simulation!

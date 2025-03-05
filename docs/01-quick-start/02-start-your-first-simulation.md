@@ -128,7 +128,7 @@ An example config file (assumed filename: `ui_config.yaml`) is as follow:
 
 ```yaml
 addr: localhost:8080 # Address for the UI service
-redis_server: <REDIS-SERVER> # Redis broker address, e.g. `localhost:6379`
+redis_server: <REDIS-SERVER> # Redis server address, e.g. `localhost:6379`
 redis_username: <USER-NAME> # Username for Redis.
 redis_password: <PASSWORD> # Password for Redis.
 pg_dsn: <DSN> # PostgreSQL DSN for database connection, e.g. `postgresql://postgres:CHANGE_ME@postgresql:5432/postgres`
