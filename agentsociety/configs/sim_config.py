@@ -19,11 +19,11 @@ class LLMRequestConfig(BaseModel):
     model: str = Field(..., description="The model to use")
 
 
-class MQTTConfig(BaseModel):
-    server: str = Field(..., description="MQTT server address")
-    port: int = Field(..., description="Port number for MQTT connection")
-    password: Optional[str] = Field(None, description="Password for MQTT connection")
-    username: Optional[str] = Field(None, description="Username for MQTT connection")
+class RedisConfig(BaseModel):
+    server: str = Field(..., description="Redis server address")
+    port: int = Field(..., description="Port number for Redis connection")
+    password: Optional[str] = Field(None, description="Password for Redis connection")
+    username: Optional[str] = Field(None, description="Username for Redis connection")
 
 
 class SimulatorRequestConfig(BaseModel):
@@ -82,7 +82,7 @@ class SimStatus(BaseModel):
 class SimConfig(BaseModel):
     llm_request: Optional["LLMRequestConfig"] = None
     simulator_request: Optional["SimulatorRequestConfig"] = None
-    mqtt: Optional["MQTTConfig"] = None
+    redis: Optional["RedisConfig"] = None
     map_request: Optional["MapRequestConfig"] = None
     metric_request: Optional[MetricRequest] = None
     pgsql: Optional["PostgreSQLConfig"] = None
@@ -103,8 +103,8 @@ class SimConfig(BaseModel):
         return self.simulator_request  # type:ignore
 
     @property
-    def prop_mqtt(self) -> "MQTTConfig":
-        return self.mqtt  # type:ignore
+    def prop_redis(self) -> "RedisConfig":
+        return self.redis  # type:ignore
 
     @property
     def prop_map_request(self) -> "MapRequestConfig":
@@ -157,14 +157,14 @@ class SimConfig(BaseModel):
         )
         return self
 
-    def SetMQTT(
+    def SetRedis(
         self,
         server: str,
         port: int,
         username: Optional[str] = None,
         password: Optional[str] = None,
     ) -> "SimConfig":
-        self.mqtt = MQTTConfig(
+        self.redis = RedisConfig(
             server=server, port=port, username=username, password=password
         )
         return self
@@ -207,7 +207,7 @@ if __name__ == "__main__":
     config = (
         SimConfig()
         .SetLLMRequest("openai", "key", "model")  # type:ignore
-        .SetMQTT("server", 1883, "username", "password")
+        .SetRedis("server", 6379, "username", "password")
         .SetMapRequest("./path/to/map")
         .SetMetricRequest("username", "password", "uri")
         .SetPostgreSql("dsn", True)

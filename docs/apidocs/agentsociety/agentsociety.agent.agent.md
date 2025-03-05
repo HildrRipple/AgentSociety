@@ -173,7 +173,7 @@ Bases: {py:obj}`agentsociety.agent.agent_base.Agent`
 
 ````
 
-````{py:method} gather_messages(agent_uuids: list[str], target: str) -> list[dict]
+````{py:method} gather_messages(agent_ids: list[int], target: str) -> list[dict]
 :canonical: agentsociety.agent.agent.InstitutionAgent.gather_messages
 :async:
 

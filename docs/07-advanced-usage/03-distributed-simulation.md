@@ -20,7 +20,7 @@ sim_config = (
     SimConfig()
     .SetLLMRequest(request_type="zhipuai", api_key="", model="GLM-4-Flash")
     .SetSimulatorRequest(min_step_time=1, primary_node_ip="<YOUR-PRIMARY-IP>")
-    .SetMQTT(server="mqtt.example.com", username="user", port=1883, password="pass")
+    .SetRedis(server="redis.example.com", username="user", port=6379, password="pass")
     .SetMapRequest(file_path="./ignore/map.pb")
     .SetMetricRequest(
         username="mlflow_user", password="mlflow_pass", mlflow_uri="http://mlflow:5000"
@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
 ```{admonition} Caution
 :class: caution
-- `SetMQTT`: `server` should be accessible for all nodes.
+- `SetRedis`: `server` should be accessible for all nodes.
 - `SetMetricRequest`: `mlflow_uri` should be accessible for all nodes. 
 - `SetSimulatorRequest`: `primary_node_ip` should be accessible for all nodes. 
 - `SetMapRequest`: the `file_path` is for the primary node.

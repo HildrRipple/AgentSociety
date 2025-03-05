@@ -27,21 +27,6 @@ services:
     environment:
       POSTGRESQL_PASSWORD: CHANGE_ME
 
-  emqx:
-    image: emqx:5.8.1
-    container_name: emqx
-    healthcheck:
-      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
-      interval: 5s
-      timeout: 25s
-      retries: 5
-    ports:
-      - 1883:1883 # TCP Listener for MQTT
-      # - 8883:8883 # SSL Listener for MQTT
-      # - 8083:8083 # WebSocket Listener for MQTT
-      # - 8084:8084 # Secure WebSocket Listener for MQTT
-      - 18083:18083 # Dashboard
-
   redis:
     image: bitnami/redis:7.2
     container_name: redis 

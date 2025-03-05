@@ -56,7 +56,7 @@ class AgentGroup:
 
         - **Description**:
             - Manages the creation and initialization of multiple agents, each potentially of different types,
-            with associated memory configurations, and connects them to various services such as MLflow, MQTT messager,
+            with associated memory configurations, and connects them to various services such as MLflow, Redis messager,
             PostgreSQL writer, message interceptor, and LLM client. It also sets up an economy client and simulator for
             agent interaction within a simulated environment.
 
@@ -120,13 +120,13 @@ class AgentGroup:
             self.mlflow_client = None
 
         # prepare Messager
-        mqtt_config = config.prop_mqtt
-        if mqtt_config is not None:
+        redis_config = config.prop_redis
+        if redis_config is not None:
             self.messager = Messager.remote(
-                hostname=mqtt_config.server,  # type:ignore
-                port=mqtt_config.port,
-                username=mqtt_config.username,
-                password=mqtt_config.password,
+                hostname=redis_config.server,  # type:ignore
+                port=redis_config.port,
+                username=redis_config.username,
+                password=redis_config.password,
             )
         else:
             self.messager = None
@@ -446,10 +446,10 @@ class AgentGroup:
 
     async def message_dispatch(self):
         """
-        Dispatches messages received via MQTT to the appropriate agents.
+        Dispatches messages received via Redis to the appropriate agents.
 
         - **Description**:
-            - Continuously listens for incoming MQTT messages and dispatches them to the relevant agents based on the topic.
+            - Continuously listens for incoming Redis messages and dispatches them to the relevant agents based on the topic.
             - Messages are expected to have a topic formatted as "exps/{exp_id}/agents/{agent.id}/{topic_type}".
             - The payload is decoded from bytes to string and then parsed as JSON.
             - Depending on the `topic_type`, different handler methods on the agent are called to process the message.
@@ -766,7 +766,7 @@ class AgentGroup:
             )
             group_logs = {
                 "llm_log": self.llm.get_log_list(),
-                "mqtt_log": ray.get(self.messager.get_log_list.remote()),  # type:ignore
+                "redis_log": ray.get(self.messager.get_log_list.remote()),  # type:ignore
                 "simulator_log": simulator_log,
                 "agent_time_log": agent_time_log,
             }

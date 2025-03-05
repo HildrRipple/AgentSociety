@@ -112,7 +112,7 @@ class MessageInterceptor:
             self._blocks: list[MessageBlockBase] = blocks
         else:
             self._blocks: list[MessageBlockBase] = []
-        self._violation_counts: dict[str, int] = defaultdict(int)
+        self._violation_counts: dict[int, int] = defaultdict(int)
         if black_list is not None:
             self._black_list: list[tuple[int, int]] = black_list
         else:
@@ -181,7 +181,7 @@ class MessageInterceptor:
     @lock_decorator
     async def violation_counts(
         self,
-    ) -> dict[str, int]:
+    ) -> dict[int, int]:
         """
         Retrieve the violation counts.
 
@@ -211,7 +211,7 @@ class MessageInterceptor:
     @lock_decorator
     async def black_list(
         self,
-    ) -> list[tuple[str, str]]:
+    ) -> list[tuple[int, int]]:
         """
         Retrieve the blacklist.
 

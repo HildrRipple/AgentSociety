@@ -134,12 +134,12 @@ class AgentSimulation:
         self._simulator_day = 0
         # self._last_asyncio_pg_task = None  # hide SQL write IO to calculation task
 
-        mqtt_config = config.prop_mqtt
+        redis_config = config.prop_redis
         self._messager = Messager.remote(
-            hostname=mqtt_config.server,  # type:ignore
-            port=mqtt_config.port,
-            username=mqtt_config.username,
-            password=mqtt_config.password,
+            hostname=redis_config.server,  # type:ignore
+            port=redis_config.port,
+            username=redis_config.username,
+            password=redis_config.password,
         )
 
         # storage
@@ -353,7 +353,7 @@ class AgentSimulation:
                 init_func(simulation)
         logger.info("Starting Simulation...")
         llm_log_lists = []
-        mqtt_log_lists = []
+        redis_log_lists = []
         simulator_log_lists = []
         agent_time_log_lists = []
         for step in config.prop_workflow:
@@ -364,11 +364,11 @@ class AgentSimulation:
                 raise ValueError(f"Invalid step type: {step.type}")
             if step.type == WorkflowType.RUN:
                 _days = cast(int, step.days)
-                llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list = (
+                llm_log_list, redis_log_list, simulator_log_list, agent_time_log_list = (
                     await simulation.run(_days)
                 )
                 llm_log_lists.extend(llm_log_list)
-                mqtt_log_lists.extend(mqtt_log_list)
+                redis_log_lists.extend(redis_log_list)
                 simulator_log_lists.extend(simulator_log_list)
                 agent_time_log_lists.extend(agent_time_log_list)
             elif step.type == WorkflowType.STEP:
@@ -376,21 +376,21 @@ class AgentSimulation:
                 for _ in range(times):
                     (
                         llm_log_list,
-                        mqtt_log_list,
+                        redis_log_list,
                         simulator_log_list,
                         agent_time_log_list,
                     ) = await simulation.step(
                         simulation.config.prop_simulator_request.steps_per_simulation_step
                     )
                     llm_log_lists.extend(llm_log_list)
-                    mqtt_log_lists.extend(mqtt_log_list)
+                    redis_log_lists.extend(redis_log_list)
                     simulator_log_lists.extend(simulator_log_list)
                     agent_time_log_lists.extend(agent_time_log_list)
             else:
                 _func = cast(Callable, step.func)
                 await _func(simulation)
         logger.info("Simulation finished")
-        return llm_log_lists, mqtt_log_lists, simulator_log_lists, agent_time_log_lists
+        return llm_log_lists, redis_log_lists, simulator_log_lists, agent_time_log_lists
 
     @property
     def enable_avro(
@@ -1013,12 +1013,12 @@ class AgentSimulation:
                 tasks.append(group.step.remote())
             log_messages_groups = await asyncio.gather(*tasks)
             llm_log_list = []
-            mqtt_log_list = []
+            redis_log_list = []
             simulator_log_list = []
             agent_time_log_list = []
             for log_messages_group in log_messages_groups:
                 llm_log_list.extend(log_messages_group["llm_log"])
-                mqtt_log_list.extend(log_messages_group["mqtt_log"])
+                redis_log_list.extend(log_messages_group["redis_log"])
                 simulator_log_list.extend(log_messages_group["simulator_log"])
                 agent_time_log_list.extend(log_messages_group["agent_time_log"])
             # save
@@ -1039,7 +1039,7 @@ class AgentSimulation:
                 ]
                 await self.extract_metric(to_excute_metric)
 
-            return llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list
+            return llm_log_list, redis_log_list, simulator_log_list, agent_time_log_list
         except Exception as e:
             import traceback
 
@@ -1068,7 +1068,7 @@ class AgentSimulation:
             - None
         """
         llm_log_lists = []
-        mqtt_log_lists = []
+        redis_log_lists = []
         simulator_log_lists = []
         agent_time_log_lists = []
         try:
@@ -1090,14 +1090,14 @@ class AgentSimulation:
                         break
                     (
                         llm_log_list,
-                        mqtt_log_list,
+                        redis_log_list,
                         simulator_log_list,
                         agent_time_log_list,
                     ) = await self.step(
                         self.config.prop_simulator_request.steps_per_simulation_day
                     )
                     llm_log_lists.extend(llm_log_list)
-                    mqtt_log_lists.extend(mqtt_log_list)
+                    redis_log_lists.extend(redis_log_list)
                     simulator_log_lists.extend(simulator_log_list)
                     agent_time_log_lists.extend(agent_time_log_list)
             finally:
@@ -1110,7 +1110,7 @@ class AgentSimulation:
             await self._update_exp_status(2)
             return (
                 llm_log_lists,
-                mqtt_log_lists,
+                redis_log_lists,
                 simulator_log_lists,
                 agent_time_log_lists,
             )

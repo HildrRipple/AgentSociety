@@ -767,7 +767,7 @@ class Agent(ABC):
                 )
             )
 
-    # Callback functions for MQTT message
+    # Callback functions for Redis message
     async def handle_agent_chat_message(self, payload: dict):
         """
         Handle an incoming chat message from another agent.
@@ -778,7 +778,7 @@ class Agent(ABC):
         - **Description**:
             - Logs receipt of a chat message from another agent.
             - Delegates the processing of the chat message to `_process_agent_chat`.
-            - This method is typically used as a callback function for MQTT messages.
+            - This method is typically used as a callback function for Redis messages.
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
@@ -795,7 +795,7 @@ class Agent(ABC):
         - **Description**:
             - Logs receipt of a chat message from a user.
             - Delegates the processing of the interview (which includes generating a response) to `_process_interview`.
-            - This method is typically used as a callback function for MQTT messages.
+            - This method is typically used as a callback function for Redis messages.
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
@@ -812,7 +812,7 @@ class Agent(ABC):
         - **Description**:
             - Logs receipt of a survey message from a user.
             - Extracts the survey data from the payload and delegates its processing to `_process_survey`.
-            - This method is typically used as a callback function for MQTT messages.
+            - This method is typically used as a callback function for Redis messages.
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
@@ -833,7 +833,7 @@ class Agent(ABC):
             - This method is intended to handle specific types of gather messages but has not been implemented yet.
         """
 
-    # MQTT send message
+    # Redis send message
     async def _send_message(self, to_agent_id: int, payload: dict, sub_topic: str):
         """
         Send a message to another agent through the Messager.
@@ -841,13 +841,13 @@ class Agent(ABC):
         - **Args**:
             - `to_agent_id` (`int`): The ID of the recipient agent.
             - `payload` (`dict`): The content of the message to send.
-            - `sub_topic` (`str`): The sub-topic for the MQTT topic structure.
+            - `sub_topic` (`str`): The sub-topic for the Redis topic structure.
 
         - **Raises**:
             - `RuntimeError`: If the Messager is not set.
 
         - **Description**:
-            - Constructs the full MQTT topic based on the experiment ID, recipient ID, and sub-topic.
+            - Constructs the full Redis topic based on the experiment ID, recipient ID, and sub-topic.
             - Sends the message asynchronously through the Messager.
             - Used internally by other methods like `send_message_to_agent`.
         """

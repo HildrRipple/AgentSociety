@@ -291,18 +291,10 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:property} uuid
-:canonical: agentsociety.agent.agent_base.Agent.uuid
+````{py:property} id
+:canonical: agentsociety.agent.agent_base.Agent.id
 
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.uuid
-```
-
-````
-
-````{py:property} sim_id
-:canonical: agentsociety.agent.agent_base.Agent.sim_id
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.sim_id
+```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.id
 ```
 
 ````
@@ -479,7 +471,7 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:method} _send_message(to_agent_uuid: str, payload: dict, sub_topic: str)
+````{py:method} _send_message(to_agent_id: int, payload: dict, sub_topic: str)
 :canonical: agentsociety.agent.agent_base.Agent._send_message
 :async:
 
@@ -488,7 +480,7 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:method} send_message_to_agent(to_agent_uuid: str, content: str, type: str = 'social')
+````{py:method} send_message_to_agent(to_agent_id: int, content: str, type: str = 'social')
 :canonical: agentsociety.agent.agent_base.Agent.send_message_to_agent
 :async:
 

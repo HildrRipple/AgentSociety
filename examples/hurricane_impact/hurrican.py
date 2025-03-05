@@ -40,7 +40,7 @@ sim_config = (
         request_type=LLMRequestType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
     .SetSimulatorRequest()
-    .SetMQTT(server="mqtt.example.com", username="user", port=1883, password="pass")
+    .SetRedis(server="redis.example.com", username="user", port=6379, password="pass")
     # change to your file path
     .SetMapRequest(file_path="map.pb")
     # .SetAvro(path='./__avro', enabled=True)
