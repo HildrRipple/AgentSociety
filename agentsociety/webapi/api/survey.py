@@ -69,7 +69,8 @@ async def create_survey(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        stmt = insert(Survey).values(name=survey.name, data=survey.data)
+        # TODO: support tenant_id
+        stmt = insert(Survey).values(tenant_id="", name=survey.name, data=survey.data)
         await db.execute(stmt)
         await db.commit()
 

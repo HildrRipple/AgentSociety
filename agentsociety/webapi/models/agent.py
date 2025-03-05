@@ -27,7 +27,7 @@ def agent_profile(table_name: str):
     return Table(
         table_name,
         metadata,
-        Column("id", UUID),
+        Column("id", Integer),
         Column("name", String),
         Column("profile", JSONB),
     ), ["id", "name", "profile"]
@@ -39,7 +39,7 @@ def agent_status(table_name: str):
     return Table(
         table_name,
         metadata,
-        Column("id", UUID),
+        Column("id", Integer),
         Column("day", Integer),
         Column("t", Float),
         Column("lng", Float, nullable=True),
@@ -57,7 +57,7 @@ def agent_survey(table_name: str):
     return Table(
         table_name,
         metadata,
-        Column("id", UUID),
+        Column("id", Integer),
         Column("day", Integer),
         Column("t", Float),
         Column("survey_id", UUID),
@@ -72,7 +72,7 @@ def agent_dialog(table_name: str):
     return Table(
         table_name,
         metadata,
-        Column("id", UUID),
+        Column("id", Integer),
         Column("day", Integer),
         Column("t", Float),
         Column("type", Integer),
@@ -93,7 +93,7 @@ class AgentDialogType(enum.IntEnum):
 class ApiAgentProfile(BaseModel):
     """Agent profile model for API"""
 
-    id: uuid.UUID
+    id: int
     """Agent ID"""
     name: str
     """Agent name"""
@@ -107,7 +107,7 @@ class ApiAgentProfile(BaseModel):
 class ApiAgentStatus(BaseModel):
     """Agent status model for API"""
 
-    id: uuid.UUID
+    id: int
     """Agent ID"""
     day: int
     """Day"""
@@ -117,7 +117,7 @@ class ApiAgentStatus(BaseModel):
     """Longitude"""
     lat: Optional[float]
     """Latitude"""
-    parent_id: int
+    parent_id: Optional[int]
     """Parent agent ID"""
     action: str
     """Action"""
@@ -133,7 +133,7 @@ class ApiAgentStatus(BaseModel):
 class ApiAgentSurvey(BaseModel):
     """Agent survey model for API"""
 
-    id: uuid.UUID
+    id: int
     """Agent ID"""
     day: int
     """Day"""
@@ -153,7 +153,7 @@ class ApiAgentSurvey(BaseModel):
 class ApiAgentDialog(BaseModel):
     """Agent dialog model for API"""
 
-    id: uuid.UUID
+    id: int
     """Agent ID"""
     day: int
     """Day"""

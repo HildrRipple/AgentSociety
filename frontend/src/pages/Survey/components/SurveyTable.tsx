@@ -56,7 +56,7 @@ const SurveyTable = () => {
             const data = await res.json();
             setSurveys(data.data);
         } catch (err) {
-            message.error('Failed to fetch surveys', err);
+            message.error(`Fetch surveys failed: ${err}`);
         }
     };
 
@@ -68,10 +68,10 @@ const SurveyTable = () => {
                 const errMessage = await res.text();
                 throw new Error(errMessage);
             }
-            message.success('Delete success');
+            message.success('Delete success!');
             await fetchSurveys();
         } catch (err) {
-            message.error('Delete failed', err);
+            message.error(`Delete failed: ${err}`);
         }
     };
 
@@ -109,11 +109,11 @@ const SurveyTable = () => {
                     const errMessage = await res.text();
                     throw new Error(errMessage);
                 }
-                message.success('Update success');
+                message.success('Update success!');
                 setOpen(false);
                 await fetchSurveys();
             } catch (err) {
-                message.error('Update failed: ', err);
+                message.error(`Update failed: ${err}`);
             }
         } else {
             try {
@@ -132,11 +132,11 @@ const SurveyTable = () => {
                     const errMessage = await res.text();
                     throw new Error(errMessage);
                 }
-                message.success('Create success');
+                message.success('Create success!');
                 setOpen(false);
                 await fetchSurveys();
             } catch (err) {
-                message.error('Create failed: ', err);
+                message.error(`Create failed: ${err}`);
             }
         }
     };

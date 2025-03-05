@@ -26,6 +26,7 @@ class Experiment(Base):
 
     __tablename__ = f"{TABLE_PREFIX}experiment"
 
+    tenant_id: Mapped[str] = mapped_column(primary_key=True)
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column()
     num_day: Mapped[int] = mapped_column()

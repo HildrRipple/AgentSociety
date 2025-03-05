@@ -129,7 +129,11 @@ export class ReplayStore {
             return
         }
         try {
-            const res = await fetch(`/api/experiments/${this.expID}/agents/-/status?day=${time?.day ?? ""}&t=${time?.t ?? ""}`)
+            let url = `/api/experiments/${this.expID}/agents/-/status`
+            if (time !== undefined) {
+                url += `?day=${time.day}&t=${time.t}`
+            }
+            const res = await fetch(url)
             const data = await res.json()
             const agentStatuses = data.data as AgentStatus[]
             // if (agentStatuses.length > 0) {

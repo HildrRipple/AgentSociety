@@ -39,9 +39,6 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     help="Config file",
 )
 @click.option("--pg-dsn", envvar="PG_DSN", help="PostgreSQL DSN")
-@click.option("--mqtt-broker", envvar="MQTT_BROKER", help="MQTT Broker Address")
-@click.option("--mqtt-username", envvar="MQTT_USERNAME", help="MQTT Username")
-@click.option("--mqtt-password", envvar="MQTT_PASSWORD", help="MQTT Password")
 @click.option("--addr", envvar="ADDR", default=":8080", help="Server address")
 @click.option("--mlflow-url", envvar="MLFLOW_URL", help="MLFlow URL")
 @click.option("--read-only", is_flag=True, envvar="READ_ONLY", help="Read-only mode")
@@ -49,9 +46,6 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 def cli(
     config,
     pg_dsn,
-    mqtt_broker,
-    mqtt_username,
-    mqtt_password,
     addr,
     mlflow_url,
     read_only,
@@ -66,9 +60,6 @@ def cli(
     # Config Order: Command Line > Environment Variable > Config File > Default Value
     final_config = {
         "pg_dsn": pg_dsn or config.get("pg_dsn", ""),
-        "mqtt_broker": mqtt_broker or config.get("mqtt_broker", ""),
-        "mqtt_username": mqtt_username or config.get("mqtt_username", ""),
-        "mqtt_password": mqtt_password or config.get("mqtt_password", ""),
         "addr": addr or config.get("addr", ":8080"),
         "mlflow_url": mlflow_url or config.get("mlflow_url", ""),
         "read_only": read_only or config.get("read_only", False),
@@ -77,9 +68,6 @@ def cli(
 
     # Show final config
     logging.info("PG_DSN: %s", final_config["pg_dsn"])
-    logging.info("MQTT_BROKER: %s", final_config["mqtt_broker"])
-    logging.info("MQTT_USERNAME: %s", final_config["mqtt_username"])
-    logging.info("MQTT_PASSWORD: %s", final_config["mqtt_password"])
     logging.info("ADDR: %s", final_config["addr"])
     logging.info("MLFLOW_URL: %s", final_config["mlflow_url"])
     logging.info("READ_ONLY: %s", final_config["read_only"])
@@ -99,9 +87,6 @@ def cli(
 
     app = create_app(
         pg_dsn=final_config["pg_dsn"],
-        mqtt_broker=final_config["mqtt_broker"],
-        mqtt_username=final_config["mqtt_username"],
-        mqtt_password=final_config["mqtt_password"],
         mlflow_url=final_config["mlflow_url"],
         read_only=final_config["read_only"],
     )

@@ -18,9 +18,6 @@ _parent_dir = os.path.dirname(_script_dir)
 
 def create_app(
     pg_dsn: str,
-    mqtt_broker: str,
-    mqtt_username: str,
-    mqtt_password: str,
     mlflow_url: str,
     read_only: bool,
 ):
@@ -39,7 +36,6 @@ def create_app(
         # save mlflow_url to app state
         app.state.mlflow_url = mlflow_url
 
-        # TODO: Init MQTT client
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         yield

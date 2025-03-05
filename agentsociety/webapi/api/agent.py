@@ -46,7 +46,7 @@ async def _find_started_experiment_by_id(
 async def get_agent_dialog_by_exp_id_and_agent_id(
     request: Request,
     exp_id: uuid.UUID,
-    agent_id: uuid.UUID,
+    agent_id: int,
 ) -> ApiResponseWrapper[List[ApiAgentDialog]]:
     """Get dialog by experiment ID and agent ID"""
 
@@ -100,7 +100,7 @@ async def list_agent_profile_by_exp_id(
 async def get_agent_profile_by_exp_id_and_agent_id(
     request: Request,
     exp_id: uuid.UUID,
-    agent_id: uuid.UUID,
+    agent_id: int,
 ) -> ApiResponseWrapper[ApiAgentProfile]:
     """Get agent profile by experiment ID and agent ID"""
 
@@ -155,7 +155,7 @@ async def list_agent_status_by_day_and_t(
 async def get_agent_status_by_exp_id_and_agent_id(
     request: Request,
     exp_id: uuid.UUID,
-    agent_id: uuid.UUID,
+    agent_id: int,
 ) -> ApiResponseWrapper[List[ApiAgentStatus]]:
     """Get agent status by experiment ID and agent ID"""
 
@@ -181,7 +181,7 @@ async def get_agent_status_by_exp_id_and_agent_id(
 async def get_agent_survey_by_exp_id_and_agent_id(
     request: Request,
     exp_id: uuid.UUID,
-    agent_id: uuid.UUID,
+    agent_id: int,
 ) -> ApiResponseWrapper[List[ApiAgentSurvey]]:
     """Get survey by experiment ID and agent ID"""
 

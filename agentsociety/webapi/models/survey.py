@@ -19,6 +19,7 @@ class Survey(Base):
 
     __tablename__ = f"{TABLE_PREFIX}survey"
 
+    tenant_id: Mapped[str] = mapped_column(primary_key=True)
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column()
     data: Mapped[Any] = mapped_column()
