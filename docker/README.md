@@ -42,15 +42,15 @@ And make sure the password part of `PG_DSN` in the `docker-compose.yml` (or `doc
 
 ```bash
 cd docker # make sure the folder contains the same files as the ones in the repo
-docker compose up -d # if you are not in China
-docker compose -f ./docker-compose-cn.yml up # if you are in China
+docker compose up -d --build # if you are not in China
+docker compose -f ./docker-compose-cn.yml up -d --build # if you are in China
 ```
 
 If you want to check if the dependencies are running correctly, you can run the following command instead of the above command:
 ```bash
 cd docker
-docker compose up # if you are not in China
-docker compose -f ./docker-compose-cn.yml up # if you are in China
+docker compose up --build # if you are not in China
+docker compose -f ./docker-compose-cn.yml up --build # if you are in China
 ```
 But you need to use `Ctrl+C` to stop the them and use `docker compose up -d` to start them again and put them in the background.
 

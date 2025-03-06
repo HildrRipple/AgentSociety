@@ -1,17 +1,19 @@
 services:
   mlflow:
-    image: bitnami/mlflow:2.19.0
+    # because Docker Desktop cannot attach folders in WSL2, we need to build the image locally
+    build:
+      context: ./mlflow
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: bitnami/mlflow:2.19.0
     container_name: mlflow
     restart: always
-    entrypoint: ["bash", "/entrypoint.sh"]
     ports:
       - 59000:59000
     volumes:
-      - $PWD/mlflow/basic_auth.ini:/auth/basic_auth.ini
-      - $PWD/mlflow/entrypoint.sh:/entrypoint.sh
       - mlflow:/app
     environment:
-      MLFLOW_AUTH_CONFIG_PATH: /auth/basic_auth.ini
+      MLFLOW_AUTH_CONFIG_PATH: /mlflow/basic_auth.ini
       PG_DSN: postgresql://postgres:CHANGE_ME@postgresql:5432/postgres
     depends_on:
       - postgresql

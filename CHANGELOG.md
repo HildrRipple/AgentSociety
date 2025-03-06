@@ -3,6 +3,7 @@
 ## [1.3.0] - 2025-03-XX
 
 ### Added
+- Support WSL2
 - Move the `agentsociety-ui` frontend (`frontend/`) and backend (`agentsociety/webapi/`) into the project.
 - Add `_global_prompt` table in the database to store global prompt changes.
 - Add tenant_id column to experiment and survey tables to support multi-user online usage.

@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from typing import Dict
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 import click
 import uvicorn
@@ -91,7 +91,7 @@ def cli(
     )
 
     # Start server
-    url = urlparse(final_config["addr"])
+    url = urlsplit("//" + final_config["addr"])
     host, port = url.hostname, url.port
     if host is None or host == "" or host == "localhost":
         host = "127.0.0.1"
