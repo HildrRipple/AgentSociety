@@ -6,7 +6,7 @@ from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
 PACKAGE_NAME = "agentsociety"
-SIM_VERSION = "v1.2.8"
+SIM_VERSION = "v1.2.9"
 BIN_SOURCES = {
     "agentsociety-sim": {
         "linux_x86_64": f"https://agentsociety.obs.cn-north-4.myhuaweicloud.com/agentsociety-sim/{SIM_VERSION}/agentsociety-sim-noproj-linux-amd64",
