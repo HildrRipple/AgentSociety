@@ -34,6 +34,12 @@ def create_app(
         # Init database when app starts
         engine = create_async_engine(pg_dsn)
         session_factory = async_sessionmaker(engine)
+        # test the postgres connection
+        try:
+            async with engine.connect() as conn:
+                pass
+        except Exception as e:
+            raise Exception(f"Failed to connect to postgresql database: {e}. Please check the connection string: {pg_dsn}")
         # save session_factory to app state
         app.state.get_db = session_factory
 
