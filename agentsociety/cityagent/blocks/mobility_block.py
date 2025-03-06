@@ -263,6 +263,7 @@ class PlaceSelectionBlock(Block):
         else:  # Fallback random selection
             all_pois = ray.get(self.simulator.map.get_poi.remote())  # type:ignore
             next_place = random.choice(all_pois)
+            next_place = (next_place["name"], next_place["id"])
 
         context["next_place"] = next_place
         node_id = await self.memory.stream.add_mobility(

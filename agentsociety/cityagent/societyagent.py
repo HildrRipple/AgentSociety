@@ -326,18 +326,21 @@ class SocietyAgent(CitizenAgent):
                         format_time=True
                     )
                     if self.enable_cognition:
-                        # Update emotion for the plan
-                        related_memories = await self.memory.stream.get_by_ids(
-                            current_plan["stream_nodes"]
-                        )
-                        incident = f"You have successfully completed the plan: {related_memories}"
-                        conclusion = await self.mindBlock.cognitionBlock.emotion_update(
-                            incident
-                        )
-                        await self.save_agent_thought(conclusion)
-                        await self.memory.stream.add_cognition_to_memory(
-                            current_plan["stream_nodes"], conclusion  # type:ignore
-                        )
+                        try:
+                            # Update emotion for the plan
+                            related_memories = await self.memory.stream.get_by_ids(
+                                current_plan["stream_nodes"]
+                            )
+                            incident = f"You have successfully completed the plan: {related_memories}"
+                            conclusion = await self.mindBlock.cognitionBlock.emotion_update(
+                                incident
+                            )
+                            await self.save_agent_thought(conclusion)
+                            await self.memory.stream.add_cognition_to_memory(
+                                current_plan["stream_nodes"], conclusion  # type:ignore
+                            )
+                        except Exception as e:
+                            logger.warning(f"Error in check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}")
                     await self.memory.status.update("current_plan", current_plan)
                     await self.memory.status.update(
                         "current_step", {"intention": "", "type": ""}
@@ -349,20 +352,23 @@ class SocietyAgent(CitizenAgent):
                     format_time=True
                 )
                 if self.enable_cognition:
-                    # Update emotion for the plan
-                    related_memories = await self.memory.stream.get_by_ids(
-                        current_plan["stream_nodes"]
-                    )
-                    incident = (
-                        f"You have failed to complete the plan: {related_memories}"
-                    )
-                    conclusion = await self.mindBlock.cognitionBlock.emotion_update(
-                        incident
-                    )
-                    await self.save_agent_thought(conclusion)
-                    await self.memory.stream.add_cognition_to_memory(
-                        current_plan["stream_nodes"], conclusion  # type:ignore
-                    )
+                    try:
+                        # Update emotion for the plan
+                        related_memories = await self.memory.stream.get_by_ids(
+                            current_plan["stream_nodes"]
+                        )
+                        incident = (
+                            f"You have failed to complete the plan: {related_memories}"
+                        )
+                        conclusion = await self.mindBlock.cognitionBlock.emotion_update(
+                            incident
+                        )
+                        await self.save_agent_thought(conclusion)
+                        await self.memory.stream.add_cognition_to_memory(
+                            current_plan["stream_nodes"], conclusion  # type:ignore
+                        )
+                    except Exception as e:
+                        logger.warning(f"Error in check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}")
                 await self.memory.status.update("current_plan", current_plan)
                 await self.memory.status.update(
                     "current_step", {"intention": "", "type": ""}

@@ -292,7 +292,7 @@ def get_distribution(field: str) -> Distribution:
     elif field in DEFAULT_DISTRIBUTIONS:
         return DEFAULT_DISTRIBUTIONS[field]
     else:
-        return None
+        return None # type: ignore
 
 def sample_field_value(field: str) -> Any:
     """
@@ -601,7 +601,7 @@ def memory_config_merge(file_data, base_extra_attrs, base_profile, base_base):
             profile[key] = value
         elif key in location_fields:
             # Typically these would go in profile, but follow your specific needs
-            profile[key] = {
+            base[key] = {
                 "aoi_position": {"aoi_id": value}
             }
         else:
