@@ -27,9 +27,12 @@ router = APIRouter(tags=["agent"])
 
 
 async def _find_started_experiment_by_id(
-    db: AsyncSession, exp_id: uuid.UUID
+    request: Request, db: AsyncSession, exp_id: uuid.UUID
 ) -> Experiment:
-    stmt = select(Experiment).where(Experiment.id == exp_id)
+    tenant_id = request.app.state.get_tenant_id(request)
+    stmt = select(Experiment).where(
+        Experiment.tenant_id == tenant_id, Experiment.id == exp_id
+    )
     result = await db.execute(stmt)
     row = result.first()
     if not row:
@@ -55,7 +58,7 @@ async def get_agent_dialog_by_exp_id_and_agent_id(
     # Check whether the experiment is started
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        experiment = await _find_started_experiment_by_id(db, exp_id)
+        experiment = await _find_started_experiment_by_id(request, db, exp_id)
 
         # Generate table name dynamically
         table_name = experiment.agent_dialog_tablename
@@ -82,7 +85,7 @@ async def list_agent_profile_by_exp_id(
     """List agent profile by experiment ID"""
 
     async with request.app.state.get_db() as db:
-        experiment = await _find_started_experiment_by_id(db, exp_id)
+        experiment = await _find_started_experiment_by_id(request, db, exp_id)
 
         table_name = experiment.agent_profile_tablename
         table, columns = agent_profile(table_name)
@@ -108,7 +111,7 @@ async def get_agent_profile_by_exp_id_and_agent_id(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        experiment = await _find_started_experiment_by_id(db, exp_id)
+        experiment = await _find_started_experiment_by_id(request, db, exp_id)
 
         table_name = experiment.agent_profile_tablename
         table, columns = agent_profile(table_name)
@@ -134,7 +137,7 @@ async def list_agent_status_by_day_and_t(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        experiment = await _find_started_experiment_by_id(db, exp_id)
+        experiment = await _find_started_experiment_by_id(request, db, exp_id)
 
         if day is None:
             day = experiment.cur_day
@@ -163,7 +166,7 @@ async def get_agent_status_by_exp_id_and_agent_id(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        experiment = await _find_started_experiment_by_id(db, exp_id)
+        experiment = await _find_started_experiment_by_id(request, db, exp_id)
 
         table_name = experiment.agent_status_tablename
         table, columns = agent_status(table_name)
@@ -189,7 +192,7 @@ async def get_agent_survey_by_exp_id_and_agent_id(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        experiment = await _find_started_experiment_by_id(db, exp_id)
+        experiment = await _find_started_experiment_by_id(request, db, exp_id)
 
         table_name = experiment.agent_survey_tablename
         table, columns = agent_survey(table_name)
@@ -216,7 +219,7 @@ async def get_global_prompt_by_day_t(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        experiment = await _find_started_experiment_by_id(db, exp_id)
+        experiment = await _find_started_experiment_by_id(request, db, exp_id)
 
         if day is None:
             day = experiment.cur_day

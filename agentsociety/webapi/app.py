@@ -1,12 +1,14 @@
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Callable, Optional
 
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from starlette.middleware.sessions import SessionMiddleware
 
 from .api import api_router
 from .models._base import Base
@@ -16,10 +18,14 @@ __all__ = ["create_app"]
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent_dir = os.path.dirname(_script_dir)
 
+
 def create_app(
     pg_dsn: str,
     mlflow_url: str,
     read_only: bool,
+    get_tenant_id: Callable[[Request], str] = lambda _: "",
+    more_router: Optional[APIRouter] = None,
+    session_secret_key: str = "agentsociety-session",
 ):
 
     # https://fastapi.tiangolo.com/advanced/events/#use-case
@@ -35,6 +41,9 @@ def create_app(
         app.state.read_only = read_only
         # save mlflow_url to app state
         app.state.mlflow_url = mlflow_url
+
+        # Hook to get tenant_id
+        app.state.get_tenant_id = get_tenant_id
 
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -57,6 +66,14 @@ def create_app(
         )
 
     app.include_router(api_router)
+    if more_router is not None:
+        app.include_router(more_router)
+
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=session_secret_key,
+        session_cookie="agentsociety-session",
+    )
 
     # serve frontend files
     frontend_path = Path(_parent_dir) / "_dist"

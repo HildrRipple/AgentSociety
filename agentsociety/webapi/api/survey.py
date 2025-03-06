@@ -22,7 +22,8 @@ async def list_survey(request: Request) -> ApiResponseWrapper[List[ApiSurvey]]:
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        stmt = select(Survey)
+        tenant_id = request.app.state.get_tenant_id(request)
+        stmt = select(Survey).where(Survey.tenant_id == tenant_id)
         results = await db.execute(stmt)
         db_surveys = [row[0] for row in results.all() if len(row) > 0]
         db_surveys = cast(List[ApiSurvey], db_surveys)
@@ -35,7 +36,8 @@ async def get_survey(request: Request, id: uuid.UUID) -> ApiResponseWrapper[ApiS
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        stmt = select(Survey).where(Survey.id == id)
+        tenant_id = request.app.state.get_tenant_id(request)
+        stmt = select(Survey).where(Survey.tenant_id == tenant_id, Survey.id == id)
         result = await db.execute(stmt)
         row = result.first()
         if not row or len(row) == 0:
@@ -69,8 +71,10 @@ async def create_survey(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        # TODO: support tenant_id
-        stmt = insert(Survey).values(tenant_id="", name=survey.name, data=survey.data)
+        tenant_id = request.app.state.get_tenant_id(request)
+        stmt = insert(Survey).values(
+            tenant_id=tenant_id, name=survey.name, data=survey.data
+        )
         await db.execute(stmt)
         await db.commit()
 
@@ -97,10 +101,10 @@ async def update_survey(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-
+        tenant_id = request.app.state.get_tenant_id(request)
         stmt = (
             update(Survey)
-            .where(Survey.id == id)
+            .where(Survey.tenant_id == tenant_id, Survey.id == id)
             .values(name=survey.name, data=survey.data)
         )
         await db.execute(stmt)
@@ -117,6 +121,7 @@ async def delete_survey(request: Request, id: uuid.UUID):
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        stmt = delete(Survey).where(Survey.id == id)
+        tenant_id = request.app.state.get_tenant_id(request)
+        stmt = delete(Survey).where(Survey.tenant_id == tenant_id, Survey.id == id)
         await db.execute(stmt)
         await db.commit()
