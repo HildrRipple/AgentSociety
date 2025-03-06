@@ -12,8 +12,7 @@ pip install agentsociety
 
 ```{admonition} Warning
 :class: warning
-This platform supports Linux x86, macOS x86, and macOS ARM. 
-Please ensure your environment matches one of these supported platforms.
+Please ensure your environment matches the supported platforms shown in the [Prerequisites](../01-prerequisites.md) section.
 ```
 
 ## Step 1: Download City Scene Data
