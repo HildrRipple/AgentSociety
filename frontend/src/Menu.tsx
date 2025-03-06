@@ -1,4 +1,4 @@
-import { ExportOutlined, GithubOutlined } from "@ant-design/icons";
+import { ExportOutlined, GithubOutlined, PlusOutlined } from "@ant-design/icons";
 import { Menu, MenuProps, Space } from "antd";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -21,6 +21,7 @@ const RootMenu = ({ selectedKey }: {
 
     const menuItems: MenuProps['items'] = [
         { key: "/", label: <Link to="/">Experiments</Link> },
+        { key: "/create-experiment", label: <Link to="/create-experiment"><Space>Create Experiment<PlusOutlined /></Space></Link> },
         { key: "/survey", label: <Link to="/survey">Survey</Link> },
         // { key: "/exp", label: <Link to="/exp">Replay & Live</Link> },
         // { key: "/sim", label: <Link to="/sim">平台</Link> },

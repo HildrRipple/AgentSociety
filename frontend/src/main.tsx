@@ -7,6 +7,7 @@ import RootLayout from './Layout'
 import Console from './pages/Console/index'
 import Replay from './pages/Replay/index'
 import Survey from './pages/Survey'
+import ExperimentConfig from './pages/ExperimentConfig'
 import enUS from 'antd/locale/en_US'
 
 const router = createBrowserRouter([
@@ -21,6 +22,10 @@ const router = createBrowserRouter([
     {
         path: "/survey",
         element: <RootLayout selectedKey='/survey'><Survey /></RootLayout>,
+    },
+    {
+        path: "/create-experiment",
+        element: <RootLayout selectedKey='/create-experiment'><ExperimentConfig /></RootLayout>,
     },
     {
         path: "*",
