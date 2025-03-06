@@ -234,7 +234,7 @@ class PlaceSelectionBlock(Block):
                 weather=self.simulator.sense("weather"),
                 temperature=self.simulator.sense("temperature"),
                 other_info=self.simulator.environment.get("other_information", "None"),
-        )
+            )
             radius = await self.llm.atext_request(
                 self.radiusPrompt.to_dialog(), response_format={"type": "json_object"}
             )
@@ -244,7 +244,8 @@ class PlaceSelectionBlock(Block):
             radius = 10000  # Default 10km
 
         # Query and select POI
-        center = (await self.memory.status.get("position")).values()
+        xy = (await self.memory.status.get("position"))["xy_position"]
+        center = (xy["x"], xy["y"])
         pois = ray.get(
             self.simulator.map.query_pois.remote(  # type:ignore
                 center=center,
@@ -289,14 +290,19 @@ class MoveBlock(Block):
         known_places = list(place_knowledge.keys())
         places = ["home", "workplace"] + known_places + ["other"]
         self.placeAnalysisPrompt.format(
-            plan=context["plan"], intention=step["intention"], place_list=places, other_info=self.simulator.environment.get("other_information", "None"),
+            plan=context["plan"],
+            intention=step["intention"],
+            place_list=places,
+            other_info=self.simulator.environment.get("other_information", "None"),
         )
         response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
-            response = clean_json_response(response)
+            response = clean_json_response(response)  # type:ignore
             response = json.loads(response)["place_type"]
         except Exception as e:
-            logger.warning(f"Place Analysis: wrong type of place, raw response: {response}")
+            logger.warning(
+                f"Place Analysis: wrong type of place, raw response: {response}"
+            )
             response = "home"
         if response == "home":
             # go back home
@@ -408,14 +414,14 @@ class MoveBlock(Block):
                     target_positions=next_place[1],
                 )
             else:
-                aois = ray.get(self.simulator.map.get_aoi.remote())
+                aois = ray.get(self.simulator.map.get_aoi.remote())  # type:ignore
                 while True:
                     r_aoi = random.choice(aois)
                     if len(r_aoi["poi_ids"]) > 0:
                         r_poi = random.choice(r_aoi["poi_ids"])
                         break
-                poi = ray.get(self.simulator.map.get_poi.remote(r_poi))
-                next_place = (poi["name"], poi["aoi_id"])
+                poi = ray.get(self.simulator.map.get_poi.remote(r_poi))  # type:ignore
+                next_place = (poi["name"], poi["aoi_id"])  # type:ignore
                 await self.simulator.set_aoi_schedules(
                     person_id=agent_id,
                     target_positions=next_place[1],
