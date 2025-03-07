@@ -526,4 +526,4 @@ class Simulator:
         if n <= 0:
             raise ValueError("`n` must >=1!")
         for _ in range(n):
-            syncer.step.remote()
+            ray.get(syncer.step.remote())
