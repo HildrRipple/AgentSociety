@@ -11,7 +11,7 @@ from agentsociety import AgentSimulation
 from agentsociety.cityagent import SocietyAgent
 from agentsociety.cityagent.metrics import mobility_metric
 from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep, MetricExtractor
-from agentsociety.utils import LLMRequestType, WorkflowType, MetricType
+from agentsociety.utils import LLMProviderType, WorkflowType, MetricType
 
 logging.getLogger("agentsociety").setLevel(logging.INFO)
 
@@ -36,13 +36,13 @@ async def update_weather_and_temperature(
 
 sim_config = (
     SimConfig()
-    .SetLLMRequest(
-        request_type=LLMRequestType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
+    .SetLLMConfig(
+        provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
-    .SetSimulatorRequest()
+    .SetSimulatorConfig()
     .SetRedis(server="redis.example.com", username="user", port=6379, password="pass")
     # change to your file path
-    .SetMapRequest(file_path="map.pb")
+    .SetMapConfig(file_path="map.pb")
     # .SetAvro(path='./__avro', enabled=True)
     .SetPostgreSql(dsn="postgresql://user:pass@localhost:5432/db", enabled=True)
 )

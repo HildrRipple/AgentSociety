@@ -11,7 +11,7 @@ from agentsociety import AgentSimulation
 from agentsociety.cityagent import memory_config_societyagent
 from agentsociety.cityagent.societyagent import SocietyAgent
 from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep
-from agentsociety.utils import LLMRequestType, WorkflowType
+from agentsociety.utils import LLMProviderType, WorkflowType
 
 logging.getLogger("agentsociety").setLevel(logging.INFO)
 
@@ -61,13 +61,13 @@ async def gather_attitude(simulation: AgentSimulation):
 
 sim_config = (
     SimConfig()
-    .SetLLMRequest(
-        request_type=LLMRequestType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
+    .SetLLMConfig(
+        provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
-    .SetSimulatorRequest()
+    .SetSimulatorConfig()
     .SetRedis(server="redis.example.com", username="user", port=6379, password="pass")
     # change to your file path
-    .SetMapRequest(file_path="map.pb")
+    .SetMapConfig(file_path="map.pb")
 )
 exp_config = (
     ExpConfig(exp_name="cognition_exp3", llm_semaphore=200, logging_level=logging.INFO)

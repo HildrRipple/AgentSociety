@@ -2,22 +2,22 @@ from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
-from ..utils import LLMRequestType
+from ..utils import LLMProviderType
 
 __all__ = [
     "SimConfig",
 ]
 
 
-class LLMRequestConfig(BaseModel):
-    request_type: LLMRequestType = Field(
-        ..., description="The type of the request or provider"
+class LLMConfig(BaseModel):
+    provider: LLMProviderType = Field(
+        ..., description="The type of the LLM provider"
     )
     base_url: Optional[str] = Field(
-        None, description="The base URL for the request or provider"
+        None, description="The base URL for the LLM provider"
     )
     api_key: Union[list[str], str] = Field(
-        ..., description="API key for accessing the service"
+        ..., description="API key for accessing the LLM provider"
     )
     model: str = Field(..., description="The model to use")
 
@@ -29,7 +29,7 @@ class RedisConfig(BaseModel):
     username: Optional[str] = Field(None, description="Username for Redis connection")
 
 
-class SimulatorRequestConfig(BaseModel):
+class SimulatorConfig(BaseModel):
     task_name: str = Field("citysim", description="Name of the simulation task")
     max_day: int = Field(1000, description="Maximum number of days to simulate")
     start_step: int = Field(28800, description="Starting step of the simulation")
@@ -50,7 +50,7 @@ class SimulatorRequestConfig(BaseModel):
     )
 
 
-class MapRequestConfig(BaseModel):
+class MapConfig(BaseModel):
     file_path: str = Field(..., description="Path to the map file")
 
 
@@ -74,7 +74,7 @@ class AvroConfig(BaseModel):
     path: str = Field(..., description="Avro file storage path")
 
 
-class MetricRequest(BaseModel):
+class MetricConfig(BaseModel):
     mlflow: Optional[MlflowConfig] = Field(None)
 
 
@@ -83,35 +83,35 @@ class SimStatus(BaseModel):
 
 
 class SimConfig(BaseModel):
-    llm_request: Optional["LLMRequestConfig"] = None
-    simulator_request: Optional["SimulatorRequestConfig"] = None
+    llm_config: Optional["LLMConfig"] = None
+    simulator_config: Optional["SimulatorConfig"] = None
     redis: Optional["RedisConfig"] = None
-    map_request: Optional["MapRequestConfig"] = None
-    metric_request: Optional[MetricRequest] = None
+    map_config: Optional["MapConfig"] = None
+    metric_config: Optional["MetricConfig"] = None
     pgsql: Optional["PostgreSQLConfig"] = None
     avro: Optional["AvroConfig"] = None
     simulator_server_address: Optional[str] = None
     status: Optional["SimStatus"] = SimStatus()
 
     @property
-    def prop_llm_request(self) -> "LLMRequestConfig":
-        return self.llm_request  # type:ignore
+    def prop_llm_config(self) -> "LLMConfig":
+        return self.llm_config  # type:ignore
 
     @property
     def prop_status(self) -> "SimStatus":
         return self.status  # type:ignore
 
     @property
-    def prop_simulator_request(self) -> "SimulatorRequestConfig":
-        return self.simulator_request  # type:ignore
+    def prop_simulator_config(self) -> "SimulatorConfig":
+        return self.simulator_config  # type:ignore
 
     @property
     def prop_redis(self) -> "RedisConfig":
         return self.redis  # type:ignore
 
     @property
-    def prop_map_request(self) -> "MapRequestConfig":
-        return self.map_request  # type:ignore
+    def prop_map_config(self) -> "MapConfig":
+        return self.map_config  # type:ignore
 
     @property
     def prop_avro_config(self) -> "AvroConfig":
@@ -126,18 +126,18 @@ class SimConfig(BaseModel):
         return self.simulator_server_address  # type:ignore
 
     @property
-    def prop_metric_request(self) -> MetricRequest:
-        return self.metric_request  # type:ignore
+    def prop_metric_config(self) -> "MetricConfig":
+        return self.metric_config  # type:ignore
 
-    def SetLLMRequest(
-        self, request_type: LLMRequestType, api_key: Union[list[str], str], model: str, base_url: Optional[str] = None
+    def SetLLMConfig(
+        self, provider: LLMProviderType, api_key: Union[list[str], str], model: str, base_url: Optional[str] = None
     ) -> "SimConfig":
-        self.llm_request = LLMRequestConfig(
-            request_type=request_type, api_key=api_key, model=model, base_url=base_url
+        self.llm_config = LLMConfig(
+            provider=provider, api_key=api_key, model=model, base_url=base_url
         )
         return self
 
-    def SetSimulatorRequest(
+    def SetSimulatorConfig(
         self,
         task_name: str = "citysim",
         max_day: int = 1000,
@@ -148,7 +148,7 @@ class SimConfig(BaseModel):
         steps_per_simulation_day: int = 3600,
         primary_node_ip: str = "localhost",
     ) -> "SimConfig":
-        self.simulator_request = SimulatorRequestConfig(
+        self.simulator_config = SimulatorConfig(
             task_name=task_name,
             max_day=max_day,
             start_step=start_step,
@@ -172,14 +172,14 @@ class SimConfig(BaseModel):
         )
         return self
 
-    def SetMapRequest(self, file_path: str) -> "SimConfig":
-        self.map_request = MapRequestConfig(file_path=file_path)
+    def SetMapConfig(self, file_path: str) -> "SimConfig":
+        self.map_config = MapConfig(file_path=file_path)
         return self
 
-    def SetMetricRequest(
+    def SetMetricConfig(
         self, username: str, password: str, mlflow_uri: str
     ) -> "SimConfig":
-        self.metric_request = MetricRequest(
+        self.metric_config = MetricConfig(
             mlflow=MlflowConfig(
                 username=username, password=password, mlflow_uri=mlflow_uri
             )
@@ -215,4 +215,4 @@ if __name__ == "__main__":
         .SetMetricRequest("username", "password", "uri")
         .SetPostgreSql("dsn", True)
     )
-    print(config.llm_request)
+    print(config.llm_config)

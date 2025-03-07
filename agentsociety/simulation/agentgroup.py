@@ -114,7 +114,7 @@ class AgentGroup:
                 "survey": self.avro_path / f"survey.avro",
             }
         # Mlflow
-        metric_config = config.prop_metric_request
+        metric_config = config.prop_metric_config
         if metric_config is not None and metric_config.mlflow is not None:
             logger.info(f"-----Creating Mlflow client in AgentGroup {self._uuid} ...")
             self.mlflow_client = MlflowClient(
@@ -149,7 +149,7 @@ class AgentGroup:
         self.id2agent = {}
         # prepare LLM client
         logger.info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
-        self.llm = LLM(config.prop_llm_request)
+        self.llm = LLM(config.prop_llm_config)
         self.llm.set_semaphore(llm_semaphore)
 
         # prepare Simulator

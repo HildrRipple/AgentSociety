@@ -165,7 +165,7 @@ class AgentSimulation:
             self._enable_avro = False
 
         # mlflow
-        metric_config = config.prop_metric_request
+        metric_config = config.prop_metric_config
         if metric_config is not None and metric_config.mlflow is not None:
             logger.info(f"-----Creating Mlflow client...")
             mlflow_run_id, _ = init_mlflow_connection(
@@ -375,7 +375,7 @@ class AgentSimulation:
                         simulator_log_list,
                         agent_time_log_list,
                     ) = await simulation.step(
-                        simulation.config.prop_simulator_request.steps_per_simulation_step
+                        simulation.config.prop_simulator_config.steps_per_simulation_step
                     )
                     llm_log_lists.extend(llm_log_list)
                     redis_log_lists.extend(redis_log_list)
@@ -787,7 +787,7 @@ class AgentSimulation:
                 )
 
         # initialize mlflow connection
-        metric_config = self.config.prop_metric_request
+        metric_config = self.config.prop_metric_config
         if metric_config is not None and metric_config.mlflow is not None:
             mlflow_run_id, _ = init_mlflow_connection(
                 experiment_uuid=self.exp_id,
@@ -820,7 +820,7 @@ class AgentSimulation:
             self._message_abort_listening_queue = _queue = None
         _interceptor_blocks = message_interceptor_blocks
         _black_list = [] if social_black_list is None else social_black_list
-        _llm_config = self.config.llm_request
+        _llm_config = self.config.prop_llm_config
         if message_interceptor_blocks is not None:
             _num_interceptors = min(1, message_interceptors)
             self._message_interceptors = _interceptors = [
@@ -1147,7 +1147,10 @@ class AgentSimulation:
         """
         for metric_extractor in metric_extractors:
             if metric_extractor.type == MetricType.FUNCTION:
-                await metric_extractor.func(self)
+                if metric_extractor.func is not None:
+                    await metric_extractor.func(self)
+                else:
+                    raise ValueError("func is not set for metric extractor")
             elif metric_extractor.type == MetricType.STATE:
                 assert metric_extractor.key is not None
                 values = await self.gather(
@@ -1302,7 +1305,7 @@ class AgentSimulation:
                 current_step = 0
                 while True:
                     current_step += (
-                        self.config.prop_simulator_request.steps_per_simulation_day
+                        self.config.prop_simulator_config.steps_per_simulation_day
                     )
                     if current_step >= total_steps:
                         break
@@ -1312,7 +1315,7 @@ class AgentSimulation:
                         simulator_log_list,
                         agent_time_log_list,
                     ) = await self.step(
-                        self.config.prop_simulator_request.steps_per_simulation_day
+                        self.config.prop_simulator_config.steps_per_simulation_day
                     )
                     llm_log_lists.extend(llm_log_list)
                     redis_log_lists.extend(redis_log_list)

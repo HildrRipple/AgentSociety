@@ -10,7 +10,7 @@ from agentsociety.cityagent import memory_config_societyagent
 from agentsociety.cityagent.metrics import economy_metric
 from agentsociety.cityagent.societyagent import SocietyAgent
 from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep, MetricExtractor
-from agentsociety.utils import LLMRequestType, WorkflowType, MetricType
+from agentsociety.utils import LLMProviderType, WorkflowType, MetricType
 
 logging.getLogger("agentsociety").setLevel(logging.INFO)
 
@@ -26,16 +26,16 @@ async def gather_ubi_opinions(simulation: AgentSimulation):
 
 sim_config = (
     SimConfig()
-    .SetLLMRequest(
-        request_type=LLMRequestType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
+    .SetLLMConfig(
+        provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
-    .SetSimulatorRequest()
+    .SetSimulatorConfig()
     .SetRedis(server="redis.example.com", username="user", port=6379, password="pass")
     # change to your file path
-    .SetMapRequest(file_path="map.pb")
+    .SetMapConfig(file_path="map.pb")
     # .SetAvro(path='./__avro', enabled=True)
     .SetPostgreSql(dsn="postgresql://user:pass@localhost:5432/db", enabled=True)
-    .SetMetricRequest(
+    .SetMetricConfig(
         username="mlflow_user", password="mlflow_pass", mlflow_uri="http://mlflow:5000"
     )
 )

@@ -8,8 +8,8 @@ from typing import Any, Optional, Union
 from openai import APIConnectionError, AsyncOpenAI, OpenAI, OpenAIError
 from zhipuai import ZhipuAI
 
-from ..configs import LLMRequestConfig
-from ..utils import LLMRequestType
+from ..configs import LLMConfig
+from ..utils import LLMProviderType
 from .utils import *
 
 logging.getLogger("zhipuai").setLevel(logging.WARNING)
@@ -31,16 +31,16 @@ class LLM:
         - It initializes clients based on the specified request type and handles token usage and consumption reporting.
     """
 
-    def __init__(self, config: LLMRequestConfig) -> None:
+    def __init__(self, config: LLMConfig) -> None:
         """
         Initializes the LLM instance.
 
         - **Parameters**:
-            - `config`: An instance of `LLMRequestConfig` containing configuration settings for the LLM.
+            - `config`: An instance of `LLMConfig` containing configuration settings for the LLM.
         """
         self.config = config
-        if config.request_type not in {t.value for t in LLMRequestType}:
-            raise ValueError("Invalid request type for text request")
+        if config.provider not in {t.value for t in LLMProviderType}:
+            raise ValueError("Invalid provider for text request")
         self.prompt_tokens_used = 0
         self.completion_tokens_used = 0
         self.request_number = 0
@@ -69,31 +69,31 @@ class LLM:
         self._client_usage = []
 
         for api_key in api_keys:
-            if self.config.request_type == LLMRequestType.OpenAI:
+            if self.config.provider == LLMProviderType.OpenAI:
                 client = AsyncOpenAI(api_key=api_key, timeout=300, base_url=base_url)
-            elif self.config.request_type == LLMRequestType.DeepSeek:
+            elif self.config.provider == LLMProviderType.DeepSeek:
                 client = AsyncOpenAI(
                     api_key=api_key,
                     base_url="https://api.deepseek.com/v1",
                     timeout=300,
                 )
-            elif self.config.request_type == LLMRequestType.Qwen:
+            elif self.config.provider == LLMProviderType.Qwen:
                 client = AsyncOpenAI(
                     api_key=api_key,
                     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
                     timeout=300,
                 )
-            elif self.config.request_type == LLMRequestType.SiliconFlow:
+            elif self.config.provider == LLMProviderType.SiliconFlow:
                 client = AsyncOpenAI(
                     api_key=api_key,
                     base_url="https://api.siliconflow.cn/v1",
                     timeout=300,
                 )
-            elif self.config.request_type == LLMRequestType.ZhipuAI:
+            elif self.config.provider == LLMProviderType.ZhipuAI:
                 client = ZhipuAI(api_key=api_key, timeout=300)
             else:
                 raise ValueError(
-                    f"Unsupported `request_type` {self.config.request_type}!"
+                    f"Unsupported `provider` {self.config.provider}!"
                 )
             self._aclients.append(client)
             self._client_usage.append(
@@ -251,10 +251,10 @@ class LLM:
         ), "Please set semaphore with `set_semaphore` first!"
         async with self.semaphore:
             if (
-                self.config.request_type == "openai"
-                or self.config.request_type == "deepseek"
-                or self.config.request_type == "qwen"
-                or self.config.request_type == "siliconflow"
+                self.config.provider == LLMProviderType.OpenAI
+                or self.config.provider == LLMProviderType.DeepSeek
+                or self.config.provider == LLMProviderType.Qwen
+                or self.config.provider == LLMProviderType.SiliconFlow
             ):
                 response = None
                 for attempt in range(retries):
@@ -306,7 +306,7 @@ class LLM:
                     except OpenAIError as e:
                         if hasattr(e, "http_status"):
                             logger.warning(
-                                f"HTTP status code: {e.http_status}. Retry {attempt+1} of {retries}"
+                                f"HTTP status code: {e.http_status}. Retry {attempt+1} of {retries}" # type: ignore
                             )  # type: ignore
                         else:
                             logger.warning(
@@ -330,7 +330,7 @@ class LLM:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
-            elif self.config.request_type == "zhipuai":
+            elif self.config.provider == LLMProviderType.ZhipuAI:
                 response = None
                 for attempt in range(retries):
                     try:
