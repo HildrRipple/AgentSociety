@@ -1,5 +1,6 @@
-import React from 'react';
-import { Form, Input, Select, InputNumber, Switch, Card, Tabs } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Form, Input, Select, InputNumber, Switch, Card, Tabs, Button, Space } from 'antd';
+import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 
 interface EnvironmentFormProps {
   value: Record<string, unknown>;
@@ -8,18 +9,107 @@ interface EnvironmentFormProps {
 
 const { TabPane } = Tabs;
 
+// 定义不同提供商的模型选项
+const providerModels = {
+  deepseek: [
+    { value: 'deepseek-reasoner', label: 'DeepSeek-R1' },
+    { value: 'deepseek-chat', label: 'DeepSeek-V3' },
+  ],
+  openai: [
+    { value: 'gpt-4.5', label: 'GPT-4.5 Preview' },
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o mini' },
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'gpt-4', label: 'GPT-4' },
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+  ],
+  qwen: [
+    { value: 'qwen-max', label: 'Qwen Max' },
+    { value: 'qwen-plus', label: 'Qwen Plus' },
+    { value: 'qwen-turbo', label: 'Qwen Turbo' },
+    { value: 'qwen2.5-72b-instruct', label: 'qwen2.5-72b-instruct' },
+    { value: 'qwen2.5-32b-instruct', label: 'qwen2.5-32b-instruct' },
+    { value: 'qwen2.5-14b-instruct-1m', label: 'qwen2.5-14b-instruct-1m' },
+    { value: 'qwen2.5-14b-instruct', label: 'qwen2.5-14b-instruct' },
+    { value: 'qwen2.5-7b-instruct-1m', label: 'qwen2.5-7b-instruct-1m' },
+    { value: 'qwen2.5-7b-instruct', label: 'qwen2.5-7b-instruct' },
+    { value: 'qwen2-72b-instruct', label: 'qwen2-72b-instruct' },
+    { value: 'qwen2-57b-a14b-instruct', label: 'qwen2-57b-a14b-instruct' },
+    { value: 'qwen2-7b-instruct', label: 'qwen2-7b-instruct' },
+
+  ],
+  siliconflow: [
+    { value: 'Pro/deepseek-ai/DeepSeek-V3', label: 'Pro/deepseek-ai/DeepSeek-V3' },
+    { value: 'deepseek-ai/DeepSeek-V3', label: 'deepseek-ai/DeepSeek-V3' },
+    { value: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B', label: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B' },
+    { value: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-14B', label: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-14B' },
+    { value: 'Qwen/QwQ-32B', label: 'Qwen/QwQ-32B' },
+    { value: 'Qwen/QVQ-72B-Preview', label: 'Qwen/QVQ-72B-Preview' },
+  ],
+  zhipuai: [
+    { value: 'glm-4-air', label: 'GLM-4-Air' },
+    { value: 'glm-4-flash', label: 'GLM-4-Flash' },
+    { value: 'glm-4-plus', label: 'GLM-4-Plus' },
+  ],
+};
+
 const EnvironmentForm: React.FC<EnvironmentFormProps> = ({ value, onChange }) => {
   const [form] = Form.useForm();
+  const [selectedProvider, setSelectedProvider] = useState<string>('');
 
-  // Update parent component state when form values change
-  const handleValuesChange = (_: unknown, allValues: Record<string, unknown>) => {
+  // 处理表单值变化
+  const handleValuesChange = (changedValues: Record<string, unknown>, allValues: Record<string, unknown>) => {
+    // 检查是否更改了 provider
+    if (changedValues.llm_config && typeof changedValues.llm_config === 'object') {
+      const llmConfig = changedValues.llm_config as Record<string, unknown>;
+      
+      if ('provider' in llmConfig && typeof llmConfig.provider === 'string') {
+        const newProvider = llmConfig.provider;
+        
+        // 只有当提供商真正改变时才重置模型
+        if (newProvider !== selectedProvider) {
+          setSelectedProvider(newProvider);
+          
+          // 清除当前选择的模型
+          const updatedValues = { ...allValues };
+          if (typeof updatedValues.llm_config === 'object') {
+            const updatedLlmConfig = { ...(updatedValues.llm_config as Record<string, unknown>) };
+            delete updatedLlmConfig.model;
+            updatedValues.llm_config = updatedLlmConfig;
+            
+            // 更新表单值
+            form.setFieldsValue(updatedValues);
+            
+            // 调用 onChange 传递更新后的值
+            onChange(updatedValues);
+            return;
+          }
+        }
+      }
+    }
+    
+    // 对于其他变化，直接传递所有值
     onChange(allValues);
   };
 
-  // Set initial values
-  React.useEffect(() => {
+  // 设置初始值
+  useEffect(() => {
     form.setFieldsValue(value);
+    
+    // 从 value 中获取 provider
+    if (value && typeof value.llm_config === 'object') {
+      const llmConfig = value.llm_config as Record<string, unknown>;
+      if (llmConfig && typeof llmConfig.provider === 'string') {
+        setSelectedProvider(llmConfig.provider);
+      }
+    }
   }, [form, value]);
+
+  // 获取当前提供商的模型选项
+  const getModelOptions = () => {
+    if (!selectedProvider) return [];
+    return providerModels[selectedProvider as keyof typeof providerModels] || [];
+  };
 
   return (
     <Form
@@ -39,11 +129,20 @@ const EnvironmentForm: React.FC<EnvironmentFormProps> = ({ value, onChange }) =>
               <Select
                 placeholder="Select provider"
                 options={[
-                  { value: 'zhipuai', label: 'ZhipuAI' },
+                  { value: 'deepseek', label: 'DeepSeek' },
                   { value: 'openai', label: 'OpenAI' },
-                  { value: 'azure', label: 'Azure OpenAI' },
-                  { value: 'anthropic', label: 'Anthropic' },
+                  { value: 'qwen', label: 'Qwen' },
+                  { value: 'siliconflow', label: 'SiliconFlow' },
+                  { value: 'zhipuai', label: 'ZhipuAI' },
                 ]}
+                onChange={(value) => {
+                  // 当直接通过 Select 组件更改时，确保更新 selectedProvider
+                  if (value !== selectedProvider) {
+                    setSelectedProvider(value);
+                    // 清除模型选择
+                    form.setFieldValue(['llm_config', 'model'], undefined);
+                  }
+                }}
               />
             </Form.Item>
 
@@ -54,13 +153,30 @@ const EnvironmentForm: React.FC<EnvironmentFormProps> = ({ value, onChange }) =>
               <Input placeholder="Enter base URL (optional)" />
             </Form.Item>
 
-            <Form.Item
-              name={['llm_config', 'api_key']}
-              label="API Key"
-              rules={[{ required: true, message: 'Please enter API key' }]}
-            >
-              <Input.Password placeholder="Enter your API key" />
-            </Form.Item>
+            <Form.List name={['llm_config', 'api_keys']}>
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...restField }) => (
+                    <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                      <Form.Item
+                        {...restField}
+                        name={name}
+                        rules={[{ required: true, message: 'Please enter API key' }]}
+                        style={{ width: '100%', marginBottom: 0 }}
+                      >
+                        <Input.Password placeholder="Enter API key" />
+                      </Form.Item>
+                      <MinusCircleOutlined onClick={() => remove(name)} />
+                    </Space>
+                  ))}
+                  <Form.Item>
+                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                      Add API Key
+                    </Button>
+                  </Form.Item>
+                </>
+              )}
+            </Form.List>
 
             <Form.Item
               name={['llm_config', 'model']}
@@ -68,15 +184,9 @@ const EnvironmentForm: React.FC<EnvironmentFormProps> = ({ value, onChange }) =>
               rules={[{ required: true, message: 'Please select model' }]}
             >
               <Select
-                placeholder="Select model"
-                options={[
-                  { value: 'GLM-4-Flash', label: 'GLM-4-Flash' },
-                  { value: 'GLM-4', label: 'GLM-4' },
-                  { value: 'gpt-4', label: 'GPT-4' },
-                  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-                  { value: 'claude-3-opus', label: 'Claude 3 Opus' },
-                  { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
-                ]}
+                placeholder={selectedProvider ? `Select ${selectedProvider} model` : "Please select a provider first"}
+                options={getModelOptions()}
+                disabled={!selectedProvider}
               />
             </Form.Item>
           </Card>
@@ -184,19 +294,7 @@ const EnvironmentForm: React.FC<EnvironmentFormProps> = ({ value, onChange }) =>
           </Card>
         </TabPane>
 
-        <TabPane tab="Map Configuration" key="4">
-          <Card bordered={false}>
-            <Form.Item
-              name={['map_config', 'file_path']}
-              label="Map File Path"
-              rules={[{ required: true, message: 'Please enter map file path' }]}
-            >
-              <Input placeholder="Enter map file path" />
-            </Form.Item>
-          </Card>
-        </TabPane>
-
-        <TabPane tab="Metrics Configuration" key="5">
+        <TabPane tab="Metrics Configuration" key="4">
           <Card bordered={false}>
             <Form.Item
               name={['metric_config', 'mlflow', 'username']}
@@ -222,7 +320,7 @@ const EnvironmentForm: React.FC<EnvironmentFormProps> = ({ value, onChange }) =>
           </Card>
         </TabPane>
 
-        <TabPane tab="Database Configuration" key="6">
+        <TabPane tab="Database Configuration" key="5">
           <Card bordered={false}>
             <Form.Item
               name={['pgsql', 'enabled']}
@@ -246,14 +344,6 @@ const EnvironmentForm: React.FC<EnvironmentFormProps> = ({ value, onChange }) =>
               valuePropName="checked"
             >
               <Switch />
-            </Form.Item>
-
-            <Form.Item
-              name={['avro', 'path']}
-              label="Avro Path"
-              rules={[{ required: true, message: 'Please enter Avro path' }]}
-            >
-              <Input placeholder="Enter Avro path" />
             </Form.Item>
           </Card>
         </TabPane>

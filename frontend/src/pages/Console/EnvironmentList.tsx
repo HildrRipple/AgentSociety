@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm } from 'antd';
+import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
 import EnvironmentForm from '../ExperimentConfig/components/EnvironmentForm';
 import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
@@ -11,6 +11,7 @@ const EnvironmentList: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentEnvironment, setCurrentEnvironment] = useState<ConfigItem | null>(null);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
+  const [metaForm] = Form.useForm();
 
   // 加载环境配置
   const loadEnvironments = async () => {
@@ -47,20 +48,28 @@ const EnvironmentList: React.FC = () => {
   const handleCreate = () => {
     setCurrentEnvironment(null);
     setFormValues({});
+    metaForm.resetFields();
     setIsModalVisible(true);
   };
 
   const handleEdit = (record: ConfigItem) => {
     setCurrentEnvironment(record);
     setFormValues(record.config);
+    metaForm.setFieldsValue({
+      name: record.name,
+      description: record.description || ''
+    });
     setIsModalVisible(true);
   };
 
   const handleDuplicate = (record: ConfigItem) => {
     setCurrentEnvironment(null);
     setFormValues({
-      ...record.config,
-      name: `Copy of ${record.name}`
+      ...record.config
+    });
+    metaForm.setFieldsValue({
+      name: `Copy of ${record.name}`,
+      description: record.description || ''
     });
     setIsModalVisible(true);
   };
@@ -91,18 +100,23 @@ const EnvironmentList: React.FC = () => {
 
   const handleModalOk = async () => {
     try {
+      // 验证元数据表单
+      const metaValues = await metaForm.validateFields();
+      
       setLoading(true);
       
       const configToSave: ConfigItem = currentEnvironment 
         ? { 
             ...currentEnvironment, 
+            name: metaValues.name,
+            description: metaValues.description,
             config: formValues,
             updatedAt: new Date().toISOString()
           } 
         : {
             id: Date.now().toString(),
-            name: (formValues.name as string) || 'New Environment',
-            description: (formValues.description as string) || '',
+            name: metaValues.name,
+            description: metaValues.description,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             config: formValues
@@ -117,8 +131,12 @@ const EnvironmentList: React.FC = () => {
       
       setIsModalVisible(false);
       await loadEnvironments();
-    } catch {
-      message.error('Failed to save environment');
+    } catch (error) {
+      if (error instanceof Error) {
+        message.error(`Failed to save environment: ${error.message}`);
+      } else {
+        message.error('Failed to save environment');
+      }
       setLoading(false);
     }
   };
@@ -227,10 +245,36 @@ const EnvironmentList: React.FC = () => {
         width={800}
         confirmLoading={loading}
       >
-        <EnvironmentForm 
-          value={formValues} 
-          onChange={setFormValues} 
-        />
+        <Card title="Configuration Metadata" style={{ marginBottom: 16 }}>
+          <Form
+            form={metaForm}
+            layout="vertical"
+          >
+            <Form.Item
+              name="name"
+              label="Name"
+              rules={[{ required: true, message: 'Please enter a name for this configuration' }]}
+            >
+              <Input placeholder="Enter configuration name" />
+            </Form.Item>
+            <Form.Item
+              name="description"
+              label="Description"
+            >
+              <Input.TextArea 
+                rows={2} 
+                placeholder="Enter a description for this configuration" 
+              />
+            </Form.Item>
+          </Form>
+        </Card>
+        
+        <Card title="Environment Settings">
+          <EnvironmentForm 
+            value={formValues} 
+            onChange={setFormValues} 
+          />
+        </Card>
       </Modal>
     </Card>
   );

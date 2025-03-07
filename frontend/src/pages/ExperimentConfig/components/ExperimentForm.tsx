@@ -45,7 +45,7 @@ const ExperimentForm: React.FC<ExperimentFormProps> = ({
               label="Experiment Name"
               rules={[{ required: true, message: 'Please enter experiment name' }]}
             >
-              <Input placeholder="Enter experiment name" defaultValue="default_experiment" />
+              <Input placeholder="Enter experiment name" defaultValue="" />
             </Form.Item>
 
             <Form.Item

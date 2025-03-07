@@ -1,70 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm } from 'antd';
+import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
 import AgentForm from '../ExperimentConfig/components/AgentForm';
-
-interface AgentConfig {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-  config: Record<string, unknown>;
-}
+import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
 
 const AgentList: React.FC = () => {
-  const [agents, setAgents] = useState<AgentConfig[]>([]);
+  const [agents, setAgents] = useState<ConfigItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [currentAgent, setCurrentAgent] = useState<AgentConfig | null>(null);
+  const [currentAgent, setCurrentAgent] = useState<ConfigItem | null>(null);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
+  const [metaForm] = Form.useForm();
 
-  // Mock data for demonstration
-  useEffect(() => {
+  // 加载智能体配置
+  const loadAgents = async () => {
     setLoading(true);
-    // In a real application, this would be an API call
-    setTimeout(() => {
-      const mockData: AgentConfig[] = [
-        {
-          id: '1',
-          name: 'Default Citizen Agent',
-          description: 'Standard citizen agent configuration',
-          createdAt: '2023-06-01T10:00:00Z',
-          updatedAt: '2023-06-02T14:30:00Z',
-          config: {
-            agent_config: {
-              number_of_citizen: 100
-            },
-            agentType: 'llm',
-            profile: {
-              name: 'random',
-              gender: 'equal',
-              age: { min: 18, max: 65 }
-            }
-          }
-        },
-        {
-          id: '2',
-          name: 'Business Agent',
-          description: 'Business owner agent configuration',
-          createdAt: '2023-06-03T09:15:00Z',
-          updatedAt: '2023-06-03T09:15:00Z',
-          config: {
-            agent_config: {
-              number_of_citizen: 50
-            },
-            agentType: 'rule',
-            profile: {
-              occupation: ['Businessman', 'Manager'],
-              income: { min: 5000, max: 20000 }
-            }
-          }
-        }
-      ];
-      setAgents(mockData);
+    try {
+      const data = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.AGENTS);
+      setAgents(data);
+    } catch (error) {
+      message.error('Failed to load agents');
+      console.error(error);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
+  };
+
+  // 初始化数据
+  useEffect(() => {
+    const init = async () => {
+      await storageService.initializeExampleData();
+      await loadAgents();
+    };
+    init();
   }, []);
 
   const handleSearch = (value: string) => {
@@ -79,20 +48,28 @@ const AgentList: React.FC = () => {
   const handleCreate = () => {
     setCurrentAgent(null);
     setFormValues({});
+    metaForm.resetFields();
     setIsModalVisible(true);
   };
 
-  const handleEdit = (record: AgentConfig) => {
+  const handleEdit = (record: ConfigItem) => {
     setCurrentAgent(record);
     setFormValues(record.config);
+    metaForm.setFieldsValue({
+      name: record.name,
+      description: record.description || ''
+    });
     setIsModalVisible(true);
   };
 
-  const handleDuplicate = (record: AgentConfig) => {
+  const handleDuplicate = (record: ConfigItem) => {
     setCurrentAgent(null);
     setFormValues({
-      ...record.config,
-      name: `Copy of ${record.name}`
+      ...record.config
+    });
+    metaForm.setFieldsValue({
+      name: `Copy of ${record.name}`,
+      description: record.description || ''
     });
     setIsModalVisible(true);
   };
@@ -100,19 +77,16 @@ const AgentList: React.FC = () => {
   const handleDelete = async (id: string) => {
     try {
       setLoading(true);
-      // In a real application, this would be an API call
-      setTimeout(() => {
-        setAgents(agents.filter(agent => agent.id !== id));
-        message.success('Agent configuration deleted successfully');
-        setLoading(false);
-      }, 500);
+      await storageService.deleteConfig(STORAGE_KEYS.AGENTS, id);
+      message.success('Agent configuration deleted successfully');
+      await loadAgents();
     } catch {
       message.error('Failed to delete agent configuration');
       setLoading(false);
     }
   };
 
-  const handleExport = (record: AgentConfig) => {
+  const handleExport = (record: ConfigItem) => {
     const dataStr = JSON.stringify(record.config, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
@@ -126,40 +100,43 @@ const AgentList: React.FC = () => {
 
   const handleModalOk = async () => {
     try {
+      // 验证元数据表单
+      const metaValues = await metaForm.validateFields();
+      
       setLoading(true);
-      // In a real application, this would be an API call to save the agent
-      setTimeout(() => {
-        if (currentAgent) {
-          // Update existing agent
-          const updatedAgents = agents.map(agent => 
-            agent.id === currentAgent.id 
-              ? { 
-                  ...agent, 
-                  config: formValues,
-                  updatedAt: new Date().toISOString()
-                } 
-              : agent
-          );
-          setAgents(updatedAgents);
-          message.success('Agent configuration updated successfully');
-        } else {
-          // Create new agent
-          const newAgent: AgentConfig = {
+      
+      const configToSave: ConfigItem = currentAgent 
+        ? { 
+            ...currentAgent, 
+            name: metaValues.name,
+            description: metaValues.description,
+            config: formValues,
+            updatedAt: new Date().toISOString()
+          } 
+        : {
             id: Date.now().toString(),
-            name: (formValues.name as string) || 'New Agent',
-            description: (formValues.description as string) || '',
+            name: metaValues.name,
+            description: metaValues.description,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             config: formValues
           };
-          setAgents([...agents, newAgent]);
-          message.success('Agent configuration created successfully');
-        }
-        setIsModalVisible(false);
-        setLoading(false);
-      }, 500);
-    } catch {
-      message.error('Failed to save agent configuration');
+      
+      await storageService.saveConfig(STORAGE_KEYS.AGENTS, configToSave);
+      
+      message.success(currentAgent 
+        ? 'Agent configuration updated successfully' 
+        : 'Agent configuration created successfully'
+      );
+      
+      setIsModalVisible(false);
+      await loadAgents();
+    } catch (error) {
+      if (error instanceof Error) {
+        message.error(`Failed to save agent configuration: ${error.message}`);
+      } else {
+        message.error('Failed to save agent configuration');
+      }
       setLoading(false);
     }
   };
@@ -173,7 +150,7 @@ const AgentList: React.FC = () => {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
-      sorter: (a: AgentConfig, b: AgentConfig) => a.name.localeCompare(b.name)
+      sorter: (a: ConfigItem, b: ConfigItem) => a.name.localeCompare(b.name)
     },
     {
       title: 'Description',
@@ -186,13 +163,13 @@ const AgentList: React.FC = () => {
       dataIndex: 'updatedAt',
       key: 'updatedAt',
       render: (text: string) => new Date(text).toLocaleString(),
-      sorter: (a: AgentConfig, b: AgentConfig) => 
+      sorter: (a: ConfigItem, b: ConfigItem) => 
         new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
     },
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: unknown, record: AgentConfig) => (
+      render: (_: unknown, record: ConfigItem) => (
         <Space size="small">
           <Tooltip title="Edit">
             <Button 
@@ -268,11 +245,37 @@ const AgentList: React.FC = () => {
         width={800}
         confirmLoading={loading}
       >
-        <AgentForm 
-          value={formValues} 
-          onChange={setFormValues}
-          environmentConfig={{}}
-        />
+        <Card title="Configuration Metadata" style={{ marginBottom: 16 }}>
+          <Form
+            form={metaForm}
+            layout="vertical"
+          >
+            <Form.Item
+              name="name"
+              label="Name"
+              rules={[{ required: true, message: 'Please enter a name for this configuration' }]}
+            >
+              <Input placeholder="Enter configuration name" />
+            </Form.Item>
+            <Form.Item
+              name="description"
+              label="Description"
+            >
+              <Input.TextArea 
+                rows={2} 
+                placeholder="Enter a description for this configuration" 
+              />
+            </Form.Item>
+          </Form>
+        </Card>
+        
+        <Card title="Agent Settings">
+          <AgentForm 
+            value={formValues} 
+            onChange={setFormValues}
+            environmentConfig={{}}
+          />
+        </Card>
       </Modal>
     </Card>
   );
