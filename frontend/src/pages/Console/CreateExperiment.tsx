@@ -102,6 +102,14 @@ const CreateExperiment: React.FC = () => {
     }
   };
 
+  // 自定义下拉框选项渲染
+  const renderOptionContent = (item: ConfigItem) => (
+    <Space direction="vertical" style={{ width: '100%' }}>
+      <Text strong>{item.name}</Text>
+      {item.description && <Text type="secondary">{item.description}</Text>}
+    </Space>
+  );
+
   return (
     <Card title={<Space><ExperimentOutlined /> Create New Experiment</Space>} style={{ margin: 20 }}>
       <Row gutter={[16, 16]}>
@@ -118,13 +126,11 @@ const CreateExperiment: React.FC = () => {
                 loading={loading}
                 value={selectedEnvironment || undefined}
                 onChange={setSelectedEnvironment}
+                optionLabelProp="label"
               >
                 {environments.map(env => (
-                  <Option key={env.id} value={env.id}>
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <Text strong>{env.name}</Text>
-                      {env.description && <Text type="secondary">{env.description}</Text>}
-                    </Space>
+                  <Option key={env.id} value={env.id} label={env.name}>
+                    {renderOptionContent(env)}
                   </Option>
                 ))}
               </Select>
@@ -145,13 +151,11 @@ const CreateExperiment: React.FC = () => {
                 loading={loading}
                 value={selectedMap || undefined}
                 onChange={setSelectedMap}
+                optionLabelProp="label"
               >
                 {maps.map(map => (
-                  <Option key={map.id} value={map.id}>
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <Text strong>{map.name}</Text>
-                      {map.description && <Text type="secondary">{map.description}</Text>}
-                    </Space>
+                  <Option key={map.id} value={map.id} label={map.name}>
+                    {renderOptionContent(map)}
                   </Option>
                 ))}
               </Select>
@@ -172,13 +176,11 @@ const CreateExperiment: React.FC = () => {
                 loading={loading}
                 value={selectedAgent || undefined}
                 onChange={setSelectedAgent}
+                optionLabelProp="label"
               >
                 {agents.map(agent => (
-                  <Option key={agent.id} value={agent.id}>
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <Text strong>{agent.name}</Text>
-                      {agent.description && <Text type="secondary">{agent.description}</Text>}
-                    </Space>
+                  <Option key={agent.id} value={agent.id} label={agent.name}>
+                    {renderOptionContent(agent)}
                   </Option>
                 ))}
               </Select>
@@ -199,13 +201,11 @@ const CreateExperiment: React.FC = () => {
                 loading={loading}
                 value={selectedWorkflow || undefined}
                 onChange={setSelectedWorkflow}
+                optionLabelProp="label"
               >
                 {workflows.map(workflow => (
-                  <Option key={workflow.id} value={workflow.id}>
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <Text strong>{workflow.name}</Text>
-                      {workflow.description && <Text type="secondary">{workflow.description}</Text>}
-                    </Space>
+                  <Option key={workflow.id} value={workflow.id} label={workflow.name}>
+                    {renderOptionContent(workflow)}
                   </Option>
                 ))}
               </Select>

@@ -4,23 +4,23 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutline
 import ExperimentForm from '../ExperimentConfig/components/ExperimentForm';
 import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
 
-const WorkflowList: React.FC = () => {
-  const [workflows, setWorkflows] = useState<ConfigItem[]>([]);
+const ExperimentTemplateList: React.FC = () => {
+  const [templates, setTemplates] = useState<ConfigItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [currentWorkflow, setCurrentWorkflow] = useState<ConfigItem | null>(null);
+  const [currentTemplate, setCurrentTemplate] = useState<ConfigItem | null>(null);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [metaForm] = Form.useForm();
   const [environmentConfig, setEnvironmentConfig] = useState<Record<string, unknown>>({});
   const [agentConfig, setAgentConfig] = useState<Record<string, unknown>>({});
 
-  // 加载工作流配置
-  const loadWorkflows = async () => {
+  // 加载实验模板配置
+  const loadTemplates = async () => {
     setLoading(true);
     try {
       const data = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.WORKFLOWS);
-      setWorkflows(data);
+      setTemplates(data);
       
       // 加载环境和智能体配置，用于实验表单
       const environments = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.ENVIRONMENTS);
@@ -34,7 +34,7 @@ const WorkflowList: React.FC = () => {
         setAgentConfig(agents[0].config);
       }
     } catch (error) {
-      message.error('Failed to load workflows');
+      message.error('Failed to load experiment templates');
       console.error(error);
     } finally {
       setLoading(false);
@@ -45,7 +45,7 @@ const WorkflowList: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       await storageService.initializeExampleData();
-      await loadWorkflows();
+      await loadTemplates();
     };
     init();
   }, []);
@@ -54,20 +54,20 @@ const WorkflowList: React.FC = () => {
     setSearchText(value);
   };
 
-  const filteredWorkflows = workflows.filter(workflow => 
-    workflow.name.toLowerCase().includes(searchText.toLowerCase()) || 
-    (workflow.description && workflow.description.toLowerCase().includes(searchText.toLowerCase()))
+  const filteredTemplates = templates.filter(template => 
+    template.name.toLowerCase().includes(searchText.toLowerCase()) || 
+    (template.description && template.description.toLowerCase().includes(searchText.toLowerCase()))
   );
 
   const handleCreate = () => {
-    setCurrentWorkflow(null);
+    setCurrentTemplate(null);
     setFormValues({});
     metaForm.resetFields();
     setIsModalVisible(true);
   };
 
   const handleEdit = (record: ConfigItem) => {
-    setCurrentWorkflow(record);
+    setCurrentTemplate(record);
     setFormValues(record.config);
     metaForm.setFieldsValue({
       name: record.name,
@@ -77,7 +77,7 @@ const WorkflowList: React.FC = () => {
   };
 
   const handleDuplicate = (record: ConfigItem) => {
-    setCurrentWorkflow(null);
+    setCurrentTemplate(null);
     setFormValues({
       ...record.config
     });
@@ -92,10 +92,10 @@ const WorkflowList: React.FC = () => {
     try {
       setLoading(true);
       await storageService.deleteConfig(STORAGE_KEYS.WORKFLOWS, id);
-      message.success('Workflow deleted successfully');
-      await loadWorkflows();
+      message.success('Experiment template deleted successfully');
+      await loadTemplates();
     } catch {
-      message.error('Failed to delete workflow');
+      message.error('Failed to delete experiment template');
       setLoading(false);
     }
   };
@@ -104,7 +104,7 @@ const WorkflowList: React.FC = () => {
     const dataStr = JSON.stringify(record.config, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
-    const exportFileDefaultName = `${record.name.replace(/\s+/g, '_')}_workflow.json`;
+    const exportFileDefaultName = `${record.name.replace(/\s+/g, '_')}_experiment.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -119,9 +119,9 @@ const WorkflowList: React.FC = () => {
       
       setLoading(true);
       
-      const configToSave: ConfigItem = currentWorkflow 
+      const configToSave: ConfigItem = currentTemplate 
         ? { 
-            ...currentWorkflow, 
+            ...currentTemplate, 
             name: metaValues.name,
             description: metaValues.description,
             config: formValues,
@@ -138,18 +138,18 @@ const WorkflowList: React.FC = () => {
       
       await storageService.saveConfig(STORAGE_KEYS.WORKFLOWS, configToSave);
       
-      message.success(currentWorkflow 
-        ? 'Workflow updated successfully' 
-        : 'Workflow created successfully'
+      message.success(currentTemplate 
+        ? 'Experiment template updated successfully' 
+        : 'Experiment template created successfully'
       );
       
       setIsModalVisible(false);
-      await loadWorkflows();
+      await loadTemplates();
     } catch (error) {
       if (error instanceof Error) {
-        message.error(`Failed to save workflow: ${error.message}`);
+        message.error(`Failed to save experiment template: ${error.message}`);
       } else {
-        message.error('Failed to save workflow');
+        message.error('Failed to save experiment template');
       }
       setLoading(false);
     }
@@ -208,7 +208,7 @@ const WorkflowList: React.FC = () => {
           </Tooltip>
           <Tooltip title="Delete">
             <Popconfirm
-              title="Are you sure you want to delete this workflow?"
+              title="Are you sure you want to delete this experiment template?"
               onConfirm={() => handleDelete(record.id)}
               okText="Yes"
               cancelText="No"
@@ -226,10 +226,10 @@ const WorkflowList: React.FC = () => {
   ];
 
   return (
-    <Card title="Workflow Configurations" extra={
+    <Card title="Experiment Templates" extra={
       <Space>
         <Input.Search
-          placeholder="Search workflows"
+          placeholder="Search templates"
           onSearch={handleSearch}
           onChange={(e) => handleSearch(e.target.value)}
           style={{ width: 250 }}
@@ -239,20 +239,20 @@ const WorkflowList: React.FC = () => {
           icon={<PlusOutlined />} 
           onClick={handleCreate}
         >
-          Create Workflow
+          Create Template
         </Button>
       </Space>
     }>
       <Table 
         columns={columns} 
-        dataSource={filteredWorkflows} 
+        dataSource={filteredTemplates} 
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10 }}
       />
 
       <Modal
-        title={currentWorkflow ? "Edit Workflow" : "Create Workflow"}
+        title={currentTemplate ? "Edit Experiment Template" : "Create Experiment Template"}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
@@ -267,9 +267,9 @@ const WorkflowList: React.FC = () => {
             <Form.Item
               name="name"
               label="Name"
-              rules={[{ required: true, message: 'Please enter a name for this workflow' }]}
+              rules={[{ required: true, message: 'Please enter a name for this template' }]}
             >
-              <Input placeholder="Enter workflow name" />
+              <Input placeholder="Enter template name" />
             </Form.Item>
             <Form.Item
               name="description"
@@ -277,13 +277,13 @@ const WorkflowList: React.FC = () => {
             >
               <Input.TextArea 
                 rows={2} 
-                placeholder="Enter a description for this workflow" 
+                placeholder="Enter a description for this template" 
               />
             </Form.Item>
           </Form>
         </Card>
         
-        <Card title="Workflow Settings">
+        <Card title="Experiment Settings">
           <ExperimentForm 
             value={formValues} 
             onChange={setFormValues}
@@ -296,4 +296,4 @@ const WorkflowList: React.FC = () => {
   );
 };
 
-export default WorkflowList; 
+export default ExperimentTemplateList; 

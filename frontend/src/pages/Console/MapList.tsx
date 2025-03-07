@@ -123,12 +123,12 @@ const MapList: React.FC = () => {
           // Update existing map
           const updatedMaps = maps.map(map => 
             map.id === currentMap.id 
-        ? { 
+              ? { 
                   ...map, 
-            name: values.name,
-            description: values.description,
-            updatedAt: new Date().toISOString()
-          } 
+                  name: values.name,
+                  description: values.description,
+                  updatedAt: new Date().toISOString()
+                } 
               : map
           );
           setMaps(updatedMaps);
@@ -153,10 +153,10 @@ const MapList: React.FC = () => {
           setLoading(false);
           return;
         }
-
-      setIsModalVisible(false);
-      setFileList([]);
-      form.resetFields();
+        
+        setIsModalVisible(false);
+        setFileList([]);
+        form.resetFields();
         setLoading(false);
       }, 500);
     } catch {

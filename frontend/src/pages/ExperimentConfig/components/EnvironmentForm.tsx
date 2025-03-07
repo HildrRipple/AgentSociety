@@ -153,6 +153,19 @@ const EnvironmentForm: React.FC<EnvironmentFormProps> = ({ value, onChange }) =>
               <Input placeholder="Enter base URL (optional)" />
             </Form.Item>
 
+            <Form.Item
+              name={['llm_config', 'model']}
+              label="Model"
+              rules={[{ required: true, message: 'Please select model' }]}
+            >
+              <Select
+                placeholder={selectedProvider ? `Select ${selectedProvider} model` : "Please select a provider first"}
+                options={getModelOptions()}
+                disabled={!selectedProvider}
+              />
+            </Form.Item>
+          </Card>
+
             <Form.List name={['llm_config', 'api_keys']}>
               {(fields, { add, remove }) => (
                 <>
@@ -177,19 +190,6 @@ const EnvironmentForm: React.FC<EnvironmentFormProps> = ({ value, onChange }) =>
                 </>
               )}
             </Form.List>
-
-            <Form.Item
-              name={['llm_config', 'model']}
-              label="Model"
-              rules={[{ required: true, message: 'Please select model' }]}
-            >
-              <Select
-                placeholder={selectedProvider ? `Select ${selectedProvider} model` : "Please select a provider first"}
-                options={getModelOptions()}
-                disabled={!selectedProvider}
-              />
-            </Form.Item>
-          </Card>
         </TabPane>
 
         <TabPane tab="Simulator Configuration" key="2">
