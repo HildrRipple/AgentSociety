@@ -7,7 +7,12 @@ import RootLayout from './Layout'
 import Console from './pages/Console/index'
 import Replay from './pages/Replay/index'
 import Survey from './pages/Survey'
-import ExperimentConfig from './pages/ExperimentConfig'
+import EnvironmentList from './pages/Console/EnvironmentList'
+import AgentList from './pages/Console/AgentList'
+import WorkflowList from './pages/Console/WorkflowList'
+import MapList from './pages/Console/MapList'
+import CreateExperiment from './pages/Console/CreateExperiment'
+import storageService from './services/storageService'
 import enUS from 'antd/locale/en_US'
 
 const router = createBrowserRouter([
@@ -25,7 +30,23 @@ const router = createBrowserRouter([
     },
     {
         path: "/create-experiment",
-        element: <RootLayout selectedKey='/create-experiment'><ExperimentConfig /></RootLayout>,
+        element: <RootLayout selectedKey='/create-experiment'><CreateExperiment /></RootLayout>,
+    },
+    {
+        path: "/environments",
+        element: <RootLayout selectedKey='/environments'><EnvironmentList /></RootLayout>,
+    },
+    {
+        path: "/agents",
+        element: <RootLayout selectedKey='/agents'><AgentList /></RootLayout>,
+    },
+    {
+        path: "/experiments",
+        element: <RootLayout selectedKey='/experiments'><WorkflowList /></RootLayout>,
+    },
+    {
+        path: "/maps",
+        element: <RootLayout selectedKey='/maps'><MapList /></RootLayout>,
     },
     {
         path: "*",
@@ -52,6 +73,11 @@ const theme: ThemeConfig = {
         }
     }
 };
+
+// 初始化示例数据
+storageService.initializeExampleData().catch(error => {
+  console.error('Failed to initialize example data:', error);
+});
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <ConfigProvider theme={theme} locale={enUS}>

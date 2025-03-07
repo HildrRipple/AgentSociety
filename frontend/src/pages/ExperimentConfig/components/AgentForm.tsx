@@ -61,16 +61,16 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
     accept: '.json,.yaml,.yml',
     fileList: fileList,
     beforeUpload: (file) => {
-      const isJsonOrYaml = file.type === 'application/json' ||
-        file.name.endsWith('.yaml') ||
-        file.name.endsWith('.yml');
+      const isJsonOrYaml = file.type === 'application/json' || 
+                          file.name.endsWith('.yaml') || 
+                          file.name.endsWith('.yml');
       if (!isJsonOrYaml) {
         message.error('You can only upload JSON or YAML files!');
         return Upload.LIST_IGNORE;
       }
-
+      
       setFileList([file]);
-
+      
       // Read file content
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -84,7 +84,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
             message.info('YAML parsing would be implemented in production');
             return;
           }
-
+          
           // Update form with the loaded configuration
           form.setFieldsValue(configData);
           onChange(configData);
@@ -95,7 +95,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
         }
       };
       reader.readAsText(file);
-
+      
       // Prevent default upload behavior
       return false;
     },
@@ -145,314 +145,330 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
           onValuesChange={handleValuesChange}
           initialValues={value}
         >
-          <Card title="Basic Agent Configuration" bordered={false}>
-            <Form.Item
-              name={['agent_config', 'number_of_citizen']}
-              label="Number of Citizens"
-              rules={[{ required: true, message: 'Please enter number of citizens' }]}
-            >
-              <InputNumber min={1} max={10000} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              name={['agent_config', 'number_of_firm']}
-              label="Number of Firms"
-              rules={[{ required: true, message: 'Please enter number of firms' }]}
-            >
-              <InputNumber min={1} max={1000} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              name={['agent_config', 'number_of_government']}
-              label="Number of Government Agencies"
-              rules={[{ required: true, message: 'Please enter number of government agencies' }]}
-            >
-              <InputNumber min={1} max={100} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              name={['agent_config', 'number_of_bank']}
-              label="Number of Banks"
-              rules={[{ required: true, message: 'Please enter number of banks' }]}
-            >
-              <InputNumber min={1} max={100} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              name={['agent_config', 'number_of_nbs']}
-              label="Number of NBS"
-              rules={[{ required: true, message: 'Please enter number of NBs' }]}
-            >
-              <InputNumber min={1} max={100} style={{ width: '100%' }} />
-            </Form.Item>
-          </Card>
-
-          <Card title="Agent Profile Configuration" bordered={false} style={{ marginTop: 16 }}>
-            <Tabs defaultActiveKey="1">
-              <TabPane tab="Demographics" key="1">
+          <Tabs defaultActiveKey="1">
+            <TabPane tab="Basic Agent Configuration" key="1">
+              <Card bordered={false}>
                 <Form.Item
-                  name={['profile', 'name']}
-                  label="Name Generation"
+                  name={['agent_config', 'number_of_citizen']}
+                  label="Number of Citizens"
+                  rules={[{ required: true, message: 'Please enter number of citizens' }]}
                 >
-                  <Select
-                    placeholder="Select name generation method"
-                    options={[
-                      { value: 'random', label: 'Random from predefined list' },
-                      { value: 'custom', label: 'Custom names' },
-                    ]}
-                  />
+                  <InputNumber min={1} max={10000} defaultValue={1} style={{ width: '100%' }} />
                 </Form.Item>
 
                 <Form.Item
-                  name={['profile', 'gender']}
-                  label="Gender Distribution"
+                  name={['agent_config', 'number_of_firm']}
+                  label="Number of Firms"
+                  rules={[{ required: true, message: 'Please enter number of firms' }]}
                 >
-                  <Select
-                    placeholder="Select gender distribution"
-                    options={[
-                      { value: 'equal', label: 'Equal distribution' },
-                      { value: 'custom', label: 'Custom distribution' },
-                    ]}
-                  />
+                  <InputNumber min={1} max={1000} defaultValue={1} style={{ width: '100%' }} />
                 </Form.Item>
 
                 <Form.Item
-                  name={['profile', 'age', 'min']}
-                  label="Minimum Age"
+                  name={['agent_config', 'number_of_government']}
+                  label="Number of Government Agencies"
+                  rules={[{ required: true, message: 'Please enter number of government agencies' }]}
                 >
-                  <InputNumber min={1} max={100} style={{ width: '100%' }} />
+                  <InputNumber min={1} max={100} defaultValue={1} style={{ width: '100%' }} />
                 </Form.Item>
 
                 <Form.Item
-                  name={['profile', 'age', 'max']}
-                  label="Maximum Age"
+                  name={['agent_config', 'number_of_bank']}
+                  label="Number of Banks"
+                  rules={[{ required: true, message: 'Please enter number of banks' }]}
                 >
-                  <InputNumber min={1} max={100} style={{ width: '100%' }} />
+                  <InputNumber min={1} max={100} defaultValue={1} style={{ width: '100%' }} />
                 </Form.Item>
 
                 <Form.Item
-                  name={['profile', 'education']}
-                  label="Education Distribution"
+                  name={['agent_config', 'number_of_nbs']}
+                  label="Number of Neighborhood-based Services"
+                  rules={[{ required: true, message: 'Please enter number of NBS' }]}
                 >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select education levels"
-                    options={[
-                      { value: 'Doctor', label: 'Doctor' },
-                      { value: 'Master', label: 'Master' },
-                      { value: 'Bachelor', label: 'Bachelor' },
-                      { value: 'College', label: 'College' },
-                      { value: 'High School', label: 'High School' },
-                    ]}
-                  />
+                  <InputNumber min={1} max={100} defaultValue={1} style={{ width: '100%' }} />
                 </Form.Item>
 
                 <Form.Item
-                  name={['profile', 'marital_status']}
-                  label="Marital Status Distribution"
+                  name={['agent_config', 'group_size']}
+                  label="Group Size"
+                  rules={[{ required: true, message: 'Please enter group size' }]}
                 >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select marital statuses"
-                    options={[
-                      { value: 'not married', label: 'Not Married' },
-                      { value: 'married', label: 'Married' },
-                      { value: 'divorced', label: 'Divorced' },
-                      { value: 'widowed', label: 'Widowed' },
-                    ]}
-                  />
+                  <InputNumber min={1} max={1000} defaultValue={100} style={{ width: '100%' }} />
                 </Form.Item>
-              </TabPane>
+              </Card>
+            </TabPane>
 
-              <TabPane tab="Socioeconomic" key="2">
+            <TabPane tab="Agent Profiles" key="2">
+              <Card bordered={false}>
                 <Form.Item
-                  name={['profile', 'occupation']}
-                  label="Occupation Distribution"
+                  name="scriptPath"
+                  label="Agent Script"
                 >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select occupations"
-                    options={[
-                      { value: 'Student', label: 'Student' },
-                      { value: 'Teacher', label: 'Teacher' },
-                      { value: 'Doctor', label: 'Doctor' },
-                      { value: 'Engineer', label: 'Engineer' },
-                      { value: 'Manager', label: 'Manager' },
-                      { value: 'Businessman', label: 'Businessman' },
-                      { value: 'Artist', label: 'Artist' },
-                      { value: 'Athlete', label: 'Athlete' },
-                      { value: 'Other', label: 'Other' },
-                    ]}
-                  />
+                  <Input placeholder="Script path" addonAfter={
+                    <Upload {...scriptUploadProps}>
+                      <Button icon={<UploadOutlined />}>Upload</Button>
+                    </Upload>
+                  } />
+                </Form.Item>
+
+                <Collapse>
+                  <Panel header="Memory Configuration" key="1">
+                    <Form.Item
+                      name={['agent_config', 'memory_config', 'memory_from_file']}
+                      label="Memory From File"
+                    >
+                      <Input.TextArea rows={4} placeholder="Enter memory from file configuration (JSON format)" />
+                    </Form.Item>
+
+                    <Form.Item
+                      name={['agent_config', 'memory_config', 'memory_distributions']}
+                      label="Memory Distributions"
+                    >
+                      <Input.TextArea rows={4} placeholder="Enter memory distributions configuration (JSON format)" />
+                    </Form.Item>
+                  </Panel>
+                </Collapse>
+              </Card>
+            </TabPane>
+
+            <TabPane tab="Profile Distributions" key="3">
+              <Card bordered={false}>
+                <Collapse>
+                  <Panel header="Name Distribution" key="name">
+                    <Form.Item
+                      name={['profile', 'name', 'dist_type']}
+                      label="Distribution Type"
+                    >
+                      <Select
+                        placeholder="Select distribution type"
+                        options={[
+                          { value: 'choice', label: 'Choice' },
+                          { value: 'constant', label: 'Constant' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'name', 'choices']}
+                      label="Choices"
+                    >
+                      <Select
+                        mode="tags"
+                        placeholder="Enter name choices"
+                        style={{ width: '100%' }}
+                        options={[
+                          { value: 'Alice', label: 'Alice' },
+                          { value: 'Bob', label: 'Bob' },
+                          { value: 'Charlie', label: 'Charlie' },
+                          { value: 'David', label: 'David' },
+                          { value: 'Eve', label: 'Eve' },
+                        ]}
+                      />
+                    </Form.Item>
+                  </Panel>
+
+                  <Panel header="Gender Distribution" key="gender">
+                    <Form.Item
+                      name={['profile', 'gender', 'dist_type']}
+                      label="Distribution Type"
+                    >
+                      <Select
+                        placeholder="Select distribution type"
+                        options={[
+                          { value: 'choice', label: 'Choice' },
+                          { value: 'constant', label: 'Constant' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'gender', 'choices']}
+                      label="Choices"
+                    >
+                      <Select
+                        mode="tags"
+                        placeholder="Enter gender choices"
+                        style={{ width: '100%' }}
+                        options={[
+                          { value: 'male', label: 'Male' },
+                          { value: 'female', label: 'Female' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'gender', 'weights']}
+                      label="Weights"
+                    >
+                      <Input placeholder="Enter weights as comma-separated values (e.g., 0.5,0.5)" />
+                    </Form.Item>
+                  </Panel>
+
+                  <Panel header="Age Distribution" key="age">
+                    <Form.Item
+                      name={['profile', 'age', 'dist_type']}
+                      label="Distribution Type"
+                    >
+                      <Select
+                        placeholder="Select distribution type"
+                        options={[
+                          { value: 'uniform_int', label: 'Uniform Integer' },
+                          { value: 'normal', label: 'Normal' },
+                          { value: 'constant', label: 'Constant' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'age', 'min_value']}
+                      label="Minimum Value"
+                    >
+                      <InputNumber min={1} max={100} style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'age', 'max_value']}
+                      label="Maximum Value"
+                    >
+                      <InputNumber min={1} max={100} style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'age', 'mean']}
+                      label="Mean (for Normal distribution)"
+                    >
+                      <InputNumber style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'age', 'std']}
+                      label="Standard Deviation (for Normal distribution)"
+                    >
+                      <InputNumber min={0} style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Panel>
+
+                  <Panel header="Education Distribution" key="education">
+                    <Form.Item
+                      name={['profile', 'education', 'dist_type']}
+                      label="Distribution Type"
+                    >
+                      <Select
+                        placeholder="Select distribution type"
+                        options={[
+                          { value: 'choice', label: 'Choice' },
+                          { value: 'constant', label: 'Constant' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'education', 'choices']}
+                      label="Choices"
+                    >
+                      <Select
+                        mode="tags"
+                        placeholder="Enter education choices"
+                        style={{ width: '100%' }}
+                        options={[
+                          { value: 'Doctor', label: 'Doctor' },
+                          { value: 'Master', label: 'Master' },
+                          { value: 'Bachelor', label: 'Bachelor' },
+                          { value: 'College', label: 'College' },
+                          { value: 'High School', label: 'High School' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'education', 'weights']}
+                      label="Weights"
+                    >
+                      <Input placeholder="Enter weights as comma-separated values" />
+                    </Form.Item>
+                  </Panel>
+
+                  <Panel header="Occupation Distribution" key="occupation">
+                    <Form.Item
+                      name={['profile', 'occupation', 'dist_type']}
+                      label="Distribution Type"
+                    >
+                      <Select
+                        placeholder="Select distribution type"
+                        options={[
+                          { value: 'choice', label: 'Choice' },
+                          { value: 'constant', label: 'Constant' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'occupation', 'choices']}
+                      label="Choices"
+                    >
+                      <Select
+                        mode="tags"
+                        placeholder="Enter occupation choices"
+                        style={{ width: '100%' }}
+                        options={[
+                          { value: 'Student', label: 'Student' },
+                          { value: 'Teacher', label: 'Teacher' },
+                          { value: 'Doctor', label: 'Doctor' },
+                          { value: 'Engineer', label: 'Engineer' },
+                          { value: 'Manager', label: 'Manager' },
+                          { value: 'Businessman', label: 'Businessman' },
+                          { value: 'Artist', label: 'Artist' },
+                          { value: 'Athlete', label: 'Athlete' },
+                          { value: 'Other', label: 'Other' },
+                        ]}
+                      />
+                    </Form.Item>
+                  </Panel>
+
+                  <Panel header="Income Distribution" key="income">
+                    <Form.Item
+                      name={['profile', 'income', 'dist_type']}
+                      label="Distribution Type"
+                    >
+                      <Select
+                        placeholder="Select distribution type"
+                        options={[
+                          { value: 'uniform_float', label: 'Uniform Float' },
+                          { value: 'normal', label: 'Normal' },
+                          { value: 'constant', label: 'Constant' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'income', 'min_value']}
+                      label="Minimum Value"
+                    >
+                      <InputNumber min={0} style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item
+                      name={['profile', 'income', 'max_value']}
+                      label="Maximum Value"
+                    >
+                      <InputNumber min={0} style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Panel>
+                </Collapse>
+              </Card>
+            </TabPane>
+
+            <TabPane tab="Advanced Configuration" key="4">
+              <Card bordered={false}>
+                <Form.Item
+                  name={['agent_config', 'extra_agent_class']}
+                  label="Extra Agent Classes"
+                >
+                  <Input.TextArea rows={4} placeholder="Enter extra agent classes configuration (JSON format)" />
                 </Form.Item>
 
                 <Form.Item
-                  name={['profile', 'skill']}
-                  label="Skill Distribution"
+                  name={['agent_config', 'agent_class_configs']}
+                  label="Agent Class Configurations"
                 >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select skills"
-                    options={[
-                      { value: 'Good at problem-solving', label: 'Problem-solving' },
-                      { value: 'Good at communication', label: 'Communication' },
-                      { value: 'Good at creativity', label: 'Creativity' },
-                      { value: 'Good at teamwork', label: 'Teamwork' },
-                      { value: 'Other', label: 'Other' },
-                    ]}
-                  />
+                  <Input.TextArea rows={4} placeholder="Enter agent class configurations (JSON format)" />
                 </Form.Item>
+              </Card>
+            </TabPane>
+          </Tabs>
 
-                <Form.Item
-                  name={['profile', 'income', 'min']}
-                  label="Minimum Income"
-                >
-                  <InputNumber min={0} style={{ width: '100%' }} />
-                </Form.Item>
-
-                <Form.Item
-                  name={['profile', 'income', 'max']}
-                  label="Maximum Income"
-                >
-                  <InputNumber min={0} style={{ width: '100%' }} />
-                </Form.Item>
-
-                <Form.Item
-                  name={['profile', 'currency', 'min']}
-                  label="Minimum Currency"
-                >
-                  <InputNumber min={0} style={{ width: '100%' }} />
-                </Form.Item>
-
-                <Form.Item
-                  name={['profile', 'currency', 'max']}
-                  label="Maximum Currency"
-                >
-                  <InputNumber min={0} style={{ width: '100%' }} />
-                </Form.Item>
-
-                <Form.Item
-                  name={['profile', 'consumption']}
-                  label="Consumption Level Distribution"
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select consumption levels"
-                    options={[
-                      { value: 'low', label: 'Low' },
-                      { value: 'slightly low', label: 'Slightly Low' },
-                      { value: 'medium', label: 'Medium' },
-                      { value: 'slightly high', label: 'Slightly High' },
-                      { value: 'high', label: 'High' },
-                    ]}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name={['profile', 'family_consumption']}
-                  label="Family Consumption Distribution"
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select family consumption levels"
-                    options={[
-                      { value: 'low', label: 'Low' },
-                      { value: 'medium', label: 'Medium' },
-                      { value: 'high', label: 'High' },
-                    ]}
-                  />
-                </Form.Item>
-              </TabPane>
-
-              <TabPane tab="Personality & Location" key="3">
-                <Form.Item
-                  name={['profile', 'personality']}
-                  label="Personality Distribution"
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select personality types"
-                    options={[
-                      { value: 'outgoint', label: 'Outgoing' },
-                      { value: 'introvert', label: 'Introvert' },
-                      { value: 'ambivert', label: 'Ambivert' },
-                      { value: 'extrovert', label: 'Extrovert' },
-                    ]}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name={['profile', 'residence']}
-                  label="Residence Distribution"
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select residence types"
-                    options={[
-                      { value: 'city', label: 'City' },
-                      { value: 'suburb', label: 'Suburb' },
-                      { value: 'rural', label: 'Rural' },
-                    ]}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name={['profile', 'city']}
-                  label="City"
-                >
-                  <Input placeholder="Enter city name" />
-                </Form.Item>
-
-                <Form.Item
-                  name={['base', 'home', 'aoi_position', 'aoi_id']}
-                  label="Home AOI ID Range"
-                  tooltip="Area of Interest ID for home locations"
-                >
-                  <InputNumber min={1} style={{ width: '100%' }} />
-                </Form.Item>
-
-                <Form.Item
-                  name={['base', 'work', 'aoi_position', 'aoi_id']}
-                  label="Work AOI ID Range"
-                  tooltip="Area of Interest ID for work locations"
-                >
-                  <InputNumber min={1} style={{ width: '100%' }} />
-                </Form.Item>
-              </TabPane>
-            </Tabs>
-          </Card>
-
-          <Card title="Advanced Configuration" bordered={false} style={{ marginTop: 16 }}>
-            <Collapse>
-              <Panel header="Agent Distribution" key="1">
-                <Form.Item
-                  name="distributionType"
-                  label="Distribution Type"
-                >
-                  <Select
-                    placeholder="Select distribution type"
-                    options={[
-                      { value: 'random', label: 'Random Distribution' },
-                      { value: 'cluster', label: 'Cluster Distribution' },
-                      { value: 'uniform', label: 'Uniform Distribution' },
-                    ]}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name="distributionParams"
-                  label="Distribution Parameters"
-                >
-                  <Input.TextArea rows={4} placeholder="Enter distribution parameters (JSON format)" />
-                </Form.Item>
-              </Panel>
-
-            </Collapse>
-            <Divider />
-            <Button type="primary" onClick={toggleMode}>
-              Switch to File Upload
-            </Button>
-          </Card>
+          <Divider />
+          <Button type="primary" onClick={toggleMode}>
+            Switch to File Upload
+          </Button>
         </Form>
       )}
     </>

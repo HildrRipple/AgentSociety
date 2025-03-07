@@ -1,5 +1,5 @@
-import { ExportOutlined, GithubOutlined, PlusOutlined } from "@ant-design/icons";
-import { Menu, MenuProps, Space } from "antd";
+import { ExportOutlined, GithubOutlined, PlusOutlined, ExperimentOutlined, EnvironmentOutlined, TeamOutlined, GlobalOutlined, NodeIndexOutlined } from "@ant-design/icons";
+import { Menu, MenuProps, Space, Dropdown } from "antd";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 // import Account from "./components/Account";
@@ -18,10 +18,51 @@ const RootMenu = ({ selectedKey }: {
             });
     }, []);
 
+    // Experiment submenu items - horizontal layout
+    const experimentItems: MenuProps['items'] = [
+        {
+            key: '/environments',
+            label: <Link to="/environments">Environments</Link>,
+            icon: <EnvironmentOutlined />,
+        },
+        {
+            key: '/maps',
+            label: <Link to="/maps">Maps</Link>,
+            icon: <GlobalOutlined />,
+        },
+        {
+            key: '/agents',
+            label: <Link to="/agents">Agents</Link>,
+            icon: <TeamOutlined />,
+        },
+        {
+            key: '/experiments',
+            label: <Link to="/experiments">Workflow</Link>,
+            icon: <NodeIndexOutlined />,
+        },
+        {
+            key: '/create-experiment',
+            label: <Link to="/create-experiment">Create</Link>,
+            icon: <PlusOutlined />,
+        },
+    ];
+
+    // Dropdown menu for experiment submenu
+    const experimentDropdown = (
+        <Menu items={experimentItems} mode="horizontal" style={{ borderBottom: 'none' }} />
+    );
 
     const menuItems: MenuProps['items'] = [
-        { key: "/", label: <Link to="/">Experiments</Link> },
-        { key: "/create-experiment", label: <Link to="/create-experiment"><Space>Create Experiment<PlusOutlined /></Space></Link> },
+        { 
+            key: "/", 
+            label: (
+                <Dropdown overlay={experimentDropdown} placement="bottomLeft" arrow>
+                    <div>
+                        <Link to="/"><Space><ExperimentOutlined />Experiments</Space></Link>
+                    </div>
+                </Dropdown>
+            ),
+        },
         { key: "/survey", label: <Link to="/survey">Survey</Link> },
         // { key: "/exp", label: <Link to="/exp">Replay & Live</Link> },
         // { key: "/sim", label: <Link to="/sim">平台</Link> },
