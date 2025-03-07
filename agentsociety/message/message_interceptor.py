@@ -10,7 +10,7 @@ from typing import Any, Optional, Union
 import ray
 from ray.util.queue import Queue
 
-from ..configs import LLMRequestConfig
+from ..configs import LLMConfig
 from ..llm import LLM
 from ..utils.decorators import lock_decorator
 
@@ -96,7 +96,7 @@ class MessageInterceptor:
         self,
         blocks: Optional[list[MessageBlockBase]] = None,
         black_list: Optional[list[tuple[int, int]]] = None,
-        llm_config: Optional[LLMRequestConfig] = None,
+        llm_config: Optional[LLMConfig] = None,
         queue: Optional[Queue] = None,
     ) -> None:
         """
@@ -105,7 +105,7 @@ class MessageInterceptor:
         - **Args**:
             - `blocks` (Optional[list[MessageBlockBase]], optional): Initial list of message interception rules. Defaults to an empty list.
             - `black_list` (Optional[list[tuple[int, int]]], optional): Initial blacklist of communication pairs. Defaults to an empty list.
-            - `llm_config` (Optional[LLMRequestConfig], optional): Configuration dictionary for initializing the LLM instance. Defaults to None.
+            - `llm_config` (Optional[LLMConfig], optional): Configuration dictionary for initializing the LLM instance. Defaults to None.
             - `queue` (Optional[Queue], optional): Queue for message processing. Defaults to None.
         """
         if blocks is not None:
