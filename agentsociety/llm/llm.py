@@ -47,7 +47,7 @@ class LLM:
         self.semaphore = asyncio.Semaphore(200)
         self._current_client_index = 0
         self._log_list = []
-        
+
         # statistics about errors
         self._total_calls = 0
         self._total_errors = 0
@@ -92,9 +92,7 @@ class LLM:
             elif self.config.provider == LLMProviderType.ZhipuAI:
                 client = ZhipuAI(api_key=api_key, timeout=300)
             else:
-                raise ValueError(
-                    f"Unsupported `provider` {self.config.provider}!"
-                )
+                raise ValueError(f"Unsupported `provider` {self.config.provider}!")
             self._aclients.append(client)
             self._client_usage.append(
                 {"prompt_tokens": 0, "completion_tokens": 0, "request_number": 0}
@@ -306,7 +304,7 @@ class LLM:
                     except OpenAIError as e:
                         if hasattr(e, "http_status"):
                             logger.warning(
-                                f"HTTP status code: {e.http_status}. Retry {attempt+1} of {retries}" # type: ignore
+                                f"HTTP status code: {e.http_status}. Retry {attempt+1} of {retries}"  # type: ignore
                             )  # type: ignore
                         else:
                             logger.warning(
@@ -420,5 +418,5 @@ class LLM:
         # add statistics about different error types
         for error_type, count in self._error_types.items():
             stats[f"{error_type}"] = count
-        
+
         return stats

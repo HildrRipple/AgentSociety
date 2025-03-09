@@ -4,8 +4,8 @@ from collections import defaultdict
 from collections.abc import Callable, Sequence
 from typing import Any, Optional, Union
 
-from mlflow.entities import Metric
 import ray
+from mlflow.entities import Metric
 
 from ..agent import Agent
 from ..environment import AoiService, PersonService

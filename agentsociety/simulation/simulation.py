@@ -713,11 +713,13 @@ class AgentSimulation:
             num_institution_groups = (
                 total_institution_count + group_size - 1
             ) // group_size
-            institution_offsets = {agent_class: 0 for agent_class, _, _, _ in institution_params}
+            institution_offsets = {
+                agent_class: 0 for agent_class, _, _, _ in institution_params
+            }
 
             for k in range(num_institution_groups):
                 remaining = group_size  # remaining capacity for this group
-                
+
                 agent_classes = []
                 agent_counts = []
                 memory_values_dict = {}
@@ -731,7 +733,9 @@ class AgentSimulation:
                         agent_classes.append(agent_class)
                         agent_counts.append(allocate)
                         # assign only the needed memory values for current group
-                        memory_values_dict[agent_class] = memory_vals[offset: offset + allocate]
+                        memory_values_dict[agent_class] = memory_vals[
+                            offset : offset + allocate
+                        ]
                         config_files[agent_class] = conf_file
                         institution_offsets[agent_class] += allocate
                         remaining -= allocate
@@ -748,16 +752,20 @@ class AgentSimulation:
 
         # process citizen group
         if citizen_params:
-            total_citizen_count = sum(p[1] for p in citizen_params)  # total number of citizen agents
+            total_citizen_count = sum(
+                p[1] for p in citizen_params
+            )  # total number of citizen agents
             num_citizen_groups = (
                 total_citizen_count + group_size - 1
             ) // group_size  # number of citizen groups
-            citizen_offsets = {agent_class: 0 for agent_class, _, _, _ in citizen_params}
+            citizen_offsets = {
+                agent_class: 0 for agent_class, _, _, _ in citizen_params
+            }
 
             # determine parameters for each citizen group
             for k in range(num_citizen_groups):
                 remaining = group_size  # remaining capacity for this group
-                
+
                 agent_classes = []
                 agent_counts = []
                 memory_values_dict = {}
@@ -771,7 +779,9 @@ class AgentSimulation:
                         agent_classes.append(agent_class)
                         agent_counts.append(allocate)
                         # assign only the needed memory values for current group
-                        memory_values_dict[agent_class] = memory_vals[offset: offset + allocate]
+                        memory_values_dict[agent_class] = memory_vals[
+                            offset : offset + allocate
+                        ]
                         config_files[agent_class] = conf_file
                         citizen_offsets[agent_class] += allocate
                         remaining -= allocate

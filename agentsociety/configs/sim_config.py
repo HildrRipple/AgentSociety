@@ -10,9 +10,7 @@ __all__ = [
 
 
 class LLMConfig(BaseModel):
-    provider: LLMProviderType = Field(
-        ..., description="The type of the LLM provider"
-    )
+    provider: LLMProviderType = Field(..., description="The type of the LLM provider")
     base_url: Optional[str] = Field(
         None, description="The base URL for the LLM provider"
     )
@@ -130,7 +128,11 @@ class SimConfig(BaseModel):
         return self.metric_config  # type:ignore
 
     def SetLLMConfig(
-        self, provider: LLMProviderType, api_key: Union[list[str], str], model: str, base_url: Optional[str] = None
+        self,
+        provider: LLMProviderType,
+        api_key: Union[list[str], str],
+        model: str,
+        base_url: Optional[str] = None,
     ) -> "SimConfig":
         self.llm_config = LLMConfig(
             provider=provider, api_key=api_key, model=model, base_url=base_url

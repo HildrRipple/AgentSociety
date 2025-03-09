@@ -15,44 +15,95 @@ from ..utils import DistributionType, MetricType, WorkflowType
 
 class WorkflowStep(BaseModel):
     type: WorkflowType = Field(..., description="The type of the workflow step")
-    func: Optional[Callable] = None  # Optional function to be executed during this step - used for [FUNCTION, INTERVENE] type
-    days: float = 1.0  # Duration (in days) for which this step lasts - used for [RUN] type
+    func: Optional[Callable] = (
+        None  # Optional function to be executed during this step - used for [FUNCTION, INTERVENE] type
+    )
+    days: float = (
+        1.0  # Duration (in days) for which this step lasts - used for [RUN] type
+    )
     times: int = 1  # Number of repetitions for this step - used for [RUN] type
-    target_agent: Optional[list] = None  # List specifying the agents targeted by this step - used for [INTERVIEW, SURVEY, UPDATE_STATE_INTERVENE, MESSAGE_INTERVENE] type
-    interview_message: Optional[str] = None  # Optional message used for interviews during this step - used for [INTERVIEW] type
-    survey: Optional[Survey] = None  # Optional survey instance associated with this step - used for [SURVEY] type
-    key: Optional[str] = None  # Optional key identifier for the step - used for [ENVIRONMENT_INTERVENE, UPDATE_STATE_INTERVENE] type
-    value: Optional[Any] = None  # Optional value associated with the step - used for [ENVIRONMENT_INTERVENE, UPDATE_STATE_INTERVENE] type
-    intervene_message: Optional[str] = None  # Optional message used for interventions - used for [MESSAGE_INTERVENE] type
-    description: Optional[str] = "None"  # A descriptive text explaining the workflow step
+    target_agent: Optional[list] = (
+        None  # List specifying the agents targeted by this step - used for [INTERVIEW, SURVEY, UPDATE_STATE_INTERVENE, MESSAGE_INTERVENE] type
+    )
+    interview_message: Optional[str] = (
+        None  # Optional message used for interviews during this step - used for [INTERVIEW] type
+    )
+    survey: Optional[Survey] = (
+        None  # Optional survey instance associated with this step - used for [SURVEY] type
+    )
+    key: Optional[str] = (
+        None  # Optional key identifier for the step - used for [ENVIRONMENT_INTERVENE, UPDATE_STATE_INTERVENE] type
+    )
+    value: Optional[Any] = (
+        None  # Optional value associated with the step - used for [ENVIRONMENT_INTERVENE, UPDATE_STATE_INTERVENE] type
+    )
+    intervene_message: Optional[str] = (
+        None  # Optional message used for interventions - used for [MESSAGE_INTERVENE] type
+    )
+    description: Optional[str] = (
+        "None"  # A descriptive text explaining the workflow step
+    )
 
 
 class MetricExtractor(BaseModel):
-    type: MetricType = Field(MetricType.FUNCTION, description="The type of metric extraction; defaults to FUNCTION")
-    func: Optional[Callable] = None  # The function that extracts the metric - used for [FUNCTION] type
-    step_interval: int = 10  # Frequency interval (in simulation steps) for metric extraction
-    target_agent: Optional[list] = None  # List specifying the agents from which to extract metrics - used for [STATE] type
-    key: Optional[str] = None  # Optional key to store or identify the extracted metric - used for [STATE] type
-    method: Optional[Literal['mean', 'sum', 'max', 'min']] = "sum"  # Aggregation method applied to the metric values - used for [STATE] type
+    type: MetricType = Field(
+        MetricType.FUNCTION,
+        description="The type of metric extraction; defaults to FUNCTION",
+    )
+    func: Optional[Callable] = (
+        None  # The function that extracts the metric - used for [FUNCTION] type
+    )
+    step_interval: int = (
+        10  # Frequency interval (in simulation steps) for metric extraction
+    )
+    target_agent: Optional[list] = (
+        None  # List specifying the agents from which to extract metrics - used for [STATE] type
+    )
+    key: Optional[str] = (
+        None  # Optional key to store or identify the extracted metric - used for [STATE] type
+    )
+    method: Optional[Literal["mean", "sum", "max", "min"]] = (
+        "sum"  # Aggregation method applied to the metric values - used for [STATE] type
+    )
     extract_time: int = 0  # The simulation time or step at which extraction occurs
     description: str = "None"  # A descriptive text explaining the metric extractor
 
 
 class DistributionConfig(BaseModel):
     dist_type: DistributionType = Field(..., description="The type of the distribution")
-    choices: Optional[List[Any]] = None  # A list of possible discrete values - used for [CHOICE] type
-    weights: Optional[List[float]] = None  # Weights corresponding to each discrete choice - used for [CHOICE] type
-    min_value: Optional[Union[int, float]] = None  # Minimum value for continuous distributions - used for [UNIFORM_INT, UNIFORM_FLOAT, NORMAL] type
-    max_value: Optional[Union[int, float]] = None  # Maximum value for continuous distributions - used for [UNIFORM_INT, UNIFORM_FLOAT, NORMAL] type
-    mean: Optional[float] = None  # Mean value for the distribution if applicable - used for [NORMAL] type
-    std: Optional[float] = None  # Standard deviation for the distribution if applicable - used for [NORMAL] type
-    value: Optional[Any] = None  # A fixed value that can be used instead of a distribution - used for [CONSTANT] type
+    choices: Optional[List[Any]] = (
+        None  # A list of possible discrete values - used for [CHOICE] type
+    )
+    weights: Optional[List[float]] = (
+        None  # Weights corresponding to each discrete choice - used for [CHOICE] type
+    )
+    min_value: Optional[Union[int, float]] = (
+        None  # Minimum value for continuous distributions - used for [UNIFORM_INT, UNIFORM_FLOAT, NORMAL] type
+    )
+    max_value: Optional[Union[int, float]] = (
+        None  # Maximum value for continuous distributions - used for [UNIFORM_INT, UNIFORM_FLOAT, NORMAL] type
+    )
+    mean: Optional[float] = (
+        None  # Mean value for the distribution if applicable - used for [NORMAL] type
+    )
+    std: Optional[float] = (
+        None  # Standard deviation for the distribution if applicable - used for [NORMAL] type
+    )
+    value: Optional[Any] = (
+        None  # A fixed value that can be used instead of a distribution - used for [CONSTANT] type
+    )
 
 
 class MemoryConfig(BaseModel):
-    memory_config_func: Optional[Dict[type[Any], Callable]] = None  # A dictionary mapping agent types to functions that return memory configurations
-    memory_from_file: Optional[Dict[type[Any], str]] = None  # A dictionary mapping agent types to file paths containing memory configurations
-    memory_distributions: Optional[Dict[str, DistributionConfig]] = None  # A dictionary mapping citizen agents profile attributes to distribution configurations
+    memory_config_func: Optional[Dict[type[Any], Callable]] = (
+        None  # A dictionary mapping agent types to functions that return memory configurations
+    )
+    memory_from_file: Optional[Dict[type[Any], str]] = (
+        None  # A dictionary mapping agent types to file paths containing memory configurations
+    )
+    memory_distributions: Optional[Dict[str, DistributionConfig]] = (
+        None  # A dictionary mapping citizen agents profile attributes to distribution configurations
+    )
 
 
 class AgentConfig(BaseModel):
@@ -72,9 +123,13 @@ class AgentConfig(BaseModel):
     @property
     def prop_memory_config(self) -> MemoryConfig:
         if self.memory_config is None:
-            return MemoryConfig(memory_config_func=None, memory_from_file=None, memory_distributions=None)
+            return MemoryConfig(
+                memory_config_func=None,
+                memory_from_file=None,
+                memory_distributions=None,
+            )
         return self.memory_config  # type:ignore
-    
+
     def SetMemoryConfig(
         self,
         memory_config_func: Optional[Dict[type[Any], Callable]] = None,
@@ -87,8 +142,8 @@ class AgentConfig(BaseModel):
             memory_distributions=memory_distributions,
         )
         return self
-    
-    
+
+
 class EnvironmentConfig(BaseModel):
     weather: str = Field(default="The weather is normal")
     temperature: str = Field(default="The temperature is normal")

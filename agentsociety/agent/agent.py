@@ -305,6 +305,7 @@ class InstitutionAgent(Agent):
                 protect_llm_read_only_fields=False,
             )
             await self.status.update("id", _id, protect_llm_read_only_fields=False)
+            _type = None
             try:
                 _status = self.status
                 _id = await _status.get("id")
@@ -408,7 +409,7 @@ class InstitutionAgent(Agent):
         futures = {}
         for agent_id in agent_ids:
             futures[agent_id] = asyncio.Future()
-            self._gather_responses[agent_id] = futures[agent_id] # type: ignore
+            self._gather_responses[agent_id] = futures[agent_id]  # type: ignore
 
         # Send gather requests
         payload = {
