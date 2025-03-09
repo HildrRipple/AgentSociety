@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import random
 import time
 from typing import Any, Optional
 
@@ -134,6 +135,13 @@ class PlanAndActionBlock(Block):
                     }
             elif step_type == "other":
                 result = await self.otherBlock.forward(current_step, execution_context)
+            else:
+                result = {
+                    "success": True,
+                    "evaluation": f"Finished {current_step['intention']}",
+                    "consumed_time": random.randint(1, 10),
+                    "node_id": None,
+                }
             if result != None:
                 current_step["evaluation"] = result
 

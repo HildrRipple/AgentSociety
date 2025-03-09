@@ -279,6 +279,8 @@ class PlanBlock(Block):
                 for step in result["plan"]["steps"]:
                     if "intention" not in step or "type" not in step:
                         raise ValueError("Each step must have an intention and a type")
+                    if step["type"] not in ["mobility", "social", "economy", "other"]:
+                        raise ValueError(f"Invalid step type: {step['type']}")
                 return result
             except Exception as e:
                 logger.warning(f"Error parsing detailed plan: {str(e)}")
