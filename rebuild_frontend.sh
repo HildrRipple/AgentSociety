@@ -7,6 +7,7 @@ set -e
 # NOW, we just provide a simple script to rebuild the frontend manually.
 # Please run the script after you have made changes to the frontend code.
 
+rm -r agentsociety/_dist || true
 cd frontend
 npm ci
 npm run build

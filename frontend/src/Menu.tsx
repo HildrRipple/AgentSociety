@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 // import Account from "./components/Account";
 
-const RootMenu = ({ selectedKey }: {
+const RootMenu = ({ selectedKey, style }: {
     selectedKey: string,
+    style?: React.CSSProperties
 }) => {
 
     const [mlflowUrl, setMlflowUrl] = useState<string>("");
@@ -73,13 +74,15 @@ const RootMenu = ({ selectedKey }: {
     if (mlflowUrl !== "") {
         menuItems.push({ key: "/mlflow", label: <Link to={mlflowUrl} rel="noopener noreferrer" target="_blank"><Space>MLFlow<ExportOutlined /></Space></Link> });
     }
-    menuItems.push({ key: "/Documentation", label: <Link to="https://agentsociety.readthedocs.io/en/latest/" rel="noopener noreferrer" target="_blank"><Space>Documentation<ExportOutlined /></Space></Link> });
-    menuItems.push({ key: "/Github", label: <Link to="https://github.com/tsinghua-fib-lab/agentsociety/" rel="noopener noreferrer" target="_blank"><Space>GitHub<GithubOutlined /><ExportOutlined /></Space></Link> });
+    menuItems.push({ key: "/Documentation", label: <Link to="https://agentsociety.readthedocs.io/en/latest/" rel="noopener noreferrer" target="_blank"><Space>Documentation</Space></Link> });
+    menuItems.push({ key: "/Github", label: <Link to="https://github.com/tsinghua-fib-lab/agentsociety/" rel="noopener noreferrer" target="_blank"><Space>GitHub<GithubOutlined /></Space></Link> });
 
     return <Menu
+        theme="dark"
         mode="horizontal"
         items={menuItems}
         selectedKeys={[selectedKey]}
+        style={style}
     />;
 };
 

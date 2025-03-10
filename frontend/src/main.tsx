@@ -12,17 +12,22 @@ import AgentList from './pages/Console/AgentList'
 import WorkflowList from './pages/Console/WorkflowList'
 import MapList from './pages/Console/MapList'
 import CreateExperiment from './pages/Console/CreateExperiment'
+import Home from './pages/Home'
 import storageService from './services/storageService'
 import enUS from 'antd/locale/en_US'
 
 const router = createBrowserRouter([
     {
         path: "/",
-        element: <RootLayout selectedKey='/'><Console /></RootLayout>,
+        element: <RootLayout selectedKey='/' homePage><Home /></RootLayout>,
+    },
+    {
+        path: "/console",
+        element: <RootLayout selectedKey='/console'><Console /></RootLayout>,
     },
     {
         path: "/exp/:id",
-        element: <RootLayout selectedKey='/'><Replay /></RootLayout>,
+        element: <RootLayout selectedKey='/console'><Replay /></RootLayout>,
     },
     {
         path: "/survey",
@@ -56,7 +61,9 @@ const router = createBrowserRouter([
 
 const theme: ThemeConfig = {
     token: {
-        // colorTextHeading: "#007AFF",
+        colorPrimary: "#0000FF",
+        colorInfo: "#0000FF",
+        borderRadius: 16,
         colorBgContainer: "#FFFFFF",
         colorBgLayout: "#FFFFFF",
     },
@@ -66,6 +73,7 @@ const theme: ThemeConfig = {
             headerBg: "#FFFFFF",
         },
         Button: {
+            algorithm: true,
             colorBgContainer: "#FFFFFF",
         },
         Select: {
@@ -76,7 +84,7 @@ const theme: ThemeConfig = {
 
 // 初始化示例数据
 storageService.initializeExampleData().catch(error => {
-  console.error('Failed to initialize example data:', error);
+    console.error('Failed to initialize example data:', error);
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

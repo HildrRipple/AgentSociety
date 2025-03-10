@@ -1,5 +1,4 @@
 :root {
-    font-family: PingFangSC;
     font-weight: normal;
 
     font-synthesis: none;
@@ -48,13 +47,17 @@ body {
     align-content: center;
 
     /* 下阴影 */
-    box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    /* box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25); */
 }
 
 .ant-menu {
     background: transparent;
     width: 50vw;
     height: 68px;
+}
+
+.ant-menu-horizontal {
+    border-bottom: 0px;
 }
 
 .ant-divider {
@@ -281,6 +284,6 @@ body {
     background: linear-gradient(90deg, #1677FF22 1%, #1677FF 100%);
 }
 
-.circle-wrap > .ant-select .ant-select-selector {
+.circle-wrap>.ant-select .ant-select-selector {
     border-radius: 16px;
 }
