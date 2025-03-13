@@ -38,7 +38,7 @@ const RootMenu = ({ selectedKey, style }: {
         },
         {
             key: '/experiments',
-            label: <Link to="/experiments">Workflow</Link>,
+            label: <Link to="/experiments">Workflows</Link>,
             icon: <NodeIndexOutlined />,
         },
         {
@@ -55,11 +55,11 @@ const RootMenu = ({ selectedKey, style }: {
 
     const menuItems: MenuProps['items'] = [
         { 
-            key: "/", 
+            key: "/console", 
             label: (
                 <Dropdown overlay={experimentDropdown} placement="bottomLeft" arrow>
                     <div>
-                        <Link to="/"><Space><ExperimentOutlined />Experiments</Space></Link>
+                        <Link to="/console"><Space><ExperimentOutlined />Experiments</Space></Link>
                     </div>
                 </Dropdown>
             ),

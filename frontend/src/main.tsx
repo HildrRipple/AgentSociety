@@ -12,6 +12,7 @@ import AgentList from './pages/Console/AgentList'
 import WorkflowList from './pages/Console/WorkflowList'
 import MapList from './pages/Console/MapList'
 import CreateExperiment from './pages/Console/CreateExperiment'
+import ExperimentTemplateList from './pages/Console/ExperimentTemplateList'
 import Home from './pages/Home'
 import storageService from './services/storageService'
 import enUS from 'antd/locale/en_US'
@@ -46,12 +47,16 @@ const router = createBrowserRouter([
         element: <RootLayout selectedKey='/agents'><AgentList /></RootLayout>,
     },
     {
-        path: "/experiments",
-        element: <RootLayout selectedKey='/experiments'><WorkflowList /></RootLayout>,
+        path: "/workflows",
+        element: <RootLayout selectedKey='/workflows'><WorkflowList /></RootLayout>,
     },
     {
         path: "/maps",
         element: <RootLayout selectedKey='/maps'><MapList /></RootLayout>,
+    },
+    {
+        path: "/experiments",
+        element: <RootLayout selectedKey='/experiments'><ExperimentTemplateList /></RootLayout>,
     },
     {
         path: "*",
