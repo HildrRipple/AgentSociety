@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Select, Space, Typography, Divider, message, Row, Col } from 'antd';
+import { Card, Button, Select, Space, Typography, Divider, message, Row, Col, Spin } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { ExperimentOutlined, EnvironmentOutlined, TeamOutlined, GlobalOutlined, RocketOutlined, NodeIndexOutlined } from '@ant-design/icons';
 import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
@@ -17,6 +17,10 @@ const CreateExperiment: React.FC = () => {
   const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [selectedWorkflow, setSelectedWorkflow] = useState<string>('');
   const [selectedMap, setSelectedMap] = useState<string>('');
+  const [experimentRunning, setExperimentRunning] = useState(false);
+  const [experimentId, setExperimentId] = useState<string | null>(null);
+  const [statusCheckInterval, setStatusCheckInterval] = useState<NodeJS.Timeout | null>(null);
+  const [experimentStatus, setExperimentStatus] = useState<string | null>(null);
   const navigate = useNavigate();
 
   // 加载所有配置
@@ -48,7 +52,51 @@ const CreateExperiment: React.FC = () => {
     loadConfigurations();
   }, []);
 
-  const handleStartExperiment = () => {
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+      }
+    };
+  }, [statusCheckInterval]);
+
+  // 检查实验状态
+  const checkExperimentStatus = async () => {
+    if (!experimentId) return;
+    
+    try {
+      const response = await fetch(`/api/experiments/${experimentId}/status`);
+      if (!response.ok) {
+        throw new Error(`Failed to get experiment status: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const status = data.data.status;
+      
+      setExperimentStatus(status);
+      
+      if (status !== 'running') {
+        // 实验已完成或失败，停止检查
+        if (statusCheckInterval) {
+          clearInterval(statusCheckInterval);
+          setStatusCheckInterval(null);
+        }
+        
+        if (status === 'completed') {
+          message.success('Experiment completed successfully');
+        } else if (status === 'failed') {
+          message.error(`Experiment failed with return code ${data.data.returncode}`);
+        }
+        
+        setExperimentRunning(false);
+      }
+    } catch (error) {
+      console.error('Error checking experiment status:', error);
+    }
+  };
+
+  const handleStartExperiment = async () => {
     if (!selectedEnvironment || !selectedAgent || !selectedWorkflow || !selectedMap) {
       message.error('Please select all required configurations');
       return;
@@ -56,31 +104,91 @@ const CreateExperiment: React.FC = () => {
 
     setLoading(true);
     
-    // 获取选中的配置
-    const selectedEnvConfig = environments.find(env => env.id === selectedEnvironment);
-    const selectedAgentConfig = agents.find(agent => agent.id === selectedAgent);
-    const selectedWorkflowConfig = workflows.find(workflow => workflow.id === selectedWorkflow);
-    const selectedMapConfig = maps.find(map => map.id === selectedMap);
-    
-    // 组合配置
-    const experimentConfig = {
-      environment: selectedEnvConfig?.config || {},
-      agent: selectedAgentConfig?.config || {},
-      workflow: selectedWorkflowConfig?.config || {},
-      map: selectedMapConfig?.config || {},
-      name: `${selectedEnvConfig?.name || 'Unknown'} - ${selectedWorkflowConfig?.name || 'Unknown'}`,
-      createdAt: new Date().toISOString()
-    };
-    
-    // 在实际应用中，这里会发送请求到后端启动实验
-    console.log('Starting experiment with config:', experimentConfig);
-    
-    setTimeout(() => {
+    try {
+      // 获取选中的配置
+      const selectedEnvConfig = environments.find(env => env.id === selectedEnvironment);
+      const selectedAgentConfig = agents.find(agent => agent.id === selectedAgent);
+      const selectedWorkflowConfig = workflows.find(workflow => workflow.id === selectedWorkflow);
+      const selectedMapConfig = maps.find(map => map.id === selectedMap);
+      
+      if (!selectedEnvConfig || !selectedAgentConfig || !selectedWorkflowConfig || !selectedMapConfig) {
+        throw new Error('One or more selected configurations not found');
+      }
+      
+      // 组合配置
+      const experimentConfig = {
+        environment: selectedEnvConfig.config,
+        agent: selectedAgentConfig.config,
+        workflow: selectedWorkflowConfig.config,
+        map: selectedMapConfig.config,
+        name: `${selectedEnvConfig.name} - ${selectedWorkflowConfig.name}`
+      };
+      
+      // 发送请求到后端启动实验
+      const response = await fetch('/api/run-experiment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(experimentConfig)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to start experiment: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      const newExperimentId = data.data.id;
+      
       message.success('Experiment started successfully!');
-      // 导航到实验详情页面
-      navigate('/');
+      setExperimentId(newExperimentId);
+      setExperimentRunning(true);
+      setExperimentStatus('running');
+      
+      // 设置定时器定期检查实验状态
+      const interval = setInterval(checkExperimentStatus, 5000);
+      setStatusCheckInterval(interval);
+      
+    } catch (error) {
+      console.error('Error starting experiment:', error);
+      message.error(error instanceof Error ? error.message : 'Failed to start experiment');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
+  };
+
+  const handleStopExperiment = async () => {
+    if (!experimentId) return;
+    
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`/api/experiments/${experimentId}/stop`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to stop experiment: ${response.statusText}`);
+      }
+      
+      message.success('Experiment stopped successfully');
+      
+      // 清理定时器
+      if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+        setStatusCheckInterval(null);
+      }
+      
+      setExperimentRunning(false);
+      setExperimentStatus('stopped');
+      
+    } catch (error) {
+      console.error('Error stopping experiment:', error);
+      message.error(error instanceof Error ? error.message : 'Failed to stop experiment');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCreateNew = (type: string) => {
@@ -127,6 +235,7 @@ const CreateExperiment: React.FC = () => {
                 value={selectedEnvironment || undefined}
                 onChange={setSelectedEnvironment}
                 optionLabelProp="label"
+                disabled={experimentRunning}
               >
                 {environments.map(env => (
                   <Option key={env.id} value={env.id} label={env.name}>
@@ -152,6 +261,7 @@ const CreateExperiment: React.FC = () => {
                 value={selectedMap || undefined}
                 onChange={setSelectedMap}
                 optionLabelProp="label"
+                disabled={experimentRunning}
               >
                 {maps.map(map => (
                   <Option key={map.id} value={map.id} label={map.name}>
@@ -177,6 +287,7 @@ const CreateExperiment: React.FC = () => {
                 value={selectedAgent || undefined}
                 onChange={setSelectedAgent}
                 optionLabelProp="label"
+                disabled={experimentRunning}
               >
                 {agents.map(agent => (
                   <Option key={agent.id} value={agent.id} label={agent.name}>
@@ -202,6 +313,7 @@ const CreateExperiment: React.FC = () => {
                 value={selectedWorkflow || undefined}
                 onChange={setSelectedWorkflow}
                 optionLabelProp="label"
+                disabled={experimentRunning}
               >
                 {workflows.map(workflow => (
                   <Option key={workflow.id} value={workflow.id} label={workflow.name}>
@@ -217,16 +329,37 @@ const CreateExperiment: React.FC = () => {
       <Divider />
       
       <div style={{ textAlign: 'center' }}>
-        <Button 
-          type="primary" 
-          size="large" 
-          icon={<RocketOutlined />} 
-          onClick={handleStartExperiment}
-          loading={loading}
-          disabled={!selectedEnvironment || !selectedAgent || !selectedWorkflow || !selectedMap}
-        >
-          Start Experiment
-        </Button>
+        {!experimentRunning ? (
+          <Button 
+            type="primary" 
+            size="large" 
+            icon={<RocketOutlined />} 
+            onClick={handleStartExperiment}
+            loading={loading}
+            disabled={!selectedEnvironment || !selectedAgent || !selectedWorkflow || !selectedMap}
+          >
+            Start Experiment
+          </Button>
+        ) : (
+          <Space direction="vertical" size="large">
+            <Space>
+              <Spin spinning={experimentStatus === 'running'} />
+              <Text>
+                Experiment is {experimentStatus}
+                {experimentStatus === 'running' && '...'}
+              </Text>
+            </Space>
+            <Button 
+              type="primary" 
+              danger
+              size="large" 
+              onClick={handleStopExperiment}
+              loading={loading}
+            >
+              Stop Experiment
+            </Button>
+          </Space>
+        )}
       </div>
     </Card>
   );
