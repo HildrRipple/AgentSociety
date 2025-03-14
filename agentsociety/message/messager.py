@@ -309,7 +309,7 @@ class Messager:
                     if message and message["type"] in ("message", "pmessage"):
                         await self.message_queue.put(message)
                         logger.debug(f"Received message: {message}")
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(1)
 
         except asyncio.CancelledError:
             await pubsub.unsubscribe()

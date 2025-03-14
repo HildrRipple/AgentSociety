@@ -76,7 +76,7 @@ class PlanAndActionBlock(Block):
         """Generate a new plan if no current plan exists in memory."""
         cognition = None
         current_plan = await self.memory.status.get("current_plan")
-        if current_plan is None:
+        if current_plan is None or not current_plan:
             cognition = (
                 await self.planBlock.forward()
             )  # Delegate to PlanBlock for plan creation
@@ -85,12 +85,13 @@ class PlanAndActionBlock(Block):
     async def step_execution(self):
         """Execute the current step in the active plan based on step type."""
         current_plan = await self.memory.status.get("current_plan")
-        if current_plan is None:
-            return
+        if current_plan is None or not current_plan or len(current_plan.get("steps", [])) == 0:
+            return  # No plan, no execution
+        step_index = current_plan.get("index", 0)
         execution_context = await self.memory.status.get("execution_context")
-        current_step = await self.memory.status.get("current_step")
+        current_step = current_plan.get("steps", [])[step_index]
         # check current_step is valid (not empty)
-        if current_step and current_step.get("type") and current_step.get("intention"):
+        if current_step:
             step_type = current_step.get("type")
             position = await self.memory.status.get("position")
             if "aoi_position" in position:
@@ -146,17 +147,7 @@ class PlanAndActionBlock(Block):
                 current_step["evaluation"] = result
 
             # Update current_step, plan, and execution_context information
-            current_step_index = next(
-                (
-                    i
-                    for i, step in enumerate(current_plan["steps"])
-                    if step["intention"] == current_step["intention"]
-                    and step["type"] == current_step["type"]
-                ),
-                None,
-            )
-            current_plan["steps"][current_step_index] = current_step
-            await self.memory.status.update("current_step", current_step)
+            current_plan["steps"][step_index] = current_step
             await self.memory.status.update("current_plan", current_plan)
             await self.memory.status.update("execution_context", execution_context)
 
@@ -286,14 +277,15 @@ class SocietyAgent(CitizenAgent):
         status = await self.memory.status.get("status")
         if status == 2:
             # Agent is moving
-            await asyncio.sleep(1)
             return False
 
         # Get the previous step information
-        current_step = await self.memory.status.get("current_step")
-        if current_step["intention"] == "":
-            # No previous step, return directly
+        current_plan = await self.memory.status.get("current_plan")
+        # If there is no current plan, return True
+        if current_plan is None or not current_plan:
             return True
+        step_index = current_plan.get("index", 0)
+        current_step = current_plan.get("steps", [])[step_index]
         time_now = int(await self.simulator.get_time())
         step_start_time = current_step["start_time"]
         step_consumed_time = current_step["evaluation"]["consumed_time"]
@@ -304,29 +296,17 @@ class SocietyAgent(CitizenAgent):
             time_end_plan = time_now
         if time_now >= time_end_plan:
             # The previous step has been completed
-            current_plan = await self.memory.status.get("current_plan")
             current_step["evaluation"]["consumed_time"] = (
                 time_now - step_start_time
             ) / 60
             current_plan["stream_nodes"].append(current_step["evaluation"]["node_id"])
             if current_step["evaluation"]["success"]:
-                # Last step is completed
-                current_step_index = next(
-                    (
-                        i
-                        for i, step in enumerate(current_plan["steps"])
-                        if step["intention"] == current_step["intention"]
-                        and step["type"] == current_step["type"]
-                    ),
-                    None,
-                )
-                current_plan["steps"][current_step_index] = current_step
-                await self.memory.status.update("current_plan", current_plan)
-                if current_step_index is not None and current_step_index + 1 < len(
-                    current_plan["steps"]
-                ):
-                    next_step = current_plan["steps"][current_step_index + 1]
-                    await self.memory.status.update("current_step", next_step)
+                # last step is completed
+                current_plan["steps"][step_index] = current_step
+                if step_index + 1 < len(current_plan["steps"]):
+                    # Last step is completed
+                    current_plan["index"] = step_index + 1
+                    await self.memory.status.update("current_plan", current_plan)
                 else:
                     # Whole plan is completed
                     current_plan["completed"] = True
@@ -355,11 +335,9 @@ class SocietyAgent(CitizenAgent):
                                 f"Error in check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}"
                             )
                     await self.memory.status.update("current_plan", current_plan)
-                    await self.memory.status.update(
-                        "current_step", {"intention": "", "type": ""}
-                    )
                 return True
             else:
+                # last step is failed
                 current_plan["failed"] = True
                 current_plan["end_time"] = await self.simulator.get_time(
                     format_time=True
@@ -386,9 +364,7 @@ class SocietyAgent(CitizenAgent):
                             f"Error in check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}"
                         )
                 await self.memory.status.update("current_plan", current_plan)
-                await self.memory.status.update(
-                    "current_step", {"intention": "", "type": ""}
-                )
+                return True
         # The previous step has not been completed
         return False
 

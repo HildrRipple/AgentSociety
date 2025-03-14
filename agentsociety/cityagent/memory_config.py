@@ -316,14 +316,13 @@ def memory_config_societyagent():
     EXTRA_ATTRIBUTES = {
         "type": (str, "citizen"),
         # Needs Model
-        "hunger_satisfaction": (float, random.random(), False),  # hunger satisfaction
-        "energy_satisfaction": (float, random.random(), False),  # energy satisfaction
-        "safety_satisfaction": (float, random.random(), False),  # safety satisfaction
-        "social_satisfaction": (float, random.random(), False),  # social satisfaction
+        "hunger_satisfaction": (float, 0.9, False),  # hunger satisfaction
+        "energy_satisfaction": (float, 0.9, False),  # energy satisfaction
+        "safety_satisfaction": (float, 0.4, False),  # safety satisfaction
+        "social_satisfaction": (float, 0.6, False),  # social satisfaction
         "current_need": (str, "none", False),
         # Plan Behavior Model
-        "current_plan": (list, [], False),
-        "current_step": (dict, {"intention": "", "type": ""}, False),
+        "current_plan": (dict, {}, False),
         "execution_context": (dict, {}, False),
         "plan_history": (list, [], False),
         # cognition

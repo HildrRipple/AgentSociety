@@ -358,9 +358,7 @@ class InstitutionAgent(Agent):
                         "sales": sales,
                     }
                 )
-                print(f"Binding to Institution {_type} `{_id}` just added to Economy")
             except Exception as e:
-                print(f"Failed to bind to Economy: {e}, {_type}, {_id}")
                 logger.error(f"Failed to bind to Economy: {e}")
             self._has_bound_to_economy = True
 

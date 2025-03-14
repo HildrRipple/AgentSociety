@@ -266,7 +266,7 @@ class AgentGroup:
                 break
             await asyncio.sleep(1)
         await self.insert_agent()
-        logger.warning(f"-----Agents in AgentGroup {self._uuid} initialized")
+        logger.debug(f"-----Agents in AgentGroup {self._uuid} initialized")
         self.id2agent = {agent.id: agent for agent in self.agents}
         logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
         assert self.messager is not None
@@ -542,8 +542,14 @@ class AgentGroup:
                     energy_satisfaction = await agent.status.get("energy_satisfaction")
                     safety_satisfaction = await agent.status.get("safety_satisfaction")
                     social_satisfaction = await agent.status.get("social_satisfaction")
-                    action = await agent.status.get("current_step")
-                    action = action["intention"]
+                    current_need = await agent.status.get("current_need", "None")
+                    current_plan = await agent.status.get("current_plan")
+                    if current_plan is not None and current_plan:
+                        intention = current_plan.get("target", "Other")
+                        step_index = current_plan.get("index", 0)
+                        action = current_plan.get("steps", [])[step_index].get("intention", "Planning")
+                    else:
+                        action = "Planning"
                     emotion = await agent.status.get("emotion", {})
                     emotion_types = await agent.status.get("emotion_types", "")
                     sadness = emotion.get("sadness", 0)
@@ -559,6 +565,8 @@ class AgentGroup:
                         "lng": lng,
                         "lat": lat,
                         "parent_id": parent_id,
+                        "current_need": current_need,
+                        "intention": intention,
                         "action": action,
                         "hungry": hunger_satisfaction,
                         "tired": energy_satisfaction,
@@ -666,8 +674,12 @@ class AgentGroup:
                             "social_satisfaction"
                         )
                         friend_ids = await agent.status.get("friends")
-                        action = await agent.status.get("current_step")
-                        action = action["intention"]
+                        current_plan = await agent.status.get("current_plan")
+                        if current_plan is not None:
+                            step_index = current_plan.get("index", 0)
+                            action = current_plan.get("steps", [])[step_index].get("intention", "None")
+                        else:
+                            action = "None"
                         emotion = await agent.status.get("emotion", {})
                         emotion_types = await agent.status.get("emotion_types", "")
                         sadness = emotion.get("sadness", 0)

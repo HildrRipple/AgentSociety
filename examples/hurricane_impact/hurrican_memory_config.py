@@ -37,7 +37,6 @@ def memory_config_societyagent_hurrican():
         "current_need": (str, "none", False),
         # Plan Behavior Model
         "current_plan": (list, [], False),
-        "current_step": (dict, {"intention": "", "type": ""}, False),
         "execution_context": (dict, {}, False),
         "plan_history": (list, [], False),
         # cognition

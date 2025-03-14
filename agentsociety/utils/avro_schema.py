@@ -54,6 +54,8 @@ STATUS_SCHEMA = {
         {"name": "lng", "type": "double"},
         {"name": "lat", "type": "double"},
         {"name": "parent_id", "type": "int"},
+        {"name": "current_need", "type": "string"},
+        {"name": "intention", "type": "string"},
         {"name": "action", "type": "string"},
         {"name": "hungry", "type": "float"},
         {"name": "tired", "type": "float"},

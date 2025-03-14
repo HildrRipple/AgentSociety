@@ -145,8 +145,8 @@ class AgentConfig(BaseModel):
 
 
 class EnvironmentConfig(BaseModel):
-    weather: str = Field(default="The weather is normal")
-    temperature: str = Field(default="The temperature is normal")
+    weather: str = Field(default="The weather is sunny")
+    temperature: str = Field(default="The temperature is 23C")
     workday: bool = Field(default=True)
     other_information: str = Field(default="")
 

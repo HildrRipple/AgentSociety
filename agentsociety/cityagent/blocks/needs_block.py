@@ -170,7 +170,8 @@ class NeedsBlock(Block):
         - Handles JSON parsing and validation
         """
         day = await self.simulator.get_simulator_day()
-        if day != self.now_day:
+        t = await self.simulator.get_simulator_second_from_start_of_day()
+        if day != self.now_day and t >= 7 * 60 * 60:
             self.now_day = day
             workday = self.simulator.sense("workday")
             if workday:
@@ -218,19 +219,21 @@ class NeedsBlock(Block):
                     retry -= 1
 
             current_plan = await self.memory.status.get("current_plan")
-            history = await self.memory.status.get("plan_history")
-            history.append(current_plan)
-            await self.memory.status.update("plan_history", history)
-            await self.memory.status.update("current_plan", None)
-            await self.memory.status.update(
-                "current_step", {"intention": "", "type": ""}
-            )
-            await self.memory.status.update("execution_context", {})
+            if current_plan:
+                history = await self.memory.status.get("plan_history")
+                history.append(current_plan)
+                await self.memory.status.update("plan_history", history)
+                await self.memory.status.update("current_plan", None)
+                await self.memory.status.update("execution_context", {})
             self.initialized = True
 
     async def reflect_to_intervention(self, intervention: str):
         # rebuild needs for intervention
-        current_action = await self.memory.status.get("current_step")
+        current_plan = await self.memory.status.get("current_plan")
+        if current_plan is None:
+            return
+        step_index = current_plan.get("index", 0)
+        current_action = current_plan.get("steps", [])[step_index]
         action_message = f"{current_action['intention']} ({current_action['type']})" if current_action["intention"] != "" else "None"
         self.reflect_prompt.format(
             intervention_message=intervention,
@@ -277,7 +280,7 @@ class NeedsBlock(Block):
         time_now = cast(int, time_now)
         if self.last_evaluation_time is None:
             self.last_evaluation_time = time_now
-            time_diff = 0
+            return
         else:
             time_diff = (time_now - self.last_evaluation_time) / 3600
             self.last_evaluation_time = time_now
@@ -319,13 +322,11 @@ class NeedsBlock(Block):
             history.append(current_plan)
             await self.memory.status.update("plan_history", history)
             await self.memory.status.update("current_plan", None)
-            await self.memory.status.update(
-                "current_step", {"intention": "", "type": ""}
-            )
             await self.memory.status.update("execution_context", {})
             if pre_need == self._need_to_do:
                 self._need_to_do = None
                 self._need_to_do_checked = False
+
     async def determine_current_need(self):
         """
         Determine agent's current dominant need based on:
@@ -345,8 +346,8 @@ class NeedsBlock(Block):
         current_plan = await self.memory.status.get("current_plan")
         current_need = await self.memory.status.get("current_need")
 
-        # When there's no plan or the plan has been completed, get all satisfaction values and check each need against its threshold based on priority
-        if not current_plan or current_plan.get("completed"):
+        # When there's no plan, get all satisfaction values and check each need against its threshold based on priority
+        if not current_plan:
             # check needs in priority order
             if self._need_to_do:
                 await self.memory.status.update("current_need", self._need_to_do)
@@ -425,9 +426,6 @@ class NeedsBlock(Block):
                 await self.memory.status.update("current_need", new_need)
                 await self.memory.status.update("plan_history", history)
                 await self.memory.status.update("current_plan", None)
-                await self.memory.status.update(
-                    "current_step", {"intention": "", "type": ""}
-                )
                 await self.memory.status.update("execution_context", {})
         return cognition
 
@@ -445,7 +443,7 @@ class NeedsBlock(Block):
             if "evaluation" in step["evaluation"]:
                 eva_ = step["evaluation"]["evaluation"]
             else:
-                eva_ = "Plan failed, not completed"
+                eva_ = "Plan failed or skipped, not completed"
             evaluation_results.append(f"- {step['intention']} ({step['type']}): {eva_}")
         evaluation_results = "\n".join(evaluation_results)
 

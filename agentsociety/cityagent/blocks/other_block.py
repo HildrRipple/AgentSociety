@@ -59,7 +59,7 @@ class SleepBlock(Block):
             return {
                 "success": True,
                 "evaluation": f'Sleep: {step["intention"]}',
-                "consumed_time": random.randint(1, 10) * 60,
+                "consumed_time": random.randint(1, 8) * 60,
                 "node_id": node_id,
             }
 

@@ -1127,7 +1127,7 @@ class AgentSimulation:
             await asyncio.sleep(3)
 
     async def send_intervention_message(
-        self, intervention_message: str, agent_uuids: list[str]
+        self, intervention_message: str, agent_ids: list[int]
     ):
         """
         Send an intervention message to specified agents.
@@ -1137,10 +1137,10 @@ class AgentSimulation:
 
         - **Args**:
             - `intervention_message` (str): The content of the intervention message to send.
-            - `agent_uuids` (list[str]): A list of agent UUIDs to receive the intervention message.
+            - `agent_ids` (list[int]): A list of agent IDs to receive the intervention message.
         """
         for group in self._groups.values():
-            await group.react_to_intervention.remote(intervention_message, agent_uuids)
+            await group.react_to_intervention.remote(intervention_message, agent_ids)
 
     async def extract_metric(self, metric_extractors: list[MetricExtractor]):
         """

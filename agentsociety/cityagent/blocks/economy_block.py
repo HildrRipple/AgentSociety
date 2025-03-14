@@ -100,7 +100,7 @@ class WorkBlock(Block):
             }
         except Exception as e:
             logger.warning(f"解析时间评估响应时发生错误: {str(e)}, 原始结果: {result}")
-            time = random.randint(1, 5) * 60
+            time = random.randint(1, 3) * 60
             start_time = await self.simulator.get_time(format_time=True)
             await self.memory.status.update(
                 "working_experience",
