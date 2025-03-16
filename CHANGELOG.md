@@ -31,6 +31,9 @@
             - `min`: Calculate the minimum of the values.
         - Provide `target_agent` to set the target agent.
         - Provide `step_interval` to set the step interval to extract the metric.
+- Support `VLLM` as a `LLMConfig` provider.
+    - Provide `base_urls` to set the base URLs of the VLLM servers.
+    - If you set `api-key` for your vLLM deployment, you need to set `api_keys` to the same length of `base_urls`.
 
 ### Changed
 - **BREAKING** Change the prefix of database tables from `agentsociety_` to `as_` to avoid conflicts with the length limit of table names in PostgreSQL.

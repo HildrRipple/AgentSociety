@@ -40,12 +40,14 @@ class LLMProviderType(str, Enum):
         - `QWEN`: Qwen.
         - `ZHIPU`: Zhipu.
         - `SILICONFLOW`: SiliconFlow.
+        - `VLLM`: VLLM.
     """
     OpenAI = "openai"
     DeepSeek = "deepseek"
     Qwen = "qwen"
     ZhipuAI = "zhipuai"
     SiliconFlow = "siliconflow"
+    VLLM = "vllm"
 
 
 class DistributionType(str, Enum):

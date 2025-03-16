@@ -61,42 +61,64 @@ class LLM:
         api_keys = self.config.api_key
         if not isinstance(api_keys, list):
             api_keys = [api_keys]
-        base_url = self.config.base_url
-        if base_url is not None:
-            base_url = base_url.rstrip("/")
+        base_urls = self.config.base_url
+        if not isinstance(base_urls, list):
+            base_urls = [base_urls]
+        base_urls = [url.rstrip("/") for url in base_urls] # type: ignore
+        if len(base_urls) > 1 and self.config.provider != LLMProviderType.VLLM:
+            logger.warning("For non-VLLM providers, only one base URL is supported")
+        if len(base_urls) > 1 and self.config.provider == LLMProviderType.VLLM and len(api_keys) > 0 and len(api_keys) != len(base_urls):
+            raise ValueError("The number of base URLs must be equal to the number of API keys when using VLLM")
 
         self._aclients = []
         self._client_usage = []
 
-        for api_key in api_keys:
-            if self.config.provider == LLMProviderType.OpenAI:
-                client = AsyncOpenAI(api_key=api_key, timeout=300, base_url=base_url)
-            elif self.config.provider == LLMProviderType.DeepSeek:
-                client = AsyncOpenAI(
-                    api_key=api_key,
-                    base_url="https://api.deepseek.com/v1",
-                    timeout=300,
+        if self.config.provider != LLMProviderType.VLLM:
+            for api_key in api_keys:
+                if self.config.provider == LLMProviderType.OpenAI:
+                    client = AsyncOpenAI(api_key=api_key, timeout=300, base_url=base_urls[0]) # type: ignore
+                elif self.config.provider == LLMProviderType.DeepSeek:
+                    client = AsyncOpenAI(
+                        api_key=api_key,
+                        base_url="https://api.deepseek.com/v1",
+                        timeout=300,
+                    )
+                elif self.config.provider == LLMProviderType.Qwen:
+                    client = AsyncOpenAI(
+                        api_key=api_key,
+                        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                        timeout=300,
+                    )
+                elif self.config.provider == LLMProviderType.SiliconFlow:
+                    client = AsyncOpenAI(
+                        api_key=api_key,
+                        base_url="https://api.siliconflow.cn/v1",
+                        timeout=300,
+                    )
+                elif self.config.provider == LLMProviderType.ZhipuAI:
+                    client = ZhipuAI(
+                        api_key=api_key, 
+                        timeout=300
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported `provider` {self.config.provider}!"
+                    )
+                self._aclients.append(client)
+                self._client_usage.append(
+                    {"prompt_tokens": 0, "completion_tokens": 0, "request_number": 0}
                 )
-            elif self.config.provider == LLMProviderType.Qwen:
+        else:
+            for i in range(len(base_urls)):
                 client = AsyncOpenAI(
-                    api_key=api_key,
-                    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    api_key=api_keys[i] if len(api_keys) > 0 else "EMPTY",
                     timeout=300,
+                    base_url=base_urls[i]
+                ) # type: ignore
+                self._aclients.append(client)
+                self._client_usage.append(
+                    {"prompt_tokens": 0, "completion_tokens": 0, "request_number": 0}
                 )
-            elif self.config.provider == LLMProviderType.SiliconFlow:
-                client = AsyncOpenAI(
-                    api_key=api_key,
-                    base_url="https://api.siliconflow.cn/v1",
-                    timeout=300,
-                )
-            elif self.config.provider == LLMProviderType.ZhipuAI:
-                client = ZhipuAI(api_key=api_key, timeout=300)
-            else:
-                raise ValueError(f"Unsupported `provider` {self.config.provider}!")
-            self._aclients.append(client)
-            self._client_usage.append(
-                {"prompt_tokens": 0, "completion_tokens": 0, "request_number": 0}
-            )
 
     def get_log_list(self):
         return self._log_list
