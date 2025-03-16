@@ -39,7 +39,9 @@ def create_app(
             async with engine.connect() as conn:
                 pass
         except Exception as e:
-            raise Exception(f"Failed to connect to postgresql database: {e}. Please check the connection string: {pg_dsn}")
+            raise Exception(
+                f"Failed to connect to postgresql database: {e}. Please check the connection string: {pg_dsn}"
+            )
         # save session_factory to app state
         app.state.get_db = session_factory
 

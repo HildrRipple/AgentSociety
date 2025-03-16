@@ -15,6 +15,7 @@ logging.getLogger("agentsociety").setLevel(logging.INFO)
 
 ray.init(logging_level=logging.WARNING, log_to_driver=True)
 
+
 async def update_attitude(simulation: AgentSimulation):
     citizen_uuids = await simulation.filter(types=[SocietyAgent])
     for agent in citizen_uuids:
@@ -42,7 +43,6 @@ async def gather_attitude(simulation: AgentSimulation):
     chat_histories = await simulation.gather("chat_histories", citizen_uuids)
     with open(f"exp1/chat_histories.json", "w", encoding="utf-8") as f:
         json.dump(chat_histories, f, ensure_ascii=False, indent=2)
-
 
 
 sim_config = (

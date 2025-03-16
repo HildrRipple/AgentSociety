@@ -240,10 +240,7 @@ class FindPersonBlock(Block):
                 # Validate the response format
                 if not isinstance(mode, str) or mode not in ["online", "offline"]:
                     raise ValueError("Invalid mode")
-                if (
-                    not isinstance(friend_index, int)
-                    or friend_index not in index_to_id
-                ):
+                if not isinstance(friend_index, int) or friend_index not in index_to_id:
                     raise ValueError("Invalid friend index")
 
                 # Convert index to ID

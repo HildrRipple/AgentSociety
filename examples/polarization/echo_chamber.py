@@ -75,8 +75,9 @@ exp_config = (
         number_of_citizen=100,
         group_size=50,
         extra_agent_class={DisagreeAgent: 1, AgreeAgent: 1},
-    ).SetMemoryConfig(
-        memory_config_func = {
+    )
+    .SetMemoryConfig(
+        memory_config_func={
             DisagreeAgent: memory_config_societyagent,
             AgreeAgent: memory_config_societyagent,
         },

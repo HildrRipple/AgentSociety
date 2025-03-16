@@ -245,7 +245,9 @@ class SimpleEmbedding(Embeddings):
         for token, tf_value in tf.items():
             if token in self._idf:
                 idf = np.log(self._doc_count / self._idf[token])
-                idx = self._vocab[token] % self.vector_dim  # Use modulo operation to control vector dimension
+                idx = (
+                    self._vocab[token] % self.vector_dim
+                )  # Use modulo operation to control vector dimension
                 vector[idx] += tf_value * idf
 
         # L2 normalization
@@ -319,6 +321,7 @@ class SimpleEmbedding(Embeddings):
             - A list of floating-point numbers representing the embedding of the query text.
         """
         return self._embed(text)
+
 
 if __name__ == "__main__":
     se = SimpleEmbedding()

@@ -12,7 +12,8 @@ __all__ = [
 class LLMConfig(BaseModel):
     provider: LLMProviderType = Field(..., description="The type of the LLM provider")
     base_url: Optional[Union[list[str], str]] = Field(
-        None, description="The base URL for the LLM provider, or a list of base URLs when using VLLM"
+        None,
+        description="The base URL for the LLM provider, or a list of base URLs when using VLLM",
     )
     api_key: Union[list[str], str] = Field(
         ..., description="API key for accessing the LLM provider"

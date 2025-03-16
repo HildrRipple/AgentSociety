@@ -33,6 +33,7 @@ class Distribution:
     - **Returns**:
         - None
     """
+
     def sample(self) -> Any:
         """
         Sample a value from this distribution.
@@ -46,9 +47,9 @@ class Distribution:
             - Any: A value sampled from the distribution.
         """
         raise NotImplementedError("Subclasses must implement sample()")
-    
+
     @staticmethod
-    def create(dist_type: str, **kwargs) -> 'Distribution':
+    def create(dist_type: str, **kwargs) -> "Distribution":
         """
         Factory method to create a distribution of the specified type.
         - **Description**:
@@ -75,7 +76,7 @@ class Distribution:
             raise ValueError(f"Unknown distribution type: {dist_type}")
 
     @staticmethod
-    def from_config(config: DistributionConfig) -> 'Distribution':
+    def from_config(config: DistributionConfig) -> "Distribution":
         """
         Create a distribution from a configuration.
         - **Description**:
@@ -95,7 +96,7 @@ class Distribution:
             max_value=config.max_value,
             mean=config.mean,
             std=config.std,
-            value=config.value
+            value=config.value,
         )
 
 
@@ -112,10 +113,11 @@ class ChoiceDistribution(Distribution):
     - **Returns**:
         - None
     """
+
     def __init__(self, choices: List[Any], weights: Optional[List[float]] = None):
         self.choices = choices
         self.weights = weights
-    
+
     def sample(self) -> Any:
         return random.choices(self.choices, weights=self.weights, k=1)[0]
 
@@ -133,10 +135,11 @@ class UniformIntDistribution(Distribution):
     - **Returns**:
         - None
     """
+
     def __init__(self, min_value: int, max_value: int):
         self.min_value = min_value
         self.max_value = max_value
-    
+
     def sample(self) -> int:
         return random.randint(self.min_value, self.max_value)
 
@@ -154,10 +157,11 @@ class UniformFloatDistribution(Distribution):
     - **Returns**:
         - None
     """
+
     def __init__(self, min_value: float, max_value: float):
         self.min_value = min_value
         self.max_value = max_value
-    
+
     def sample(self) -> float:
         return self.min_value + random.random() * (self.max_value - self.min_value)
 
@@ -177,13 +181,19 @@ class NormalDistribution(Distribution):
     - **Returns**:
         - None
     """
-    def __init__(self, mean: float, std: float, min_value: Optional[float] = None, 
-                 max_value: Optional[float] = None):
+
+    def __init__(
+        self,
+        mean: float,
+        std: float,
+        min_value: Optional[float] = None,
+        max_value: Optional[float] = None,
+    ):
         self.mean = mean
         self.std = std
         self.min_value = min_value
         self.max_value = max_value
-    
+
     def sample(self) -> float:
         value = random.normalvariate(self.mean, self.std)
         if self.min_value is not None:
@@ -205,59 +215,108 @@ class ConstantDistribution(Distribution):
     - **Returns**:
         - None
     """
+
     def __init__(self, value: Any):
         self.value = value
-    
+
     def sample(self) -> Any:
         return self.value
 
 
 # Default distributions for different profile fields
 DEFAULT_DISTRIBUTIONS = {
-    "name": ChoiceDistribution(choices=[
-        "Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Helen", 
-        "Ivy", "Jack", "Kelly", "Lily", "Mike", "Nancy", "Oscar", "Peter", 
-        "Queen", "Rose", "Sam", "Tom", "Ulysses", "Vicky", "Will", "Xavier", 
-        "Yvonne", "Zack"
-    ]),
+    "name": ChoiceDistribution(
+        choices=[
+            "Alice",
+            "Bob",
+            "Charlie",
+            "David",
+            "Eve",
+            "Frank",
+            "Grace",
+            "Helen",
+            "Ivy",
+            "Jack",
+            "Kelly",
+            "Lily",
+            "Mike",
+            "Nancy",
+            "Oscar",
+            "Peter",
+            "Queen",
+            "Rose",
+            "Sam",
+            "Tom",
+            "Ulysses",
+            "Vicky",
+            "Will",
+            "Xavier",
+            "Yvonne",
+            "Zack",
+        ]
+    ),
     "gender": ChoiceDistribution(choices=["male", "female"]),
     "age": UniformIntDistribution(min_value=18, max_value=65),
-    "education": ChoiceDistribution(choices=[
-        "Doctor", "Master", "Bachelor", "College", "High School"
-    ]),
-    "skill": ChoiceDistribution(choices=[
-        "Good at problem-solving", "Good at communication", 
-        "Good at creativity", "Good at teamwork", "Other"
-    ]),
-    "occupation": ChoiceDistribution(choices=[
-        "Student", "Teacher", "Doctor", "Engineer", "Manager", 
-        "Businessman", "Artist", "Athlete", "Other"
-    ]),
+    "education": ChoiceDistribution(
+        choices=["Doctor", "Master", "Bachelor", "College", "High School"]
+    ),
+    "skill": ChoiceDistribution(
+        choices=[
+            "Good at problem-solving",
+            "Good at communication",
+            "Good at creativity",
+            "Good at teamwork",
+            "Other",
+        ]
+    ),
+    "occupation": ChoiceDistribution(
+        choices=[
+            "Student",
+            "Teacher",
+            "Doctor",
+            "Engineer",
+            "Manager",
+            "Businessman",
+            "Artist",
+            "Athlete",
+            "Other",
+        ]
+    ),
     "family_consumption": ChoiceDistribution(choices=["low", "medium", "high"]),
-    "consumption": ChoiceDistribution(choices=[
-        "low", "slightly low", "medium", "slightly high", "high"
-    ]),
-    "personality": ChoiceDistribution(choices=[
-        "outgoint", "introvert", "ambivert", "extrovert"
-    ]),
+    "consumption": ChoiceDistribution(
+        choices=["low", "slightly low", "medium", "slightly high", "high"]
+    ),
+    "personality": ChoiceDistribution(
+        choices=["outgoint", "introvert", "ambivert", "extrovert"]
+    ),
     "income": UniformIntDistribution(min_value=1000, max_value=20000),
     "currency": UniformIntDistribution(min_value=1000, max_value=100000),
     "residence": ChoiceDistribution(choices=["city", "suburb", "rural"]),
     "city": ConstantDistribution(value="New York"),
-    "race": ChoiceDistribution(choices=[
-        "Chinese", "American", "British", "French", "German", 
-        "Japanese", "Korean", "Russian", "Other"
-    ]),
-    "religion": ChoiceDistribution(choices=[
-        "none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"
-    ]),
-    "marital_status": ChoiceDistribution(choices=[
-        "not married", "married", "divorced", "widowed"
-    ]),
+    "race": ChoiceDistribution(
+        choices=[
+            "Chinese",
+            "American",
+            "British",
+            "French",
+            "German",
+            "Japanese",
+            "Korean",
+            "Russian",
+            "Other",
+        ]
+    ),
+    "religion": ChoiceDistribution(
+        choices=["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]
+    ),
+    "marital_status": ChoiceDistribution(
+        choices=["not married", "married", "divorced", "widowed"]
+    ),
 }
 
 # User-configurable distributions
 CUSTOM_DISTRIBUTIONS = {}
+
 
 def set_distribution(field: str, dist_type: str, **kwargs):
     """
@@ -274,6 +333,7 @@ def set_distribution(field: str, dist_type: str, **kwargs):
         - None
     """
     CUSTOM_DISTRIBUTIONS[field] = Distribution.create(dist_type, **kwargs)
+
 
 def get_distribution(field: str) -> Distribution:
     """
@@ -292,7 +352,8 @@ def get_distribution(field: str) -> Distribution:
     elif field in DEFAULT_DISTRIBUTIONS:
         return DEFAULT_DISTRIBUTIONS[field]
     else:
-        return None # type: ignore
+        return None  # type: ignore
+
 
 def sample_field_value(field: str) -> Any:
     """
@@ -414,7 +475,9 @@ def memory_config_societyagent():
 def memory_config_firm():
     EXTRA_ATTRIBUTES = {
         "type": (int, EconomyEntityType.Firm),
-        "location": {"aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}},
+        "location": {
+            "aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}
+        },
         "price": (float, float(np.mean(agent_skills))),
         "inventory": (int, 0),
         "employees": (list, []),
@@ -547,40 +610,42 @@ def memory_config_load_file(file_path):
 
     - **Returns**:
         - `memory_data` (Union[dict, list]): The memory data - either a single object or list of objects.
-        
+
     - **Raises**:
         - `ValueError`: If the file type is not supported.
     """
     # Check file extension
-    if file_path.endswith('.json'):
-        with open(file_path, 'r') as f:
+    if file_path.endswith(".json"):
+        with open(file_path, "r") as f:
             memory_data = json.load(f)
         return memory_data
-    elif file_path.endswith('.jsonl'):
+    elif file_path.endswith(".jsonl"):
         memory_data = []
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             for line in f:
                 if line.strip():  # Skip empty lines
                     memory_data.append(json.loads(line))
         return memory_data
     else:
-        raise ValueError(f"Unsupported file type. Only .json or .jsonl files are supported. Got: {file_path}")
+        raise ValueError(
+            f"Unsupported file type. Only .json or .jsonl files are supported. Got: {file_path}"
+        )
 
 
 def memory_config_merge(file_data, base_extra_attrs, base_profile, base_base):
     """
     Merges memory configuration from file with base configuration.
-    
+
     - **Description**:
         - Takes file data and merges it with base configuration components.
         - Special handling for 'home' and 'work' fields which may need to be placed in correct section.
-    
+
     - **Args**:
         - `file_data` (dict): Memory configuration data loaded from file.
         - `base_extra_attrs` (dict): Base extra attributes configuration.
         - `base_profile` (dict): Base profile configuration.
         - `base_base` (dict): Base memory configuration.
-    
+
     - **Returns**:
         - `dict`: Merged memory configuration with proper structure.
     """
@@ -588,10 +653,10 @@ def memory_config_merge(file_data, base_extra_attrs, base_profile, base_base):
     extra_attrs = base_extra_attrs.copy()
     profile = base_profile.copy()
     base = base_base.copy()
-    
+
     # Special handling for home and work locations
-    location_fields = ['home', 'work']
-    
+    location_fields = ["home", "work"]
+
     for key, value in file_data.items():
         # Check where this key exists in the base configuration
         if key in extra_attrs:
@@ -600,15 +665,9 @@ def memory_config_merge(file_data, base_extra_attrs, base_profile, base_base):
             profile[key] = value
         elif key in location_fields:
             # Typically these would go in profile, but follow your specific needs
-            base[key] = {
-                "aoi_position": {"aoi_id": value}
-            }
+            base[key] = {"aoi_position": {"aoi_id": value}}
         else:
             # For any new fields not in base config, add to extra_attrs
             extra_attrs[key] = value
-    
-    return {
-        "extra_attributes": extra_attrs,
-        "profile": profile,
-        "base": base
-    }
+
+    return {"extra_attributes": extra_attrs, "profile": profile, "base": base}

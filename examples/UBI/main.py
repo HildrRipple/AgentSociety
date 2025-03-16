@@ -45,7 +45,7 @@ exp_config = (
     )
     .SetAgentConfig(
         number_of_citizen=100,
-        number_of_firm=5,        
+        number_of_firm=5,
         agent_class_configs={
             SocietyAgent: json.load(open("society_agent_config.json"))
         },
@@ -55,10 +55,15 @@ exp_config = (
     )
     .SetMetricExtractors(
         metric_extractors=[
-            MetricExtractor(type=MetricType.FUNCTION, func=economy_metric, step_interval=1),
-            MetricExtractor(type=MetricType.FUNCTION, func=gather_ubi_opinions, step_interval=12),
+            MetricExtractor(
+                type=MetricType.FUNCTION, func=economy_metric, step_interval=1
+            ),
+            MetricExtractor(
+                type=MetricType.FUNCTION, func=gather_ubi_opinions, step_interval=12
+            ),
         ]
-    ).SetWorkFlow(
+    )
+    .SetWorkFlow(
         [
             WorkflowStep(type=WorkflowType.RUN, days=10, times=1, description=""),
         ]

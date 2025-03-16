@@ -108,6 +108,7 @@ If you think the agent has to stop the current action and do something to satisf
 }}
 """
 
+
 class NeedsBlock(Block):
     """
     Manages agent's dynamic needs system including:
@@ -212,7 +213,9 @@ class NeedsBlock(Block):
                     )
                     break
                 except json.JSONDecodeError:
-                    logger.warning(f"Initial response is not a valid JSON format: {response}")
+                    logger.warning(
+                        f"Initial response is not a valid JSON format: {response}"
+                    )
                     retry -= 1
                 except Exception as e:
                     logger.warning(f"Initial response error: {e}")
@@ -234,7 +237,11 @@ class NeedsBlock(Block):
             return
         step_index = current_plan.get("index", 0)
         current_action = current_plan.get("steps", [])[step_index]
-        action_message = f"{current_action['intention']} ({current_action['type']})" if current_action["intention"] != "" else "None"
+        action_message = (
+            f"{current_action['intention']} ({current_action['type']})"
+            if current_action["intention"] != ""
+            else "None"
+        )
         self.reflect_prompt.format(
             intervention_message=intervention,
             current_action=action_message,
@@ -243,7 +250,9 @@ class NeedsBlock(Block):
             safety_satisfaction=await self.memory.status.get("safety_satisfaction"),
             social_satisfaction=await self.memory.status.get("social_satisfaction"),
         )
-        response = await self.llm.atext_request(self.reflect_prompt.to_dialog(), response_format={"type": "json_object"})
+        response = await self.llm.atext_request(
+            self.reflect_prompt.to_dialog(), response_format={"type": "json_object"}
+        )
         try:
             reflection = json.loads(clean_json_response(response))  # type: ignore
             if "do_something" in reflection:
@@ -266,7 +275,7 @@ class NeedsBlock(Block):
         except Exception as e:
             logger.warning(f"Error processing reflection response: {str(e)}")
             logger.warning(f"Original response: {response}")
-            return None        
+            return None
 
     async def time_decay(self):
         """
@@ -351,7 +360,9 @@ class NeedsBlock(Block):
             # check needs in priority order
             if self._need_to_do:
                 await self.memory.status.update("current_need", self._need_to_do)
-                await self.memory.stream.add_cognition(description=f"I need to do: {self._need_to_do}")
+                await self.memory.stream.add_cognition(
+                    description=f"I need to do: {self._need_to_do}"
+                )
                 cognition = f"I need to do: {self._need_to_do}"
                 self._need_to_do_checked = True
             elif hunger_satisfaction <= self.T_H:
@@ -369,15 +380,21 @@ class NeedsBlock(Block):
                 self.need_work = False
             elif safety_satisfaction <= self.T_P:
                 await self.memory.status.update("current_need", "safe")
-                await self.memory.stream.add_cognition(description="I have safe needs right now")
+                await self.memory.stream.add_cognition(
+                    description="I have safe needs right now"
+                )
                 cognition = "I have safe needs right now"
             elif social_satisfaction <= self.T_C:
                 await self.memory.status.update("current_need", "social")
-                await self.memory.stream.add_cognition(description="I have social needs right now")
+                await self.memory.stream.add_cognition(
+                    description="I have social needs right now"
+                )
                 cognition = "I have social needs right now"
             else:
                 await self.memory.status.update("current_need", "whatever")
-                await self.memory.stream.add_cognition(description="I have no specific needs right now")
+                await self.memory.stream.add_cognition(
+                    description="I have no specific needs right now"
+                )
                 cognition = "I have no specific needs right now"
 
         else:
@@ -421,7 +438,9 @@ class NeedsBlock(Block):
                 await self.evaluate_and_adjust_needs(current_plan)
                 history = await self.memory.status.get("plan_history")
                 history.append(current_plan)
-                await self.memory.stream.add_cognition(description=f"I need to change my plan because the need of [{new_need}] is more important than [{current_need}]")
+                await self.memory.stream.add_cognition(
+                    description=f"I need to change my plan because the need of [{new_need}] is more important than [{current_need}]"
+                )
                 cognition = f"I need to change my plan because the need of [{new_need}] is more important than [{current_need}]"
                 await self.memory.status.update("current_need", new_need)
                 await self.memory.status.update("plan_history", history)

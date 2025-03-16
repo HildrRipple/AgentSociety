@@ -182,7 +182,10 @@ class PlanBlock(Block):
         work_location = await self.memory.status.get("work")
         location_knowledge = await self.memory.status.get("location_knowledge")
         known_locations = [item["id"] for item in location_knowledge.values()]
-        id_to_name = {info["id"]: f"{name}({info['description']})" for name, info in location_knowledge.items()}
+        id_to_name = {
+            info["id"]: f"{name}({info['description']})"
+            for name, info in location_knowledge.items()
+        }
         current_location = "Outside"
         if (
             "aoi_position" in position_now
@@ -194,7 +197,10 @@ class PlanBlock(Block):
             and position_now["aoi_position"] == work_location["aoi_position"]
         ):
             current_location = "At workplace"
-        elif "aoi_position" in position_now and position_now["aoi_position"] in known_locations:
+        elif (
+            "aoi_position" in position_now
+            and position_now["aoi_position"] in known_locations
+        ):
             current_location = id_to_name[position_now["aoi_position"]]
         current_time = await self.simulator.get_time(format_time=True)
         options = self.guidance_options.get(current_need, [])

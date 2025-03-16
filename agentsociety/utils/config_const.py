@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class WorkflowType(str, Enum):
     """
     Defines the types of workflow steps in the simulation.
@@ -17,6 +18,7 @@ class WorkflowType(str, Enum):
         - `INTERVENE`: Represents other intervention methods driven by code.
         - `FUNCTION`: Represents function-based intervention methods.
     """
+
     STEP = "step"
     RUN = "run"
     INTERVIEW = "interview"
@@ -42,6 +44,7 @@ class LLMProviderType(str, Enum):
         - `SILICONFLOW`: SiliconFlow.
         - `VLLM`: VLLM.
     """
+
     OpenAI = "openai"
     DeepSeek = "deepseek"
     Qwen = "qwen"
@@ -63,6 +66,7 @@ class DistributionType(str, Enum):
         - `NORMAL`: Normal distribution.
         - `CONSTANT`: Constant distribution.
     """
+
     CHOICE = "choice"
     UNIFORM_INT = "uniform_int"
     UNIFORM_FLOAT = "uniform_float"
@@ -80,5 +84,6 @@ class MetricType(str, Enum):
         - `FUNCTION`: Function-based metric.
         - `STATE`: State-based metric.
     """
+
     FUNCTION = "function"
     STATE = "state"

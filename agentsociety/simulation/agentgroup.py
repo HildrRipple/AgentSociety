@@ -547,7 +547,9 @@ class AgentGroup:
                     if current_plan is not None and current_plan:
                         intention = current_plan.get("target", "Other")
                         step_index = current_plan.get("index", 0)
-                        action = current_plan.get("steps", [])[step_index].get("intention", "Planning")
+                        action = current_plan.get("steps", [])[step_index].get(
+                            "intention", "Planning"
+                        )
                     else:
                         action = "Planning"
                     emotion = await agent.status.get("emotion", {})
@@ -677,7 +679,9 @@ class AgentGroup:
                         current_plan = await agent.status.get("current_plan")
                         if current_plan is not None:
                             step_index = current_plan.get("index", 0)
-                            action = current_plan.get("steps", [])[step_index].get("intention", "None")
+                            action = current_plan.get("steps", [])[step_index].get(
+                                "intention", "None"
+                            )
                         else:
                             action = "None"
                         emotion = await agent.status.get("emotion", {})

@@ -11,6 +11,7 @@ from ..utils.grpc import create_channel
 
 __all__ = ["OnlyClientSidecar"]
 
+
 @ray.remote
 class OnlyClientSidecar:
     """

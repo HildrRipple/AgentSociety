@@ -1,5 +1,8 @@
-from .message_interceptor import (MessageBlockBase, MessageBlockListenerBase,
-                                  MessageInterceptor)
+from .message_interceptor import (
+    MessageBlockBase,
+    MessageBlockListenerBase,
+    MessageInterceptor,
+)
 from .messager import Messager
 
 __all__ = [

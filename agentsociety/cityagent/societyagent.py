@@ -13,8 +13,15 @@ from agentsociety.memory import Memory
 from agentsociety.tools import UpdateWithSimulator
 from agentsociety.workflow import Block
 
-from .blocks import (CognitionBlock, EconomyBlock, MobilityBlock, NeedsBlock,
-                     OtherBlock, PlanBlock, SocialBlock)
+from .blocks import (
+    CognitionBlock,
+    EconomyBlock,
+    MobilityBlock,
+    NeedsBlock,
+    OtherBlock,
+    PlanBlock,
+    SocialBlock,
+)
 from .blocks.economy_block import MonthPlanBlock
 
 logger = logging.getLogger("agentsociety")
@@ -85,7 +92,11 @@ class PlanAndActionBlock(Block):
     async def step_execution(self):
         """Execute the current step in the active plan based on step type."""
         current_plan = await self.memory.status.get("current_plan")
-        if current_plan is None or not current_plan or len(current_plan.get("steps", [])) == 0:
+        if (
+            current_plan is None
+            or not current_plan
+            or len(current_plan.get("steps", [])) == 0
+        ):
             return  # No plan, no execution
         step_index = current_plan.get("index", 0)
         execution_context = await self.memory.status.get("execution_context")

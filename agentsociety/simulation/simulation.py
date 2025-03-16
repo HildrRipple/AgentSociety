@@ -14,28 +14,41 @@ import yaml
 from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, InstitutionAgent
-from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
-                         SocietyAgent)
+from ..cityagent import BankAgent, FirmAgent, GovernmentAgent, NBSAgent, SocietyAgent
 from ..cityagent.initial import bind_agent_info, initialize_social_network
-from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
-                                       memory_config_government,
-                                       memory_config_load_file,
-                                       memory_config_merge, memory_config_nbs,
-                                       memory_config_societyagent,
-                                       set_distribution)
-from ..cityagent.message_intercept import (EdgeMessageBlock,
-                                           MessageBlockListener,
-                                           PointMessageBlock)
+from ..cityagent.memory_config import (
+    memory_config_bank,
+    memory_config_firm,
+    memory_config_government,
+    memory_config_load_file,
+    memory_config_merge,
+    memory_config_nbs,
+    memory_config_societyagent,
+    set_distribution,
+)
+from ..cityagent.message_intercept import (
+    EdgeMessageBlock,
+    MessageBlockListener,
+    PointMessageBlock,
+)
 from ..configs import ExpConfig, MemoryConfig, MetricExtractor, SimConfig
 from ..environment import EconomyClient, Simulator
 from ..llm import SimpleEmbedding
-from ..message import (MessageBlockBase, MessageBlockListenerBase,
-                       MessageInterceptor, Messager)
+from ..message import (
+    MessageBlockBase,
+    MessageBlockListenerBase,
+    MessageInterceptor,
+    Messager,
+)
 from ..metrics import init_mlflow_connection
 from ..metrics.mlflow_client import MlflowClient
 from ..survey import Survey
-from ..utils import (SURVEY_SENDER_UUID, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES,
-                     MetricType, WorkflowType)
+from ..utils import (
+    SURVEY_SENDER_UUID,
+    TO_UPDATE_EXP_INFO_KEYS_AND_TYPES,
+    MetricType,
+    WorkflowType,
+)
 from .agentgroup import AgentGroup
 from .storage.pg import PgWriter, create_pg_tables
 

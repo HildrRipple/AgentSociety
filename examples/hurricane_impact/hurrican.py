@@ -52,7 +52,8 @@ exp_config = (
         number_of_citizen=1000,
         number_of_firm=50,
         group_size=50,
-    ).SetMemoryConfig(
+    )
+    .SetMemoryConfig(
         memory_config_func={SocietyAgent: memory_config_societyagent_hurrican},
     )
     .SetWorkFlow(
@@ -70,9 +71,13 @@ exp_config = (
             WorkflowStep(type=WorkflowType.RUN, days=3),
         ]
     )
-    .SetMetricExtractors([
-        MetricExtractor(type=MetricType.FUNCTION, func=mobility_metric, step_interval=1),
-    ])
+    .SetMetricExtractors(
+        [
+            MetricExtractor(
+                type=MetricType.FUNCTION, func=mobility_metric, step_interval=1
+            ),
+        ]
+    )
 )
 
 

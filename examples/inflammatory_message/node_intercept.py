@@ -7,8 +7,10 @@ import random
 import ray
 
 from agentsociety import AgentSimulation
-from agentsociety.cityagent.message_intercept import (MessageBlockListener,
-                                                      PointMessageBlock)
+from agentsociety.cityagent.message_intercept import (
+    MessageBlockListener,
+    PointMessageBlock,
+)
 from agentsociety.cityagent.societyagent import SocietyAgent
 from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep
 from agentsociety.utils import LLMProviderType, WorkflowType
