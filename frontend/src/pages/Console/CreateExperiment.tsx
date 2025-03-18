@@ -98,83 +98,128 @@ const CreateExperiment: React.FC = () => {
 
   const handleStartExperiment = async () => {
     if (!selectedEnvironment || !selectedAgent || !selectedWorkflow || !selectedMap) {
-      message.error('Please select all required configurations');
+      message.error('请选择所有必需的配置');
       return;
     }
-
-    setLoading(true);
     
+    setLoading(true);
     try {
-      // 获取选中的配置
-      const selectedEnvConfig = environments.find(env => env.id === selectedEnvironment);
-      const selectedAgentConfig = agents.find(agent => agent.id === selectedAgent);
-      const selectedWorkflowConfig = workflows.find(workflow => workflow.id === selectedWorkflow);
-      const selectedMapConfig = maps.find(map => map.id === selectedMap);
+      // 获取所有选中的配置详情
+      const environment = environments.find(env => env.id === selectedEnvironment);
+      const agent = agents.find(a => a.id === selectedAgent);
+      const workflow = workflows.find(w => w.id === selectedWorkflow);
+      const map = maps.find(m => m.id === selectedMap);
       
-      if (!selectedEnvConfig || !selectedAgentConfig || !selectedWorkflowConfig || !selectedMapConfig) {
-        throw new Error('One or more selected configurations not found');
+      if (!environment || !agent || !workflow || !map) {
+        throw new Error('找不到选定的配置');
       }
       
-      // 组合配置
-      const experimentConfig = {
-        environment: selectedEnvConfig.config,
-        agent: selectedAgentConfig.config,
-        workflow: selectedWorkflowConfig.config,
-        map: selectedMapConfig.config,
-        name: `${selectedEnvConfig.name} - ${selectedWorkflowConfig.name}`
+      // 构建后端API所需的配置格式
+      // 环境配置对应SimConfig
+      const environmentConfig = {
+        llm_config: environment.config.llm_config || {
+          provider: "openai",
+          api_key: "",
+          model: "gpt-3.5-turbo"
+        },
+        simulator_config: environment.config.simulator_config || {
+          task_name: "citysim",
+          max_day: 1000,
+          start_step: 28800,
+          total_step: 24 * 60 * 60 * 365,
+          log_dir: "./log",
+          steps_per_simulation_step: 300,
+          steps_per_simulation_day: 3600,
+          primary_node_ip: "localhost"
+        },
+        redis: environment.config.redis,
+        map_config: {
+          file_path: map.config.file_path || "./map.pb"
+        },
+        metric_config: environment.config.metric_config,
+        pgsql: environment.config.pgsql,
+        avro: environment.config.avro,
+        simulator_server_address: environment.config.simulator_server_address
       };
       
-      // 发送请求到后端启动实验
+      // 实验配置对应ExpConfig
+      const experimentConfig = {
+        agent_config: {
+          ...agent.config.agent_config,
+          memory_config: agent.config.memory_config
+        },
+        workflow: workflow.config.workflow || [],
+        environment: {
+          weather: workflow.config.environment?.weather || "天气正常",
+          temperature: workflow.config.environment?.temperature || "温度正常",
+          workday: workflow.config.environment?.workday !== undefined ? workflow.config.environment.workday : true,
+          other_information: workflow.config.environment?.other_information || ""
+        },
+        message_intercept: workflow.config.message_intercept,
+        metric_extractors: workflow.config.metric_extractors || [],
+        llm_semaphore: workflow.config.llm_semaphore || 200
+      };
+      
+      // 发送请求到后端API
       const response = await fetch('/api/run-experiment', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(experimentConfig)
+        body: JSON.stringify({
+          name: `${workflow.name} with ${agent.name} in ${environment.name}`,
+          environment: environmentConfig,
+          agent: experimentConfig.agent_config,
+          workflow: experimentConfig,
+          map: map.config
+        }),
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to start experiment: ${errorText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || '启动实验失败');
       }
       
-      const data = await response.json();
-      const newExperimentId = data.data.id;
+      const result = await response.json();
+      const expId = result.data.id;
       
-      message.success('Experiment started successfully!');
-      setExperimentId(newExperimentId);
+      // 设置实验状态
+      setExperimentId(expId);
       setExperimentRunning(true);
       setExperimentStatus('running');
+      message.success('实验启动成功');
       
-      // 设置定时器定期检查实验状态
-      const interval = setInterval(checkExperimentStatus, 5000);
+      // 设置定时检查实验状态
+      const interval = setInterval(() => checkExperimentStatus(), 5000);
       setStatusCheckInterval(interval);
       
     } catch (error) {
-      console.error('Error starting experiment:', error);
-      message.error(error instanceof Error ? error.message : 'Failed to start experiment');
+      console.error('启动实验时出错:', error);
+      message.error(`启动实验失败: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleStopExperiment = async () => {
-    if (!experimentId) return;
+    if (!experimentId) {
+      return;
+    }
     
+    setLoading(true);
     try {
-      setLoading(true);
-      
       const response = await fetch(`/api/experiments/${experimentId}/stop`, {
-        method: 'DELETE'
+        method: 'DELETE',
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to stop experiment: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to stop experiment');
       }
       
       message.success('Experiment stopped successfully');
       
-      // 清理定时器
+      // 清理定时器并重置状态
       if (statusCheckInterval) {
         clearInterval(statusCheckInterval);
         setStatusCheckInterval(null);
@@ -185,7 +230,7 @@ const CreateExperiment: React.FC = () => {
       
     } catch (error) {
       console.error('Error stopping experiment:', error);
-      message.error(error instanceof Error ? error.message : 'Failed to stop experiment');
+      message.error(`Failed to stop experiment: ${error.message}`);
     } finally {
       setLoading(false);
     }
