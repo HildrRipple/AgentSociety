@@ -113,12 +113,26 @@ class Simulator:
             self._client = CityClient(
                 sim_env.sim_addr, self.server_addr.startswith("https")
             )
-            self._syncer = OnlyClientSidecar.remote(
-                syncer_address=sim_env.syncer_addr,  # type:ignore
-                name="within-syncer",
-                secure=self.server_addr.startswith("https"),
-            )
-            # self._syncer.init()
+            for retry in range(60):
+                try:
+                    self._syncer = OnlyClientSidecar.remote(
+                        syncer_address=sim_env.syncer_addr,  # type:ignore
+                        name="within-syncer",
+                        secure=self.server_addr.startswith("https"),
+                    )
+                    time.sleep(5)
+                    ray.get(self._syncer.init.remote())
+                    break
+                except:
+                    logging.warning(
+                        f"Failed to connect to syncer {sim_env.syncer_addr}, retrying..."
+                    )
+                    time.sleep(1)
+                    continue
+            else:
+                raise ValueError(
+                    f"Failed to connect to syncer {sim_env.syncer_addr} after 60 retries!"
+                )
             """
             - 模拟器grpc客户端
             - grpc client of simulator

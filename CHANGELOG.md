@@ -34,6 +34,7 @@
 - Support `VLLM` as a `LLMConfig` provider.
     - Provide `base_urls` to set the base URLs of the VLLM servers.
     - If you set `api-key` for your vLLM deployment, you need to set `api_keys` to the same length of `base_urls`.
+- Add retry for syncer connections.
 
 ### Changed
 - **BREAKING** Change the prefix of database tables from `agentsociety_` to `as_` to avoid conflicts with the length limit of table names in PostgreSQL.
