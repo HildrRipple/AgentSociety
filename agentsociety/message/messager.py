@@ -7,6 +7,7 @@ from typing import Any, Optional, Union
 
 import ray
 import redis.asyncio as aioredis
+from redis.asyncio.client import PubSub
 
 from ..utils.decorators import lock_decorator
 
@@ -37,9 +38,9 @@ class Messager:
         self,
         hostname: str,
         port: int = 6379,
-        username=None,
-        password=None,
-        timeout=60,
+        db=0,
+        password: Optional[str] = None,
+        timeout: float = 60,
         message_interceptor: Optional[ray.ObjectRef] = None,
     ):
         """
@@ -48,7 +49,7 @@ class Messager:
         - **Args**:
             - `hostname` (str): The hostname or IP address of the Redis server.
             - `port` (int, optional): Port number of the Redis server. Defaults to 6379.
-            - `username` (str, optional): Username for Redis authentication.
+            - `db` (str, int): Database number, defaults to zero.
             - `password` (str, optional): Password for Redis authentication.
             - `timeout` (int, optional): Connection timeout in seconds. Defaults to 60.
             - `message_interceptor` (Optional[ray.ObjectRef], optional): Reference to a message interceptor object.
@@ -56,7 +57,7 @@ class Messager:
         self.client = aioredis.Redis(
             host=hostname,
             port=port,
-            username=username,
+            db=db,
             password=password,
             socket_timeout=timeout,
         )
@@ -284,7 +285,7 @@ class Messager:
         )
         logger.info("Started message listening")
 
-    async def _listen_for_messages(self, pubsub):
+    async def _listen_for_messages(self, pubsub: PubSub):
         """
         Internal method to continuously listen for messages and handle dynamic subscriptions.
 
@@ -301,12 +302,12 @@ class Messager:
             while True:
                 new_topics = self._topics - current_topics
                 if new_topics:
-                    await self._update_subscribe(pubsub, new_topics)
+                    await self._update_psubscribe(pubsub, new_topics)
                     current_topics.update(new_topics)
                     logger.info(f"Subscribed to new topics: {new_topics}")
                 if current_topics:
                     message = await pubsub.get_message(ignore_subscribe_messages=True)
-                    if message and message["type"] in ("message", "pmessage"):
+                    if message and message["type"] in ("pmessage",):
                         await self.message_queue.put(message)
                         logger.debug(f"Received message: {message}")
                 await asyncio.sleep(1)
@@ -320,7 +321,7 @@ class Messager:
             raise
 
     @lock_decorator
-    async def _update_subscribe(self, pubsub, new_topics):
+    async def _update_psubscribe(self, pubsub: PubSub, new_topics: set[str]):
         """
         Subscribe to new topics with the given pubsub connection.
 
@@ -331,4 +332,4 @@ class Messager:
         - **Description**:
             - Thread-safe method to subscribe the pubsub connection to the specified new topics.
         """
-        await pubsub.subscribe(*new_topics)
+        await pubsub.psubscribe(*new_topics)

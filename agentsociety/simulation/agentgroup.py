@@ -21,13 +21,8 @@ from ..llm.llm import LLM
 from ..memory import FaissQuery, Memory
 from ..message import Messager
 from ..metrics import MlflowClient
-from ..utils import (
-    DIALOG_SCHEMA,
-    INSTITUTION_STATUS_SCHEMA,
-    PROFILE_SCHEMA,
-    STATUS_SCHEMA,
-    SURVEY_SCHEMA,
-)
+from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
+                     STATUS_SCHEMA, SURVEY_SCHEMA)
 
 logger = logging.getLogger("agentsociety")
 __all__ = ["AgentGroup"]
@@ -133,7 +128,7 @@ class AgentGroup:
             self.messager = Messager.remote(
                 hostname=redis_config.server,  # type:ignore
                 port=redis_config.port,
-                username=redis_config.username,
+                db=redis_config.db,
                 password=redis_config.password,
             )
         else:
@@ -273,14 +268,14 @@ class AgentGroup:
         await self.messager.connect.remote()
         if await self.messager.is_connected.remote():
             await self.messager.start_listening.remote()
-            topics = []
-            agents = []
+            topics: list[str] = []
+            agent_ids: list[int] = []
             for agent in self.agents:
                 agent.set_messager(self.messager)
-                topic = (f"exps/{self.exp_id}/agents/{agent.id}/#", 1)
+                topic = f"exps:{self.exp_id}:agents:{agent.id}:*"
                 topics.append(topic)
-                agents.append(agent.id)
-            await self.messager.subscribe.remote(topics, agents)
+                agent_ids.append(agent.id)
+            await self.messager.subscribe.remote(topics, agent_ids)
         self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
         if self.enable_avro:
             logger.debug(f"-----Creating Avro files in AgentGroup {self._uuid} ...")
@@ -290,8 +285,7 @@ class AgentGroup:
                 with open(filename, "wb") as f:
                     profiles = []
                     for agent in self.agents:
-                        profile = await agent.status.profile.export()
-                        profile = profile[0]
+                        profile = (await agent.status.profile.export())[0]
                         profile["id"] = agent.id
                         profiles.append(profile)
                     fastavro.writer(f, PROFILE_SCHEMA, profiles)
@@ -460,7 +454,7 @@ class AgentGroup:
 
         - **Description**:
             - Continuously listens for incoming Redis messages and dispatches them to the relevant agents based on the topic.
-            - Messages are expected to have a topic formatted as "exps/{exp_id}/agents/{agent.id}/{topic_type}".
+            - Messages are expected to have a topic formatted as "exps:{exp_id}:agents:{agent.id}:{topic_type}".
             - The payload is decoded from bytes to string and then parsed as JSON.
             - Depending on the `topic_type`, different handler methods on the agent are called to process the message.
         """
@@ -479,7 +473,7 @@ class AgentGroup:
 
             # Step 2: Distribute messages to corresponding Agents
             for message in messages:
-                topic = message.topic.value
+                topic: str = message.topic.value
                 payload = message.payload
 
                 # Add a decoding step to convert bytes to str
@@ -487,8 +481,8 @@ class AgentGroup:
                     payload = payload.decode("utf-8")
                     payload = json.loads(payload)
 
-                # Extract agent_id (topic format is "exps/{exp_id}/agents/{agent_id}/{topic_type}")
-                _, _, _, agent_id, topic_type = topic.strip("/").split("/")
+                # Extract agent_id (topic format is "exps:{exp_id}:agents:{agent_id}:{topic_type}")
+                _, _, _, agent_id, topic_type = topic.strip(":").split(":")
 
                 if agent_id in self.id2agent:
                     agent = self.id2agent[agent_id]
@@ -551,6 +545,7 @@ class AgentGroup:
                             "intention", "Planning"
                         )
                     else:
+                        intention = "Other"
                         action = "Planning"
                     emotion = await agent.status.get("emotion", {})
                     emotion_types = await agent.status.get("emotion_types", "")

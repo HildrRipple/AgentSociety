@@ -30,7 +30,7 @@ sim_config = (
         provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
     .SetSimulatorConfig()
-    .SetRedis(server="redis.example.com", username="user", port=6379, password="pass")
+    .SetRedis(server="redis.example.com", port=6379, password="pass")
     # change to your file path
     .SetMapConfig(file_path="map.pb")
     # .SetAvro(path='./__avro', enabled=True)

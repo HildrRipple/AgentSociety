@@ -37,7 +37,7 @@ async def main():
             model="GLM-4-Flash",
         )
         .SetSimulatorRequest(min_step_time=50)
-        .SetRedis(server="redis.example.com", username="user", port=6379, password="pass")
+        .SetRedis(server="redis.example.com", port=6379, password="pass")
         # change to your file path
         .SetMapRequest(file_path="map.pb")
         .SetAvro(path="./__avro", enabled=True)
@@ -106,7 +106,7 @@ async def main():
             model="GLM-4-Flash",
         )
         .SetSimulatorRequest(min_step_time=50)
-        .SetRedis(server="redis.example.com", username="user", port=6379, password="pass")
+        .SetRedis(server="redis.example.com", port=6379, password="pass")
         # change to your file path
         .SetMapRequest(file_path="map.pb")
         .SetAvro(path="./__avro", enabled=True)

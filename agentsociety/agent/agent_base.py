@@ -569,7 +569,7 @@ class Agent(ABC):
                 )
             )
         await self.messager.send_message.remote(  # type:ignore
-            f"exps/{self._exp_id}/user_payback", {"count": 1}
+            f"exps:{self._exp_id}:user_payback", {"count": 1}
         )
 
     async def generate_user_chat_response(self, question: str) -> str:
@@ -680,7 +680,7 @@ class Agent(ABC):
                 )
             )
         await self.messager.send_message.remote(  # type:ignore
-            f"exps/{self._exp_id}/user_payback", {"count": 1}
+            f"exps:{self._exp_id}:user_payback", {"count": 1}
         )
         print(f"Sent payback message to {self._exp_id}")
 
@@ -878,7 +878,7 @@ class Agent(ABC):
         # send message with `Messager`
         if self._messager is None:
             raise RuntimeError("Messager is not set")
-        topic = f"exps/{self._exp_id}/agents/{to_agent_id}/{sub_topic}"
+        topic = f"exps:{self._exp_id}:agents:{to_agent_id}:{sub_topic}"
         await self._messager.send_message.remote(  # type:ignore
             topic,
             payload,

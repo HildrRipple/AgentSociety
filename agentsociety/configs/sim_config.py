@@ -25,7 +25,7 @@ class RedisConfig(BaseModel):
     server: str = Field(..., description="Redis server address")
     port: int = Field(..., description="Port number for Redis connection")
     password: Optional[str] = Field(None, description="Password for Redis connection")
-    username: Optional[str] = Field(None, description="Username for Redis connection")
+    db: Optional[str] = Field(None, description="Database number for Redis connection")
 
 
 class SimulatorConfig(BaseModel):
@@ -167,12 +167,10 @@ class SimConfig(BaseModel):
         self,
         server: str,
         port: int,
-        username: Optional[str] = None,
+        db: str = "0",
         password: Optional[str] = None,
     ) -> "SimConfig":
-        self.redis = RedisConfig(
-            server=server, port=port, username=username, password=password
-        )
+        self.redis = RedisConfig(server=server, port=port, db=db, password=password)
         return self
 
     def SetMapConfig(self, file_path: str) -> "SimConfig":
@@ -212,10 +210,10 @@ class SimConfig(BaseModel):
 if __name__ == "__main__":
     config = (
         SimConfig()
-        .SetLLMRequest("openai", "key", "model")  # type:ignore
-        .SetRedis("server", 6379, "username", "password")
-        .SetMapRequest("./path/to/map")
-        .SetMetricRequest("username", "password", "uri")
+        .SetLLMConfig("openai", "key", "model")  # type:ignore
+        .SetRedis("server", 6379, password="password")
+        .SetMapConfig("./path/to/map")
+        .SetMetricConfig("username", "password", "uri")
         .SetPostgreSql("dsn", True)
     )
     print(config.llm_config)
