@@ -56,18 +56,32 @@ async def run_experiment_in_container(
         container_config = {
             "Image": "agentsociety-runner",
             "Cmd": [
-                "python", "-m", "agentsociety.cli.runner",
                 "--sim-config-base64", sim_config_base64,
                 "--exp-config-base64", exp_config_base64,
                 "--log-level", log_level
             ],
+            "Entrypoint": ["/bin/bash", "-c"],
             "HostConfig": {
-                "NetworkMode": "host"  # 使用主机网络访问Redis等服务
+                "NetworkMode": "host",  # 使用主机网络访问Redis等服务
+                "Binds": [
+                    f"{os.path.abspath(os.path.dirname(__file__))}/../../webapi/docker/entrypoint.sh:/entrypoint.sh:ro"
+                ]
             },
             "AttachStdout": True,
             "AttachStderr": True,
             "Tty": True
         }
+        
+        # 将 entrypoint.sh 设置为可执行
+        os.chmod(f"{os.path.abspath(os.path.dirname(__file__))}/../../webapi/docker/entrypoint.sh", 0o755)
+        
+        # 修改命令为执行 entrypoint.sh
+        container_config["Cmd"] = [
+            "/entrypoint.sh",
+            "--sim-config-base64", sim_config_base64,
+            "--exp-config-base64", exp_config_base64,
+            "--log-level", log_level
+        ]
         
         # 创建并启动容器
         logger.info("Creating and starting Docker container...")

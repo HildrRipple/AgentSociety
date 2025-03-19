@@ -53,6 +53,7 @@ dependencies = [
     "transformers>=4.47.1",
     "uvicorn>=0.23.2",
     "zhipuai>=2.1.5.20230904",
+    "aiodocker>=0.21.0",
 ]
 
 [project.urls]
@@ -63,7 +64,8 @@ Issues = "https://github.com/tsinghua-fib-lab/agentsociety/issues"
 [project.scripts]
 agentsociety-sim = "agentsociety.cli.sim:agentsociety_sim"
 agentsociety-ui = "agentsociety.cli.webui:cli"
-agentsociety-experiment = "agentsociety.cli.experiment:experiment_runner"
+docker-runner = "agentsociety.cli.docker_runner:experiment_runner"
+experiment = "agentsociety.cli.runner:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

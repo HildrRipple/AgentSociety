@@ -7,7 +7,23 @@ import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storage
 const { Text } = Typography;
 const { Option } = Select;
 
+// Add these interfaces at the top of the file
+interface EnvironmentConfig {
+  weather?: string;
+  temperature?: string;
+  workday?: boolean;
+  other_information?: string;
+}
+
+interface WorkflowConfig extends ConfigItem {
+  config: {
+    environment?: EnvironmentConfig;
+    [key: string]: any;
+  }
+}
+
 const CreateExperiment: React.FC = () => {
+  // State declarations
   const [environments, setEnvironments] = useState<ConfigItem[]>([]);
   const [agents, setAgents] = useState<ConfigItem[]>([]);
   const [workflows, setWorkflows] = useState<ConfigItem[]>([]);
@@ -23,15 +39,15 @@ const CreateExperiment: React.FC = () => {
   const [experimentStatus, setExperimentStatus] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 加载所有配置
+  // Load all configurations
   useEffect(() => {
     const loadConfigurations = async () => {
       setLoading(true);
       try {
-        // 确保示例数据已初始化
+        // Initialize example data
         await storageService.initializeExampleData();
         
-        // 加载所有配置
+        // Load all configurations
         const envs = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.ENVIRONMENTS);
         const agts = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.AGENTS);
         const wkfs = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.WORKFLOWS);
@@ -96,106 +112,59 @@ const CreateExperiment: React.FC = () => {
     }
   };
 
-  const handleStartExperiment = async () => {
-    if (!selectedEnvironment || !selectedAgent || !selectedWorkflow || !selectedMap) {
-      message.error('请选择所有必需的配置');
-      return;
-    }
-    
+  const handleSubmit = async () => {
     setLoading(true);
     try {
-      // 获取所有选中的配置详情
+      // Get selected configurations
       const environment = environments.find(env => env.id === selectedEnvironment);
-      const agent = agents.find(a => a.id === selectedAgent);
-      const workflow = workflows.find(w => w.id === selectedWorkflow);
-      const map = maps.find(m => m.id === selectedMap);
-      
+      const agent = agents.find(agent => agent.id === selectedAgent);
+      const workflow = workflows.find(workflow => workflow.id === selectedWorkflow) as WorkflowConfig;  // Add type assertion here
+      const map = maps.find(map => map.id === selectedMap);
+
       if (!environment || !agent || !workflow || !map) {
-        throw new Error('找不到选定的配置');
+        message.error('Please select all required configurations');
+        return;
       }
-      
-      // 构建后端API所需的配置格式
-      // 环境配置对应SimConfig
-      const environmentConfig = {
-        llm_config: environment.config.llm_config || {
-          provider: "openai",
-          api_key: "",
-          model: "gpt-3.5-turbo"
-        },
-        simulator_config: environment.config.simulator_config || {
-          task_name: "citysim",
-          max_day: 1000,
-          start_step: 28800,
-          total_step: 24 * 60 * 60 * 365,
-          log_dir: "./log",
-          steps_per_simulation_step: 300,
-          steps_per_simulation_day: 3600,
-          primary_node_ip: "localhost"
-        },
-        redis: environment.config.redis,
-        map_config: {
-          file_path: map.config.file_path || "./map.pb"
-        },
-        metric_config: environment.config.metric_config,
-        pgsql: environment.config.pgsql,
-        avro: environment.config.avro,
-        simulator_server_address: environment.config.simulator_server_address
-      };
-      
-      // 实验配置对应ExpConfig
-      const experimentConfig = {
-        agent_config: {
-          ...agent.config.agent_config,
-          memory_config: agent.config.memory_config
-        },
-        workflow: workflow.config.workflow || [],
+
+      // Combine configurations
+      const fullConfig = {
         environment: {
-          weather: workflow.config.environment?.weather || "天气正常",
-          temperature: workflow.config.environment?.temperature || "温度正常",
-          workday: workflow.config.environment?.workday !== undefined ? workflow.config.environment.workday : true,
-          other_information: workflow.config.environment?.other_information || ""
+          ...environment.config,
         },
-        message_intercept: workflow.config.message_intercept,
-        metric_extractors: workflow.config.metric_extractors || [],
-        llm_semaphore: workflow.config.llm_semaphore || 200
+        agent: {
+          ...agent.config,
+        },
+        experiment: {
+          ...workflow.config,
+          environment: {
+            weather: workflow.config.environment?.weather ?? "Normal Weather",
+            temperature: workflow.config.environment?.temperature ?? "Normal Temperature",
+            workday: workflow.config.environment?.workday ?? true,
+            other_information: workflow.config.environment?.other_information ?? ""
+          }
+        }
       };
       
-      // 发送请求到后端API
-      const response = await fetch('/api/run-experiment', {
+      // Send request to start experiment
+      const response = await fetch('/api/experiments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: `${workflow.name} with ${agent.name} in ${environment.name}`,
-          environment: environmentConfig,
-          agent: experimentConfig.agent_config,
-          workflow: experimentConfig,
-          map: map.config
-        }),
+        body: JSON.stringify(fullConfig),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || '启动实验失败');
+      const data = await response.json();
+      
+      if (response.ok) {
+        message.success('Experiment started successfully!');
+        navigate(`/exp/${data.experimentId}`);
+      } else {
+        message.error(`Start failed: ${data.message || 'Unknown error'}`);
       }
-      
-      const result = await response.json();
-      const expId = result.data.id;
-      
-      // 设置实验状态
-      setExperimentId(expId);
-      setExperimentRunning(true);
-      setExperimentStatus('running');
-      message.success('实验启动成功');
-      
-      // 设置定时检查实验状态
-      const interval = setInterval(() => checkExperimentStatus(), 5000);
-      setStatusCheckInterval(interval);
-      
     } catch (error) {
-      console.error('启动实验时出错:', error);
-      message.error(`启动实验失败: ${error.message}`);
+      message.error('Error starting experiment');
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -379,7 +348,7 @@ const CreateExperiment: React.FC = () => {
             type="primary" 
             size="large" 
             icon={<RocketOutlined />} 
-            onClick={handleStartExperiment}
+            onClick={handleSubmit}
             loading={loading}
             disabled={!selectedEnvironment || !selectedAgent || !selectedWorkflow || !selectedMap}
           >
