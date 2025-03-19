@@ -32,7 +32,8 @@ async def run_experiment(
     logger = setup_logging(log_level)
     
     try:
-        from agentsociety.configs import ExpConfig, SimConfig
+        from agentsociety.configs import ExpConfig, SimConfig, MapConfig
+        from agentsociety.utils import WorkflowType
         from agentsociety.simulation import AgentSimulation
         
         # Process configuration files
@@ -70,11 +71,16 @@ async def run_experiment(
         # Load configurations from files
         with open(sim_config_path, 'r') as f:
             sim_config_dict = json.load(f)
-            sim_config = SimConfig.parse_obj(sim_config_dict)
+            sim_config = SimConfig.model_validate(sim_config_dict)
         
         with open(exp_config_path, 'r') as f:
             exp_config_dict = json.load(f)
-            exp_config = ExpConfig.parse_obj(exp_config_dict)
+            exp_config = ExpConfig.model_validate(exp_config_dict)
+        
+        # Dynamically set functions in the workflow
+        if exp_config.workflow and len(exp_config.workflow) > 0:
+            # Temporarily not setting functions because initialize_social_network doesn't exist
+            pass
         
         logger.info(f"Starting experiment with config: {exp_config}")
         simulation = AgentSimulation.run_from_config(
