@@ -16,11 +16,12 @@ logger = logging.getLogger("agentsociety")
 
 class NBSAgent(InstitutionAgent):
     """National Bureau of Statistics Agent simulating economic data collection and analysis.
-    
-    Inherits from InstitutionAgent to manage economic indicators and interactions with other 
-    agents in a simulated environment. Handles monthly economic metrics calculations including 
+
+    Inherits from InstitutionAgent to manage economic indicators and interactions with other
+    agents in a simulated environment. Handles monthly economic metrics calculations including
     GDP, labor statistics, prices, and citizen welfare indicators.
     """
+
     configurable_fields = ["time_diff", "num_labor_hours", "productivity_per_labor"]
     default_values = {
         "time_diff": 30 * 24 * 60 * 60,
@@ -44,7 +45,7 @@ class NBSAgent(InstitutionAgent):
         avro_file: Optional[dict] = None,
     ) -> None:
         """Initialize NBSAgent with dependencies and configuration.
-        
+
         Args:
             name: Unique identifier for the agent
             llm_client: Language model client for decision-making (optional)
@@ -73,7 +74,7 @@ class NBSAgent(InstitutionAgent):
 
     async def month_trigger(self):
         """Check if a monthly cycle should be triggered based on simulation time.
-        
+
         Returns:
             True if monthly interval has passed since last trigger, False otherwise
         """
@@ -89,11 +90,11 @@ class NBSAgent(InstitutionAgent):
 
     async def gather_messages(self, agent_ids, content):  # type:ignore
         """Collect messages from specified agents and extract content.
-        
+
         Args:
             agent_ids: List of agent identifiers to query
             content: Message content field to retrieve
-            
+
         Returns:
             List of message contents from target agents
         """
@@ -102,7 +103,7 @@ class NBSAgent(InstitutionAgent):
 
     async def forward(self):
         """Execute monthly economic data collection and update cycle.
-        
+
         Performs:
         1. Real GDP calculation
         2. Labor statistics aggregation

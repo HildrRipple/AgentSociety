@@ -128,7 +128,10 @@ class ControlSimEnv:
             atexit.register(self.close)
             time.sleep(5)
         else:
-            warnings.warn("Starting the simulator separately will be deprecated", DeprecationWarning)
+            warnings.warn(
+                "Starting the simulator separately will be deprecated",
+                DeprecationWarning,
+            )
 
         return sim_addr, syncer_addr
 

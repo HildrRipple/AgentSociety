@@ -19,6 +19,10 @@
   -
 * - {py:obj}`LLMRequestType <agentsociety.utils.config_const.LLMRequestType>`
   -
+* - {py:obj}`DistributionType <agentsociety.utils.config_const.DistributionType>`
+  -
+* - {py:obj}`MetricType <agentsociety.utils.config_const.MetricType>`
+  -
 ````
 
 ### API
@@ -68,10 +72,40 @@ Bases: {py:obj}`str`, {py:obj}`enum.Enum`
 
 ````
 
+````{py:attribute} ENVIRONMENT_INTERVENE
+:canonical: agentsociety.utils.config_const.WorkflowType.ENVIRONMENT_INTERVENE
+:value: >
+   'environment'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.WorkflowType.ENVIRONMENT_INTERVENE
+```
+
+````
+
+````{py:attribute} UPDATE_STATE_INTERVENE
+:canonical: agentsociety.utils.config_const.WorkflowType.UPDATE_STATE_INTERVENE
+:value: >
+   'update_state'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.WorkflowType.UPDATE_STATE_INTERVENE
+```
+
+````
+
+````{py:attribute} MESSAGE_INTERVENE
+:canonical: agentsociety.utils.config_const.WorkflowType.MESSAGE_INTERVENE
+:value: >
+   'message'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.WorkflowType.MESSAGE_INTERVENE
+```
+
+````
+
 ````{py:attribute} INTERVENE
 :canonical: agentsociety.utils.config_const.WorkflowType.INTERVENE
 :value: >
-   'intervene'
+   'other'
 
 ```{autodoc2-docstring} agentsociety.utils.config_const.WorkflowType.INTERVENE
 ```
@@ -141,6 +175,90 @@ Bases: {py:obj}`str`, {py:obj}`enum.Enum`
    'siliconflow'
 
 ```{autodoc2-docstring} agentsociety.utils.config_const.LLMRequestType.SiliconFlow
+```
+
+````
+
+`````
+
+`````{py:class} DistributionType()
+:canonical: agentsociety.utils.config_const.DistributionType
+
+Bases: {py:obj}`str`, {py:obj}`enum.Enum`
+
+````{py:attribute} CHOICE
+:canonical: agentsociety.utils.config_const.DistributionType.CHOICE
+:value: >
+   'choice'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.DistributionType.CHOICE
+```
+
+````
+
+````{py:attribute} UNIFORM_INT
+:canonical: agentsociety.utils.config_const.DistributionType.UNIFORM_INT
+:value: >
+   'uniform_int'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.DistributionType.UNIFORM_INT
+```
+
+````
+
+````{py:attribute} UNIFORM_FLOAT
+:canonical: agentsociety.utils.config_const.DistributionType.UNIFORM_FLOAT
+:value: >
+   'uniform_float'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.DistributionType.UNIFORM_FLOAT
+```
+
+````
+
+````{py:attribute} NORMAL
+:canonical: agentsociety.utils.config_const.DistributionType.NORMAL
+:value: >
+   'normal'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.DistributionType.NORMAL
+```
+
+````
+
+````{py:attribute} CONSTANT
+:canonical: agentsociety.utils.config_const.DistributionType.CONSTANT
+:value: >
+   'constant'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.DistributionType.CONSTANT
+```
+
+````
+
+`````
+
+`````{py:class} MetricType()
+:canonical: agentsociety.utils.config_const.MetricType
+
+Bases: {py:obj}`str`, {py:obj}`enum.Enum`
+
+````{py:attribute} FUNCTION
+:canonical: agentsociety.utils.config_const.MetricType.FUNCTION
+:value: >
+   'function'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.MetricType.FUNCTION
+```
+
+````
+
+````{py:attribute} STATE
+:canonical: agentsociety.utils.config_const.MetricType.STATE
+:value: >
+   'state'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.MetricType.STATE
 ```
 
 ````

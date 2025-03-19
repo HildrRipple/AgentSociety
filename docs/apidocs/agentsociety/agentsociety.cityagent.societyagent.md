@@ -309,4 +309,13 @@ Bases: {py:obj}`agentsociety.CitizenAgent`
 
 ````
 
+````{py:method} react_to_intervention(intervention_message: str)
+:canonical: agentsociety.cityagent.societyagent.SocietyAgent.react_to_intervention
+:async:
+
+```{autodoc2-docstring} agentsociety.cityagent.societyagent.SocietyAgent.react_to_intervention
+```
+
+````
+
 `````

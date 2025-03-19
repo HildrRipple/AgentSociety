@@ -34,11 +34,12 @@ class AgentGroup:
         self,
         agent_class: Union[type[Agent], list[type[Agent]]],
         number_of_agents: Union[int, list[int]],
-        memory_config_function_group: dict[type[Agent], Callable],
+        memory_values_dict: dict[type[Agent], list[dict]],
         config: SimConfig,
         map_ref: ray.ObjectRef,
         exp_name: str,
         exp_id: Union[str, UUID],
+        tenant_id: str,
         enable_avro: bool,
         avro_path: Path,
         enable_pgsql: bool,
@@ -56,18 +57,19 @@ class AgentGroup:
 
         - **Description**:
             - Manages the creation and initialization of multiple agents, each potentially of different types,
-            with associated memory configurations, and connects them to various services such as MLflow, MQTT messager,
+            with associated memory configurations, and connects them to various services such as MLflow, Redis messager,
             PostgreSQL writer, message interceptor, and LLM client. It also sets up an economy client and simulator for
             agent interaction within a simulated environment.
 
         - **Args**:
             - `agent_class` (Union[Type[Agent], List[Type[Agent]]]): A single or list of agent classes to instantiate.
             - `number_of_agents` (Union[int, List[int]]): Number of instances to create for each agent class.
-            - `memory_config_function_group` (Dict[Type[Agent], Callable]): Functions to configure memory for each agent type.
+            - `memory_values_dict` (Dict[Type[Agent], List[Dict]]): Functions to configure memory for each agent type.
             - `config` (SimConfig): Configuration settings for the agent group.
             - `map_ref` (ray.ObjectRef): Reference to the map object.
             - `exp_name` (str): Name of the experiment.
             - `exp_id` (str | UUID): Identifier for the experiment.
+            - `tenant_id` (str): Identifier for the tenant.
             - `enable_avro` (bool): Flag to enable AVRO file support.
             - `avro_path` (Path): Path where AVRO files will be stored.
             - `enable_pgsql` (bool): Flag to enable PostgreSQL support.
@@ -87,11 +89,12 @@ class AgentGroup:
             number_of_agents = [number_of_agents]
         self.agent_class = agent_class
         self.number_of_agents = number_of_agents
-        self.memory_config_function_group = memory_config_function_group
+        self.memory_values_dict = memory_values_dict
         self.agents: list[Agent] = []
         self.id2agent: dict[int, Agent] = {}
         self.config = config
         self.exp_id = exp_id
+        self.tenant_id = tenant_id
         self.enable_avro = enable_avro
         self.enable_pgsql = enable_pgsql
         self.embedding_model = embedding_model
@@ -106,7 +109,7 @@ class AgentGroup:
                 "survey": self.avro_path / f"survey.avro",
             }
         # Mlflow
-        metric_config = config.prop_metric_request
+        metric_config = config.prop_metric_config
         if metric_config is not None and metric_config.mlflow is not None:
             logger.info(f"-----Creating Mlflow client in AgentGroup {self._uuid} ...")
             self.mlflow_client = MlflowClient(
@@ -120,13 +123,13 @@ class AgentGroup:
             self.mlflow_client = None
 
         # prepare Messager
-        mqtt_config = config.prop_mqtt
-        if mqtt_config is not None:
+        redis_config = config.prop_redis
+        if redis_config is not None:
             self.messager = Messager.remote(
-                hostname=mqtt_config.server,  # type:ignore
-                port=mqtt_config.port,
-                username=mqtt_config.username,
-                password=mqtt_config.password,
+                hostname=redis_config.server,  # type:ignore
+                port=redis_config.port,
+                db=redis_config.db,
+                password=redis_config.password,
             )
         else:
             self.messager = None
@@ -141,7 +144,7 @@ class AgentGroup:
         self.id2agent = {}
         # prepare LLM client
         logger.info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
-        self.llm = LLM(config.prop_llm_request)
+        self.llm = LLM(config.prop_llm_config)
         self.llm.set_semaphore(llm_semaphore)
 
         # prepare Simulator
@@ -166,11 +169,12 @@ class AgentGroup:
         for i in range(len(number_of_agents)):
             agent_class_i = agent_class[i]
             number_of_agents_i = number_of_agents[i]
+            memory_values_dict_i = memory_values_dict[agent_class_i]
             for j in range(number_of_agents_i):
-                memory_config_function_group_i = memory_config_function_group[
-                    agent_class_i
-                ]
-                extra_attributes, profile, base = memory_config_function_group_i()
+                memory_values = memory_values_dict_i[j]
+                extra_attributes = memory_values.get("extra_attributes", {})
+                profile = memory_values.get("profile", {})
+                base = memory_values.get("base", {})
                 memory = Memory(config=extra_attributes, profile=profile, base=base)
                 agent = agent_class_i(
                     name=f"{agent_class_i.__name__}_{i}",  # type: ignore
@@ -180,6 +184,7 @@ class AgentGroup:
                     simulator=self.simulator,
                 )
                 agent.set_exp_id(self.exp_id)  # type: ignore
+                agent.set_tenant_id(self.tenant_id)
                 if self.messager is not None:
                     agent.set_messager(self.messager)
                 if self.mlflow_client is not None:
@@ -256,21 +261,21 @@ class AgentGroup:
                 break
             await asyncio.sleep(1)
         await self.insert_agent()
-        logger.warning(f"-----Agents in AgentGroup {self._uuid} initialized")
+        logger.debug(f"-----Agents in AgentGroup {self._uuid} initialized")
         self.id2agent = {agent.id: agent for agent in self.agents}
         logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
         assert self.messager is not None
         await self.messager.connect.remote()
         if await self.messager.is_connected.remote():
             await self.messager.start_listening.remote()
-            topics = []
-            agents = []
+            topics: list[str] = []
+            agent_ids: list[int] = []
             for agent in self.agents:
                 agent.set_messager(self.messager)
-                topic = (f"exps/{self.exp_id}/agents/{agent.id}/#", 1)
+                topic = f"exps:{self.exp_id}:agents:{agent.id}:*"
                 topics.append(topic)
-                agents.append(agent.id)
-            await self.messager.subscribe.remote(topics, agents)
+                agent_ids.append(agent.id)
+            await self.messager.subscribe.remote(topics, agent_ids)
         self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
         if self.enable_avro:
             logger.debug(f"-----Creating Avro files in AgentGroup {self._uuid} ...")
@@ -280,8 +285,7 @@ class AgentGroup:
                 with open(filename, "wb") as f:
                     profiles = []
                     for agent in self.agents:
-                        profile = await agent.status.profile.export()
-                        profile = profile[0]
+                        profile = (await agent.status.profile.export())[0]
                         profile["id"] = agent.id
                         profiles.append(profile)
                     fastavro.writer(f, PROFILE_SCHEMA, profiles)
@@ -456,11 +460,11 @@ class AgentGroup:
 
     async def message_dispatch(self):
         """
-        Dispatches messages received via MQTT to the appropriate agents.
+        Dispatches messages received via Redis to the appropriate agents.
 
         - **Description**:
-            - Continuously listens for incoming MQTT messages and dispatches them to the relevant agents based on the topic.
-            - Messages are expected to have a topic formatted as "exps/{exp_id}/agents/{agent.id}/{topic_type}".
+            - Continuously listens for incoming Redis messages and dispatches them to the relevant agents based on the topic.
+            - Messages are expected to have a topic formatted as "exps:{exp_id}:agents:{agent.id}:{topic_type}".
             - The payload is decoded from bytes to string and then parsed as JSON.
             - Depending on the `topic_type`, different handler methods on the agent are called to process the message.
         """
@@ -479,7 +483,7 @@ class AgentGroup:
 
             # Step 2: Distribute messages to corresponding Agents
             for message in messages:
-                topic = message.topic.value
+                topic: str = message.topic.value
                 payload = message.payload
 
                 # Add a decoding step to convert bytes to str
@@ -487,8 +491,8 @@ class AgentGroup:
                     payload = payload.decode("utf-8")
                     payload = json.loads(payload)
 
-                # Extract agent_id (topic format is "exps/{exp_id}/agents/{agent_id}/{topic_type}")
-                _, _, _, agent_id, topic_type = topic.strip("/").split("/")
+                # Extract agent_id (topic format is "exps:{exp_id}:agents:{agent_id}:{topic_type}")
+                _, _, _, agent_id, topic_type = topic.strip(":").split(":")
 
                 if agent_id in self.id2agent:
                     agent = self.id2agent[agent_id]
@@ -542,8 +546,25 @@ class AgentGroup:
                     energy_satisfaction = await agent.status.get("energy_satisfaction")
                     safety_satisfaction = await agent.status.get("safety_satisfaction")
                     social_satisfaction = await agent.status.get("social_satisfaction")
-                    action = await agent.status.get("current_step")
-                    action = action["intention"]
+                    current_need = await agent.status.get("current_need", "None")
+                    current_plan = await agent.status.get("current_plan")
+                    if current_plan is not None and current_plan:
+                        intention = current_plan.get("target", "Other")
+                        step_index = current_plan.get("index", 0)
+                        action = current_plan.get("steps", [])[step_index].get(
+                            "intention", "Planning"
+                        )
+                    else:
+                        intention = "Other"
+                        action = "Planning"
+                    emotion = await agent.status.get("emotion", {})
+                    emotion_types = await agent.status.get("emotion_types", "")
+                    sadness = emotion.get("sadness", 0)
+                    joy = emotion.get("joy", 0)
+                    fear = emotion.get("fear", 0)
+                    disgust = emotion.get("disgust", 0)
+                    anger = emotion.get("anger", 0)
+                    surprise = emotion.get("surprise", 0)
                     avro = {
                         "id": agent.id,
                         "day": _day,
@@ -551,11 +572,20 @@ class AgentGroup:
                         "lng": lng,
                         "lat": lat,
                         "parent_id": parent_id,
+                        "current_need": current_need,
+                        "intention": intention,
                         "action": action,
                         "hungry": hunger_satisfaction,
                         "tired": energy_satisfaction,
                         "safe": safety_satisfaction,
                         "social": social_satisfaction,
+                        "sadness": sadness,
+                        "joy": joy,
+                        "fear": fear,
+                        "disgust": disgust,
+                        "anger": anger,
+                        "surprise": surprise,
+                        "emotion_types": emotion_types,
                         "created_at": int(_date_time.timestamp() * 1000),
                     }
                     avros.append(avro)
@@ -651,8 +681,21 @@ class AgentGroup:
                             "social_satisfaction"
                         )
                         friend_ids = await agent.status.get("friends")
-                        action = await agent.status.get("current_step")
-                        action = action["intention"]
+                        current_plan = await agent.status.get("current_plan")
+                        if current_plan is not None:
+                            step_index = current_plan.get("index", 0)
+                            action = current_plan.get("steps", [])[step_index].get(
+                                "intention", "None"
+                            )
+                        else:
+                            action = "None"
+                        emotion = await agent.status.get("emotion", {})
+                        emotion_types = await agent.status.get("emotion_types", "")
+                        sadness = emotion.get("sadness", 0)
+                        joy = emotion.get("joy", 0)
+                        fear = emotion.get("fear", 0)
+                        disgust = emotion.get("disgust", 0)
+                        anger = emotion.get("anger", 0)
                         _status_dict = {
                             "id": agent.id,
                             "day": _day,
@@ -668,6 +711,12 @@ class AgentGroup:
                             "tired": energy_satisfaction,
                             "safe": safety_satisfaction,
                             "social": social_satisfaction,
+                            "sadness": sadness,
+                            "joy": joy,
+                            "fear": fear,
+                            "disgust": disgust,
+                            "anger": anger,
+                            "emotion_types": emotion_types,
                             "created_at": _date_time,
                         }
                         _statuses_time_list.append((_status_dict, _date_time))
@@ -757,6 +806,37 @@ class AgentGroup:
         """
         return self.llm.get_consumption()
 
+    async def get_llm_error_statistics(self):
+        """
+        Retrieves the error statistics from the LLM client.
+        """
+        return self.llm.get_error_statistics()
+
+    async def react_to_intervention(
+        self, intervention_message: str, agent_ids: list[int]
+    ):
+        """
+        React to an intervention.
+        """
+        react_tasks = []
+        for agent in self.agents:
+            if agent.id in agent_ids:
+                react_tasks.append(agent.react_to_intervention(intervention_message))
+        await asyncio.gather(*react_tasks)
+
+    async def update_environment(self, key: str, value: Any):
+        """
+        Update the environment variables for the simulation and all agent groups.
+
+        - **Description**:
+            - Update the environment variables for the simulation and all agent groups.
+
+        - **Args**:
+            - `key` (str): The key to update.
+            - `value` (Any): The value to update.
+        """
+        self.simulator.update_environment(key, value)
+
     async def step(self):
         """
         Executes a single simulation step by running all agents concurrently.
@@ -776,7 +856,9 @@ class AgentGroup:
             )
             group_logs = {
                 "llm_log": self.llm.get_log_list(),
-                "mqtt_log": ray.get(self.messager.get_log_list.remote()),  # type:ignore
+                "redis_log": ray.get(
+                    self.messager.get_log_list.remote()  # type:ignore
+                ),
                 "simulator_log": simulator_log,
                 "agent_time_log": agent_time_log,
             }

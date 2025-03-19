@@ -39,6 +39,10 @@
   - ```{autodoc2-docstring} agentsociety.cityagent.blocks.needs_block.EVALUATION_PROMPT
     :summary:
     ```
+* - {py:obj}`REFLECT_PROMPT <agentsociety.cityagent.blocks.needs_block.REFLECT_PROMPT>`
+  - ```{autodoc2-docstring} agentsociety.cityagent.blocks.needs_block.REFLECT_PROMPT
+    :summary:
+    ```
 ````
 
 ### API
@@ -71,6 +75,15 @@
 
 ````
 
+````{py:data} REFLECT_PROMPT
+:canonical: agentsociety.cityagent.blocks.needs_block.REFLECT_PROMPT
+:value: <Multiline-String>
+
+```{autodoc2-docstring} agentsociety.cityagent.blocks.needs_block.REFLECT_PROMPT
+```
+
+````
+
 `````{py:class} NeedsBlock(llm: agentsociety.llm.LLM, memory: agentsociety.memory.Memory, simulator: agentsociety.Simulator)
 :canonical: agentsociety.cityagent.blocks.needs_block.NeedsBlock
 
@@ -90,6 +103,15 @@ Bases: {py:obj}`agentsociety.workflow.Block`
 :async:
 
 ```{autodoc2-docstring} agentsociety.cityagent.blocks.needs_block.NeedsBlock.initialize
+```
+
+````
+
+````{py:method} reflect_to_intervention(intervention: str)
+:canonical: agentsociety.cityagent.blocks.needs_block.NeedsBlock.reflect_to_intervention
+:async:
+
+```{autodoc2-docstring} agentsociety.cityagent.blocks.needs_block.NeedsBlock.reflect_to_intervention
 ```
 
 ````

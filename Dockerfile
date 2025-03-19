@@ -1,24 +1,18 @@
+# Stage 1: Compile the frontend code
 FROM registry.fiblab.net/general/dev:latest as builder
 
-WORKDIR /build
-COPY . /build
-ENV PIP_NO_CACHE_DIR=1
+WORKDIR /app
+COPY . .
 
-RUN chmod +x ./scripts/gen_docs.sh \
-    && pip3 install --upgrade pip \
-    && pip3 install pdoc \
-    && ./scripts/gen_docs.sh
+RUN npm config set registry https://registry.npmmirror.com
+RUN ./rebuild_frontend.sh
 
-FROM node:18-alpine
-ENV NODE_ENV=production
-WORKDIR /home/node/app
+# Stage 2: Copy the compiled frontend code to the python image
+FROM python:3.12-slim
 
-# Install serve
-RUN yarn global add serve
-
-# Copy build files
-COPY --from=builder /build/docs ./build
-
-EXPOSE 80
-
-CMD serve build -p 80
+WORKDIR /app
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 -y
+RUN pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
+COPY --from=builder /app /app
+RUN pip install . --no-cache-dir \
+    && rm -rf /app

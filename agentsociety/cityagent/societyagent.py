@@ -1,8 +1,9 @@
 import asyncio
 import json
 import logging
+import random
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from agentsociety import CitizenAgent, Simulator
 from agentsociety.agent import Agent
@@ -12,8 +13,15 @@ from agentsociety.memory import Memory
 from agentsociety.tools import UpdateWithSimulator
 from agentsociety.workflow import Block
 
-from .blocks import (CognitionBlock, EconomyBlock, MobilityBlock, NeedsBlock,
-                     OtherBlock, PlanBlock, SocialBlock)
+from .blocks import (
+    CognitionBlock,
+    EconomyBlock,
+    MobilityBlock,
+    NeedsBlock,
+    OtherBlock,
+    PlanBlock,
+    SocialBlock,
+)
 from .blocks.economy_block import MonthPlanBlock
 
 logger = logging.getLogger("agentsociety")
@@ -73,19 +81,28 @@ class PlanAndActionBlock(Block):
 
     async def plan_generation(self):
         """Generate a new plan if no current plan exists in memory."""
+        cognition = None
         current_plan = await self.memory.status.get("current_plan")
-        if current_plan is None:
-            await self.planBlock.forward()  # Delegate to PlanBlock for plan creation
+        if current_plan is None or not current_plan:
+            cognition = (
+                await self.planBlock.forward()
+            )  # Delegate to PlanBlock for plan creation
+        return cognition
 
     async def step_execution(self):
         """Execute the current step in the active plan based on step type."""
         current_plan = await self.memory.status.get("current_plan")
-        if current_plan is None:
-            return
+        if (
+            current_plan is None
+            or not current_plan
+            or len(current_plan.get("steps", [])) == 0
+        ):
+            return  # No plan, no execution
+        step_index = current_plan.get("index", 0)
         execution_context = await self.memory.status.get("execution_context")
-        current_step = await self.memory.status.get("current_step")
+        current_step = current_plan.get("steps", [])[step_index]
         # check current_step is valid (not empty)
-        if current_step and current_step.get("type") and current_step.get("intention"):
+        if current_step:
             step_type = current_step.get("type")
             position = await self.memory.status.get("position")
             if "aoi_position" in position:
@@ -130,21 +147,18 @@ class PlanAndActionBlock(Block):
                     }
             elif step_type == "other":
                 result = await self.otherBlock.forward(current_step, execution_context)
+            else:
+                result = {
+                    "success": True,
+                    "evaluation": f"Finished {current_step['intention']}",
+                    "consumed_time": random.randint(1, 10),
+                    "node_id": None,
+                }
             if result != None:
                 current_step["evaluation"] = result
 
             # Update current_step, plan, and execution_context information
-            current_step_index = next(
-                (
-                    i
-                    for i, step in enumerate(current_plan["steps"])
-                    if step["intention"] == current_step["intention"]
-                    and step["type"] == current_step["type"]
-                ),
-                None,
-            )
-            current_plan["steps"][current_step_index] = current_step
-            await self.memory.status.update("current_step", current_step)
+            current_plan["steps"][step_index] = current_step
             await self.memory.status.update("current_plan", current_plan)
             await self.memory.status.update("execution_context", execution_context)
 
@@ -153,10 +167,14 @@ class PlanAndActionBlock(Block):
         await self.monthPlanBlock.forward()
 
         # update needs
-        await self.needsBlock.forward()
+        cognition = await self.needsBlock.forward()
+        if cognition:
+            await self._agent.save_agent_thought(cognition)
 
         # plan generation
-        await self.plan_generation()
+        cognition = await self.plan_generation()
+        if cognition:
+            await self._agent.save_agent_thought(cognition)
 
         # step execution
         await self.step_execution()
@@ -270,55 +288,81 @@ class SocietyAgent(CitizenAgent):
         status = await self.memory.status.get("status")
         if status == 2:
             # Agent is moving
-            await asyncio.sleep(1)
             return False
 
         # Get the previous step information
-        current_step = await self.memory.status.get("current_step")
-        if current_step["intention"] == "":
-            # No previous step, return directly
+        current_plan = await self.memory.status.get("current_plan")
+        # If there is no current plan, return True
+        if current_plan is None or not current_plan:
             return True
+        step_index = current_plan.get("index", 0)
+        current_step = current_plan.get("steps", [])[step_index]
         time_now = int(await self.simulator.get_time())
         step_start_time = current_step["start_time"]
         step_consumed_time = current_step["evaluation"]["consumed_time"]
-        time_end_plan = step_start_time + int(step_consumed_time) * 60
+        try:
+            time_end_plan = step_start_time + int(step_consumed_time) * 60
+        except Exception as e:
+            logger.warning(f"Error in check_and_update_step: {str(e)}")
+            time_end_plan = time_now
         if time_now >= time_end_plan:
             # The previous step has been completed
-            current_plan = await self.memory.status.get("current_plan")
             current_step["evaluation"]["consumed_time"] = (
                 time_now - step_start_time
             ) / 60
             current_plan["stream_nodes"].append(current_step["evaluation"]["node_id"])
             if current_step["evaluation"]["success"]:
-                # Last step is completed
-                current_step_index = next(
-                    (
-                        i
-                        for i, step in enumerate(current_plan["steps"])
-                        if step["intention"] == current_step["intention"]
-                        and step["type"] == current_step["type"]
-                    ),
-                    None,
-                )
-                current_plan["steps"][current_step_index] = current_step
-                await self.memory.status.update("current_plan", current_plan)
-                if current_step_index is not None and current_step_index + 1 < len(
-                    current_plan["steps"]
-                ):
-                    next_step = current_plan["steps"][current_step_index + 1]
-                    await self.memory.status.update("current_step", next_step)
+                # last step is completed
+                current_plan["steps"][step_index] = current_step
+                if step_index + 1 < len(current_plan["steps"]):
+                    # Last step is completed
+                    current_plan["index"] = step_index + 1
+                    await self.memory.status.update("current_plan", current_plan)
                 else:
                     # Whole plan is completed
                     current_plan["completed"] = True
                     current_plan["end_time"] = await self.simulator.get_time(
                         format_time=True
                     )
+                    related_memories = None
                     if self.enable_cognition:
+                        try:
+                            # Update emotion for the plan
+                            related_memories = await self.memory.stream.get_by_ids(
+                                current_plan["stream_nodes"]
+                            )
+                            incident = f"You have successfully completed the plan: {related_memories}"
+                            conclusion = (
+                                await self.mindBlock.cognitionBlock.emotion_update(
+                                    incident
+                                )
+                            )
+                            await self.save_agent_thought(conclusion)
+                            await self.memory.stream.add_cognition_to_memory(
+                                current_plan["stream_nodes"], conclusion  # type:ignore
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"Error in check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}"
+                            )
+                    await self.memory.status.update("current_plan", current_plan)
+                return True
+            else:
+                # last step is failed
+                current_plan["failed"] = True
+                current_plan["end_time"] = await self.simulator.get_time(
+                    format_time=True
+                )
+                if self.enable_cognition:
+                    related_memories = None
+                    try:
                         # Update emotion for the plan
                         related_memories = await self.memory.stream.get_by_ids(
                             current_plan["stream_nodes"]
                         )
-                        incident = f"You have successfully completed the plan: {related_memories}"
+                        incident = (
+                            f"You have failed to complete the plan: {related_memories}"
+                        )
                         conclusion = await self.mindBlock.cognitionBlock.emotion_update(
                             incident
                         )
@@ -326,35 +370,12 @@ class SocietyAgent(CitizenAgent):
                         await self.memory.stream.add_cognition_to_memory(
                             current_plan["stream_nodes"], conclusion  # type:ignore
                         )
-                    await self.memory.status.update("current_plan", current_plan)
-                    await self.memory.status.update(
-                        "current_step", {"intention": "", "type": ""}
-                    )
-                return True
-            else:
-                current_plan["failed"] = True
-                current_plan["end_time"] = await self.simulator.get_time(
-                    format_time=True
-                )
-                if self.enable_cognition:
-                    # Update emotion for the plan
-                    related_memories = await self.memory.stream.get_by_ids(
-                        current_plan["stream_nodes"]
-                    )
-                    incident = (
-                        f"You have failed to complete the plan: {related_memories}"
-                    )
-                    conclusion = await self.mindBlock.cognitionBlock.emotion_update(
-                        incident
-                    )
-                    await self.save_agent_thought(conclusion)
-                    await self.memory.stream.add_cognition_to_memory(
-                        current_plan["stream_nodes"], conclusion  # type:ignore
-                    )
+                    except Exception as e:
+                        logger.warning(
+                            f"Error in check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}"
+                        )
                 await self.memory.status.update("current_plan", current_plan)
-                await self.memory.status.update(
-                    "current_step", {"intention": "", "type": ""}
-                )
+                return True
         # The previous step has not been completed
         return False
 
@@ -382,11 +403,11 @@ class SocietyAgent(CitizenAgent):
                 if not content:
                     return ""
 
-                # add to memory
+                # add social memory
                 description = f"You received a social message: {content}"
                 await self.memory.stream.add_social(description=description)
                 if self.enable_cognition:
-                    # update emotions
+                    # update emotion
                     await self.mindBlock.cognitionBlock.emotion_update(description)
 
                 # Get chat histories and ensure proper format
@@ -428,19 +449,22 @@ class SocietyAgent(CitizenAgent):
         2. Would it be natural for someone with my personality to respond?
         3. Is our relationship close enough to warrant a response?
 
-        Answer only YES or NO."""
+        Answer only YES or NO, in JSON format, e.g. {{"should_respond": "YES"}}"""
 
                 should_respond = await self._llm_client.atext_request(  # type:ignore
-                    [
+                    dialog=[
                         {
                             "role": "system",
                             "content": "You are helping decide whether to respond to a message.",
                         },
                         {"role": "user", "content": should_respond_prompt},
-                    ]
+                    ],
+                    response_format={"type": "json_object"},
                 )
-
-                if should_respond.strip().upper() != "YES":  # type:ignore
+                should_respond = json.loads(should_respond)[  # type:ignore
+                    "should_respond"
+                ]
+                if should_respond == "NO":
                     return ""
 
                 response_prompt = f"""Based on:
@@ -506,3 +530,16 @@ class SocietyAgent(CitizenAgent):
             )
             if self.enable_cognition:
                 await self.mindBlock.cognitionBlock.emotion_update(description)
+
+    async def react_to_intervention(self, intervention_message: str):
+        """React to an intervention"""
+        # cognition
+        conclusion = await self.mindBlock.cognitionBlock.emotion_update(
+            intervention_message
+        )
+        await self.save_agent_thought(conclusion)
+        await self.memory.stream.add_cognition(description=conclusion)
+        # needs
+        await self.planAndActionBlock.needsBlock.reflect_to_intervention(
+            intervention_message
+        )

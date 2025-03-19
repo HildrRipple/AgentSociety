@@ -93,8 +93,8 @@ class Simulator:
         - 模拟器配置
         - simulator config
         """
-        _map_pb_path = sim_config.prop_map_request.file_path
-        config = sim_config.prop_simulator_request
+        _map_pb_path = sim_config.prop_map_config.file_path
+        config = sim_config.prop_simulator_config
         if not sim_config.prop_status.simulator_activated:
             self._sim_env = sim_env = ControlSimEnv(
                 task_name=config.task_name,

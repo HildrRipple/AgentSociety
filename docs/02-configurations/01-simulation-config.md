@@ -1,6 +1,6 @@
 # Simulation Config
 
-`SimConfig` class centralizes runtime configurations for agent-based simulations. It supports multi-modal integrations including LLM services, distributed MQTT communication, map data, and metric tracking.
+`SimConfig` class centralizes runtime configurations for agent-based simulations. It supports multi-modal integrations including LLM services, distributed Redis communication, map data, and metric tracking.
 
 ## LLM Control
 
@@ -104,21 +104,21 @@
             example=True
         )
     ```
-- MQTT Communication (`MQTTConfig`)
-    Configures message broker for distributed simulations. 
+- Redis Communication (`RedisConfig`)
+    Configures message server for distributed simulations. 
     **Required** for agents communication.
 
     ```python
-    class MQTTConfig(BaseModel):
-        server: str = Field(  # Broker host
+    class RedisConfig(BaseModel):
+        server: str = Field(  # server host
             ...,
-            example="mqtt.eclipseprojects.io"
+            example="redis.eclipseprojects.io"
         )
         port: int = Field(  # Connection port
             ...,
             ge=1, 
             le=65535,
-            example=1883
+            example=6379
         )
         username: Optional[str] = Field(  # Auth credentials
             None,
@@ -172,10 +172,10 @@ config = (
         steps_per_simulation_day=3600,  # 1 hour
         primary_node_ip="10.0.1.5"
     )
-    # Configure distributed MQTT
-    .SetMQTT(
-        server="MQTT-BROKER", 
-        port=1883,
+    # Configure distributed Redis
+    .SetRedis(
+        server="REDIS-SERVER", 
+        port=6379,
         username="USER-NAME",
         password="USER-NAME"
     )

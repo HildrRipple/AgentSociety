@@ -17,7 +17,7 @@
 
 * - {py:obj}`LLMRequestConfig <agentsociety.configs.sim_config.LLMRequestConfig>`
   -
-* - {py:obj}`MQTTConfig <agentsociety.configs.sim_config.MQTTConfig>`
+* - {py:obj}`RedisConfig <agentsociety.configs.sim_config.RedisConfig>`
   -
 * - {py:obj}`SimulatorRequestConfig <agentsociety.configs.sim_config.SimulatorRequestConfig>`
   -
@@ -77,6 +77,17 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
+````{py:attribute} base_url
+:canonical: agentsociety.configs.sim_config.LLMRequestConfig.base_url
+:type: typing.Optional[str]
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} agentsociety.configs.sim_config.LLMRequestConfig.base_url
+```
+
+````
+
 ````{py:attribute} api_key
 :canonical: agentsociety.configs.sim_config.LLMRequestConfig.api_key
 :type: typing.Union[list[str], str]
@@ -101,51 +112,51 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 `````
 
-`````{py:class} MQTTConfig(/, **data: typing.Any)
-:canonical: agentsociety.configs.sim_config.MQTTConfig
+`````{py:class} RedisConfig(/, **data: typing.Any)
+:canonical: agentsociety.configs.sim_config.RedisConfig
 
 Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} server
-:canonical: agentsociety.configs.sim_config.MQTTConfig.server
+:canonical: agentsociety.configs.sim_config.RedisConfig.server
 :type: str
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.MQTTConfig.server
+```{autodoc2-docstring} agentsociety.configs.sim_config.RedisConfig.server
 ```
 
 ````
 
 ````{py:attribute} port
-:canonical: agentsociety.configs.sim_config.MQTTConfig.port
+:canonical: agentsociety.configs.sim_config.RedisConfig.port
 :type: int
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.MQTTConfig.port
+```{autodoc2-docstring} agentsociety.configs.sim_config.RedisConfig.port
 ```
 
 ````
 
 ````{py:attribute} password
-:canonical: agentsociety.configs.sim_config.MQTTConfig.password
+:canonical: agentsociety.configs.sim_config.RedisConfig.password
 :type: typing.Optional[str]
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.MQTTConfig.password
+```{autodoc2-docstring} agentsociety.configs.sim_config.RedisConfig.password
 ```
 
 ````
 
 ````{py:attribute} username
-:canonical: agentsociety.configs.sim_config.MQTTConfig.username
+:canonical: agentsociety.configs.sim_config.RedisConfig.username
 :type: typing.Optional[str]
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.MQTTConfig.username
+```{autodoc2-docstring} agentsociety.configs.sim_config.RedisConfig.username
 ```
 
 ````
@@ -426,13 +437,13 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:attribute} mqtt
-:canonical: agentsociety.configs.sim_config.SimConfig.mqtt
-:type: typing.Optional[agentsociety.configs.sim_config.MQTTConfig]
+````{py:attribute} redis
+:canonical: agentsociety.configs.sim_config.SimConfig.redis
+:type: typing.Optional[agentsociety.configs.sim_config.RedisConfig]
 :value: >
    None
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.mqtt
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.redis
 ```
 
 ````
@@ -530,11 +541,11 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:property} prop_mqtt
-:canonical: agentsociety.configs.sim_config.SimConfig.prop_mqtt
-:type: agentsociety.configs.sim_config.MQTTConfig
+````{py:property} prop_redis
+:canonical: agentsociety.configs.sim_config.SimConfig.prop_redis
+:type: agentsociety.configs.sim_config.RedisConfig
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.prop_mqtt
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.prop_redis
 ```
 
 ````
@@ -584,7 +595,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} SetLLMRequest(request_type: agentsociety.utils.LLMRequestType, api_key: typing.Union[list[str], str], model: str) -> agentsociety.configs.sim_config.SimConfig
+````{py:method} SetLLMRequest(request_type: agentsociety.utils.LLMRequestType, api_key: typing.Union[list[str], str], model: str, base_url: typing.Optional[str] = None) -> agentsociety.configs.sim_config.SimConfig
 :canonical: agentsociety.configs.sim_config.SimConfig.SetLLMRequest
 
 ```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetLLMRequest
@@ -600,10 +611,10 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} SetMQTT(server: str, port: int, username: typing.Optional[str] = None, password: typing.Optional[str] = None) -> agentsociety.configs.sim_config.SimConfig
-:canonical: agentsociety.configs.sim_config.SimConfig.SetMQTT
+````{py:method} SetRedis(server: str, port: int, username: typing.Optional[str] = None, password: typing.Optional[str] = None) -> agentsociety.configs.sim_config.SimConfig
+:canonical: agentsociety.configs.sim_config.SimConfig.SetRedis
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetMQTT
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetRedis
 ```
 
 ````

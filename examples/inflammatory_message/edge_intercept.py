@@ -13,7 +13,7 @@ from agentsociety.cityagent.message_intercept import (
 )
 from agentsociety.cityagent.societyagent import SocietyAgent
 from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep
-from agentsociety.utils import LLMRequestType, WorkflowType
+from agentsociety.utils import LLMProviderType, WorkflowType
 
 logging.getLogger("agentsociety").setLevel(logging.INFO)
 
@@ -46,13 +46,13 @@ async def update_chat_histories(simulation: AgentSimulation):
 
 sim_config = (
     SimConfig()
-    .SetLLMRequest(
-        request_type=LLMRequestType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
+    .SetLLMConfig(
+        provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
-    .SetSimulatorRequest()
-    .SetMQTT(server="mqtt.example.com", username="user", port=1883, password="pass")
+    .SetSimulatorConfig()
+    .SetRedis(server="redis.example.com", port=6379, password="pass")
     # change to your file path
-    .SetMapRequest(file_path="map.pb")
+    .SetMapConfig(file_path="map.pb")
     # .SetAvro(path='./__avro', enabled=True)
 )
 exp_config = (
@@ -84,17 +84,7 @@ exp_config = (
 
 
 async def main():
-    llm_log_lists, mqtt_log_lists, simulator_log_lists, agent_time_log_lists = (
-        await AgentSimulation.run_from_config(exp_config, sim_config)
-    )
-    with open(f"social_edge_llm_log_lists.json", "w", encoding="utf-8") as f:
-        json.dump(llm_log_lists, f, ensure_ascii=False, indent=2)
-    with open(f"social_edge_mqtt_log_lists.json", "w", encoding="utf-8") as f:
-        json.dump(mqtt_log_lists, f, ensure_ascii=False, indent=2)
-    with open(f"social_edge_simulator_log_lists.json", "w", encoding="utf-8") as f:
-        json.dump(simulator_log_lists, f, ensure_ascii=False, indent=2)
-    with open(f"social_edge_agent_time_log_lists.json", "w", encoding="utf-8") as f:
-        json.dump(agent_time_log_lists, f, ensure_ascii=False, indent=2)
+    await AgentSimulation.run_from_config(exp_config, sim_config)
     ray.shutdown()
 
 

@@ -42,7 +42,7 @@
 :canonical: agentsociety.utils.pg_query.TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
 :type: list[tuple[str, typing.Any]]
 :value: >
-   [('id', None), ('name',), ('num_day',), ('status',), ('cur_day',), ('cur_t',), ('config',), ('error'...
+   [('tenant_id',), ('id', None), ('name',), ('num_day',), ('status',), ('cur_day',), ('cur_t',), ('con...
 
 ```{autodoc2-docstring} agentsociety.utils.pg_query.TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
 ```

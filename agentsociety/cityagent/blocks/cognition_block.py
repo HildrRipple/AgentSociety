@@ -325,8 +325,8 @@ class CognitionBlock(Block):
         My current emotion intensities are (0 meaning not at all, 10 meaning very much):
         sadness: {sadness}, joy: {joy}, fear: {fear}, disgust: {disgust}, anger: {anger}, surprise: {surprise}.
         You have the following thoughts: {thought}.
-        In the following 21 words, I have chosen {emotion_types} to represent your current status:
-        Joy, Distress, Resentment, Pity, Hope, Fear, Satisfaction, Relief, Disappointment, Pride, Admiration, Shame, Reproach, Liking, Disliking, Gratitude, Anger, Gratification, Remorse, Love, Hate.
+        In the following 21 words, choose one word to represent your current status:
+        [Joy, Distress, Resentment, Pity, Hope, Fear, Satisfaction, Relief, Disappointment, Pride, Admiration, Shame, Reproach, Liking, Disliking, Gratitude, Anger, Gratification, Remorse, Love, Hate].
         """
 
         incident_prompt = f"{incident}"  # waiting for incident port

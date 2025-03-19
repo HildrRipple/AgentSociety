@@ -96,7 +96,7 @@ class Survey:
 
     def to_json(self) -> str:
         """
-        Serialize the survey instance to a JSON string for MQTT transmission.
+        Serialize the survey instance to a JSON string for Redis transmission.
 
         - **Description**:
             - Converts the survey into a JSON string that includes all necessary information for reconstructing the survey object on another system.

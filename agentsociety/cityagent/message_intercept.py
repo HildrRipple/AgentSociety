@@ -5,7 +5,7 @@ from agentsociety.message import MessageBlockBase, MessageBlockListenerBase
 
 
 async def check_message(
-    from_id: str, to_id: str, llm_client: LLM, content: str
+    from_id: int, to_id: int, llm_client: LLM, content: str
 ) -> bool:
     print(f"\n Checking Message: {from_id} -> {to_id}: {content}")
     is_valid = True

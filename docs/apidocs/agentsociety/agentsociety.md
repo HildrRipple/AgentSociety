@@ -16,6 +16,7 @@
 agentsociety.agent
 agentsociety.environment
 agentsociety.tools
+agentsociety.webapi
 agentsociety.configs
 agentsociety.workflow
 agentsociety.memory

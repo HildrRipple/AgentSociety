@@ -16,9 +16,9 @@ logger = logging.getLogger("pg")
 def create_pg_tables(exp_id: str, dsn: str):
     for table_type, exec_strs in PGSQL_DICT.items():
         if not table_type == "experiment":
-            table_name = f"socialcity_{exp_id.replace('-', '_')}_{table_type}"
+            table_name = f"as_{exp_id.replace('-', '_')}_{table_type}"
         else:
-            table_name = f"socialcity_{table_type}"
+            table_name = f"as_{table_type}"
         # # debug str
         # for _str in [f"DROP TABLE IF EXISTS {table_name}"] + [
         #     _exec_str.format(table_name=table_name) for _exec_str in exec_strs
@@ -50,8 +50,8 @@ class PgWriter:
 
     @lock_decorator
     async def async_write_dialog(self, rows: list[tuple]):
-        _tuple_types = [str, int, float, int, str, str, str, None]
-        table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_dialog"
+        _tuple_types = [int, int, float, int, str, str, str, None]
+        table_name = f"as_{self.exp_id.replace('-', '_')}_agent_dialog"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
                 "COPY {} (id, day, t, type, speaker, content, created_at) FROM STDIN"
@@ -70,8 +70,8 @@ class PgWriter:
 
     @lock_decorator
     async def async_write_status(self, rows: list[tuple]):
-        _tuple_types = [str, int, float, float, float, int, list, str, str, None]
-        table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_status"
+        _tuple_types = [int, int, float, float, float, int, list, str, str, None]
+        table_name = f"as_{self.exp_id.replace('-', '_')}_agent_status"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
                 "COPY {} (id, day, t, lng, lat, parent_id, friend_ids, action, status, created_at) FROM STDIN"
@@ -90,8 +90,8 @@ class PgWriter:
 
     @lock_decorator
     async def async_write_profile(self, rows: list[tuple]):
-        _tuple_types = [str, str, str]
-        table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_profile"
+        _tuple_types = [int, str, str]
+        table_name = f"as_{self.exp_id.replace('-', '_')}_agent_profile"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL("COPY {} (id, name, profile) FROM STDIN").format(
                 psycopg.sql.Identifier(table_name)
@@ -110,8 +110,8 @@ class PgWriter:
 
     @lock_decorator
     async def async_write_survey(self, rows: list[tuple]):
-        _tuple_types = [str, int, float, str, str, None]
-        table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_survey"
+        _tuple_types = [str, int, int, float, str, str, None]
+        table_name = f"as_{self.exp_id.replace('-', '_')}_agent_survey"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
                 "COPY {} (id, day, t, survey_id, result, created_at) FROM STDIN"
@@ -129,9 +129,27 @@ class PgWriter:
             logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
+    async def async_save_global_prompt(self, prompt_info: dict[str, Any]):
+        table_name = f"as_{self.exp_id.replace('-', '_')}_global_prompt"
+        async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
+            async with aconn.cursor() as cur:
+                copy_sql = psycopg.sql.SQL(
+                    "COPY {} (day, t, prompt, created_at) FROM STDIN"
+                ).format(psycopg.sql.Identifier(table_name))
+                row = (
+                    prompt_info["day"],
+                    prompt_info["t"],
+                    prompt_info["prompt"],
+                    prompt_info["created_at"],
+                )
+                async with cur.copy(copy_sql) as copy:
+                    await copy.write_row(row)
+                logger.debug(f"table:{table_name} sql: {copy_sql} values: {row}")
+
+    @lock_decorator
     async def async_update_exp_info(self, exp_info: dict[str, Any]):
         # timestamp不做类型转换
-        table_name = f"socialcity_experiment"
+        table_name = f"as_experiment"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             async with aconn.cursor(row_factory=dict_row) as cur:
                 exec_str = "SELECT * FROM {table_name} WHERE id=%s".format(

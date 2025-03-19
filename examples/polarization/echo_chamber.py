@@ -11,7 +11,7 @@ from agentsociety import AgentSimulation
 from agentsociety.cityagent import memory_config_societyagent
 from agentsociety.cityagent.societyagent import SocietyAgent
 from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep
-from agentsociety.utils import LLMRequestType, WorkflowType
+from agentsociety.utils import LLMProviderType, WorkflowType
 
 logging.getLogger("agentsociety").setLevel(logging.INFO)
 
@@ -61,13 +61,13 @@ async def gather_attitude(simulation: AgentSimulation):
 
 sim_config = (
     SimConfig()
-    .SetLLMRequest(
-        request_type=LLMRequestType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
+    .SetLLMConfig(
+        provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
-    .SetSimulatorRequest()
-    .SetMQTT(server="mqtt.example.com", username="user", port=1883, password="pass")
+    .SetSimulatorConfig()
+    .SetRedis(server="redis.example.com", port=6379, password="pass")
     # change to your file path
-    .SetMapRequest(file_path="map.pb")
+    .SetMapConfig(file_path="map.pb")
 )
 exp_config = (
     ExpConfig(exp_name="cognition_exp2", llm_semaphore=200, logging_level=logging.INFO)
@@ -75,6 +75,8 @@ exp_config = (
         number_of_citizen=100,
         group_size=50,
         extra_agent_class={DisagreeAgent: 1, AgreeAgent: 1},
+    )
+    .SetMemoryConfig(
         memory_config_func={
             DisagreeAgent: memory_config_societyagent,
             AgreeAgent: memory_config_societyagent,

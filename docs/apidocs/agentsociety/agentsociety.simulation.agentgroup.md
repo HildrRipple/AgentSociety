@@ -59,7 +59,7 @@
 
 ````
 
-`````{py:class} AgentGroup(agent_class: typing.Union[type[agentsociety.agent.Agent], list[type[agentsociety.agent.Agent]]], number_of_agents: typing.Union[int, list[int]], memory_config_function_group: dict[type[agentsociety.agent.Agent], collections.abc.Callable], config: agentsociety.configs.SimConfig, map_ref: ray.ObjectRef, exp_name: str, exp_id: typing.Union[str, uuid.UUID], enable_avro: bool, avro_path: pathlib.Path, enable_pgsql: bool, pgsql_writer: ray.ObjectRef, message_interceptor: ray.ObjectRef, mlflow_run_id: str, embedding_model: langchain_core.embeddings.Embeddings, logging_level: int, agent_config_file: typing.Optional[dict[type[agentsociety.agent.Agent], typing.Any]] = None, llm_semaphore: int = 200, environment: typing.Optional[dict] = None)
+`````{py:class} AgentGroup(agent_class: typing.Union[type[agentsociety.agent.Agent], list[type[agentsociety.agent.Agent]]], number_of_agents: typing.Union[int, list[int]], memory_values_dict: dict[type[agentsociety.agent.Agent], list[dict]], config: agentsociety.configs.SimConfig, map_ref: ray.ObjectRef, exp_name: str, exp_id: typing.Union[str, uuid.UUID], tenant_id: str, enable_avro: bool, avro_path: pathlib.Path, enable_pgsql: bool, pgsql_writer: ray.ObjectRef, message_interceptor: ray.ObjectRef, mlflow_run_id: str, embedding_model: langchain_core.embeddings.Embeddings, logging_level: int, agent_config_file: typing.Optional[dict[type[agentsociety.agent.Agent], typing.Any]] = None, llm_semaphore: int = 200, environment: typing.Optional[dict] = None)
 :canonical: agentsociety.simulation.agentgroup.AgentGroup
 
 ```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup
@@ -79,10 +79,10 @@
 
 ````
 
-````{py:property} agent_uuids
-:canonical: agentsociety.simulation.agentgroup.AgentGroup.agent_uuids
+````{py:property} agent_ids
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.agent_ids
 
-```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.agent_uuids
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.agent_ids
 ```
 
 ````
@@ -121,10 +121,10 @@
 
 ````
 
-````{py:method} get_agent_uuids()
-:canonical: agentsociety.simulation.agentgroup.AgentGroup.get_agent_uuids
+````{py:method} get_agent_ids()
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.get_agent_ids
 
-```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.get_agent_uuids
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.get_agent_ids
 ```
 
 ````
@@ -173,7 +173,7 @@
 
 ````
 
-````{py:method} gather(content: str, target_agent_uuids: typing.Optional[list[str]] = None)
+````{py:method} gather(content: str, target_agent_ids: typing.Optional[list[int]] = None)
 :canonical: agentsociety.simulation.agentgroup.AgentGroup.gather
 :async:
 
@@ -182,7 +182,7 @@
 
 ````
 
-````{py:method} update(target_agent_uuid: str, target_key: str, content: typing.Any)
+````{py:method} update(target_agent_id: int, target_key: str, content: typing.Any)
 :canonical: agentsociety.simulation.agentgroup.AgentGroup.update
 :async:
 
@@ -213,6 +213,33 @@
 :canonical: agentsociety.simulation.agentgroup.AgentGroup.get_llm_consumption
 
 ```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.get_llm_consumption
+```
+
+````
+
+````{py:method} get_llm_error_statistics()
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.get_llm_error_statistics
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.get_llm_error_statistics
+```
+
+````
+
+````{py:method} react_to_intervention(intervention_message: str, agent_ids: list[int])
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.react_to_intervention
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.react_to_intervention
+```
+
+````
+
+````{py:method} update_environment(key: str, value: typing.Any)
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.update_environment
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.update_environment
 ```
 
 ````

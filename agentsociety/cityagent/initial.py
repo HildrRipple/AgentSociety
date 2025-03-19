@@ -3,8 +3,13 @@ import random
 
 import numpy as np
 
-from agentsociety.cityagent import (BankAgent, FirmAgent, GovernmentAgent,
-                                    NBSAgent, SocietyAgent)
+from agentsociety.cityagent import (
+    BankAgent,
+    FirmAgent,
+    GovernmentAgent,
+    NBSAgent,
+    SocietyAgent,
+)
 
 logger = logging.getLogger("agentsociety")
 

@@ -19,12 +19,14 @@ from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
 from ..cityagent.initial import bind_agent_info, initialize_social_network
 from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
                                        memory_config_government,
-                                       memory_config_init, memory_config_nbs,
-                                       memory_config_societyagent)
+                                       memory_config_load_file,
+                                       memory_config_merge, memory_config_nbs,
+                                       memory_config_societyagent,
+                                       set_distribution)
 from ..cityagent.message_intercept import (EdgeMessageBlock,
                                            MessageBlockListener,
                                            PointMessageBlock)
-from ..configs import ExpConfig, SimConfig
+from ..configs import ExpConfig, MemoryConfig, MetricExtractor, SimConfig
 from ..environment import EconomyClient, Simulator
 from ..llm import SimpleEmbedding
 from ..message import (MessageBlockBase, MessageBlockListenerBase,
@@ -33,7 +35,7 @@ from ..metrics import init_mlflow_connection
 from ..metrics.mlflow_client import MlflowClient
 from ..survey import Survey
 from ..utils import (SURVEY_SENDER_UUID, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES,
-                      WorkflowType)
+                     MetricType, WorkflowType)
 from .agentgroup import AgentGroup
 from .storage.pg import PgWriter, create_pg_tables
 
@@ -64,7 +66,8 @@ class AgentSimulation:
         config: SimConfig,
         agent_class: Union[None, type[Agent], list[type[Agent]]] = None,
         agent_class_configs: Optional[dict] = None,
-        metric_extractors: Optional[list[tuple[int, Callable]]] = None,
+        metric_extractors: Optional[list[MetricExtractor]] = None,
+        tenant_id: str = "",
         agent_prefix: str = "agent_",
         exp_name: str = "default_experiment",
         logging_level: int = logging.WARNING,
@@ -81,8 +84,9 @@ class AgentSimulation:
             - `agent_class` (Union[None, Type[Agent], List[Type[Agent]]], optional):
                 Either a single agent class or a list of agent classes to instantiate. Defaults to None, which implies a default set of agents.
             - `agent_class_configs` (Optional[dict], optional): An optional configuration dict used to initialize agents. Defaults to None.
-            - `metric_extractors` (Optional[List[Tuple[int, Callable]]], optional):
-                A list of tuples containing intervals and callables for extracting metrics from the simulation. Defaults to None.
+            - `metric_extractors` (Optional[List[MetricExtractor]], optional):
+                A list of MetricExtractor for extracting metrics from the simulation. Defaults to None.
+            - `tenant_id` (str, optional): The tenant ID for the simulation. Defaults to "".
             - `agent_prefix` (str, optional): Prefix string for naming agents. Defaults to "agent_".
             - `exp_name` (str, optional): The name of the experiment. Defaults to "default_experiment".
             - `logging_level` (int, optional): Logging level to set for the simulation's logger. Defaults to logging.WARNING.
@@ -91,6 +95,7 @@ class AgentSimulation:
             - None
         """
         self.exp_id = str(uuid.uuid4())
+        self.tenant_id = tenant_id
         if isinstance(agent_class, list):
             self.agent_class = agent_class
         elif agent_class is None:
@@ -134,12 +139,12 @@ class AgentSimulation:
         self._simulator_day = 0
         # self._last_asyncio_pg_task = None  # hide SQL write IO to calculation task
 
-        mqtt_config = config.prop_mqtt
+        redis_config = config.prop_redis
         self._messager = Messager.remote(
-            hostname=mqtt_config.server,  # type:ignore
-            port=mqtt_config.port,
-            username=mqtt_config.username,
-            password=mqtt_config.password,
+            hostname=redis_config.server,  # type:ignore
+            port=redis_config.port,
+            db=redis_config.db,
+            password=redis_config.password,
         )
 
         # storage
@@ -160,7 +165,7 @@ class AgentSimulation:
             self._enable_avro = False
 
         # mlflow
-        metric_config = config.prop_metric_request
+        metric_config = config.prop_metric_config
         if metric_config is not None and metric_config.mlflow is not None:
             logger.info(f"-----Creating Mlflow client...")
             mlflow_run_id, _ = init_mlflow_connection(
@@ -201,6 +206,7 @@ class AgentSimulation:
         self._exp_updated_time = datetime.now(timezone.utc)
         self._exp_info = {
             "id": self.exp_id,
+            "tenant_id": self.tenant_id,
             "name": exp_name,
             "num_day": 0,  # will be updated in run method
             "status": 0,
@@ -221,38 +227,20 @@ class AgentSimulation:
 
     @classmethod
     async def run_from_config(cls, config: ExpConfig, sim_config: SimConfig):
-        """Directly run from config file
-        Basic config file should contain:
-        - simulation_config: file_path
-        - llm_semaphore: Optional[int], default is 200
-        - agent_config:
-            - agent_config_file: Optional[dict[type[Agent], str]]
-            - memory_config_init_func: Optional[Callable]
-            - memory_config_func: Optional[dict[type[Agent], Callable]]
-            - metric_extractors: Optional[list[tuple[int, Callable]]]
-            - init_func: Optional[list[Callable[AgentSimulation, None]]]
-            - group_size: Optional[int]
-            - embedding_model: Optional[EmbeddingModel]
-            - number_of_citizen: required, int
-            - number_of_firm: required, int
-            - number_of_government: required, int
-            - number_of_bank: required, int
-            - number_of_nbs: required, int
-        - environment: Optional[dict[str, str]]
-            - default: {'weather': 'The weather is normal', 'crime': 'The crime rate is low', 'pollution': 'The pollution level is low', 'temperature': 'The temperature is normal', 'day': 'Workday'}
-        - workflow:
-            - list[Step]
-            - Step:
-                - type: str, "step", "run", "interview", "survey", "intervene", "pause", "resume", "function"
-                - days: int if type is "run", else None
-                - times: int if type is "step", else None
-                - description: Optional[str], description of the step
-                - func: Optional[Callable[AgentSimulation, None]], only used when type is "interview", "survey", "intervene", "function"
-        - message_intercept
-            - mode: "point"|"edge"
-            - max_violation_time: Optional[int], default to 3. The maximum time for someone to send bad message before banned. Used only in `point` mode.
-        - logging_level: Optional[int]
-        - exp_name: Optional[str]
+        """
+        Directly run from config file
+
+        - **Args**:
+            - `config` (ExpConfig): The configuration for the experiment.
+            - `sim_config` (SimConfig): The configuration for the simulation.
+
+        - **Returns**:
+            - Tuple[list[dict], list[dict], list[dict], list[dict], dict]:
+                - llm_log_lists: list of llm log lists
+                - redis_log_lists: list of redis log lists
+                - simulator_log_lists: list of simulator log lists
+                - agent_time_log_lists: list of agent time log lists
+                - llm_error_statistics: dictionary of llm error statistics
         """
 
         agent_config = config.prop_agent_config
@@ -277,8 +265,13 @@ class AgentSimulation:
         }
         if agent_config.extra_agent_class is not None:
             agent_count.update(agent_config.extra_agent_class)
-        if agent_count.get(SocietyAgent, 0) == 0:
-            raise ValueError("number_of_citizen is required")
+        if (
+            agent_count.get(SocietyAgent, 0) == 0
+            and agent_config.extra_agent_class is None
+        ):
+            raise ValueError(
+                "if number_of_citizen is 0, extra_agent_class should be provided"
+            )
 
         # support MessageInterceptor
         if config.message_intercept is not None:
@@ -322,8 +315,7 @@ class AgentSimulation:
             agent_count=agent_count,
             group_size=agent_config.group_size,
             embedding_model=embedding_model,
-            memory_config_func=agent_config.memory_config_func,
-            memory_config_init_func=agent_config.memory_config_init_func,
+            memory_config=agent_config.prop_memory_config,
             **_message_intercept_kwargs,
             environment=environment,
             llm_semaphore=config.llm_semaphore,
@@ -353,7 +345,7 @@ class AgentSimulation:
                 init_func(simulation)
         logger.info("Starting Simulation...")
         llm_log_lists = []
-        mqtt_log_lists = []
+        redis_log_lists = []
         simulator_log_lists = []
         agent_time_log_lists = []
         for step in config.prop_workflow:
@@ -363,12 +355,15 @@ class AgentSimulation:
             if step.type not in {t.value for t in WorkflowType}:
                 raise ValueError(f"Invalid step type: {step.type}")
             if step.type == WorkflowType.RUN:
-                _days = cast(int, step.days)
-                llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list = (
-                    await simulation.run(_days)
-                )
+                _days = cast(float, step.days)
+                (
+                    llm_log_list,
+                    redis_log_list,
+                    simulator_log_list,
+                    agent_time_log_list,
+                ) = await simulation.run(_days)
                 llm_log_lists.extend(llm_log_list)
-                mqtt_log_lists.extend(mqtt_log_list)
+                redis_log_lists.extend(redis_log_list)
                 simulator_log_lists.extend(simulator_log_list)
                 agent_time_log_lists.extend(agent_time_log_list)
             elif step.type == WorkflowType.STEP:
@@ -376,21 +371,86 @@ class AgentSimulation:
                 for _ in range(times):
                     (
                         llm_log_list,
-                        mqtt_log_list,
+                        redis_log_list,
                         simulator_log_list,
                         agent_time_log_list,
                     ) = await simulation.step(
-                        simulation.config.prop_simulator_request.steps_per_simulation_step
+                        simulation.config.prop_simulator_config.steps_per_simulation_step
                     )
                     llm_log_lists.extend(llm_log_list)
-                    mqtt_log_lists.extend(mqtt_log_list)
+                    redis_log_lists.extend(redis_log_list)
                     simulator_log_lists.extend(simulator_log_list)
                     agent_time_log_lists.extend(agent_time_log_list)
+            elif step.type == WorkflowType.INTERVIEW:
+                target_agents = step.target_agent
+                interview_message = step.interview_message
+                if target_agents is None or interview_message is None:
+                    raise ValueError(
+                        "target_agent and interview_message are required for INTERVIEW step"
+                    )
+                await simulation.send_interview_message(
+                    interview_message, target_agents
+                )
+            elif step.type == WorkflowType.SURVEY:
+                target_agents = step.target_agent
+                survey = step.survey
+                if target_agents is None or survey is None:
+                    raise ValueError(
+                        "target_agent and survey are required for SURVEY step"
+                    )
+                await simulation.send_survey(survey, target_agents)
+            elif step.type == WorkflowType.ENVIRONMENT_INTERVENE:
+                key = step.key
+                value = step.value
+                if key is None or value is None:
+                    raise ValueError(
+                        "key and value are required for ENVIRONMENT_INTERVENE step"
+                    )
+                await simulation.update_environment(key, value)
+            elif step.type == WorkflowType.UPDATE_STATE_INTERVENE:
+                key = step.key
+                value = step.value
+                target_agents = step.target_agent
+                if key is None or value is None or target_agents is None:
+                    raise ValueError(
+                        "key, value and target_agent are required for UPDATE_STATE_INTERVENE step"
+                    )
+                await simulation.update(target_agents, key, value)
+            elif step.type == WorkflowType.MESSAGE_INTERVENE:
+                logger.warning(
+                    "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congition of target agents"
+                )
+                target_agents = step.target_agent
+                intervene_message = step.intervene_message
+                if target_agents is None or intervene_message is None:
+                    raise ValueError(
+                        "target_agent and intervene_message are required for MESSAGE_INTERVENE step"
+                    )
+                await simulation.send_intervention_message(
+                    intervene_message, target_agents
+                )
             else:
                 _func = cast(Callable, step.func)
                 await _func(simulation)
         logger.info("Simulation finished")
-        return llm_log_lists, mqtt_log_lists, simulator_log_lists, agent_time_log_lists
+        tasks = []
+        for group in simulation._groups.values():
+            tasks.append(group.get_llm_error_statistics.remote())
+        llm_error_statistics_groups = await asyncio.gather(*tasks)
+        llm_error_statistics = {}
+        for group in llm_error_statistics_groups:
+            for key, value in group.items():
+                if key in llm_error_statistics:
+                    llm_error_statistics[key] += value
+                else:
+                    llm_error_statistics[key] = value
+        return (
+            llm_log_lists,
+            redis_log_lists,
+            simulator_log_lists,
+            agent_time_log_lists,
+            llm_error_statistics,
+        )
 
     @property
     def enable_avro(
@@ -464,6 +524,18 @@ class AgentSimulation:
         self._exp_info["updated_at"] = self._exp_updated_time.isoformat()
         await self._save_exp_info()
 
+    async def _save_global_prompt(self, prompt: str, day: int, t: float) -> None:
+        """Save global prompt"""
+        if self.enable_pgsql:
+            worker: ray.ObjectRef = self._pgsql_writers[0]  # type:ignore
+            prompt_info = {
+                "day": day,
+                "t": t,
+                "prompt": prompt,
+                "created_at": datetime.now(timezone.utc),
+            }
+            await worker.async_save_global_prompt.remote(prompt_info)  # type:ignore
+
     async def _monitor_exp_status(self, stop_event: asyncio.Event):
         """Monitor experiment status and update
 
@@ -511,8 +583,7 @@ class AgentSimulation:
         social_black_list: Optional[list[tuple[str, str]]] = None,
         message_listener: Optional[MessageBlockListenerBase] = None,
         embedding_model: Embeddings = SimpleEmbedding(),
-        memory_config_init_func: Optional[Callable] = None,
-        memory_config_func: Optional[dict[type[Agent], Callable]] = None,
+        memory_config: Optional[MemoryConfig] = None,
         environment: dict[str, str] = {},
         llm_semaphore: int = 200,
     ) -> None:
@@ -533,8 +604,7 @@ class AgentSimulation:
             - `social_black_list` (Optional[List[Tuple[str, str]]], optional): List of tuples representing pairs of agents that should not communicate. Defaults to None.
             - `message_listener` (Optional[MessageBlockListenerBase], optional): Listener for intercepted messages. Defaults to None.
             - `embedding_model` (Embeddings, optional): Model used for generating embeddings for agents' memories. Defaults to SimpleEmbedding().
-            - `memory_config_init_func` (Optional[Callable], optional): Initialization function for setting up memory configuration. Defaults to None.
-            - `memory_config_func` (Optional[Dict[Type[Agent], Callable]], optional): Dictionary mapping agent classes to their memory configuration functions. Defaults to None.
+            - `memory_config` (Optional[MemoryConfig], optional): Memory configuration for agents. Defaults to None.
             - `environment` (Optional[Dict[str, str]], optional): Environment variables to update in the simulation. Defaults to None.
 
         - **Raises**:
@@ -546,11 +616,28 @@ class AgentSimulation:
         self.agent_count = agent_count
         if len(self.agent_class) != len(agent_count):
             raise ValueError("The length of agent_class and agent_count does not match")
+        assert memory_config is not None
+        memory_config_func = memory_config.memory_config_func
+        memory_from_file = memory_config.memory_from_file
+        memory_distributions = memory_config.memory_distributions
 
-        if memory_config_init_func is not None:
-            await memory_config_init(self)
         if memory_config_func is None:
             memory_config_func = self.default_memory_config_func  # type:ignore
+
+        # load memory data from file
+        memory_data_from_file = {}
+        if memory_from_file is not None:
+            for agent_class, file_path in memory_from_file.items():
+                memory_data_from_file[agent_class] = memory_config_load_file(file_path)
+
+        # set memory distributions
+        if memory_distributions is not None:
+            for field, distribution_config in memory_distributions.items():
+                set_distribution(
+                    field,
+                    distribution_config.dist_type,
+                    **distribution_config.kwargs,  # type:ignore
+                )
 
         # use thread pool to create AgentGroup
         group_creation_params = []
@@ -563,10 +650,48 @@ class AgentSimulation:
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
             agent_count_i = agent_count[agent_class]
+
+            # prepare memory config data
             assert memory_config_func is not None
             memory_config_func_i = memory_config_func.get(
                 agent_class, self.default_memory_config_func[agent_class]  # type:ignore
             )
+
+            # merge data loaded from file (if any)
+            memory_values = []
+            if agent_class in memory_data_from_file and agent_count_i > 0:
+                file_data = memory_data_from_file[agent_class]
+                # use data from file (may not be enough, need to use data generated by function to supplement)
+                for i in range(agent_count_i):
+                    # get base memory config (generated by function)
+                    extra_attrs, profile, base = memory_config_func_i()
+                    if i < len(file_data):
+                        memory_values.append(
+                            memory_config_merge(
+                                file_data[i], extra_attrs, profile, base
+                            )
+                        )
+                    else:
+                        # if data from file is not enough, use data generated by function to supplement
+                        memory_values.append(
+                            {
+                                "extra_attributes": extra_attrs,
+                                "profile": profile,
+                                "base": base,
+                            }
+                        )
+            else:
+                # if there is no data from file, use data generated by function to supplement
+                for _ in range(agent_count_i):
+                    # get base memory config (generated by function)
+                    extra_attrs, profile, base = memory_config_func_i()
+                    memory_values.append(
+                        {
+                            "extra_attributes": extra_attrs,
+                            "profile": profile,
+                            "base": base,
+                        }
+                    )
 
             if self.agent_class_configs is not None:
                 config_file = self.agent_class_configs.get(agent_class, None)
@@ -575,11 +700,11 @@ class AgentSimulation:
 
             if issubclass(agent_class, InstitutionAgent):
                 institution_params.append(
-                    (agent_class, agent_count_i, memory_config_func_i, config_file)
+                    (agent_class, agent_count_i, memory_values, config_file)
                 )
             else:
                 citizen_params.append(
-                    (agent_class, agent_count_i, memory_config_func_i, config_file)
+                    (agent_class, agent_count_i, memory_values, config_file)
                 )
 
         # process institution group
@@ -588,25 +713,29 @@ class AgentSimulation:
             num_institution_groups = (
                 total_institution_count + group_size - 1
             ) // group_size
-            institution_offsets = {agent_class: 0 for agent_class, _, _, _ in institution_params}
+            institution_offsets = {
+                agent_class: 0 for agent_class, _, _, _ in institution_params
+            }
 
             for k in range(num_institution_groups):
-                remaining = group_size
+                remaining = group_size  # remaining capacity for this group
 
                 agent_classes = []
                 agent_counts = []
-                memory_config_funcs = {}
+                memory_values_dict = {}
                 config_files = {}
 
-                # assign each type of institution agent to current group
-                for agent_class, count, mem_func, conf_file in institution_params:
+                for agent_class, count, memory_vals, conf_file in institution_params:
                     offset = institution_offsets[agent_class]
-                    remaining_in_type = count - offset
+                    remaining_in_type = count - offset  # available agents for this type
                     if remaining_in_type > 0 and remaining > 0:
                         allocate = min(remaining_in_type, remaining)
                         agent_classes.append(agent_class)
                         agent_counts.append(allocate)
-                        memory_config_funcs[agent_class] = mem_func
+                        # assign only the needed memory values for current group
+                        memory_values_dict[agent_class] = memory_vals[
+                            offset : offset + allocate
+                        ]
                         config_files[agent_class] = conf_file
                         institution_offsets[agent_class] += allocate
                         remaining -= allocate
@@ -615,7 +744,7 @@ class AgentSimulation:
                     (
                         agent_classes,
                         agent_counts,
-                        memory_config_funcs,
+                        memory_values_dict,
                         f"InstitutionGroup_{k}",
                         config_files,
                     )
@@ -623,29 +752,36 @@ class AgentSimulation:
 
         # process citizen group
         if citizen_params:
-            total_citizen_count = sum(p[1] for p in citizen_params)
+            total_citizen_count = sum(
+                p[1] for p in citizen_params
+            )  # total number of citizen agents
             num_citizen_groups = (
                 total_citizen_count + group_size - 1
-            ) // group_size
-            citizen_offsets = {agent_class: 0 for agent_class, _, _, _ in citizen_params}
+            ) // group_size  # number of citizen groups
+            citizen_offsets = {
+                agent_class: 0 for agent_class, _, _, _ in citizen_params
+            }
 
+            # determine parameters for each citizen group
             for k in range(num_citizen_groups):
-                remaining = group_size
+                remaining = group_size  # remaining capacity for this group
 
                 agent_classes = []
                 agent_counts = []
-                memory_config_funcs = {}
+                memory_values_dict = {}
                 config_files = {}
 
-                # assign each type of citizen agent to current group
-                for agent_class, count, mem_func, conf_file in citizen_params:
+                for agent_class, count, memory_vals, conf_file in citizen_params:
                     offset = citizen_offsets[agent_class]
-                    remaining_in_type = count - offset
+                    remaining_in_type = count - offset  # available agents for this type
                     if remaining_in_type > 0 and remaining > 0:
                         allocate = min(remaining_in_type, remaining)
                         agent_classes.append(agent_class)
                         agent_counts.append(allocate)
-                        memory_config_funcs[agent_class] = mem_func
+                        # assign only the needed memory values for current group
+                        memory_values_dict[agent_class] = memory_vals[
+                            offset : offset + allocate
+                        ]
                         config_files[agent_class] = conf_file
                         citizen_offsets[agent_class] += allocate
                         remaining -= allocate
@@ -654,13 +790,14 @@ class AgentSimulation:
                     (
                         agent_classes,
                         agent_counts,
-                        memory_config_funcs,
+                        memory_values_dict,
                         f"CitizenGroup_{k}",
                         config_files,
                     )
                 )
+
         # initialize mlflow connection
-        metric_config = self.config.prop_metric_request
+        metric_config = self.config.prop_metric_config
         if metric_config is not None and metric_config.mlflow is not None:
             mlflow_run_id, _ = init_mlflow_connection(
                 experiment_uuid=self.exp_id,
@@ -693,7 +830,7 @@ class AgentSimulation:
             self._message_abort_listening_queue = _queue = None
         _interceptor_blocks = message_interceptor_blocks
         _black_list = [] if social_black_list is None else social_black_list
-        _llm_config = self.config.llm_request
+        _llm_config = self.config.prop_llm_config
         if message_interceptor_blocks is not None:
             _num_interceptors = min(1, message_interceptors)
             self._message_interceptors = _interceptors = [
@@ -714,7 +851,7 @@ class AgentSimulation:
         for i, (
             agent_class,
             number_of_agents,
-            memory_config_function_group,
+            memory_values_dict,
             group_name,
             config_file,
         ) in enumerate(group_creation_params):
@@ -722,11 +859,12 @@ class AgentSimulation:
             group = AgentGroup.remote(
                 agent_class,
                 number_of_agents,
-                memory_config_function_group,
+                memory_values_dict,
                 self.config,
                 self._map_ref,
                 self.exp_name,
                 self.exp_id,
+                self.tenant_id,
                 self.enable_avro,
                 self.avro_path,
                 self.enable_pgsql,
@@ -748,7 +886,7 @@ class AgentSimulation:
         ray.get(init_tasks)
         await self.messager.connect.remote()  # type:ignore
         await self.messager.subscribe.remote(  # type:ignore
-            [(f"exps/{self.exp_id}/user_payback", 1)], [self.exp_id]
+            [f"exps:{self.exp_id}:user_payback"], [self.exp_id]
         )
         await self.messager.start_listening.remote()  # type:ignore
 
@@ -759,10 +897,10 @@ class AgentSimulation:
                 self._agent_ids.append(agent_id)
                 self._agent_id2group[agent_id] = group
                 self._user_chat_topics[agent_id] = (
-                    f"exps/{self.exp_id}/agents/{agent_id}/user-chat"
+                    f"exps:{self.exp_id}:agents:{agent_id}:user-chat"
                 )
                 self._user_survey_topics[agent_id] = (
-                    f"exps/{self.exp_id}/agents/{agent_id}/user-survey"
+                    f"exps:{self.exp_id}:agents:{agent_id}:user-survey"
                 )
             group_agent_type = ray.get(group.get_agent_type.remote())
             for agent_type in group_agent_type:
@@ -798,7 +936,10 @@ class AgentSimulation:
             )
 
     async def gather(
-        self, content: str, target_agent_ids: Optional[list[int]] = None
+        self,
+        content: str,
+        target_agent_ids: Optional[list[int]] = None,
+        flatten: bool = False,
     ):
         """
         Collect specific information from agents.
@@ -809,6 +950,7 @@ class AgentSimulation:
         - **Args**:
             - `content` (str): The information to collect from the agents.
             - `target_agent_ids` (Optional[List[int]], optional): A list of agent IDs to target. Defaults to None, meaning all agents are targeted.
+            - `flatten` (bool, optional): Whether to flatten the result. Defaults to False.
 
         - **Returns**:
             - Result of the gathering process as returned by each group's `gather` method.
@@ -816,7 +958,15 @@ class AgentSimulation:
         gather_tasks = []
         for group in self._groups.values():
             gather_tasks.append(group.gather.remote(content, target_agent_ids))
-        return await asyncio.gather(*gather_tasks)
+        data = await asyncio.gather(*gather_tasks)
+        if flatten:
+            data_flatten = []
+            for group_data in data:
+                for _, data in group_data.items():
+                    data_flatten.extend(data)
+            return data_flatten
+        else:
+            return data
 
     async def filter(
         self,
@@ -871,7 +1021,9 @@ class AgentSimulation:
         for group in self._groups.values():
             await group.update_environment.remote(key, value)
 
-    async def update(self, target_agent_id: int, target_key: str, content: Any):
+    async def update(
+        self, target_agent_id: Union[int, list[int]], target_key: str, content: Any
+    ):
         """
         Update the memory of a specified agent.
 
@@ -880,8 +1032,13 @@ class AgentSimulation:
             - `target_key` (str): The key in the agent's memory to update.
             - `content` (Any): The new content to set for the target key.
         """
-        group = self._agent_id2group[target_agent_id]
-        await group.update.remote(target_agent_id, target_key, content)
+        if isinstance(target_agent_id, int):
+            group = self._agent_id2group[target_agent_id]
+            await group.update.remote(target_agent_id, target_key, content)
+        elif isinstance(target_agent_id, list):
+            for id in target_agent_id:
+                group = self._agent_id2group[id]
+                await group.update.remote(id, target_key, content)
 
     async def economy_update(
         self,
@@ -969,7 +1126,23 @@ class AgentSimulation:
                 break
             await asyncio.sleep(3)
 
-    async def extract_metric(self, metric_extractors: list[Callable]):
+    async def send_intervention_message(
+        self, intervention_message: str, agent_ids: list[int]
+    ):
+        """
+        Send an intervention message to specified agents.
+
+        - **Description**:
+            - Send an intervention message to specified agents.
+
+        - **Args**:
+            - `intervention_message` (str): The content of the intervention message to send.
+            - `agent_ids` (list[int]): A list of agent IDs to receive the intervention message.
+        """
+        for group in self._groups.values():
+            await group.react_to_intervention.remote(intervention_message, agent_ids)
+
+    async def extract_metric(self, metric_extractors: list[MetricExtractor]):
         """
         Extract metrics using provided extractors.
 
@@ -977,13 +1150,52 @@ class AgentSimulation:
             - Asynchronously applies each metric extractor function to the simulation to collect various metrics.
 
         - **Args**:
-            - `metric_extractors` (List[Callable]): A list of callable functions that take the simulation instance as an argument and return a metric or perform some form of analysis.
+            - `metric_extractors` (List[MetricExtractor]): A list of MetricExtractor for extracting metrics from the simulation.
 
         - **Returns**:
             - None
         """
         for metric_extractor in metric_extractors:
-            await metric_extractor(self)
+            if metric_extractor.type == MetricType.FUNCTION:
+                if metric_extractor.func is not None:
+                    await metric_extractor.func(self)
+                else:
+                    raise ValueError("func is not set for metric extractor")
+            elif metric_extractor.type == MetricType.STATE:
+                assert metric_extractor.key is not None
+                values = await self.gather(
+                    metric_extractor.key, metric_extractor.target_agent, flatten=True
+                )
+                if values is None or len(values) == 0:
+                    logger.warning(
+                        f"No values found for metric extractor {metric_extractor.key} in extraction step {metric_extractor.extract_time}"
+                    )
+                    return
+                if type(values[0]) == float or type(values[0]) == int:
+                    if metric_extractor.method == "mean":
+                        value = sum(values) / len(values)
+                    elif metric_extractor.method == "sum":
+                        value = sum(values)
+                    elif metric_extractor.method == "max":
+                        value = max(values)
+                    elif metric_extractor.method == "min":
+                        value = min(values)
+                    else:
+                        raise ValueError(
+                            f"method {metric_extractor.method} is not supported"
+                        )
+                    assert (
+                        self.mlflow_client is not None
+                        and metric_extractor.key is not None
+                    )
+                    await self.mlflow_client.log_metric(
+                        key=metric_extractor.key,
+                        value=value,
+                        step=metric_extractor.extract_time,
+                    )
+                else:
+                    raise ValueError(f"values type {type(values[0])} is not supported")
+            metric_extractor.extract_time += 1
 
     async def step(self, num_simulator_steps: int = 1):
         """
@@ -1019,12 +1231,12 @@ class AgentSimulation:
             self._simulator.step(num_simulator_steps)
             log_messages_groups = await asyncio.gather(*tasks)
             llm_log_list = []
-            mqtt_log_list = []
+            redis_log_list = []
             simulator_log_list = []
             agent_time_log_list = []
             for log_messages_group in log_messages_groups:
                 llm_log_list.extend(log_messages_group["llm_log"])
-                mqtt_log_list.extend(log_messages_group["mqtt_log"])
+                redis_log_list.extend(log_messages_group["redis_log"])
                 simulator_log_list.extend(log_messages_group["simulator_log"])
                 agent_time_log_list.extend(log_messages_group["agent_time_log"])
             # save
@@ -1036,16 +1248,28 @@ class AgentSimulation:
             for group in self._groups.values():
                 save_tasks.append(group.save.remote(simulator_day, simulator_time))
             await asyncio.gather(*save_tasks)
+            # save global prompt
+            await self._save_global_prompt(
+                prompt=self._simulator.get_environment(),
+                day=simulator_day,
+                t=simulator_time,
+            )
             self._total_steps += 1
             if self.metric_extractors is not None:  # type:ignore
-                to_excute_metric = [
-                    metric[1]
-                    for metric in self.metric_extractors  # type:ignore
-                    if self._total_steps % metric[0] == 0
-                ]
-                await self.extract_metric(to_excute_metric)
+                to_execute_metric = []
+                for metric_extractor in self.metric_extractors:  # type:ignore
+                    if self._total_steps % metric_extractor.step_interval == 0:
+                        if metric_extractor.type == MetricType.FUNCTION:
+                            to_execute_metric.append(metric_extractor)
+                        elif metric_extractor.type == MetricType.STATE:
+                            # For STATE type, we need to gather data from target agents
+                            if metric_extractor.target_agent and metric_extractor.key:
+                                to_execute_metric.append(metric_extractor)
 
-            return llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list
+                if to_execute_metric:
+                    await self.extract_metric(to_execute_metric)
+
+            return llm_log_list, redis_log_list, simulator_log_list, agent_time_log_list
         except Exception as e:
             import traceback
 
@@ -1054,13 +1278,13 @@ class AgentSimulation:
 
     async def run(
         self,
-        day: int = 1,
+        day: float = 1,
     ):
         """
         Run the simulation for a specified number of days.
 
         - **Args**:
-            - `day` (int, optional): The number of days to run the simulation. Defaults to 1.
+            - `day` (float, optional): The number of days to run the simulation. Defaults to 1.
 
         - **Description**:
             - Updates the experiment status to running and sets up monitoring for the experiment's status.
@@ -1074,7 +1298,7 @@ class AgentSimulation:
             - None
         """
         llm_log_lists = []
-        mqtt_log_lists = []
+        redis_log_lists = []
         simulator_log_lists = []
         agent_time_log_lists = []
         try:
@@ -1087,23 +1311,24 @@ class AgentSimulation:
             monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
 
             try:
-                end_day = self._simulator_day + day
+                total_steps = int(day * 24 * 60 * 60)
+                current_step = 0
                 while True:
-                    current_day = await self._simulator.get_simulator_day()
-                    if current_day > self._simulator_day:
-                        self._simulator_day = current_day
-                    if current_day >= end_day:  # type:ignore
+                    current_step += (
+                        self.config.prop_simulator_config.steps_per_simulation_day
+                    )
+                    if current_step >= total_steps:
                         break
                     (
                         llm_log_list,
-                        mqtt_log_list,
+                        redis_log_list,
                         simulator_log_list,
                         agent_time_log_list,
                     ) = await self.step(
-                        self.config.prop_simulator_request.steps_per_simulation_day
+                        self.config.prop_simulator_config.steps_per_simulation_day
                     )
                     llm_log_lists.extend(llm_log_list)
-                    mqtt_log_lists.extend(mqtt_log_list)
+                    redis_log_lists.extend(redis_log_list)
                     simulator_log_lists.extend(simulator_log_list)
                     agent_time_log_lists.extend(agent_time_log_list)
             finally:
@@ -1116,7 +1341,7 @@ class AgentSimulation:
             await self._update_exp_status(2)
             return (
                 llm_log_lists,
-                mqtt_log_lists,
+                redis_log_lists,
                 simulator_log_lists,
                 agent_time_log_lists,
             )

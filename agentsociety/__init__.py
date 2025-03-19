@@ -11,7 +11,7 @@ from .simulation import AgentSimulation
 
 # Create an agentsociety logger
 logger = logging.getLogger("agentsociety")
-logger.setLevel(logging.WARNING) # Default level
+logger.setLevel(logging.WARNING)  # Default level
 
 # If there is no handler, add one
 if not logger.hasHandlers():

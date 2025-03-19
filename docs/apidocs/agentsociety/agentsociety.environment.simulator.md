@@ -249,7 +249,7 @@
 
 ````
 
-````{py:method} sence(key: str) -> str
+````{py:method} sense(key: str) -> typing.Any
 :canonical: agentsociety.environment.simulator.Simulator.sense
 
 ```{autodoc2-docstring} agentsociety.environment.simulator.Simulator.sense
@@ -257,10 +257,18 @@
 
 ````
 
-````{py:method} update_environment(key: str, value: str)
+````{py:method} update_environment(key: str, value: typing.Any)
 :canonical: agentsociety.environment.simulator.Simulator.update_environment
 
 ```{autodoc2-docstring} agentsociety.environment.simulator.Simulator.update_environment
+```
+
+````
+
+````{py:method} get_environment() -> str
+:canonical: agentsociety.environment.simulator.Simulator.get_environment
+
+```{autodoc2-docstring} agentsociety.environment.simulator.Simulator.get_environment
 ```
 
 ````

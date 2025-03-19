@@ -8,12 +8,14 @@ from typing import Any, Optional, Union
 from openai import APIConnectionError, AsyncOpenAI, OpenAI, OpenAIError
 from zhipuai import ZhipuAI
 
-from ..configs import LLMRequestConfig
-from ..utils import LLMRequestType
+from ..configs import LLMConfig
+from ..utils import LLMProviderType
 from .utils import *
 
 logging.getLogger("zhipuai").setLevel(logging.WARNING)
 os.environ["GRPC_VERBOSITY"] = "ERROR"
+
+logger = logging.getLogger("agentsociety")
 
 __all__ = [
     "LLM",
@@ -29,16 +31,16 @@ class LLM:
         - It initializes clients based on the specified request type and handles token usage and consumption reporting.
     """
 
-    def __init__(self, config: LLMRequestConfig) -> None:
+    def __init__(self, config: LLMConfig) -> None:
         """
         Initializes the LLM instance.
 
         - **Parameters**:
-            - `config`: An instance of `LLMRequestConfig` containing configuration settings for the LLM.
+            - `config`: An instance of `LLMConfig` containing configuration settings for the LLM.
         """
         self.config = config
-        if config.request_type not in {t.value for t in LLMRequestType}:
-            raise ValueError("Invalid request type for text request")
+        if config.provider not in {t.value for t in LLMProviderType}:
+            raise ValueError("Invalid provider for text request")
         self.prompt_tokens_used = 0
         self.completion_tokens_used = 0
         self.request_number = 0
@@ -46,44 +48,79 @@ class LLM:
         self._current_client_index = 0
         self._log_list = []
 
+        # statistics about errors
+        self._total_calls = 0
+        self._total_errors = 0
+        self._error_types = {
+            "connection_error": 0,
+            "openai_error": 0,
+            "zhipuai_error": 0,
+            "other_error": 0,
+        }
+
         api_keys = self.config.api_key
         if not isinstance(api_keys, list):
             api_keys = [api_keys]
+        base_urls = self.config.base_url
+        if not isinstance(base_urls, list):
+            base_urls = [base_urls]
+        base_urls = [url.rstrip("/") for url in base_urls]  # type: ignore
+        if len(base_urls) > 1 and self.config.provider != LLMProviderType.VLLM:
+            logger.warning("For non-VLLM providers, only one base URL is supported")
+        if (
+            len(base_urls) > 1
+            and self.config.provider == LLMProviderType.VLLM
+            and len(api_keys) > 0
+            and len(api_keys) != len(base_urls)
+        ):
+            raise ValueError(
+                "The number of base URLs must be equal to the number of API keys when using VLLM"
+            )
 
         self._aclients = []
         self._client_usage = []
 
-        for api_key in api_keys:
-            if self.config.request_type == LLMRequestType.OpenAI:
-                client = AsyncOpenAI(api_key=api_key, timeout=300)
-            elif self.config.request_type == LLMRequestType.DeepSeek:
+        if self.config.provider != LLMProviderType.VLLM:
+            for api_key in api_keys:
+                if self.config.provider == LLMProviderType.OpenAI:
+                    client = AsyncOpenAI(api_key=api_key, timeout=300, base_url=base_urls[0])  # type: ignore
+                elif self.config.provider == LLMProviderType.DeepSeek:
+                    client = AsyncOpenAI(
+                        api_key=api_key,
+                        base_url="https://api.deepseek.com/v1",
+                        timeout=300,
+                    )
+                elif self.config.provider == LLMProviderType.Qwen:
+                    client = AsyncOpenAI(
+                        api_key=api_key,
+                        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                        timeout=300,
+                    )
+                elif self.config.provider == LLMProviderType.SiliconFlow:
+                    client = AsyncOpenAI(
+                        api_key=api_key,
+                        base_url="https://api.siliconflow.cn/v1",
+                        timeout=300,
+                    )
+                elif self.config.provider == LLMProviderType.ZhipuAI:
+                    client = ZhipuAI(api_key=api_key, timeout=300)
+                else:
+                    raise ValueError(f"Unsupported `provider` {self.config.provider}!")
+                self._aclients.append(client)
+                self._client_usage.append(
+                    {"prompt_tokens": 0, "completion_tokens": 0, "request_number": 0}
+                )
+        else:
+            for i in range(len(base_urls)):
                 client = AsyncOpenAI(
-                    api_key=api_key,
-                    base_url="https://api.deepseek.com/v1",
+                    api_key=api_keys[i] if len(api_keys) > 0 else "EMPTY",
                     timeout=300,
+                    base_url=base_urls[i],
+                )  # type: ignore
+                self._aclients.append(client)
+                self._client_usage.append(
+                    {"prompt_tokens": 0, "completion_tokens": 0, "request_number": 0}
                 )
-            elif self.config.request_type == LLMRequestType.Qwen:
-                client = AsyncOpenAI(
-                    api_key=api_key,
-                    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-                    timeout=300,
-                )
-            elif self.config.request_type == LLMRequestType.SiliconFlow:
-                client = AsyncOpenAI(
-                    api_key=api_key,
-                    base_url="https://api.siliconflow.cn/v1",
-                    timeout=300,
-                )
-            elif self.config.request_type == LLMRequestType.ZhipuAI:
-                client = ZhipuAI(api_key=api_key, timeout=300)
-            else:
-                raise ValueError(
-                    f"Unsupported `request_type` {self.config.request_type}!"
-                )
-            self._aclients.append(client)
-            self._client_usage.append(
-                {"prompt_tokens": 0, "completion_tokens": 0, "request_number": 0}
-            )
 
     def get_log_list(self):
         return self._log_list
@@ -230,15 +267,16 @@ class LLM:
         """
         start_time = time.time()
         log = {"request_time": start_time}
+        self._total_calls += 1  # 增加总调用次数
         assert (
             self.semaphore is not None
         ), "Please set semaphore with `set_semaphore` first!"
         async with self.semaphore:
             if (
-                self.config.request_type == "openai"
-                or self.config.request_type == "deepseek"
-                or self.config.request_type == "qwen"
-                or self.config.request_type == "siliconflow"
+                self.config.provider == LLMProviderType.OpenAI
+                or self.config.provider == LLMProviderType.DeepSeek
+                or self.config.provider == LLMProviderType.Qwen
+                or self.config.provider == LLMProviderType.SiliconFlow
             ):
                 response = None
                 for attempt in range(retries):
@@ -277,31 +315,44 @@ class LLM:
                         else:
                             return response.choices[0].message.content
                     except APIConnectionError as e:
-                        print(
-                            f"API connection error: `{e}` original response: `{response}`"
+                        logger.warning(
+                            f"API connection error: `{e}`, original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
+                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
+                            self._total_errors += 1
+                            self._error_types["connection_error"] += 1
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
                     except OpenAIError as e:
                         if hasattr(e, "http_status"):
-                            print(f"HTTP status code: {e.http_status}")  # type: ignore
+                            logger.warning(
+                                f"HTTP status code: {e.http_status}. Retry {attempt+1} of {retries}"  # type: ignore
+                            )  # type: ignore
                         else:
-                            print(f"OpenAIError: `{e}` original response: `{response}`")
+                            logger.warning(
+                                f"OpenAIError: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
+                            )
+                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
+                            self._total_errors += 1
+                            self._error_types["openai_error"] += 1
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
                     except Exception as e:
-                        print(
-                            f"LLM Error (OpenAI): `{e}` original response: `{response}`"
+                        logger.warning(
+                            f"LLM Error (OpenAI): `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
+                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
+                            self._total_errors += 1
+                            self._error_types["other_error"] += 1
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
-            elif self.config.request_type == "zhipuai":
+            elif self.config.provider == LLMProviderType.ZhipuAI:
                 response = None
                 for attempt in range(retries):
                     try:
@@ -349,18 +400,47 @@ class LLM:
                         else:
                             return result_response.choices[0].message.content  # type: ignore
                     except APIConnectionError as e:
-                        print(
-                            f"API connection error: `{e}` original response: `{response}`"
+                        logger.warning(
+                            f"API connection error: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
+                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
+                            self._total_errors += 1
+                            self._error_types["connection_error"] += 1
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
                     except Exception as e:
-                        print(f"LLM Error: `{e}` original response: `{response}`")
+                        logger.warning(
+                            f"LLM Error: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
+                        )
+                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
+                            self._total_errors += 1
+                            self._error_types["zhipuai_error"] += 1
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
             else:
                 raise ValueError("ERROR: Wrong Config")
+
+    def get_error_statistics(self):
+        """
+        Returns statistics about LLM API calls and errors.
+
+        - **Description**:
+            - This method provides statistics on the total number of API calls,
+              the total number of errors, and counts for specific error types.
+
+        - **Returns**:
+            - A dictionary containing the call and error statistics.
+        """
+        stats = {
+            "total": self._total_calls,
+            "error": self._total_errors,
+        }
+        # add statistics about different error types
+        for error_type, count in self._error_types.items():
+            stats[f"{error_type}"] = count
+
+        return stats

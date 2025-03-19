@@ -9,7 +9,7 @@ Our platform offers a Sociology Research Toolbox, focusing on interviews and sur
 
 We provides a comprehensive survey system for gathering structured feedback from agents.
 
-Surveys and interviews communicate with agents via MQTT (the same underlying mechanism for dialogues with agents). 
+Surveys and interviews communicate with agents via Redis (the same underlying mechanism for dialogues with agents). 
 Agents receive surveys or interviews from the message queue, generate responses, and send these responses to the sending message queue, where they are captured and saved by our framework.
 
 ## Usage Example
@@ -37,7 +37,7 @@ async def main():
             model="GLM-4-Flash",
         )
         .SetSimulatorRequest(min_step_time=50)
-        .SetMQTT(server="mqtt.example.com", username="user", port=1883, password="pass")
+        .SetRedis(server="redis.example.com", port=6379, password="pass")
         # change to your file path
         .SetMapRequest(file_path="map.pb")
         .SetAvro(path="./__avro", enabled=True)
@@ -106,7 +106,7 @@ async def main():
             model="GLM-4-Flash",
         )
         .SetSimulatorRequest(min_step_time=50)
-        .SetMQTT(server="mqtt.example.com", username="user", port=1883, password="pass")
+        .SetRedis(server="redis.example.com", port=6379, password="pass")
         # change to your file path
         .SetMapRequest(file_path="map.pb")
         .SetAvro(path="./__avro", enabled=True)

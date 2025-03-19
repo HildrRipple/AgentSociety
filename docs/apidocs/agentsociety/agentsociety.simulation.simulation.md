@@ -59,7 +59,7 @@
 
 ````
 
-`````{py:class} AgentSimulation(config: agentsociety.configs.SimConfig, agent_class: typing.Union[None, type[agentsociety.agent.Agent], list[type[agentsociety.agent.Agent]]] = None, agent_class_configs: typing.Optional[dict] = None, metric_extractors: typing.Optional[list[tuple[int, collections.abc.Callable]]] = None, agent_prefix: str = 'agent_', exp_name: str = 'default_experiment', logging_level: int = logging.WARNING)
+`````{py:class} AgentSimulation(config: agentsociety.configs.SimConfig, agent_class: typing.Union[None, type[agentsociety.agent.Agent], list[type[agentsociety.agent.Agent]]] = None, agent_class_configs: typing.Optional[dict] = None, metric_extractors: typing.Optional[list[agentsociety.configs.MetricExtractor]] = None, tenant_id: str = '', agent_prefix: str = 'agent_', exp_name: str = 'default_experiment', logging_level: int = logging.WARNING)
 :canonical: agentsociety.simulation.simulation.AgentSimulation
 
 ```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation
@@ -124,18 +124,18 @@
 
 ````
 
-````{py:property} agent_uuids
-:canonical: agentsociety.simulation.simulation.AgentSimulation.agent_uuids
+````{py:property} agent_ids
+:canonical: agentsociety.simulation.simulation.AgentSimulation.agent_ids
 
-```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation.agent_uuids
+```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation.agent_ids
 ```
 
 ````
 
-````{py:property} agent_uuid2group
-:canonical: agentsociety.simulation.simulation.AgentSimulation.agent_uuid2group
+````{py:property} agent_id2group
+:canonical: agentsociety.simulation.simulation.AgentSimulation.agent_id2group
 
-```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation.agent_uuid2group
+```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation.agent_id2group
 ```
 
 ````
@@ -176,6 +176,15 @@
 
 ````
 
+````{py:method} _save_global_prompt(prompt: str, day: int, t: float) -> None
+:canonical: agentsociety.simulation.simulation.AgentSimulation._save_global_prompt
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation._save_global_prompt
+```
+
+````
+
 ````{py:method} _monitor_exp_status(stop_event: asyncio.Event)
 :canonical: agentsociety.simulation.simulation.AgentSimulation._monitor_exp_status
 :async:
@@ -203,7 +212,7 @@
 
 ````
 
-````{py:method} init_agents(agent_count: dict[type[agentsociety.agent.Agent], int], group_size: int = 10000, pg_sql_writers: int = 32, message_interceptors: int = 1, message_interceptor_blocks: typing.Optional[list[agentsociety.message.MessageBlockBase]] = None, social_black_list: typing.Optional[list[tuple[str, str]]] = None, message_listener: typing.Optional[agentsociety.message.MessageBlockListenerBase] = None, embedding_model: langchain_core.embeddings.Embeddings = SimpleEmbedding(), memory_config_init_func: typing.Optional[collections.abc.Callable] = None, memory_config_func: typing.Optional[dict[type[agentsociety.agent.Agent], collections.abc.Callable]] = None, environment: dict[str, str] = {}, llm_semaphore: int = 200) -> None
+````{py:method} init_agents(agent_count: dict[type[agentsociety.agent.Agent], int], group_size: int = 10000, pg_sql_writers: int = 32, message_interceptors: int = 1, message_interceptor_blocks: typing.Optional[list[agentsociety.message.MessageBlockBase]] = None, social_black_list: typing.Optional[list[tuple[str, str]]] = None, message_listener: typing.Optional[agentsociety.message.MessageBlockListenerBase] = None, embedding_model: langchain_core.embeddings.Embeddings = SimpleEmbedding(), memory_config: typing.Optional[agentsociety.configs.MemoryConfig] = None, environment: dict[str, str] = {}, llm_semaphore: int = 200) -> None
 :canonical: agentsociety.simulation.simulation.AgentSimulation.init_agents
 :async:
 
@@ -212,7 +221,7 @@
 
 ````
 
-````{py:method} gather(content: str, target_agent_uuids: typing.Optional[list[str]] = None)
+````{py:method} gather(content: str, target_agent_ids: typing.Optional[list[int]] = None, flatten: bool = False)
 :canonical: agentsociety.simulation.simulation.AgentSimulation.gather
 :async:
 
@@ -221,7 +230,7 @@
 
 ````
 
-````{py:method} filter(types: typing.Optional[list[typing.Type[agentsociety.agent.Agent]]] = None, keys: typing.Optional[list[str]] = None, values: typing.Optional[list[typing.Any]] = None) -> list[str]
+````{py:method} filter(types: typing.Optional[list[typing.Type[agentsociety.agent.Agent]]] = None, keys: typing.Optional[list[str]] = None, values: typing.Optional[list[typing.Any]] = None) -> list[int]
 :canonical: agentsociety.simulation.simulation.AgentSimulation.filter
 :async:
 
@@ -239,7 +248,7 @@
 
 ````
 
-````{py:method} update(target_agent_uuid: str, target_key: str, content: typing.Any)
+````{py:method} update(target_agent_id: typing.Union[int, list[int]], target_key: str, content: typing.Any)
 :canonical: agentsociety.simulation.simulation.AgentSimulation.update
 :async:
 
@@ -257,7 +266,7 @@
 
 ````
 
-````{py:method} send_survey(survey: agentsociety.survey.Survey, agent_uuids: list[str] = [])
+````{py:method} send_survey(survey: agentsociety.survey.Survey, agent_ids: list[int] = [])
 :canonical: agentsociety.simulation.simulation.AgentSimulation.send_survey
 :async:
 
@@ -266,7 +275,7 @@
 
 ````
 
-````{py:method} send_interview_message(content: str, agent_uuids: typing.Union[str, list[str]])
+````{py:method} send_interview_message(content: str, agent_ids: typing.Union[int, list[int]])
 :canonical: agentsociety.simulation.simulation.AgentSimulation.send_interview_message
 :async:
 
@@ -275,7 +284,16 @@
 
 ````
 
-````{py:method} extract_metric(metric_extractors: list[collections.abc.Callable])
+````{py:method} send_intervention_message(intervention_message: str, agent_uuids: list[str])
+:canonical: agentsociety.simulation.simulation.AgentSimulation.send_intervention_message
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation.send_intervention_message
+```
+
+````
+
+````{py:method} extract_metric(metric_extractors: list[agentsociety.configs.MetricExtractor])
 :canonical: agentsociety.simulation.simulation.AgentSimulation.extract_metric
 :async:
 
@@ -293,7 +311,7 @@
 
 ````
 
-````{py:method} run(day: int = 1)
+````{py:method} run(day: float = 1)
 :canonical: agentsociety.simulation.simulation.AgentSimulation.run
 :async:
 

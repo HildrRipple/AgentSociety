@@ -17,6 +17,12 @@
 
 * - {py:obj}`WorkflowStep <agentsociety.configs.exp_config.WorkflowStep>`
   -
+* - {py:obj}`MetricExtractor <agentsociety.configs.exp_config.MetricExtractor>`
+  -
+* - {py:obj}`DistributionConfig <agentsociety.configs.exp_config.DistributionConfig>`
+  -
+* - {py:obj}`MemoryConfig <agentsociety.configs.exp_config.MemoryConfig>`
+  -
 * - {py:obj}`AgentConfig <agentsociety.configs.exp_config.AgentConfig>`
   -
 * - {py:obj}`EnvironmentConfig <agentsociety.configs.exp_config.EnvironmentConfig>`
@@ -58,9 +64,9 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} days
 :canonical: agentsociety.configs.exp_config.WorkflowStep.days
-:type: int
+:type: float
 :value: >
-   1
+   1.0
 
 ```{autodoc2-docstring} agentsociety.configs.exp_config.WorkflowStep.days
 ```
@@ -78,6 +84,72 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
+````{py:attribute} target_agent
+:canonical: agentsociety.configs.exp_config.WorkflowStep.target_agent
+:type: typing.Optional[list]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.WorkflowStep.target_agent
+```
+
+````
+
+````{py:attribute} interview_message
+:canonical: agentsociety.configs.exp_config.WorkflowStep.interview_message
+:type: typing.Optional[str]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.WorkflowStep.interview_message
+```
+
+````
+
+````{py:attribute} survey
+:canonical: agentsociety.configs.exp_config.WorkflowStep.survey
+:type: typing.Optional[agentsociety.survey.Survey]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.WorkflowStep.survey
+```
+
+````
+
+````{py:attribute} key
+:canonical: agentsociety.configs.exp_config.WorkflowStep.key
+:type: typing.Optional[str]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.WorkflowStep.key
+```
+
+````
+
+````{py:attribute} value
+:canonical: agentsociety.configs.exp_config.WorkflowStep.value
+:type: typing.Optional[typing.Any]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.WorkflowStep.value
+```
+
+````
+
+````{py:attribute} intervene_message
+:canonical: agentsociety.configs.exp_config.WorkflowStep.intervene_message
+:type: typing.Optional[str]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.WorkflowStep.intervene_message
+```
+
+````
+
 ````{py:attribute} description
 :canonical: agentsociety.configs.exp_config.WorkflowStep.description
 :type: str
@@ -85,6 +157,236 @@ Bases: {py:obj}`pydantic.BaseModel`
    'no description'
 
 ```{autodoc2-docstring} agentsociety.configs.exp_config.WorkflowStep.description
+```
+
+````
+
+`````
+
+`````{py:class} MetricExtractor(/, **data: typing.Any)
+:canonical: agentsociety.configs.exp_config.MetricExtractor
+
+Bases: {py:obj}`pydantic.BaseModel`
+
+````{py:attribute} type
+:canonical: agentsociety.configs.exp_config.MetricExtractor.type
+:type: agentsociety.utils.MetricType
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MetricExtractor.type
+```
+
+````
+
+````{py:attribute} func
+:canonical: agentsociety.configs.exp_config.MetricExtractor.func
+:type: collections.abc.Callable
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MetricExtractor.func
+```
+
+````
+
+````{py:attribute} step_interval
+:canonical: agentsociety.configs.exp_config.MetricExtractor.step_interval
+:type: int
+:value: >
+   10
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MetricExtractor.step_interval
+```
+
+````
+
+````{py:attribute} target_agent
+:canonical: agentsociety.configs.exp_config.MetricExtractor.target_agent
+:type: typing.Optional[list]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MetricExtractor.target_agent
+```
+
+````
+
+````{py:attribute} key
+:canonical: agentsociety.configs.exp_config.MetricExtractor.key
+:type: typing.Optional[str]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MetricExtractor.key
+```
+
+````
+
+````{py:attribute} method
+:canonical: agentsociety.configs.exp_config.MetricExtractor.method
+:type: typing.Optional[typing.Literal[mean, sum, max, min]]
+:value: >
+   'sum'
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MetricExtractor.method
+```
+
+````
+
+````{py:attribute} extract_time
+:canonical: agentsociety.configs.exp_config.MetricExtractor.extract_time
+:type: int
+:value: >
+   0
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MetricExtractor.extract_time
+```
+
+````
+
+````{py:attribute} description
+:canonical: agentsociety.configs.exp_config.MetricExtractor.description
+:type: str
+:value: >
+   'no description'
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MetricExtractor.description
+```
+
+````
+
+`````
+
+`````{py:class} DistributionConfig(/, **data: typing.Any)
+:canonical: agentsociety.configs.exp_config.DistributionConfig
+
+Bases: {py:obj}`pydantic.BaseModel`
+
+````{py:attribute} dist_type
+:canonical: agentsociety.configs.exp_config.DistributionConfig.dist_type
+:type: agentsociety.utils.DistributionType
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.DistributionConfig.dist_type
+```
+
+````
+
+````{py:attribute} choices
+:canonical: agentsociety.configs.exp_config.DistributionConfig.choices
+:type: typing.Optional[typing.List[typing.Any]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.DistributionConfig.choices
+```
+
+````
+
+````{py:attribute} weights
+:canonical: agentsociety.configs.exp_config.DistributionConfig.weights
+:type: typing.Optional[typing.List[float]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.DistributionConfig.weights
+```
+
+````
+
+````{py:attribute} min_value
+:canonical: agentsociety.configs.exp_config.DistributionConfig.min_value
+:type: typing.Optional[typing.Union[int, float]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.DistributionConfig.min_value
+```
+
+````
+
+````{py:attribute} max_value
+:canonical: agentsociety.configs.exp_config.DistributionConfig.max_value
+:type: typing.Optional[typing.Union[int, float]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.DistributionConfig.max_value
+```
+
+````
+
+````{py:attribute} mean
+:canonical: agentsociety.configs.exp_config.DistributionConfig.mean
+:type: typing.Optional[float]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.DistributionConfig.mean
+```
+
+````
+
+````{py:attribute} std
+:canonical: agentsociety.configs.exp_config.DistributionConfig.std
+:type: typing.Optional[float]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.DistributionConfig.std
+```
+
+````
+
+````{py:attribute} value
+:canonical: agentsociety.configs.exp_config.DistributionConfig.value
+:type: typing.Optional[typing.Any]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.DistributionConfig.value
+```
+
+````
+
+`````
+
+`````{py:class} MemoryConfig(/, **data: typing.Any)
+:canonical: agentsociety.configs.exp_config.MemoryConfig
+
+Bases: {py:obj}`pydantic.BaseModel`
+
+````{py:attribute} memory_config_func
+:canonical: agentsociety.configs.exp_config.MemoryConfig.memory_config_func
+:type: typing.Optional[typing.Dict[type[typing.Any], collections.abc.Callable]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MemoryConfig.memory_config_func
+```
+
+````
+
+````{py:attribute} memory_from_file
+:canonical: agentsociety.configs.exp_config.MemoryConfig.memory_from_file
+:type: typing.Optional[typing.Dict[typing.Any, str]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MemoryConfig.memory_from_file
+```
+
+````
+
+````{py:attribute} memory_distributions
+:canonical: agentsociety.configs.exp_config.MemoryConfig.memory_distributions
+:type: typing.Optional[typing.Dict[str, agentsociety.configs.exp_config.DistributionConfig]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.MemoryConfig.memory_distributions
 ```
 
 ````
@@ -195,28 +497,6 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:attribute} memory_config_func
-:canonical: agentsociety.configs.exp_config.AgentConfig.memory_config_func
-:type: typing.Optional[dict[type[typing.Any], collections.abc.Callable]]
-:value: >
-   None
-
-```{autodoc2-docstring} agentsociety.configs.exp_config.AgentConfig.memory_config_func
-```
-
-````
-
-````{py:attribute} memory_config_init_func
-:canonical: agentsociety.configs.exp_config.AgentConfig.memory_config_init_func
-:type: typing.Optional[collections.abc.Callable]
-:value: >
-   'Field(...)'
-
-```{autodoc2-docstring} agentsociety.configs.exp_config.AgentConfig.memory_config_init_func
-```
-
-````
-
 ````{py:attribute} init_func
 :canonical: agentsociety.configs.exp_config.AgentConfig.init_func
 :type: typing.Optional[list[collections.abc.Callable[[typing.Any], None]]]
@@ -224,6 +504,34 @@ Bases: {py:obj}`pydantic.BaseModel`
    None
 
 ```{autodoc2-docstring} agentsociety.configs.exp_config.AgentConfig.init_func
+```
+
+````
+
+````{py:attribute} memory_config
+:canonical: agentsociety.configs.exp_config.AgentConfig.memory_config
+:type: typing.Optional[agentsociety.configs.exp_config.MemoryConfig]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.AgentConfig.memory_config
+```
+
+````
+
+````{py:property} prop_memory_config
+:canonical: agentsociety.configs.exp_config.AgentConfig.prop_memory_config
+:type: agentsociety.configs.exp_config.MemoryConfig
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.AgentConfig.prop_memory_config
+```
+
+````
+
+````{py:method} SetMemoryConfig(memory_config_func: typing.Optional[typing.Dict[type[typing.Any], collections.abc.Callable]] = None, memory_from_file: typing.Optional[typing.Dict[typing.Any, str]] = None, memory_distributions: typing.Optional[typing.Dict[str, agentsociety.configs.exp_config.DistributionConfig]] = None) -> agentsociety.configs.exp_config.AgentConfig
+:canonical: agentsociety.configs.exp_config.AgentConfig.SetMemoryConfig
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.AgentConfig.SetMemoryConfig
 ```
 
 ````
@@ -246,28 +554,6 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:attribute} crime
-:canonical: agentsociety.configs.exp_config.EnvironmentConfig.crime
-:type: str
-:value: >
-   'Field(...)'
-
-```{autodoc2-docstring} agentsociety.configs.exp_config.EnvironmentConfig.crime
-```
-
-````
-
-````{py:attribute} pollution
-:canonical: agentsociety.configs.exp_config.EnvironmentConfig.pollution
-:type: str
-:value: >
-   'Field(...)'
-
-```{autodoc2-docstring} agentsociety.configs.exp_config.EnvironmentConfig.pollution
-```
-
-````
-
 ````{py:attribute} temperature
 :canonical: agentsociety.configs.exp_config.EnvironmentConfig.temperature
 :type: str
@@ -279,13 +565,24 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:attribute} day
-:canonical: agentsociety.configs.exp_config.EnvironmentConfig.day
+````{py:attribute} workday
+:canonical: agentsociety.configs.exp_config.EnvironmentConfig.workday
+:type: bool
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.EnvironmentConfig.workday
+```
+
+````
+
+````{py:attribute} other_information
+:canonical: agentsociety.configs.exp_config.EnvironmentConfig.other_information
 :type: str
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.exp_config.EnvironmentConfig.day
+```{autodoc2-docstring} agentsociety.configs.exp_config.EnvironmentConfig.other_information
 ```
 
 ````
@@ -394,7 +691,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} metric_extractors
 :canonical: agentsociety.configs.exp_config.ExpConfig.metric_extractors
-:type: typing.Optional[list[tuple[int, collections.abc.Callable]]]
+:type: typing.Optional[list[agentsociety.configs.exp_config.MetricExtractor]]
 :value: >
    None
 
@@ -474,14 +771,14 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:property} prop_metric_extractors
 :canonical: agentsociety.configs.exp_config.ExpConfig.prop_metric_extractors
-:type: list[tuple[int, collections.abc.Callable]]
+:type: list[agentsociety.configs.exp_config.MetricExtractor]
 
 ```{autodoc2-docstring} agentsociety.configs.exp_config.ExpConfig.prop_metric_extractors
 ```
 
 ````
 
-````{py:method} SetAgentConfig(number_of_citizen: int = 1, number_of_firm: int = 1, number_of_government: int = 1, number_of_bank: int = 1, number_of_nbs: int = 1, group_size: int = 100, embedding_model: typing.Any = None, extra_agent_class: typing.Optional[dict[typing.Any, int]] = None, agent_class_configs: typing.Optional[dict[typing.Any, dict[str, typing.Any]]] = None, memory_config_func: typing.Optional[dict[type[typing.Any], collections.abc.Callable]] = None, memory_config_init_func: typing.Optional[collections.abc.Callable] = None, init_func: typing.Optional[list[collections.abc.Callable[[typing.Any], None]]] = None) -> agentsociety.configs.exp_config.ExpConfig
+````{py:method} SetAgentConfig(number_of_citizen: int = 1, number_of_firm: int = 1, number_of_government: int = 1, number_of_bank: int = 1, number_of_nbs: int = 1, group_size: int = 100, embedding_model: typing.Any = None, extra_agent_class: typing.Optional[dict[typing.Any, int]] = None, agent_class_configs: typing.Optional[dict[typing.Any, dict[str, typing.Any]]] = None, memory_config: typing.Optional[agentsociety.configs.exp_config.MemoryConfig] = None, init_func: typing.Optional[list[collections.abc.Callable[[typing.Any], None]]] = None) -> agentsociety.configs.exp_config.ExpConfig
 :canonical: agentsociety.configs.exp_config.ExpConfig.SetAgentConfig
 
 ```{autodoc2-docstring} agentsociety.configs.exp_config.ExpConfig.SetAgentConfig
@@ -489,7 +786,15 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} SetEnvironment(weather: str = 'The weather is normal', crime: str = 'The crime rate is low', pollution: str = 'The pollution level is low', temperature: str = 'The temperature is normal', day: str = 'Workday') -> agentsociety.configs.exp_config.ExpConfig
+````{py:method} SetMemoryConfig(memory_config_func: typing.Optional[typing.Dict[type[typing.Any], collections.abc.Callable]] = None, memory_from_file: typing.Optional[typing.Dict[typing.Any, str]] = None, memory_distributions: typing.Optional[typing.Dict[str, agentsociety.configs.exp_config.DistributionConfig]] = None) -> agentsociety.configs.exp_config.ExpConfig
+:canonical: agentsociety.configs.exp_config.ExpConfig.SetMemoryConfig
+
+```{autodoc2-docstring} agentsociety.configs.exp_config.ExpConfig.SetMemoryConfig
+```
+
+````
+
+````{py:method} SetEnvironment(weather: str = 'The weather is normal', temperature: str = 'The temperature is normal', workday: bool = True, other_information: str = '') -> agentsociety.configs.exp_config.ExpConfig
 :canonical: agentsociety.configs.exp_config.ExpConfig.SetEnvironment
 
 ```{autodoc2-docstring} agentsociety.configs.exp_config.ExpConfig.SetEnvironment
@@ -505,7 +810,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} SetMetricExtractors(metric_extractors: list[tuple[int, collections.abc.Callable]])
+````{py:method} SetMetricExtractors(metric_extractors: list[agentsociety.configs.exp_config.MetricExtractor])
 :canonical: agentsociety.configs.exp_config.ExpConfig.SetMetricExtractors
 
 ```{autodoc2-docstring} agentsociety.configs.exp_config.ExpConfig.SetMetricExtractors

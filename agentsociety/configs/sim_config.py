@@ -2,31 +2,33 @@ from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
-from ..utils import LLMRequestType
+from ..utils import LLMProviderType
 
 __all__ = [
     "SimConfig",
 ]
 
 
-class LLMRequestConfig(BaseModel):
-    request_type: LLMRequestType = Field(
-        ..., description="The type of the request or provider"
+class LLMConfig(BaseModel):
+    provider: LLMProviderType = Field(..., description="The type of the LLM provider")
+    base_url: Optional[Union[list[str], str]] = Field(
+        None,
+        description="The base URL for the LLM provider, or a list of base URLs when using VLLM",
     )
     api_key: Union[list[str], str] = Field(
-        ..., description="API key for accessing the service"
+        ..., description="API key for accessing the LLM provider"
     )
     model: str = Field(..., description="The model to use")
 
 
-class MQTTConfig(BaseModel):
-    server: str = Field(..., description="MQTT server address")
-    port: int = Field(..., description="Port number for MQTT connection")
-    password: Optional[str] = Field(None, description="Password for MQTT connection")
-    username: Optional[str] = Field(None, description="Username for MQTT connection")
+class RedisConfig(BaseModel):
+    server: str = Field(..., description="Redis server address")
+    port: int = Field(..., description="Port number for Redis connection")
+    password: Optional[str] = Field(None, description="Password for Redis connection")
+    db: Optional[str] = Field(None, description="Database number for Redis connection")
 
 
-class SimulatorRequestConfig(BaseModel):
+class SimulatorConfig(BaseModel):
     task_name: str = Field("citysim", description="Name of the simulation task")
     max_day: int = Field(1000, description="Maximum number of days to simulate")
     start_step: int = Field(28800, description="Starting step of the simulation")
@@ -47,7 +49,7 @@ class SimulatorRequestConfig(BaseModel):
     )
 
 
-class MapRequestConfig(BaseModel):
+class MapConfig(BaseModel):
     file_path: str = Field(..., description="Path to the map file")
 
 
@@ -71,7 +73,7 @@ class AvroConfig(BaseModel):
     path: str = Field(..., description="Avro file storage path")
 
 
-class MetricRequest(BaseModel):
+class MetricConfig(BaseModel):
     mlflow: Optional[MlflowConfig] = Field(None)
 
 
@@ -80,35 +82,35 @@ class SimStatus(BaseModel):
 
 
 class SimConfig(BaseModel):
-    llm_request: Optional["LLMRequestConfig"] = None
-    simulator_request: Optional["SimulatorRequestConfig"] = None
-    mqtt: Optional["MQTTConfig"] = None
-    map_request: Optional["MapRequestConfig"] = None
-    metric_request: Optional[MetricRequest] = None
+    llm_config: Optional["LLMConfig"] = None
+    simulator_config: Optional["SimulatorConfig"] = None
+    redis: Optional["RedisConfig"] = None
+    map_config: Optional["MapConfig"] = None
+    metric_config: Optional["MetricConfig"] = None
     pgsql: Optional["PostgreSQLConfig"] = None
     avro: Optional["AvroConfig"] = None
     simulator_server_address: Optional[str] = None
     status: Optional["SimStatus"] = SimStatus()
 
     @property
-    def prop_llm_request(self) -> "LLMRequestConfig":
-        return self.llm_request  # type:ignore
+    def prop_llm_config(self) -> "LLMConfig":
+        return self.llm_config  # type:ignore
 
     @property
     def prop_status(self) -> "SimStatus":
         return self.status  # type:ignore
 
     @property
-    def prop_simulator_request(self) -> "SimulatorRequestConfig":
-        return self.simulator_request  # type:ignore
+    def prop_simulator_config(self) -> "SimulatorConfig":
+        return self.simulator_config  # type:ignore
 
     @property
-    def prop_mqtt(self) -> "MQTTConfig":
-        return self.mqtt  # type:ignore
+    def prop_redis(self) -> "RedisConfig":
+        return self.redis  # type:ignore
 
     @property
-    def prop_map_request(self) -> "MapRequestConfig":
-        return self.map_request  # type:ignore
+    def prop_map_config(self) -> "MapConfig":
+        return self.map_config  # type:ignore
 
     @property
     def prop_avro_config(self) -> "AvroConfig":
@@ -123,18 +125,22 @@ class SimConfig(BaseModel):
         return self.simulator_server_address  # type:ignore
 
     @property
-    def prop_metric_request(self) -> MetricRequest:
-        return self.metric_request  # type:ignore
+    def prop_metric_config(self) -> "MetricConfig":
+        return self.metric_config  # type:ignore
 
-    def SetLLMRequest(
-        self, request_type: LLMRequestType, api_key: Union[list[str], str], model: str
+    def SetLLMConfig(
+        self,
+        provider: LLMProviderType,
+        api_key: Union[list[str], str],
+        model: str,
+        base_url: Optional[str] = None,
     ) -> "SimConfig":
-        self.llm_request = LLMRequestConfig(
-            request_type=request_type, api_key=api_key, model=model
+        self.llm_config = LLMConfig(
+            provider=provider, api_key=api_key, model=model, base_url=base_url
         )
         return self
 
-    def SetSimulatorRequest(
+    def SetSimulatorConfig(
         self,
         task_name: str = "citysim",
         max_day: int = 1000,
@@ -145,7 +151,7 @@ class SimConfig(BaseModel):
         steps_per_simulation_day: int = 3600,
         primary_node_ip: str = "localhost",
     ) -> "SimConfig":
-        self.simulator_request = SimulatorRequestConfig(
+        self.simulator_config = SimulatorConfig(
             task_name=task_name,
             max_day=max_day,
             start_step=start_step,
@@ -157,26 +163,24 @@ class SimConfig(BaseModel):
         )
         return self
 
-    def SetMQTT(
+    def SetRedis(
         self,
         server: str,
         port: int,
-        username: Optional[str] = None,
+        db: str = "0",
         password: Optional[str] = None,
     ) -> "SimConfig":
-        self.mqtt = MQTTConfig(
-            server=server, port=port, username=username, password=password
-        )
+        self.redis = RedisConfig(server=server, port=port, db=db, password=password)
         return self
 
-    def SetMapRequest(self, file_path: str) -> "SimConfig":
-        self.map_request = MapRequestConfig(file_path=file_path)
+    def SetMapConfig(self, file_path: str) -> "SimConfig":
+        self.map_config = MapConfig(file_path=file_path)
         return self
 
-    def SetMetricRequest(
+    def SetMetricConfig(
         self, username: str, password: str, mlflow_uri: str
     ) -> "SimConfig":
-        self.metric_request = MetricRequest(
+        self.metric_config = MetricConfig(
             mlflow=MlflowConfig(
                 username=username, password=password, mlflow_uri=mlflow_uri
             )
@@ -206,10 +210,10 @@ class SimConfig(BaseModel):
 if __name__ == "__main__":
     config = (
         SimConfig()
-        .SetLLMRequest("openai", "key", "model")  # type:ignore
-        .SetMQTT("server", 1883, "username", "password")
-        .SetMapRequest("./path/to/map")
-        .SetMetricRequest("username", "password", "uri")
+        .SetLLMConfig("openai", "key", "model")  # type:ignore
+        .SetRedis("server", 6379, password="password")
+        .SetMapConfig("./path/to/map")
+        .SetMetricConfig("username", "password", "uri")
         .SetPostgreSql("dsn", True)
     )
-    print(config.llm_request)
+    print(config.llm_config)

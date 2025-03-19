@@ -1,5 +1,58 @@
 # Changelog
 
+## [1.3.0] - 2025-03-XX
+
+### Added
+- Support WSL2
+- Move the `agentsociety-ui` frontend (`frontend/`) and backend (`agentsociety/webapi/`) into the project.
+- Add `_global_prompt` table in the database to store global prompt changes.
+- Add tenant_id column to experiment and survey tables to support multi-user online usage.
+- Add `llm_error` statistics for `Simulation.run_from_config`(Based on `LLM`).
+- Add `MemoryConfig` in `AgentConfig`. Support three ways to set memory configuration:
+    - `memory_config_func`: A dictionary that maps agent class to a function that returns memory configuration.
+    - `memory_from_file`: A dictionary that maps agent class to the path of the file containing the memory configuration, only supports `.json` or `.jsonl` file types.
+    - `memory_distributions`: A dictionary that maps memory field name to its distribution configuration (for `SocietyAgent` profile attributes).
+- Add `INTERVIEW`, `SURVEY`, `ENVIRONMENT_INTERVENE`, `UPDATE_STATE_INTERVENE`, `MESSAGE_INTERVENE` in `WorkflowType`.
+    - `INTERVIEW`: Send interview request to `Agent`.
+    - `SURVEY`: Send survey request to `Agent`.
+    - `ENVIRONMENT_INTERVENE`: Change environment.
+    - `UPDATE_STATE_INTERVENE`: Update `Agent` state.
+    - `MESSAGE_INTERVENE`: Send message to `Agent` to change its behavior.
+- Add `MetricExtractor` in `ExpConfig`. Support three ways to set metric extractors:
+    - `FUNCTION`: A function that returns a list of metric extractors.
+        - Provide `func` to set the function to be called.
+    - `STATE`: A dictionary that maps metric key to its target agent.
+        - Only support `float` or `int` type values yet.
+        - Provide `key` to set the metric key (which is a state field name of target `Agent`).
+        - Provide `method` to set the method to be used to aggregate the values.
+            - `mean`: Calculate the mean of the values.
+            - `sum`: Calculate the sum of the values.
+            - `max`: Calculate the maximum of the values.
+            - `min`: Calculate the minimum of the values.
+        - Provide `target_agent` to set the target agent.
+        - Provide `step_interval` to set the step interval to extract the metric.
+- Support `VLLM` as a `LLMConfig` provider.
+    - Provide `base_urls` to set the base URLs of the VLLM servers.
+    - If you set `api-key` for your vLLM deployment, you need to set `api_keys` to the same length of `base_urls`.
+- Add retry for syncer connections.
+
+### Changed
+- **BREAKING** Change the prefix of database tables from `agentsociety_` to `as_` to avoid conflicts with the length limit of table names in PostgreSQL.
+- **BREAKING** Migrate MQTT to Redis.
+- `Simulation.run_from_config` raise error if `number_of_citizen` is 0 and `extra_agent_class` is not provided.
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+
 ## [1.2.10] - 2025-03-18
 
 ### Added
@@ -19,7 +72,6 @@
 
 ### Security
 - N/A
-
 
 ## [1.2.9] - 2025-03-14
 
@@ -103,7 +155,6 @@
 ### Security
 - N/A
   
-
 ## [1.2.5] - 2025-03-07
 
 ### Added
@@ -123,6 +174,8 @@
 
 ### Security
 - N/A
+
+
 
 ## [1.2.4] - 2025-03-04
 
@@ -145,6 +198,7 @@
 
 ### Security
 - N/A
+
 
 ## [1.2.3] - 2025-03-03
 
@@ -252,6 +306,7 @@
 
 ### Security
 - N/A
+
 
 
 ## [1.1.4] - 2025-02-27

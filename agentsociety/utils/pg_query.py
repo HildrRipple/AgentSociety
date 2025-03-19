@@ -5,7 +5,8 @@ PGSQL_DICT: dict[str, list[Any]] = {
     "experiment": [
         """
     CREATE TABLE IF NOT EXISTS {table_name} (
-        id UUID PRIMARY KEY,
+        tenant_id TEXT,
+        id UUID,
         name TEXT,
         num_day INT4,
         status INT4, 
@@ -14,7 +15,8 @@ PGSQL_DICT: dict[str, list[Any]] = {
         config TEXT,
         error TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (tenant_id, id)
     )
 """,
     ],
@@ -27,6 +29,18 @@ PGSQL_DICT: dict[str, list[Any]] = {
         profile JSONB
     )
 """,
+    ],
+    # Global Prompt
+    "global_prompt": [
+        """
+    CREATE TABLE IF NOT EXISTS {table_name} (
+        day INT4,
+        t FLOAT,
+        prompt TEXT,
+        created_at TIMESTAMPTZ
+    )
+""",
+        "CREATE INDEX {table_name}_day_t_idx ON {table_name} (day,t)",
     ],
     # Agent Dialog
     "agent_dialog": [
@@ -80,6 +94,7 @@ PGSQL_DICT: dict[str, list[Any]] = {
     ],
 }
 TO_UPDATE_EXP_INFO_KEYS_AND_TYPES: list[tuple[str, Any]] = [
+    ("tenant_id", str),
     ("id", None),
     ("name", str),
     ("num_day", int),

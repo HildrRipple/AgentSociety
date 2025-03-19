@@ -89,6 +89,7 @@ class Agent(ABC):
         self._memory = memory
         self._exp_id = -1
         self._agent_id = -1
+        self._tenant_id = ""
         self._has_bound_to_simulator = False
         self._has_bound_to_economy = False
         self._blocked = False
@@ -346,10 +347,21 @@ class Agent(ABC):
         """
         self._message_interceptor = message_interceptor
 
+    def set_tenant_id(self, tenant_id: str):
+        """
+        Set the tenant_id of the agent.
+        """
+        self._tenant_id = tenant_id
+
     @property
     def id(self):
         """The Agent's Simulator ID"""
         return self._agent_id
+
+    @property
+    def tenant_id(self):
+        """The Agent's Tenant ID"""
+        return self._tenant_id
 
     @property
     def llm(self):
@@ -437,6 +449,18 @@ class Agent(ABC):
         if self._messager is None:
             raise RuntimeError("Messager is not set")
         return await self._messager.ping.remote()  # type:ignore
+
+    async def react_to_intervention(self, intervention_message: str):
+        """
+        React to an intervention.
+
+        - **Args**:
+            - `intervention_message` (`str`): The message of the intervention.
+
+        - **Description**:
+            - React to an intervention.
+        """
+        pass
 
     async def generate_user_survey_response(self, survey: dict) -> str:
         """
@@ -545,7 +569,7 @@ class Agent(ABC):
                 )
             )
         await self.messager.send_message.remote(  # type:ignore
-            f"exps/{self._exp_id}/user_payback", {"count": 1}
+            f"exps:{self._exp_id}:user_payback", {"count": 1}
         )
 
     async def generate_user_chat_response(self, question: str) -> str:
@@ -656,7 +680,7 @@ class Agent(ABC):
                 )
             )
         await self.messager.send_message.remote(  # type:ignore
-            f"exps/{self._exp_id}/user_payback", {"count": 1}
+            f"exps:{self._exp_id}:user_payback", {"count": 1}
         )
         print(f"Sent payback message to {self._exp_id}")
 
@@ -767,7 +791,7 @@ class Agent(ABC):
                 )
             )
 
-    # Callback functions for MQTT message
+    # Callback functions for Redis message
     async def handle_agent_chat_message(self, payload: dict):
         """
         Handle an incoming chat message from another agent.
@@ -778,7 +802,7 @@ class Agent(ABC):
         - **Description**:
             - Logs receipt of a chat message from another agent.
             - Delegates the processing of the chat message to `_process_agent_chat`.
-            - This method is typically used as a callback function for MQTT messages.
+            - This method is typically used as a callback function for Redis messages.
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
@@ -795,7 +819,7 @@ class Agent(ABC):
         - **Description**:
             - Logs receipt of a chat message from a user.
             - Delegates the processing of the interview (which includes generating a response) to `_process_interview`.
-            - This method is typically used as a callback function for MQTT messages.
+            - This method is typically used as a callback function for Redis messages.
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
@@ -812,7 +836,7 @@ class Agent(ABC):
         - **Description**:
             - Logs receipt of a survey message from a user.
             - Extracts the survey data from the payload and delegates its processing to `_process_survey`.
-            - This method is typically used as a callback function for MQTT messages.
+            - This method is typically used as a callback function for Redis messages.
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
@@ -833,7 +857,7 @@ class Agent(ABC):
             - This method is intended to handle specific types of gather messages but has not been implemented yet.
         """
 
-    # MQTT send message
+    # Redis send message
     async def _send_message(self, to_agent_id: int, payload: dict, sub_topic: str):
         """
         Send a message to another agent through the Messager.
@@ -841,20 +865,20 @@ class Agent(ABC):
         - **Args**:
             - `to_agent_id` (`int`): The ID of the recipient agent.
             - `payload` (`dict`): The content of the message to send.
-            - `sub_topic` (`str`): The sub-topic for the MQTT topic structure.
+            - `sub_topic` (`str`): The sub-topic for the Redis topic structure.
 
         - **Raises**:
             - `RuntimeError`: If the Messager is not set.
 
         - **Description**:
-            - Constructs the full MQTT topic based on the experiment ID, recipient ID, and sub-topic.
+            - Constructs the full Redis topic based on the experiment ID, recipient ID, and sub-topic.
             - Sends the message asynchronously through the Messager.
             - Used internally by other methods like `send_message_to_agent`.
         """
         # send message with `Messager`
         if self._messager is None:
             raise RuntimeError("Messager is not set")
-        topic = f"exps/{self._exp_id}/agents/{to_agent_id}/{sub_topic}"
+        topic = f"exps:{self._exp_id}:agents:{to_agent_id}:{sub_topic}"
         await self._messager.send_message.remote(  # type:ignore
             topic,
             payload,

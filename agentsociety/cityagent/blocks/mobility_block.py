@@ -23,6 +23,10 @@ PLACE_TYPE_SELECTION_PROMPT = """
 As an intelligent decision system, please determine the type of place the user needs to visit based on their input requirement.
 User Plan: {plan}
 User requirement: {intention}
+Other information: 
+-------------------------
+{other_info}
+-------------------------
 Your output must be a single selection from {poi_category} without any additional text or explanation.
 
 Please response in json format (Do not return any other text), example:
@@ -35,6 +39,11 @@ PLACE_SECOND_TYPE_SELECTION_PROMPT = """
 As an intelligent decision system, please determine the type of place the user needs to visit based on their input requirement.
 User Plan: {plan}
 User requirement: {intention}
+Other information: 
+-------------------------
+{other_info}
+-------------------------
+
 Your output must be a single selection from {poi_category} without any additional text or explanation.
 
 Please response in json format (Do not return any other text), example:
@@ -47,8 +56,12 @@ PLACE_ANALYSIS_PROMPT = """
 As an intelligent analysis system, please determine the type of place the user needs to visit based on their input requirement.
 User Plan: {plan}
 User requirement: {intention}
+Other information: 
+-------------------------
+{other_info}
+-------------------------
 
-Your output must be a single selection from ['home', 'workplace', 'other'] without any additional text or explanation.
+Your output must be a single selection from {place_list} without any additional text or explanation.
 
 Please response in json format (Do not return any other text), example:
 {{
@@ -62,6 +75,10 @@ Current weather: {weather}
 Current temperature: {temperature}
 Your current emotion: {emotion_types}
 Your current thought: {thought}
+Other information: 
+-------------------------
+{other_info}
+-------------------------
 
 Please analyze how these emotions would affect travel willingness and return only a single integer number between 3000-200000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
 
@@ -173,6 +190,7 @@ class PlaceSelectionBlock(Block):
             plan=context["plan"],
             intention=step["intention"],
             poi_category=list(poi_cate.keys()),
+            other_info=self.simulator.environment.get("other_information", "None"),
         )
         try:
             # LLM-based category selection
@@ -195,6 +213,7 @@ class PlaceSelectionBlock(Block):
                 plan=context["plan"],
                 intention=step["intention"],
                 poi_category=sub_category,
+                other_info=self.simulator.environment.get("other_information", "None"),
             )
             levelTwoType = await self.llm.atext_request(
                 self.secondTypeSelectionPrompt.to_dialog(),
@@ -214,6 +233,7 @@ class PlaceSelectionBlock(Block):
                 thought=await self.memory.status.get("thought"),
                 weather=self.simulator.sense("weather"),
                 temperature=self.simulator.sense("temperature"),
+                other_info=self.simulator.environment.get("other_information", "None"),
             )
             radius = await self.llm.atext_request(
                 self.radiusPrompt.to_dialog(), response_format={"type": "json_object"}
@@ -243,6 +263,7 @@ class PlaceSelectionBlock(Block):
         else:  # Fallback random selection
             all_pois = ray.get(self.simulator.map.get_poi.remote())  # type:ignore
             next_place = random.choice(all_pois)
+            next_place = (next_place["name"], next_place["id"])
 
         context["next_place"] = next_place
         node_id = await self.memory.stream.add_mobility(
@@ -266,12 +287,18 @@ class MoveBlock(Block):
 
     async def forward(self, step, context):  # type:ignore
         agent_id = await self.memory.status.get("id")
+        place_knowledge = await self.memory.status.get("location_knowledge")
+        known_places = list(place_knowledge.keys())
+        places = ["home", "workplace"] + known_places + ["other"]
         self.placeAnalysisPrompt.format(
-            plan=context["plan"], intention=step["intention"]
+            plan=context["plan"],
+            intention=step["intention"],
+            place_list=places,
+            other_info=self.simulator.environment.get("other_information", "None"),
         )
         response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
-            response = clean_json_response(response)  # type: ignore
+            response = clean_json_response(response)  # type:ignore
             response = json.loads(response)["place_type"]
         except Exception as e:
             logger.warning(
@@ -344,8 +371,39 @@ class MoveBlock(Block):
                 "consumed_time": 45,
                 "node_id": node_id,
             }
+        elif response in known_places:
+            the_place = place_knowledge[response]["id"]
+            nowPlace = await self.memory.status.get("position")
+            node_id = await self.memory.stream.add_mobility(
+                description=f"I went to {response}"
+            )
+            if (
+                "aoi_position" in nowPlace
+                and nowPlace["aoi_position"]["aoi_id"] == the_place
+            ):
+                return {
+                    "success": True,
+                    "evaluation": f"Successfully reached {response} (already at {response})",
+                    "to_place": the_place,
+                    "consumed_time": 0,
+                    "node_id": node_id,
+                }
+            await self.simulator.set_aoi_schedules(
+                person_id=agent_id,
+                target_positions=the_place,
+            )
+            number_poi_visited = await self.memory.status.get("number_poi_visited")
+            number_poi_visited += 1
+            await self.memory.status.update("number_poi_visited", number_poi_visited)
+            return {
+                "success": True,
+                "evaluation": f"Successfully reached {response}",
+                "to_place": the_place,
+                "consumed_time": 45,
+                "node_id": node_id,
+            }
         else:
-            # move to other place
+            # move to other places
             next_place = context.get("next_place", None)
             nowPlace = await self.memory.status.get("position")
             node_id = await self.memory.stream.add_mobility(
@@ -357,14 +415,14 @@ class MoveBlock(Block):
                     target_positions=next_place[1],
                 )
             else:
-                aois = ray.get(self.simulator.map.get_aoi.remote())  # type: ignore
+                aois = ray.get(self.simulator.map.get_aoi.remote())  # type:ignore
                 while True:
                     r_aoi = random.choice(aois)
                     if len(r_aoi["poi_ids"]) > 0:
                         r_poi = random.choice(r_aoi["poi_ids"])
                         break
-                poi: dict = ray.get(self.simulator.map.get_poi.remote(r_poi))  # type: ignore
-                next_place = (poi["name"], poi["aoi_id"])
+                poi = ray.get(self.simulator.map.get_poi.remote(r_poi))  # type:ignore
+                next_place = (poi["name"], poi["aoi_id"])  # type:ignore
                 await self.simulator.set_aoi_schedules(
                     person_id=agent_id,
                     target_positions=next_place[1],
@@ -382,7 +440,9 @@ class MoveBlock(Block):
 
 
 class MobilityNoneBlock(Block):
-    """Null operation block for completed/failed mobility actions"""
+    """
+    MobilityNoneBlock
+    """
 
     def __init__(self, llm: LLM, memory: Memory):
         super().__init__("MobilityNoneBlock", llm=llm, memory=memory)
@@ -414,7 +474,7 @@ class MobilityBlock(Block):
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__("MobilityBlock", llm=llm, memory=memory, simulator=simulator)
-        # init all blocks
+        # initialize all blocks
         self.place_selection_block = PlaceSelectionBlock(llm, memory, simulator)
         self.move_block = MoveBlock(llm, memory, simulator)
         self.mobility_none_block = MobilityNoneBlock(llm, memory)
@@ -423,6 +483,7 @@ class MobilityBlock(Block):
 
         # Initialize block routing system
         self.dispatcher = BlockDispatcher(llm)
+        # register all blocks
         self.dispatcher.register_blocks(
             [self.place_selection_block, self.move_block, self.mobility_none_block]
         )
