@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 from typing import Dict, Optional, List
 
+import aiodocker
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
@@ -18,15 +19,32 @@ __all__ = ["router"]
 router = APIRouter(tags=["experiment_runner"])
 logger = logging.getLogger(__name__)
 
-# 存储正在运行的实验容器ID
-running_experiments: Dict[str, str] = {}
-# 存储临时文件路径
+# Store running experiment container IDs
+running_experiments: Dict[str, Dict] = {}
+# Store temporary file paths
 temp_files: Dict[str, List[str]] = {}
+# Docker client
+docker_client = None
+
+
+# Initialize Docker client
+async def get_docker_client():
+    global docker_client
+    if docker_client is None:
+        docker_client = aiodocker.Docker()
+    return docker_client
+
+
+# Close Docker client
+async def close_docker_client():
+    global docker_client
+    if docker_client is not None:
+        await docker_client.close()
+        docker_client = None
 
 
 class ExperimentConfig(BaseModel):
-    """实验配置模型"""
-
+    """Experiment configuration model"""
     environment: Dict
     agent: Dict
     workflow: Dict
@@ -35,35 +53,37 @@ class ExperimentConfig(BaseModel):
 
 
 class ExperimentResponse(BaseModel):
-    """实验响应模型"""
-
+    """Experiment response model"""
     id: str
     name: str
     status: str
 
 
-@router.post("/run-experiment", status_code=status.HTTP_200_OK)
+@router.post("/run-experiments", status_code=status.HTTP_200_OK)
 async def run_experiment(
     request: Request,
     config: ExperimentConfig,
 ) -> ApiResponseWrapper[ExperimentResponse]:
-    """启动一个新的实验"""
+    """Start a new experiment"""
 
     if request.app.state.read_only:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Server is in read-only mode"
         )
 
-    # 生成唯一的实验ID
+    # Generate unique experiment ID
     experiment_id = str(uuid.uuid4())
 
     try:
-        # 将配置转换为 base64
+        # Get Docker client
+        docker = await get_docker_client()
+
+        # Convert configuration to base64
         sim_config_base64 = base64.b64encode(
             json.dumps(config.environment).encode()
         ).decode()
 
-        # 合并 agent, workflow 和 map 配置
+        # Merge agent, workflow and map configurations
         exp_config = {
             **config.workflow,
             "agent_config": config.agent,
@@ -71,44 +91,40 @@ async def run_experiment(
         }
         exp_config_base64 = base64.b64encode(json.dumps(exp_config).encode()).decode()
 
-        # 启动 Docker 容器
-        cmd = [
-            "docker",
-            "run",
-            "--detach",  # 后台运行
-            "--name",
-            f"experiment_{experiment_id}",
-            "--network",
-            "host",  # 使用主机网络，以便访问 Redis 等服务
-            "agentsociety-runner",
-            "--sim-config-base64",
-            sim_config_base64,
-            "--exp-config-base64",
-            exp_config_base64,
-            "--log-level",
-            "info",
-        ]
+        # Configure container
+        container_config = {
+            "Image": "agentsociety-runner",
+            "Cmd": [
+                "--sim-config-base64", sim_config_base64,
+                "--exp-config-base64", exp_config_base64,
+                "--log-level", "info"
+            ],
+            "HostConfig": {
+                "NetworkMode": "host"  # Use host network to access Redis and other services
+            }
+        }
 
-        # 执行命令启动容器
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        # Create and start container
+        container = await docker.containers.create(
+            config=container_config,
+            name=f"experiment_{experiment_id}"
         )
+        await container.start()
 
-        stdout, stderr = await process.communicate()
+        # Get container ID
+        container_info = await container.show()
+        container_id = container_info["Id"]
 
-        if process.returncode != 0:
-            error_msg = stderr.decode().strip()
-            logger.error(f"Failed to start Docker container: {error_msg}")
-            raise Exception(f"Failed to start Docker container: {error_msg}")
+        # Store experiment information
+        running_experiments[experiment_id] = {
+            "container_id": container_id,
+            "name": config.name,
+            "status": "running",
+            "created_at": container_info["Created"]
+        }
 
-        # 获取容器ID
-        container_id = stdout.decode().strip()
-
-        # 存储容器ID
-        running_experiments[experiment_id] = container_id
-
-        # 启动异步任务来监控容器
-        asyncio.create_task(monitor_experiment_container(experiment_id))
+        # Asynchronously update container status
+        asyncio.create_task(update_experiment_status(experiment_id))
 
         return ApiResponseWrapper(
             data=ExperimentResponse(
@@ -124,69 +140,55 @@ async def run_experiment(
         )
 
 
+@router.get("/run-experiments")
+async def get_experiments(
+    request: Request,
+) -> ApiResponseWrapper[List[Dict]]:
+    """Get all experiments"""
+    
+    experiments = []
+    
+    for exp_id, exp_info in running_experiments.items():
+        # Ensure status is up-to-date
+        try:
+            await update_experiment_status(exp_id)
+        except Exception as e:
+            logger.error(f"Error updating experiment status: {str(e)}")
+        
+        # Add to result list
+        experiments.append({
+            "id": exp_id,
+            "name": exp_info.get("name", "Unknown"),
+            "status": exp_info.get("status", "unknown"),
+            "created_at": exp_info.get("created_at", "")
+        })
+    
+    return ApiResponseWrapper(data=experiments)
+
+
 @router.get("/experiments/{experiment_id}/status")
 async def get_experiment_status(
     request: Request,
     experiment_id: str,
 ) -> ApiResponseWrapper[Dict]:
-    """获取实验状态"""
+    """Get experiment status"""
 
     if experiment_id not in running_experiments:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
         )
 
-    container_id = running_experiments[experiment_id]
-
-    # 检查容器是否仍在运行
-    cmd = ["docker", "inspect", "--format={{.State.Status}}", container_id]
-
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
-
-        stdout, stderr = await process.communicate()
-
-        if process.returncode != 0:
-            # 容器可能已经被移除
-            status_info = "unknown"
-            returncode = None
-        else:
-            container_status = stdout.decode().strip()
-
-            if container_status == "running":
-                status_info = "running"
-                returncode = None
-            elif container_status == "exited":
-                # 获取退出码
-                exit_code_cmd = [
-                    "docker",
-                    "inspect",
-                    "--format={{.State.ExitCode}}",
-                    container_id,
-                ]
-                exit_code_process = await asyncio.create_subprocess_exec(
-                    *exit_code_cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-
-                exit_code_stdout, _ = await exit_code_process.communicate()
-                exit_code = int(exit_code_stdout.decode().strip())
-
-                status_info = "completed" if exit_code == 0 else "failed"
-                returncode = exit_code
-            else:
-                status_info = container_status
-                returncode = None
-    except Exception as e:
-        logger.error(f"Error checking container status: {str(e)}")
-        status_info = "unknown"
-        returncode = None
-
+    # Update experiment status
+    await update_experiment_status(experiment_id)
+    
+    exp_info = running_experiments[experiment_id]
+    
     return ApiResponseWrapper(
-        data={"id": experiment_id, "status": status_info, "returncode": returncode}
+        data={
+            "id": experiment_id, 
+            "status": exp_info.get("status", "unknown"), 
+            "returncode": exp_info.get("returncode")
+        }
     )
 
 
@@ -195,7 +197,7 @@ async def stop_experiment(
     request: Request,
     experiment_id: str,
 ) -> ApiResponseWrapper[Dict]:
-    """停止实验"""
+    """Stop an experiment"""
 
     if request.app.state.read_only:
         raise HTTPException(
@@ -207,94 +209,95 @@ async def stop_experiment(
             status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
         )
 
-    container_id = running_experiments[experiment_id]
+    container_id = running_experiments[experiment_id]["container_id"]
 
-    # 停止并移除容器
     try:
-        # 先尝试优雅停止
-        stop_cmd = ["docker", "stop", container_id]
-        stop_process = await asyncio.create_subprocess_exec(
-            *stop_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
+        # Get Docker client
+        docker = await get_docker_client()
 
-        await stop_process.communicate()
+        # Get container
+        container = docker.containers.container(container_id)
 
-        # 然后移除容器
-        rm_cmd = ["docker", "rm", container_id]
-        rm_process = await asyncio.create_subprocess_exec(
-            *rm_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
+        # Stop container
+        await container.stop()
 
-        await rm_process.communicate()
+        # Delete container
+        await container.delete()
+
+        # Update experiment status
+        running_experiments[experiment_id]["status"] = "stopped"
+
+    except aiodocker.exceptions.DockerError as e:
+        if e.status == 404:
+            # Container already doesn't exist, update status
+            running_experiments[experiment_id]["status"] = "unknown"
+        else:
+            logger.error(f"Error stopping container: {str(e)}")
     except Exception as e:
         logger.error(f"Error stopping container: {str(e)}")
 
-    # 从字典中移除容器ID
-    del running_experiments[experiment_id]
+    return ApiResponseWrapper(
+        data={
+            "id": experiment_id, 
+            "status": running_experiments[experiment_id]["status"]
+        }
+    )
 
-    return ApiResponseWrapper(data={"id": experiment_id, "status": "stopped"})
 
-
-async def monitor_experiment_container(experiment_id: str):
-    """监控实验容器的日志输出"""
-
+async def update_experiment_status(experiment_id: str):
+    """Update experiment status"""
+    
     if experiment_id not in running_experiments:
-        logger.error(f"No container found for experiment {experiment_id}")
+        logger.error(f"No experiment found with ID {experiment_id}")
         return
-
-    container_id = running_experiments[experiment_id]
-
+    
+    exp_info = running_experiments[experiment_id]
+    container_id = exp_info["container_id"]
+    
     try:
-        # 启动日志监控进程
-        cmd = ["docker", "logs", "-f", container_id]
+        # Get Docker client
+        docker = await get_docker_client()
 
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
+        # Get container
+        container = docker.containers.container(container_id)
 
-        # 异步读取标准输出
-        async def read_stdout():
-            while True:
-                line = await process.stdout.readline()
-                if not line:
-                    break
-                logger.info(f"Experiment {experiment_id}: {line.decode().strip()}")
+        # Get container information
+        container_info = await container.show()
+        container_state = container_info["State"]
 
-        # 异步读取标准错误
-        async def read_stderr():
-            while True:
-                line = await process.stderr.readline()
-                if not line:
-                    break
-                logger.error(f"Experiment {experiment_id}: {line.decode().strip()}")
+        if container_state["Running"]:
+            exp_info["status"] = "running"
+            exp_info["returncode"] = None
+        elif container_state["Status"] == "exited":
+            exit_code = container_state["ExitCode"]
+            exp_info["status"] = "completed" if exit_code == 0 else "failed"
+            exp_info["returncode"] = exit_code
+        else:
+            exp_info["status"] = container_state["Status"]
+            exp_info["returncode"] = None
 
-        # 创建两个任务来读取输出
-        stdout_task = asyncio.create_task(read_stdout())
-        stderr_task = asyncio.create_task(read_stderr())
-
-        # 等待进程结束
-        await process.wait()
-
-        # 等待读取任务完成
-        await stdout_task
-        await stderr_task
-
-        # 检查容器状态
-        status_cmd = ["docker", "inspect", "--format={{.State.ExitCode}}", container_id]
-        status_process = await asyncio.create_subprocess_exec(
-            *status_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
-
-        stdout, _ = await status_process.communicate()
-
-        if status_process.returncode == 0:
-            exit_code = int(stdout.decode().strip())
-            if exit_code == 0:
-                logger.info(f"Experiment {experiment_id} completed successfully")
-            else:
-                logger.error(
-                    f"Experiment {experiment_id} failed with exit code {exit_code}"
-                )
-
+    except aiodocker.exceptions.DockerError as e:
+        if e.status == 404:
+            # Container doesn't exist
+            exp_info["status"] = "unknown"
+            exp_info["returncode"] = None
+        else:
+            logger.error(f"Error checking container status: {str(e)}")
+            exp_info["status"] = "error"
+            exp_info["returncode"] = None
     except Exception as e:
-        logger.error(f"Error monitoring container: {str(e)}")
+        logger.error(f"Error checking container status: {str(e)}")
+        exp_info["status"] = "unknown"
+        exp_info["returncode"] = None
+
+
+# Initialize Docker client on application startup
+@router.on_event("startup")
+async def startup_event():
+    await get_docker_client()
+
+
+# Close Docker client on application shutdown
+@router.on_event("shutdown")
+async def shutdown_event():
+    await close_docker_client()

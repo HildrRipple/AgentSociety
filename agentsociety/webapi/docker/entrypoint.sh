@@ -1,32 +1,32 @@
 #!/bin/bash
 set -e
 
-# 帮助信息
+# Help information
 function show_help {
-    echo "AgentSociety 实验运行容器"
-    echo "用法: docker run [docker参数] agentsociety-runner [脚本参数]"
+    echo "AgentSociety Experiment Runner Container"
+    echo "Usage: docker run [docker options] agentsociety-runner [script options]"
     echo ""
-    echo "参数:"
-    echo "  --sim-config-base64 BASE64    使用base64编码的模拟器配置"
-    echo "  --exp-config-base64 BASE64    使用base64编码的实验配置"
-    echo "  --sim-config-file PATH        使用指定路径的模拟器配置文件"
-    echo "  --exp-config-file PATH        使用指定路径的实验配置文件"
-    echo "  --log-level LEVEL             设置日志级别 (debug, info, warning, error)"
-    echo "  --help                        显示此帮助信息"
+    echo "Options:"
+    echo "  --sim-config-base64 BASE64    Simulator configuration in base64 encoding"
+    echo "  --exp-config-base64 BASE64    Experiment configuration in base64 encoding"
+    echo "  --sim-config-file PATH        Path to simulator configuration file"
+    echo "  --exp-config-file PATH        Path to experiment configuration file"
+    echo "  --log-level LEVEL             Set log level (debug, info, warning, error)"
+    echo "  --help                        Show this help message"
     echo ""
-    echo "示例:"
+    echo "Example:"
     echo "  docker run agentsociety-runner --sim-config-base64 [BASE64] --exp-config-base64 [BASE64]"
     exit 0
 }
 
-# 默认参数
+# Default parameters
 SIM_CONFIG_BASE64=""
 EXP_CONFIG_BASE64=""
 SIM_CONFIG_FILE=""
 EXP_CONFIG_FILE=""
 LOG_LEVEL="info"
 
-# 解析参数
+# Parse arguments
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
@@ -59,44 +59,44 @@ while [[ $# -gt 0 ]]; do
             show_help
             ;;
         *)
-            echo "未知参数: $1"
+            echo "Unknown parameter: $1"
             show_help
             ;;
     esac
 done
 
-# 配置日志级别
+# Configure log level
 export LOG_LEVEL=$LOG_LEVEL
 
-# 处理配置文件
+# Process configuration files
 CONFIG_DIR="/config"
 mkdir -p $CONFIG_DIR
 
-# 处理模拟器配置
+# Process simulator configuration
 if [ ! -z "$SIM_CONFIG_BASE64" ]; then
-    echo "使用base64编码的模拟器配置"
+    echo "Using base64 encoded simulator configuration"
     echo $SIM_CONFIG_BASE64 | base64 -d > $CONFIG_DIR/sim_config.json
 elif [ ! -z "$SIM_CONFIG_FILE" ]; then
-    echo "使用文件路径的模拟器配置: $SIM_CONFIG_FILE"
+    echo "Using simulator configuration from file: $SIM_CONFIG_FILE"
     cp $SIM_CONFIG_FILE $CONFIG_DIR/sim_config.json
 else
-    echo "错误: 未提供模拟器配置"
+    echo "Error: No simulator configuration provided"
     exit 1
 fi
 
-# 处理实验配置
+# Process experiment configuration
 if [ ! -z "$EXP_CONFIG_BASE64" ]; then
-    echo "使用base64编码的实验配置"
+    echo "Using base64 encoded experiment configuration"
     echo $EXP_CONFIG_BASE64 | base64 -d > $CONFIG_DIR/exp_config.json
 elif [ ! -z "$EXP_CONFIG_FILE" ]; then
-    echo "使用文件路径的实验配置: $EXP_CONFIG_FILE"
+    echo "Using experiment configuration from file: $EXP_CONFIG_FILE"
     cp $EXP_CONFIG_FILE $CONFIG_DIR/exp_config.json
 else
-    echo "错误: 未提供实验配置"
+    echo "Error: No experiment configuration provided"
     exit 1
 fi
 
-# 创建并运行Python脚本
+# Create and run Python script
 cat > /app/run_experiment.py << 'EOF'
 import asyncio
 import json
@@ -104,7 +104,7 @@ import logging
 import os
 import sys
 
-# 配置日志
+# Configure logging
 log_level = os.environ.get("LOG_LEVEL", "info").upper()
 logging.basicConfig(
     level=getattr(logging, log_level),
@@ -120,7 +120,7 @@ async def main():
         from agentsociety.configs import ExpConfig, SimConfig
         from agentsociety.simulation import AgentSimulation
         
-        # 从配置文件加载配置
+        # Load configurations from files
         with open('/config/sim_config.json', 'r') as f:
             sim_config_dict = json.load(f)
             sim_config = SimConfig.parse_obj(sim_config_dict)
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 EOF
 
-echo "开始运行实验..."
+echo "Starting experiment..."
 python /app/run_experiment.py
 
-echo "实验运行完成，容器将退出" 
+echo "Experiment completed, container will exit" 

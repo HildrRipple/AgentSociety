@@ -1,48 +1,48 @@
-# AgentSociety Docker 容器使用说明
+# AgentSociety Docker Container Usage Guide
 
-本文档介绍如何构建和使用 AgentSociety 的 Docker 容器来运行实验。
+This document explains how to build and use the AgentSociety Docker container to run experiments.
 
-## 构建 Docker 镜像
+## Building the Docker Image
 
-在webapi/docker目录下执行以下命令构建 Docker 镜像：
+Execute the following command in the webapi/docker directory to build the Docker image:
 
 ```bash
 cd agentsociety/agentsociety/webapi/docker
 ./build_docker.sh
 ```
 
-或者指定自定义标签：
+Or specify a custom tag:
 
 ```bash
 ./build_docker.sh -t custom-tag-name
 ```
 
-## 使用 Docker 容器运行实验
+## Running Experiments with Docker Container
 
-### 基本用法
+### Basic Usage
 
-容器支持以下参数：
+The container supports the following parameters:
 
-- `--sim-config-base64`: 使用 base64 编码的模拟器配置
-- `--exp-config-base64`: 使用 base64 编码的实验配置
-- `--sim-config-file`: 使用指定路径的模拟器配置文件
-- `--exp-config-file`: 使用指定路径的实验配置文件
-- `--log-level`: 设置日志级别 (debug, info, warning, error)
-- `--help`: 显示帮助信息
+- `--sim-config-base64`: Simulator configuration in base64 encoding
+- `--exp-config-base64`: Experiment configuration in base64 encoding
+- `--sim-config-file`: Path to simulator configuration file
+- `--exp-config-file`: Path to experiment configuration file
+- `--log-level`: Set log level (debug, info, warning, error)
+- `--help`: Show help information
 
-### 使用 base64 编码的配置
+### Using Base64 Encoded Configuration
 
-1. 首先，将配置文件转换为 base64 编码：
+1. First, convert configuration files to base64 encoding:
 
 ```bash
-# 转换模拟器配置
+# Convert simulator configuration
 SIM_CONFIG_BASE64=$(cat sim_config.json | base64)
 
-# 转换实验配置
+# Convert experiment configuration
 EXP_CONFIG_BASE64=$(cat exp_config.json | base64)
 ```
 
-2. 使用 base64 编码的配置运行容器：
+2. Run the container with base64 encoded configurations:
 
 ```bash
 docker run --rm agentsociety-runner \
@@ -51,9 +51,9 @@ docker run --rm agentsociety-runner \
   --log-level info
 ```
 
-### 使用配置文件
+### Using Configuration Files
 
-1. 挂载包含配置文件的目录：
+1. Mount a directory containing configuration files:
 
 ```bash
 docker run --rm \
@@ -63,12 +63,12 @@ docker run --rm \
   --exp-config-file /external-config/exp_config.json
 ```
 
-## 在 experiment_runner.py 中使用
+## Using in experiment_runner.py
 
-`experiment_runner.py` API已经集成了Docker容器的使用，您可以直接通过API调用来运行实验。详情请参考`agentsociety/webapi/api/experiment_runner.py`文件。
+The `experiment_runner.py` API has integrated the use of Docker containers. You can run experiments directly through the API. For details, refer to the `agentsociety/webapi/api/experiment_runner.py` file.
 
-## 注意事项
+## Notes
 
-1. 容器运行完成后会自动退出
-2. 如果需要保存实验结果，请确保在配置中指定了正确的数据库连接信息
-3. 如果实验需要访问外部服务（如 Redis、数据库等），请确保使用 `--network host` 参数或配置适当的网络设置 
+1. The container will exit automatically after the experiment completes
+2. If you need to save experiment results, make sure to specify the correct database connection information in the configuration
+3. If the experiment needs to access external services (such as Redis, database, etc.), make sure to use the `--network host` parameter or configure appropriate network settings 
