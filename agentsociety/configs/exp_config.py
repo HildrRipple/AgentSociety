@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -23,7 +23,7 @@ class WorkflowStep(BaseModel):
     )
     times: int = 1  # Number of repetitions for this step - used for [RUN] type
     target_agent: Optional[list] = (
-        None  # List specifying the agents targeted by this step - used for [INTERVIEW, SURVEY, UPDATE_STATE_INTERVENE, MESSAGE_INTERVENE] type
+        None  # list specifying the agents targeted by this step - used for [INTERVIEW, SURVEY, UPDATE_STATE_INTERVENE, MESSAGE_INTERVENE] type
     )
     interview_message: Optional[str] = (
         None  # Optional message used for interviews during this step - used for [INTERVIEW] type
@@ -57,7 +57,7 @@ class MetricExtractor(BaseModel):
         10  # Frequency interval (in simulation steps) for metric extraction
     )
     target_agent: Optional[list] = (
-        None  # List specifying the agents from which to extract metrics - used for [STATE] type
+        None  # list specifying the agents from which to extract metrics - used for [STATE] type
     )
     key: Optional[str] = (
         None  # Optional key to store or identify the extracted metric - used for [STATE] type
@@ -71,10 +71,10 @@ class MetricExtractor(BaseModel):
 
 class DistributionConfig(BaseModel):
     dist_type: DistributionType = Field(..., description="The type of the distribution")
-    choices: Optional[List[Any]] = (
+    choices: Optional[list[Any]] = (
         None  # A list of possible discrete values - used for [CHOICE] type
     )
-    weights: Optional[List[float]] = (
+    weights: Optional[list[float]] = (
         None  # Weights corresponding to each discrete choice - used for [CHOICE] type
     )
     min_value: Optional[Union[int, float]] = (
@@ -95,13 +95,13 @@ class DistributionConfig(BaseModel):
 
 
 class MemoryConfig(BaseModel):
-    memory_config_func: Optional[Dict[type[Any], Callable]] = (
+    memory_config_func: Optional[dict[type[Any], Callable]] = (
         None  # A dictionary mapping agent types to functions that return memory configurations
     )
-    memory_from_file: Optional[Dict[type[Any], str]] = (
+    memory_from_file: Optional[dict[type[Any], str]] = (
         None  # A dictionary mapping agent types to file paths containing memory configurations
     )
-    memory_distributions: Optional[Dict[str, DistributionConfig]] = (
+    memory_distributions: Optional[dict[str, DistributionConfig]] = (
         None  # A dictionary mapping citizen agents profile attributes to distribution configurations
     )
 
@@ -132,9 +132,9 @@ class AgentConfig(BaseModel):
 
     def SetMemoryConfig(
         self,
-        memory_config_func: Optional[Dict[type[Any], Callable]] = None,
-        memory_from_file: Optional[Dict[Any, str]] = None,
-        memory_distributions: Optional[Dict[str, DistributionConfig]] = None,
+        memory_config_func: Optional[dict[type[Any], Callable]] = None,
+        memory_from_file: Optional[dict[Any, str]] = None,
+        memory_distributions: Optional[dict[str, DistributionConfig]] = None,
     ) -> "AgentConfig":
         self.memory_config = MemoryConfig(
             memory_config_func=memory_config_func,
@@ -221,9 +221,9 @@ class ExpConfig(BaseModel):
 
     def SetMemoryConfig(
         self,
-        memory_config_func: Optional[Dict[type[Any], Callable]] = None,
-        memory_from_file: Optional[Dict[Any, str]] = None,
-        memory_distributions: Optional[Dict[str, DistributionConfig]] = None,
+        memory_config_func: Optional[dict[type[Any], Callable]] = None,
+        memory_from_file: Optional[dict[Any, str]] = None,
+        memory_distributions: Optional[dict[str, DistributionConfig]] = None,
     ) -> "ExpConfig":
         assert self.agent_config is not None
         self.agent_config.memory_config = MemoryConfig(

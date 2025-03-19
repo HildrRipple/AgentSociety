@@ -4,11 +4,11 @@
 
 ## LLM Control
 
-- LLM Request Configuration (`LLMRequestConfig`)
+- LLM Request Configuration (`LLMConfig`)
     Configures Language Model integrations (e.g., OpenAI, Anthropic). This configuration controls the basic access to the LLM, including the selection of the LLM provider, the corresponding model, and one or more API keys (for higher QPM).
 
     ```python
-    class LLMRequestConfig(BaseModel):
+    class LLMConfig(BaseModel):
         request_type: LLMRequestType = Field(  # Provider type (openai, etc)
             ..., 
             example="zhipuai"
@@ -25,11 +25,11 @@
 
 ## Simulation Environment Control
 
-- Simulator Runtime (`SimulatorRequestConfig`)
+- Simulator Runtime (`SimulatorConfig`)
     This configuration controls the simulation of the urban environment, including the starting time point of the simulation, the number of simulation steps per day, and the progression of the urban environment time for each simulation step.
 
     ```python
-    class SimulatorRequestConfig(BaseModel):
+    class SimulatorConfig(BaseModel):
         task_name: str = Field(  # Simulation scenario identifier
             "citysim", 
             example="urban-economy-v2"
@@ -68,11 +68,11 @@
         )
     ```
 
-- Simulation Location Configuration (`MapRequestConfig`)
+- Simulation Location Configuration (`MapConfig`)
     Defines simulation environment.
 
     ```python
-    class MapRequestConfig(BaseModel):
+    class MapConfigConfig(BaseModel):
         file_path: str = Field(  # Path to map file
             ...,
             example="data/beijing_map.pb" # beijing 5 ring
@@ -131,11 +131,11 @@
     ```
 
 ## Metric Tracking
-- (`MetricRequest`)
+- (`MetricExtractor`)
     Configures experiment telemetry collection. We support MLflow as metric tracking tool.
 
     ```python
-    class MetricRequest(BaseModel):
+    class MetricExtractor(BaseModel):
         mlflow: Optional[MlflowConfig] = Field(  # MLflow integration
             None,
             example=MlflowConfig(
@@ -157,12 +157,12 @@ config = (
     SimConfig()
     # Set LLM provider with failover keys
     .SetLLMRequest(
-        request_type=LLMRequestType.ZhipuAI,
+        provider=LLMRequestType.ZhipuAI,
         api_key=["sk-primary", "sk-backup"], 
         model="GLM-4-Flash"
     )
     # Configure simulation parameters
-    .SetSimulatorRequest(
+    .SetSimulatorConfig(
         task_name="citysim",
         max_day=365,
         start_step=28800,  # 8 AM
@@ -176,13 +176,12 @@ config = (
     .SetRedis(
         server="REDIS-SERVER", 
         port=6379,
-        username="USER-NAME",
         password="USER-NAME"
     )
     # Load city layout
-    .SetMapRequest("data/beijing_map.pb")
+    .SetMapConfig("data/beijing_map.pb")
     # Enable metrics to MLflow
-    .SetMetricRequest(
+    .SetMetricExtractor(
         username="USER-NAME",
         password="PASSWORD",
         mlflow_uri="http://mlflow.prod:5000"

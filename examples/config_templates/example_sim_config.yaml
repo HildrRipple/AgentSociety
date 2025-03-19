@@ -13,7 +13,6 @@ simulator_config:
 redis:
   server: <REDIS-SERVER> # Specify the Redis server address here.
   port: 6379 # Port number on which the Redis service is running.
-  username: <USER-NAME> # Username for Redis server authentication.
   password: <PASSWORD> # Password for Redis server authentication.
 
 map_config:

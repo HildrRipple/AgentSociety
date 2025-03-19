@@ -19,9 +19,9 @@
   -
 * - {py:obj}`RedisConfig <agentsociety.configs.sim_config.RedisConfig>`
   -
-* - {py:obj}`SimulatorRequestConfig <agentsociety.configs.sim_config.SimulatorRequestConfig>`
+* - {py:obj}`SimulatorConfigConfig <agentsociety.configs.sim_config.SimulatorConfigConfig>`
   -
-* - {py:obj}`MapRequestConfig <agentsociety.configs.sim_config.MapRequestConfig>`
+* - {py:obj}`MapConfigConfig <agentsociety.configs.sim_config.MapConfigConfig>`
   -
 * - {py:obj}`MlflowConfig <agentsociety.configs.sim_config.MlflowConfig>`
   -
@@ -29,7 +29,7 @@
   -
 * - {py:obj}`AvroConfig <agentsociety.configs.sim_config.AvroConfig>`
   -
-* - {py:obj}`MetricRequest <agentsociety.configs.sim_config.MetricRequest>`
+* - {py:obj}`MetricExtractor <agentsociety.configs.sim_config.MetricExtractor>`
   -
 * - {py:obj}`SimStatus <agentsociety.configs.sim_config.SimStatus>`
   -
@@ -163,113 +163,113 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 `````
 
-`````{py:class} SimulatorRequestConfig(/, **data: typing.Any)
-:canonical: agentsociety.configs.sim_config.SimulatorRequestConfig
+`````{py:class} SimulatorConfigConfig(/, **data: typing.Any)
+:canonical: agentsociety.configs.sim_config.SimulatorConfigConfig
 
 Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} task_name
-:canonical: agentsociety.configs.sim_config.SimulatorRequestConfig.task_name
+:canonical: agentsociety.configs.sim_config.SimulatorConfigConfig.task_name
 :type: str
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorRequestConfig.task_name
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorConfigConfig.task_name
 ```
 
 ````
 
 ````{py:attribute} max_day
-:canonical: agentsociety.configs.sim_config.SimulatorRequestConfig.max_day
+:canonical: agentsociety.configs.sim_config.SimulatorConfigConfig.max_day
 :type: int
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorRequestConfig.max_day
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorConfigConfig.max_day
 ```
 
 ````
 
 ````{py:attribute} start_step
-:canonical: agentsociety.configs.sim_config.SimulatorRequestConfig.start_step
+:canonical: agentsociety.configs.sim_config.SimulatorConfigConfig.start_step
 :type: int
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorRequestConfig.start_step
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorConfigConfig.start_step
 ```
 
 ````
 
 ````{py:attribute} total_step
-:canonical: agentsociety.configs.sim_config.SimulatorRequestConfig.total_step
+:canonical: agentsociety.configs.sim_config.SimulatorConfigConfig.total_step
 :type: int
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorRequestConfig.total_step
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorConfigConfig.total_step
 ```
 
 ````
 
 ````{py:attribute} log_dir
-:canonical: agentsociety.configs.sim_config.SimulatorRequestConfig.log_dir
+:canonical: agentsociety.configs.sim_config.SimulatorConfigConfig.log_dir
 :type: str
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorRequestConfig.log_dir
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorConfigConfig.log_dir
 ```
 
 ````
 
 ````{py:attribute} steps_per_simulation_step
-:canonical: agentsociety.configs.sim_config.SimulatorRequestConfig.steps_per_simulation_step
+:canonical: agentsociety.configs.sim_config.SimulatorConfigConfig.steps_per_simulation_step
 :type: int
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorRequestConfig.steps_per_simulation_step
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorConfigConfig.steps_per_simulation_step
 ```
 
 ````
 
 ````{py:attribute} steps_per_simulation_day
-:canonical: agentsociety.configs.sim_config.SimulatorRequestConfig.steps_per_simulation_day
+:canonical: agentsociety.configs.sim_config.SimulatorConfigConfig.steps_per_simulation_day
 :type: int
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorRequestConfig.steps_per_simulation_day
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorConfigConfig.steps_per_simulation_day
 ```
 
 ````
 
 ````{py:attribute} primary_node_ip
-:canonical: agentsociety.configs.sim_config.SimulatorRequestConfig.primary_node_ip
+:canonical: agentsociety.configs.sim_config.SimulatorConfigConfig.primary_node_ip
 :type: str
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorRequestConfig.primary_node_ip
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimulatorConfigConfig.primary_node_ip
 ```
 
 ````
 
 `````
 
-`````{py:class} MapRequestConfig(/, **data: typing.Any)
-:canonical: agentsociety.configs.sim_config.MapRequestConfig
+`````{py:class} MapConfigConfig(/, **data: typing.Any)
+:canonical: agentsociety.configs.sim_config.MapConfigConfig
 
 Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} file_path
-:canonical: agentsociety.configs.sim_config.MapRequestConfig.file_path
+:canonical: agentsociety.configs.sim_config.MapConfigConfig.file_path
 :type: str
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.MapRequestConfig.file_path
+```{autodoc2-docstring} agentsociety.configs.sim_config.MapConfigConfig.file_path
 ```
 
 ````
@@ -374,18 +374,18 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 `````
 
-`````{py:class} MetricRequest(/, **data: typing.Any)
-:canonical: agentsociety.configs.sim_config.MetricRequest
+`````{py:class} MetricExtractor(/, **data: typing.Any)
+:canonical: agentsociety.configs.sim_config.MetricExtractor
 
 Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} mlflow
-:canonical: agentsociety.configs.sim_config.MetricRequest.mlflow
+:canonical: agentsociety.configs.sim_config.MetricExtractor.mlflow
 :type: typing.Optional[agentsociety.configs.sim_config.MlflowConfig]
 :value: >
    'Field(...)'
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.MetricRequest.mlflow
+```{autodoc2-docstring} agentsociety.configs.sim_config.MetricExtractor.mlflow
 ```
 
 ````
@@ -428,7 +428,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} simulator_request
 :canonical: agentsociety.configs.sim_config.SimConfig.simulator_request
-:type: typing.Optional[agentsociety.configs.sim_config.SimulatorRequestConfig]
+:type: typing.Optional[agentsociety.configs.sim_config.SimulatorConfigConfig]
 :value: >
    None
 
@@ -450,7 +450,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} map_request
 :canonical: agentsociety.configs.sim_config.SimConfig.map_request
-:type: typing.Optional[agentsociety.configs.sim_config.MapRequestConfig]
+:type: typing.Optional[agentsociety.configs.sim_config.MapConfigConfig]
 :value: >
    None
 
@@ -461,7 +461,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} metric_request
 :canonical: agentsociety.configs.sim_config.SimConfig.metric_request
-:type: typing.Optional[agentsociety.configs.sim_config.MetricRequest]
+:type: typing.Optional[agentsociety.configs.sim_config.MetricExtractor]
 :value: >
    None
 
@@ -534,7 +534,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:property} prop_simulator_request
 :canonical: agentsociety.configs.sim_config.SimConfig.prop_simulator_request
-:type: agentsociety.configs.sim_config.SimulatorRequestConfig
+:type: agentsociety.configs.sim_config.SimulatorConfigConfig
 
 ```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.prop_simulator_request
 ```
@@ -552,7 +552,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:property} prop_map_request
 :canonical: agentsociety.configs.sim_config.SimConfig.prop_map_request
-:type: agentsociety.configs.sim_config.MapRequestConfig
+:type: agentsociety.configs.sim_config.MapConfigConfig
 
 ```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.prop_map_request
 ```
@@ -588,7 +588,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:property} prop_metric_request
 :canonical: agentsociety.configs.sim_config.SimConfig.prop_metric_request
-:type: agentsociety.configs.sim_config.MetricRequest
+:type: agentsociety.configs.sim_config.MetricExtractor
 
 ```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.prop_metric_request
 ```
@@ -603,10 +603,10 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} SetSimulatorRequest(task_name: str = 'citysim', max_day: int = 1000, start_step: int = 28800, total_step: int = 24 * 60 * 60 * 365, log_dir: str = './log', steps_per_simulation_step: int = 300, steps_per_simulation_day: int = 3600, primary_node_ip: str = 'localhost') -> agentsociety.configs.sim_config.SimConfig
-:canonical: agentsociety.configs.sim_config.SimConfig.SetSimulatorRequest
+````{py:method} SetSimulatorConfig(task_name: str = 'citysim', max_day: int = 1000, start_step: int = 28800, total_step: int = 24 * 60 * 60 * 365, log_dir: str = './log', steps_per_simulation_step: int = 300, steps_per_simulation_day: int = 3600, primary_node_ip: str = 'localhost') -> agentsociety.configs.sim_config.SimConfig
+:canonical: agentsociety.configs.sim_config.SimConfig.SetSimulatorConfig
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetSimulatorRequest
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetSimulatorConfig
 ```
 
 ````
@@ -619,18 +619,18 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} SetMapRequest(file_path: str) -> agentsociety.configs.sim_config.SimConfig
-:canonical: agentsociety.configs.sim_config.SimConfig.SetMapRequest
+````{py:method} SetMapConfig(file_path: str) -> agentsociety.configs.sim_config.SimConfig
+:canonical: agentsociety.configs.sim_config.SimConfig.SetMapConfig
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetMapRequest
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetMapConfig
 ```
 
 ````
 
-````{py:method} SetMetricRequest(username: str, password: str, mlflow_uri: str) -> agentsociety.configs.sim_config.SimConfig
-:canonical: agentsociety.configs.sim_config.SimConfig.SetMetricRequest
+````{py:method} SetMetricExtractor(username: str, password: str, mlflow_uri: str) -> agentsociety.configs.sim_config.SimConfig
+:canonical: agentsociety.configs.sim_config.SimConfig.SetMetricExtractor
 
-```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetMetricRequest
+```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetMetricExtractor
 ```
 
 ````

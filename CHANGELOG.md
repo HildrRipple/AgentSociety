@@ -397,7 +397,7 @@
 - N/A
 
 ### Changed
-- The simulator has been converted to a synchronous mode, controlled by `ExpConfig.SimulatorRequest.steps_per_simulation_step` and `ExpConfig.SimulatorRequest.steps_per_simulation_day` parameters that determine the number of seconds per step for advancing the urban environment time in each simulation step and day.
+- The simulator has been converted to a synchronous mode, controlled by `ExpConfig.SimulatorConfig.steps_per_simulation_step` and `ExpConfig.SimulatorConfig.steps_per_simulation_day` parameters that determine the number of seconds per step for advancing the urban environment time in each simulation step and day.
 
 ### Deprecated
 - N/A

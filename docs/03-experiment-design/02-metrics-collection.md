@@ -43,10 +43,10 @@ class CustomAgent(Agent):
 sim_config = (
     SimConfig()
     .SetLLMRequest(request_type="zhipuai", api_key="", model="GLM-4-Flash")
-    .SetSimulatorRequest(min_step_time=1)
+    .SetSimulatorConfig(min_step_time=1)
     .SetRedis(server="redis.example.com", port=6379, password="pass")
-    .SetMapRequest(file_path="./ignore/map.pb")
-    .SetMetricRequest(
+    .SetMapConfig(file_path="./ignore/map.pb")
+    .SetMetricExtractor(
         username="mlflow_user", password="mlflow_pass", mlflow_uri="http://mlflow:5000"
     )
     .SetPostgreSql(path="postgresql://user:pass@localhost:5432/db", enabled=True)

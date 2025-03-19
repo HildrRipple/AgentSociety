@@ -27,12 +27,12 @@ We need to create two configuration files:
 
 An example of `example_sim_config.yaml` is as below:
 ```yaml
-llm_request:
-  request_type: zhipuai
+llm_config:
+  provider: zhipuai
   api_key: <YOUR-API-KEY> # Please replace with the API key obtained from the LLM provider website.
   model: GLM-4-Flash # The name of the model to be used.
 
-simulator_request:
+simulator_config:
   task_name: "citysim" # The name of the simulation task, affect the directory name for log output
   max_day: 1 # Defines the maximum number of days for the simulation.
   start_step: 0 # The initial step of the simulation in seconds.
@@ -43,13 +43,12 @@ simulator_request:
 redis:
   server: <REDIS-SERVER> # Specify the Redis server address here, e.g. `localhost`.
   port: 6379 # Port number on which the Redis service is running.
-  username: <USER-NAME> # Optional: Username for Redis server authentication. If not required, remove this line.
   password: <USER-NAME> # Optional: Password for Redis server authentication. If not required, remove this line.
 
-map_request:
+map_config:
   file_path: data/beijing_map.pb # Path to the map file, reference to step1.
 
-metric_request:
+metric_config:
   mlflow: 
     username: <USER-NAME> # Username for MLflow authentication.
     password: <PASSWORD> # Password for MLflow authentication.
