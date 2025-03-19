@@ -7,12 +7,13 @@ import tempfile
 import uuid
 from pathlib import Path
 from typing import Dict, Optional, List
+from datetime import datetime
 
-import aiodocker
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ..models import ApiResponseWrapper
+from ...cli.docker_runner import run_experiment_in_container
 
 __all__ = ["router"]
 
@@ -21,26 +22,6 @@ logger = logging.getLogger(__name__)
 
 # Store running experiment container IDs
 running_experiments: Dict[str, Dict] = {}
-# Store temporary file paths
-temp_files: Dict[str, List[str]] = {}
-# Docker client
-docker_client = None
-
-
-# Initialize Docker client
-async def get_docker_client():
-    global docker_client
-    if docker_client is None:
-        docker_client = aiodocker.Docker()
-    return docker_client
-
-
-# Close Docker client
-async def close_docker_client():
-    global docker_client
-    if docker_client is not None:
-        await docker_client.close()
-        docker_client = None
 
 
 class ExperimentConfig(BaseModel):
@@ -75,9 +56,6 @@ async def run_experiment(
     experiment_id = str(uuid.uuid4())
 
     try:
-        # Get Docker client
-        docker = await get_docker_client()
-
         # Convert configuration to base64
         sim_config_base64 = base64.b64encode(
             json.dumps(config.environment).encode()
@@ -91,36 +69,18 @@ async def run_experiment(
         }
         exp_config_base64 = base64.b64encode(json.dumps(exp_config).encode()).decode()
 
-        # Configure container
-        container_config = {
-            "Image": "agentsociety-runner",
-            "Cmd": [
-                "--sim-config-base64", sim_config_base64,
-                "--exp-config-base64", exp_config_base64,
-                "--log-level", "info"
-            ],
-            "HostConfig": {
-                "NetworkMode": "host"  # Use host network to access Redis and other services
-            }
-        }
-
-        # Create and start container
-        container = await docker.containers.create(
-            config=container_config,
-            name=f"experiment_{experiment_id}"
-        )
-        await container.start()
-
-        # Get container ID
-        container_info = await container.show()
-        container_id = container_info["Id"]
+        # 使用 docker_runner 启动容器
+        asyncio.create_task(run_experiment_in_container(
+            sim_config_base64=sim_config_base64,
+            exp_config_base64=exp_config_base64,
+            log_level="info"
+        ))
 
         # Store experiment information
         running_experiments[experiment_id] = {
-            "container_id": container_id,
             "name": config.name,
             "status": "running",
-            "created_at": container_info["Created"]
+            "created_at": datetime.now().isoformat()
         }
 
         # Asynchronously update container status
@@ -301,3 +261,76 @@ async def startup_event():
 @router.on_event("shutdown")
 async def shutdown_event():
     await close_docker_client()
+
+
+# 添加命令行入口点
+async def run_experiment(
+    sim_config_base64: Optional[str] = None,
+    exp_config_base64: Optional[str] = None,
+    log_level: str = "info"
+):
+    """Run an experiment with the provided configuration."""
+    # 设置日志
+    log_level = log_level.upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    logger = logging.getLogger("experiment_executor")
+    
+    try:
+        # 导入必要的模块
+        from agentsociety.configs import ExpConfig, SimConfig
+        from agentsociety.simulation import AgentSimulation
+        
+        # 解码配置
+        if not sim_config_base64 or not exp_config_base64:
+            logger.error("Both simulator and experiment configurations are required")
+            return 1
+        
+        sim_config_dict = json.loads(base64.b64decode(sim_config_base64).decode())
+        exp_config_dict = json.loads(base64.b64decode(exp_config_base64).decode())
+        
+        # 验证配置
+        sim_config = SimConfig.model_validate(sim_config_dict)
+        exp_config = ExpConfig.model_validate(exp_config_dict)
+        
+        # 运行实验
+        logger.info(f"Starting experiment with config: {exp_config}")
+        simulation = AgentSimulation.run_from_config(
+            config=exp_config,
+            sim_config=sim_config,
+        )
+        await simulation
+        logger.info("Experiment completed successfully")
+        return 0
+    except Exception as e:
+        logger.error(f"Error in experiment: {str(e)}")
+        return 1
+
+
+def main():
+    """Command-line entry point for running experiments directly."""
+    parser = argparse.ArgumentParser(description="AgentSociety Experiment Executor")
+    parser.add_argument("--sim-config-base64", required=True, help="Simulator configuration in base64 encoding")
+    parser.add_argument("--exp-config-base64", required=True, help="Experiment configuration in base64 encoding")
+    parser.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"],
+                        help="Set log level (default: info)")
+    
+    args = parser.parse_args()
+    
+    # 运行实验
+    exit_code = asyncio.run(run_experiment(
+        sim_config_base64=args.sim_config_base64,
+        exp_config_base64=args.exp_config_base64,
+        log_level=args.log_level
+    ))
+    
+    sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()

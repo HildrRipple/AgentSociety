@@ -72,9 +72,9 @@ echo "Starting experiment..."
 
 # Run the experiment using the CLI tool
 if [ ! -z "$SIM_CONFIG_BASE64" ] && [ ! -z "$EXP_CONFIG_BASE64" ]; then
-    agentsociety-experiment --sim-config-base64 "$SIM_CONFIG_BASE64" --exp-config-base64 "$EXP_CONFIG_BASE64" --log-level "$LOG_LEVEL"
+    python -m agentsociety.cli.runner --sim-config-base64 "$SIM_CONFIG_BASE64" --exp-config-base64 "$EXP_CONFIG_BASE64" --log-level "$LOG_LEVEL"
 elif [ ! -z "$SIM_CONFIG_FILE" ] && [ ! -z "$EXP_CONFIG_FILE" ]; then
-    agentsociety-experiment --sim-config-file "$SIM_CONFIG_FILE" --exp-config-file "$EXP_CONFIG_FILE" --log-level "$LOG_LEVEL"
+    python -m agentsociety.cli.runner --sim-config-file "$SIM_CONFIG_FILE" --exp-config-file "$EXP_CONFIG_FILE" --log-level "$LOG_LEVEL"
 else
     echo "Error: No configuration provided"
     show_help
