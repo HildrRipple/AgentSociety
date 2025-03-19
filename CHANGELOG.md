@@ -53,6 +53,130 @@
 ### Security
 - N/A
 
+## [1.2.10] - 2025-03-18
+
+### Added
+- N/A
+
+### Changed
+- Add retry for syncer connections.
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- Fix typo in `simulator.sence`
+
+### Security
+- N/A
+
+## [1.2.9] - 2025-03-14
+
+### Added
+- N/A
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- Fixed bug for `update_environment` in `AgentGroup`.
+- Bug for calling sequence of `agent.step` and `OnlyClientSidecar.step`.
+
+### Security
+- N/A
+
+## [1.2.8] - 2025-03-14
+
+### Added
+- N/A
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- Fixed bug for `PlaceSelectionBlock.forward` when selecting POI.
+- Bug for `OnlyClientSidecar` calling
+
+### Security
+- N/A
+
+## [1.2.7] - 2025-03-14
+
+### Added
+- N/A
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- Fixed bug for `PlaceSelectionBlock.forward` when selecting POI.
+
+### Security
+- N/A
+
+## [1.2.6] - 2025-03-12
+
+### Added
+- N/A
+
+### Changed
+- WeChat QR code.
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+  
+## [1.2.5] - 2025-03-07
+
+### Added
+- N/A
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- Remove `Agent._uuid`
+
+### Fixed
+- Fixed bug for `simulation.init_agents` when creating group parameters for agents.
+
+### Security
+- N/A
+
+
+
 ## [1.2.4] - 2025-03-04
 
 ### Added

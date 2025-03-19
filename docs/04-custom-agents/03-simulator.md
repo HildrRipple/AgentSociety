@@ -37,7 +37,7 @@ class CustomAgent(Agent):
 - Environmental Parameters
   - `set_environment`: Sets global environmental conditions that affect all agents.
   - `update_environment`: Updates a specific environmental parameter (weather, crime rate, etc.).
-  - `sence`: Retrieves a specific environmental parameter value.
+  - `sense`: Retrieves a specific environmental parameter value.
 
 - Spatial Navigation
   - `get_poi_categories`: Retrieves unique categories of points of interest within a specified radius.
