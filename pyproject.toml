@@ -63,6 +63,7 @@ Issues = "https://github.com/tsinghua-fib-lab/agentsociety/issues"
 [project.scripts]
 agentsociety-sim = "agentsociety.cli.sim:agentsociety_sim"
 agentsociety-ui = "agentsociety.cli.webui:cli"
+agentsociety-experiment = "agentsociety.cli.experiment:experiment_runner"
 
 [tool.setuptools.packages.find]
 where = ["."]
