@@ -32,10 +32,10 @@ sim_config = (
     .SetLLMRequest(
         request_type=LLMRequestType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
-    .SetSimulatorRequest(min_step_time=50)
+    .SetSimulatorConfig(min_step_time=50)
     .SetRedis(server="redis.example.com", port=6379, password="pass")
     # change to your file path
-    .SetMapRequest(file_path="map.pb")
+    .SetMapConfig(file_path="map.pb")
     # .SetAvro(path='./__avro', enabled=True)
 )
 exp_config = (
@@ -86,10 +86,10 @@ sim_config = (
     .SetLLMRequest(
         request_type=LLMRequestType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
-    .SetSimulatorRequest(min_step_time=50)
+    .SetSimulatorConfig(min_step_time=50)
     .SetRedis(server="redis.example.com", port=6379, password="pass")
     # change to your file path
-    .SetMapRequest(file_path="map.pb")
+    .SetMapConfig(file_path="map.pb")
     # .SetAvro(path='./__avro', enabled=True)
 )
 exp_config = (

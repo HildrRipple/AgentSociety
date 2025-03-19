@@ -37,7 +37,7 @@ agentsociety.configs.exp_config
 ````{py:data} __all__
 :canonical: agentsociety.configs.__all__
 :value: >
-   ['SimConfig', 'SimulatorRequestConfig', 'MapRequestConfig', 'MlflowConfig', 'LLMRequestConfig', 'Exp...
+   ['SimConfig', 'SimulatorConfigConfig', 'MapConfigConfig', 'MlflowConfig', 'LLMRequestConfig', 'Exp...
 
 ```{autodoc2-docstring} agentsociety.configs.__all__
 ```

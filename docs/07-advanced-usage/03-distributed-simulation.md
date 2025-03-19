@@ -19,10 +19,10 @@ from agentsociety.simulation import AgentSimulation
 sim_config = (
     SimConfig()
     .SetLLMRequest(request_type="zhipuai", api_key="", model="GLM-4-Flash")
-    .SetSimulatorRequest(min_step_time=1, primary_node_ip="<YOUR-PRIMARY-IP>")
+    .SetSimulatorConfig(min_step_time=1, primary_node_ip="<YOUR-PRIMARY-IP>")
     .SetRedis(server="redis.example.com", port=6379, password="pass")
-    .SetMapRequest(file_path="./ignore/map.pb")
-    .SetMetricRequest(
+    .SetMapConfig(file_path="./ignore/map.pb")
+    .SetMetricExtractor(
         username="mlflow_user", password="mlflow_pass", mlflow_uri="http://mlflow:5000"
     )
 )
@@ -60,9 +60,9 @@ if __name__ == "__main__":
 ```{admonition} Caution
 :class: caution
 - `SetRedis`: `server` should be accessible for all nodes.
-- `SetMetricRequest`: `mlflow_uri` should be accessible for all nodes. 
-- `SetSimulatorRequest`: `primary_node_ip` should be accessible for all nodes. 
-- `SetMapRequest`: the `file_path` is for the primary node.
+- `SetMetricExtractor`: `mlflow_uri` should be accessible for all nodes. 
+- `SetSimulatorConfig`: `primary_node_ip` should be accessible for all nodes. 
+- `SetMapConfig`: the `file_path` is for the primary node.
 ```
 
 ## AgentGroup Configuration

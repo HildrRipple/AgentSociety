@@ -52,7 +52,7 @@ To use a different city map:
 from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
                                  load_config_from_file)
 sim_config = SimConfig(
-    .SetMapRequest(file_path="path/to_your_city_map.pb")
+    .SetMapConfig(file_path="path/to_your_city_map.pb")
 )
 ```
 
@@ -63,7 +63,7 @@ from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
                                  load_config_from_file)
 sim_config = (
     SimConfig()
-    .SetSimulatorRequest(
+    .SetSimulatorConfig(
         task_name="citysim",           # Simulation task name
         start_step=8 * 3600,           # Start time (8:00 AM)
         total_step=24 * 3600,          # Simulation Steps for One day
