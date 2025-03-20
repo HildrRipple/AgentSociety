@@ -299,7 +299,9 @@ class Messager:
                 if new_topics:
                     await self._update_psubscribe(pubsub, new_topics)
                     current_topics.update(new_topics)
-                    get_logger().info(f"Subscribed to new topics: {new_topics}")
+                    get_logger().info(
+                        f"Subscribed to new topics: len(new_topics)={len(new_topics)}"
+                    )
                 if current_topics:
                     message = await pubsub.get_message(ignore_subscribe_messages=True)
                     if message and message["type"] in ("pmessage",):

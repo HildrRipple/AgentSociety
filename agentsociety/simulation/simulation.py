@@ -900,7 +900,7 @@ class AgentSimulation:
         init_tasks = []
         for group in self._groups.values():
             init_tasks.append(group.init_agents.remote())
-        ray.get(init_tasks)
+        await asyncio.gather(*init_tasks)
         await self.messager.connect.remote()  # type:ignore
         await self.messager.subscribe.remote(  # type:ignore
             [f"exps:{self.exp_id}:user_payback"], [self.exp_id]
@@ -909,7 +909,7 @@ class AgentSimulation:
 
         # update data structure
         for group_name, group in self._groups.items():
-            group_agent_ids = ray.get(group.get_agent_ids.remote())
+            group_agent_ids = await group.get_agent_ids.remote()
             for agent_id in group_agent_ids:
                 self._agent_ids.append(agent_id)
                 self._agent_id2group[agent_id] = group
@@ -919,7 +919,7 @@ class AgentSimulation:
                 self._user_survey_topics[agent_id] = (
                     f"exps:{self.exp_id}:agents:{agent_id}:user-survey"
                 )
-            group_agent_type = ray.get(group.get_agent_type.remote())
+            group_agent_type = await group.get_agent_type.remote()
             for agent_type in group_agent_type:
                 if agent_type not in self._type2group:
                     self._type2group[agent_type] = []

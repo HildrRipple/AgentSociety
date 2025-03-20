@@ -864,7 +864,7 @@ class AgentGroup:
             )
             group_logs = {
                 "llm_log": self.llm.get_log_list(),
-                "redis_log": ray.get(
+                "redis_log": await (
                     self.messager.get_log_list.remote()  # type:ignore
                 ),
                 "simulator_log": simulator_log,

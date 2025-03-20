@@ -278,9 +278,9 @@ class InstitutionAgent(Agent):
             _id = random.randint(100000, 999999)
             self._agent_id = _id
             self.status.set_agent_id(_id)
-            map_header: dict = ray.get(
-                self.simulator.map.get_map_header.remote()  # type:ignore
-            )
+            map_header: dict = (
+                await self.simulator.map.get_map_header.remote()
+            )  # type:ignore
             # TODO: remove random position assignment
             await self.status.update(
                 "position",
