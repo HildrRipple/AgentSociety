@@ -1,5 +1,5 @@
 import asyncio
-import json
+import jsonc
 import logging
 import numbers
 import random
@@ -76,7 +76,7 @@ class WorkBlock(Block):
         )
         result = clean_json_response(result)  # type:ignore
         try:
-            result = json.loads(result)
+            result = jsonc.loads(result)
             time = result["time"]
             start_time = await self.simulator.get_time(format_time=True)
             await self.memory.status.update(

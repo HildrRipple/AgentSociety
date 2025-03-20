@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import json
+import jsonc
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
@@ -192,7 +192,7 @@ class Agent(ABC):
         """
         config = cls.export_class_config()
         with open(filepath, "w") as f:
-            json.dump(config, f, indent=4)
+            jsonc.dump(config, f, indent=4)
 
     @classmethod
     def import_block_config(cls, config: dict[str, Union[list[dict], str]]) -> "Agent":
@@ -240,7 +240,7 @@ class Agent(ABC):
             - Delegates the creation of the agent and its blocks to `import_block_config`.
         """
         with open(filepath, "r") as f:
-            config = json.load(f)
+            config = jsonc.load(f)
             return cls.import_block_config(config)
 
     def load_from_config(self, config: dict[str, Any]) -> None:
@@ -290,7 +290,7 @@ class Agent(ABC):
             - This method is useful for restoring an Agent's state from a saved configuration file.
         """
         with open(filepath, "r") as f:
-            config = json.load(f)
+            config = jsonc.load(f)
             self.load_from_config(config)
 
     def set_messager(self, messager: Messager):  # type:ignore
@@ -554,7 +554,7 @@ class Agent(ABC):
             # str to json
             for _dict in response_to_avro:
                 res = _dict["result"]
-                _dict["result"] = json.dumps(
+                _dict["result"] = jsonc.dumps(
                     {
                         "result": res,
                     }

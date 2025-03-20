@@ -1,6 +1,6 @@
 # Due to the current limitations of the simulator's support, only NoneBlock, MessageBlock, and FindPersonBlock are available in the Dispatcher.
 
-import json
+import jsonc
 import logging
 from typing import Any, Optional
 
@@ -103,7 +103,7 @@ class SocialNoneBlock(Block):
         )
         result = clean_json_response(result)  # type:ignore
         try:
-            result = json.loads(result)
+            result = jsonc.loads(result)
             node_id = await self.memory.stream.add_social(
                 description=f"I {step['intention']}"
             )
@@ -319,7 +319,7 @@ class MessageBlock(Block):
             JSON string with message and metadata.
         """
         try:
-            return json.dumps(
+            return jsonc.dumps(
                 {"content": message, "propagation_count": propagation_count},
                 ensure_ascii=False,
             )

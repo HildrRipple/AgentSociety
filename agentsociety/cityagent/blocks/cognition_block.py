@@ -1,4 +1,4 @@
-import json
+import jsonc
 import logging
 
 from agentsociety.environment.simulator import Simulator
@@ -32,7 +32,7 @@ def extract_json(output_str):
 
         # Convert the JSON string to a dictionary
         return json_str
-    except (ValueError, json.JSONDecodeError) as e:
+    except (ValueError, jsonc.JSONDecodeError) as e:
         logger.warning(f"Failed to extract JSON: {e}")
         return None
 
@@ -162,7 +162,7 @@ class CognitionBlock(Block):
                         timeout=300,
                         response_format={"type": "json_object"},
                     )
-                    response = json.loads(extract_json(_response))  # type:ignore
+                    response = jsonc.loads(extract_json(_response))  # type:ignore
                     evaluation = False
                     break
                 except:
@@ -255,7 +255,7 @@ class CognitionBlock(Block):
                     timeout=300,
                     response_format={"type": "json_object"},
                 )
-                response = json.loads(extract_json(_response))  # type:ignore
+                response = jsonc.loads(extract_json(_response))  # type:ignore
                 evaluation = False
                 break
             except:
@@ -377,7 +377,7 @@ class CognitionBlock(Block):
                     timeout=300,
                     response_format={"type": "json_object"},
                 )
-                response = json.loads(extract_json(_response))  # type:ignore
+                response = jsonc.loads(extract_json(_response))  # type:ignore
                 evaluation = False
                 break
             except Exception as e:

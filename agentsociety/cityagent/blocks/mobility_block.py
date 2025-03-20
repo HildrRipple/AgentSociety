@@ -1,4 +1,4 @@
-import json
+import jsonc
 import logging
 import math
 import random
@@ -198,7 +198,7 @@ class PlaceSelectionBlock(Block):
                 self.typeSelectionPrompt.to_dialog(),
                 response_format={"type": "json_object"},
             )
-            levelOneType = json.loads(clean_json_response(levelOneType))[  # type:ignore
+            levelOneType = jsonc.loads(clean_json_response(levelOneType))[  # type:ignore
                 "place_type"
             ]
             sub_category = poi_cate[levelOneType]
@@ -219,7 +219,7 @@ class PlaceSelectionBlock(Block):
                 self.secondTypeSelectionPrompt.to_dialog(),
                 response_format={"type": "json_object"},
             )
-            levelTwoType = json.loads(clean_json_response(levelTwoType))[  # type:ignore
+            levelTwoType = jsonc.loads(clean_json_response(levelTwoType))[  # type:ignore
                 "place_type"
             ]
         except Exception as e:
@@ -238,7 +238,7 @@ class PlaceSelectionBlock(Block):
             radius = await self.llm.atext_request(
                 self.radiusPrompt.to_dialog(), response_format={"type": "json_object"}
             )
-            radius = int(json.loads(radius)["radius"])  # type:ignore
+            radius = int(jsonc.loads(radius)["radius"])  # type:ignore
         except Exception as e:
             logger.warning(f"Radius selection failed: {e}")
             radius = 10000  # Default 10km
@@ -299,7 +299,7 @@ class MoveBlock(Block):
         response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
             response = clean_json_response(response)  # type:ignore
-            response = json.loads(response)["place_type"]
+            response = jsonc.loads(response)["place_type"]
         except Exception as e:
             logger.warning(
                 f"Place Analysis: wrong type of place, raw response: {response}"

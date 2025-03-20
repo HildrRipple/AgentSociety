@@ -1,6 +1,6 @@
 import asyncio
 import inspect
-import json
+import jsonc
 import logging
 import time
 import uuid

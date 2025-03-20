@@ -1,4 +1,4 @@
-import json
+import jsonc
 import logging
 import random
 from typing import Dict, List, Tuple
@@ -227,7 +227,7 @@ class PlanBlock(Block):
         retry = 3
         while retry > 0:
             try:
-                result = json.loads(clean_json_response(response))  # type: ignore
+                result = jsonc.loads(clean_json_response(response))  # type: ignore
                 if "selected_option" not in result or "evaluation" not in result:
                     raise ValueError("Invalid guidance selection format")
                 if (
@@ -289,7 +289,7 @@ class PlanBlock(Block):
         retry = 3
         while retry > 0:
             try:
-                result = json.loads(clean_json_response(response))  # type: ignore
+                result = jsonc.loads(clean_json_response(response))  # type: ignore
                 if (
                     "plan" not in result
                     or "target" not in result["plan"]

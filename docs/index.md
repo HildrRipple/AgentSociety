@@ -27,7 +27,7 @@ The paper is available at [arXiv](https://arxiv.org/abs/2502.08691):
 
 ![AgentSociety](_static/framework-visual.gif)
 
-We provide a [Online Demo](https://agentsociety.fiblab.net/exp/1a4c4fa5-04c1-4973-9433-b8b696f2fda0) of our simulation platform. 
+We provide a [Online Demo](https://agentsociety.fiblab.net/) of our simulation platform. 
 
 Experience our online demo, which simulates the behavioral patterns of individuals during a hurricane event, grounded in the real-world context of Hurricane Dorian's impact on Columbia, South Carolina. 
 Comprehensive details and use case explanations are available in [Hurricane Impact](./06-use-case/04-hurricane-impact.md).

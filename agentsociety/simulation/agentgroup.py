@@ -1,5 +1,5 @@
 import asyncio
-import json
+import jsonc
 import logging
 import time
 import uuid
@@ -322,7 +322,7 @@ class AgentGroup:
                         (
                             agent.id,
                             profile.get("name", ""),
-                            json.dumps(
+                            jsonc.dumps(
                                 {
                                     k: v
                                     for k, v in profile.items()
@@ -341,7 +341,7 @@ class AgentGroup:
                         (
                             agent.id,
                             profile.get("name", ""),
-                            json.dumps(
+                            jsonc.dumps(
                                 {
                                     k: v
                                     for k, v in profile.items()
@@ -489,7 +489,7 @@ class AgentGroup:
                 # Add a decoding step to convert bytes to str
                 if isinstance(payload, bytes):
                     payload = payload.decode("utf-8")
-                    payload = json.loads(payload)
+                    payload = jsonc.loads(payload)
 
                 # Extract agent_id (topic format is "exps:{exp_id}:agents:{agent_id}:{topic_type}")
                 _, _, _, agent_id, topic_type = topic.strip(":").split(":")
@@ -783,7 +783,7 @@ class AgentGroup:
                     "created_at",
                 ]
                 _data = [_status_dict[k] for k in BASIC_KEYS if k != "created_at"]
-                _other_dict = json.dumps(
+                _other_dict = jsonc.dumps(
                     {k: v for k, v in _status_dict.items() if k not in BASIC_KEYS}
                 )
                 _data.append(_other_dict)

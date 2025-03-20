@@ -1,5 +1,5 @@
 import asyncio
-import json
+import jsonc
 import logging
 import os
 import time
@@ -235,7 +235,7 @@ class Messager:
             "consumption": 0,
         }
         self._topics.add(channel)
-        message = json.dumps(payload, default=str)
+        message = jsonc.dumps(payload, default=str)
         interceptor = self.message_interceptor
         is_valid: bool = True
         if interceptor is not None and (from_id is not None and to_id is not None):

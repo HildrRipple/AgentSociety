@@ -1,4 +1,4 @@
-import json
+import jsonc
 import logging
 import random
 
@@ -46,7 +46,7 @@ class SleepBlock(Block):
         result = clean_json_response(result)  # type:ignore
         node_id = await self.memory.stream.add_other(description=f"I slept")
         try:
-            result = json.loads(result)
+            result = jsonc.loads(result)
             return {
                 "success": True,
                 "evaluation": f'Sleep: {step["intention"]}',
@@ -92,7 +92,7 @@ class OtherNoneBlock(Block):
             description=f"I {step['intention']}"
         )
         try:
-            result = json.loads(result)
+            result = jsonc.loads(result)
             return {
                 "success": True,
                 "evaluation": f'Finished executing {step["intention"]}',

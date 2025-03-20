@@ -1,5 +1,5 @@
 import asyncio
-import json
+import jsonc
 import logging
 import random
 import time
@@ -393,10 +393,10 @@ class SocietyAgent(CitizenAgent):
 
                 # Parse message content
                 try:
-                    message_data = json.loads(raw_content)
+                    message_data = jsonc.loads(raw_content)
                     content = message_data["content"]
                     propagation_count = message_data.get("propagation_count", 1)
-                except (json.JSONDecodeError, TypeError, KeyError):
+                except (jsonc.JSONDecodeError, TypeError, KeyError):
                     content = raw_content
                     propagation_count = 1
 
@@ -461,7 +461,7 @@ class SocietyAgent(CitizenAgent):
                     ],
                     response_format={"type": "json_object"},
                 )
-                should_respond = json.loads(should_respond)[  # type:ignore
+                should_respond = jsonc.loads(should_respond)[  # type:ignore
                     "should_respond"
                 ]
                 if should_respond == "NO":
@@ -503,7 +503,7 @@ class SocietyAgent(CitizenAgent):
                     await self.memory.status.update("chat_histories", chat_histories)
 
                     # Send response
-                    serialized_response = json.dumps(
+                    serialized_response = jsonc.dumps(
                         {
                             "content": response,
                             "propagation_count": propagation_count + 1,

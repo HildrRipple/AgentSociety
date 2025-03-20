@@ -1,6 +1,6 @@
 import random
 from collections import deque
-import json
+import jsonc
 from typing import Any, List, Union, Optional
 from pydantic import BaseModel
 
@@ -617,14 +617,14 @@ def memory_config_load_file(file_path):
     # Check file extension
     if file_path.endswith(".json"):
         with open(file_path, "r") as f:
-            memory_data = json.load(f)
+            memory_data = jsonc.load(f)
         return memory_data
     elif file_path.endswith(".jsonl"):
         memory_data = []
         with open(file_path, "r") as f:
             for line in f:
                 if line.strip():  # Skip empty lines
-                    memory_data.append(json.loads(line))
+                    memory_data.append(jsonc.loads(line))
         return memory_data
     else:
         raise ValueError(

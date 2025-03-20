@@ -54,6 +54,7 @@ dependencies = [
     "uvicorn>=0.23.2",
     "zhipuai>=2.1.5.20230904",
     "aiodocker>=0.21.0",
+    "json-with-comments>=1.2.10",
 ]
 
 [project.urls]

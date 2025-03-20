@@ -1,4 +1,4 @@
-import json
+import jsonc
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -112,7 +112,7 @@ class Survey:
             "responses": self.responses,
             "created_at": self.created_at.isoformat(),
         }
-        return json.dumps(survey_dict)
+        return jsonc.dumps(survey_dict)
 
     @classmethod
     def from_json(cls, json_str: str) -> "Survey":
@@ -128,7 +128,7 @@ class Survey:
         - **Returns**:
             - `Survey`: An instance of `Survey` initialized with the data from the JSON string.
         """
-        data = json.loads(json_str)
+        data = jsonc.loads(json_str)
         pages = [
             Page(
                 name=p["name"],

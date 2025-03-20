@@ -1,4 +1,4 @@
-import json
+import jsonc
 import logging
 from typing import cast
 
@@ -197,7 +197,7 @@ class NeedsBlock(Block):
             retry = 3
             while retry > 0:
                 try:
-                    satisfaction = json.loads(response)
+                    satisfaction = jsonc.loads(response)
                     satisfactions = satisfaction["current_satisfaction"]
                     await self.memory.status.update(
                         "hunger_satisfaction", satisfactions["hunger_satisfaction"]
@@ -212,7 +212,7 @@ class NeedsBlock(Block):
                         "social_satisfaction", satisfactions["social_satisfaction"]
                     )
                     break
-                except json.JSONDecodeError:
+                except jsonc.JSONDecodeError:
                     logger.warning(
                         f"Initial response is not a valid JSON format: {response}"
                     )
@@ -254,7 +254,7 @@ class NeedsBlock(Block):
             self.reflect_prompt.to_dialog(), response_format={"type": "json_object"}
         )
         try:
-            reflection = json.loads(clean_json_response(response))  # type: ignore
+            reflection = jsonc.loads(clean_json_response(response))  # type: ignore
             if "do_something" in reflection:
                 self._need_to_do = reflection["description"]
             else:
@@ -267,7 +267,7 @@ class NeedsBlock(Block):
                         "social_satisfaction",
                     ]:
                         await self.memory.status.update(need_type, new_value)
-        except json.JSONDecodeError:
+        except jsonc.JSONDecodeError:
             logger.warning(
                 f"Reflection response is not a valid JSON format: {response}"
             )
@@ -485,7 +485,7 @@ class NeedsBlock(Block):
                 response_format={"type": "json_object"},
             )
             try:
-                new_satisfaction = json.loads(clean_json_response(response))  # type: ignore
+                new_satisfaction = jsonc.loads(clean_json_response(response))  # type: ignore
                 # Update values of all needs
                 for need_type, new_value in new_satisfaction.items():
                     if need_type in [
@@ -496,7 +496,7 @@ class NeedsBlock(Block):
                     ]:
                         await self.memory.status.update(need_type, new_value)
                         return
-            except json.JSONDecodeError:
+            except jsonc.JSONDecodeError:
                 logger.warning(
                     f"Evaluation response is not a valid JSON format: {response}"
                 )

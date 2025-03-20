@@ -1,5 +1,5 @@
 import asyncio
-import json
+import jsonc
 import logging
 import os
 import time
@@ -307,7 +307,7 @@ class LLM:
                         log["output_tokens"] = response.usage.completion_tokens
                         self._log_list.append(log)
                         if tools and response.choices[0].message.tool_calls:
-                            return json.loads(
+                            return jsonc.loads(
                                 response.choices[0]
                                 .message.tool_calls[0]
                                 .function.arguments
@@ -392,7 +392,7 @@ class LLM:
                         log["token_consumption"] = result_response.usage.prompt_tokens + result_response.usage.completion_tokens  # type: ignore
                         self._log_list.append(log)
                         if tools and result_response.choices[0].message.tool_calls:  # type: ignore
-                            return json.loads(
+                            return jsonc.loads(
                                 result_response.choices[0]  # type: ignore
                                 .message.tool_calls[0]
                                 .function.arguments

@@ -1,5 +1,5 @@
 import hashlib
-import json
+import jsonc
 import os
 from typing import Optional, Union
 
