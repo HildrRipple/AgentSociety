@@ -119,7 +119,7 @@ class ControlSimEnv:
                     "-cache",
                     "",
                     "-log.level",
-                    "error",
+                    "info",
                 ],
             )
             logging.info(

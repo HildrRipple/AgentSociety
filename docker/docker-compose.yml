@@ -1,5 +1,5 @@
 services:
-  mlflow:
+  mlflow-svc:
     # because Docker Desktop cannot attach folders in WSL2, we need to build the image locally
     build:
       context: ./mlflow
@@ -14,11 +14,11 @@ services:
       - mlflow:/app
     environment:
       MLFLOW_AUTH_CONFIG_PATH: /mlflow/basic_auth.ini
-      PG_DSN: postgresql://postgres:CHANGE_ME@postgresql:5432/postgres
+      PG_DSN: postgresql://postgres:CHANGE_ME@postgresql-svc:5432/postgres
     depends_on:
-      - postgresql
+      - postgresql-svc
 
-  postgresql:
+  postgresql-svc:
     image: bitnami/postgresql:17
     container_name: postgresql
     restart: unless-stopped
@@ -29,7 +29,7 @@ services:
     environment:
       POSTGRESQL_PASSWORD: CHANGE_ME
 
-  redis:
+  redis-svc:
     image: bitnami/redis:7.2
     container_name: redis 
     healthcheck:
