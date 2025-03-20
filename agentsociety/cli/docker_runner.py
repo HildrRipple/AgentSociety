@@ -17,10 +17,18 @@ async def run_experiment_in_container(
     exp_config_base64: Optional[str] = None,
     sim_config_file: Optional[str] = None,
     exp_config_file: Optional[str] = None,
+    map_dir: str = "./maps",
+    output_dir: str = "./output",
     log_level: str = "info"
 ) -> int:
     """Run experiment in Docker container."""
     try:
+        # 确保目录存在
+        os.makedirs(map_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(os.path.join(output_dir, "avro"), exist_ok=True)
+        os.makedirs(os.path.join(output_dir, "logs"), exist_ok=True)
+        
         # 初始化 Docker 客户端
         docker = aiodocker.Docker(url="unix:///var/run/docker.sock")
 
@@ -28,6 +36,15 @@ async def run_experiment_in_container(
         if sim_config_file and exp_config_file:
             with open(sim_config_file, 'r') as f:
                 sim_config = json.load(f)
+                # 更新地图文件路径为容器内路径
+                if "map_config" in sim_config:
+                    map_file = os.path.basename(sim_config["map_config"]["file_path"])
+                    sim_config["map_config"]["file_path"] = f"/maps/{map_file}"
+                # 更新输出路径
+                if "avro" in sim_config:
+                    sim_config["avro"]["path"] = "/output/avro"
+                if "log_dir" in sim_config:
+                    sim_config["log_dir"] = "/output/logs"
                 sim_config_base64 = base64.b64encode(json.dumps(sim_config).encode()).decode()
             
             with open(exp_config_file, 'r') as f:
@@ -44,7 +61,11 @@ async def run_experiment_in_container(
                 "--log-level", log_level
             ],
             "HostConfig": {
-                "NetworkMode": "host"
+                "NetworkMode": "host",
+                "Binds": [
+                    f"{os.path.abspath(map_dir)}:/maps:ro",  # 只读挂载地图目录
+                    f"{os.path.abspath(output_dir)}:/output:rw"  # 读写挂载输出目录
+                ]
             }
         }
 
@@ -78,8 +99,18 @@ async def run_experiment_in_container(
 @click.option('--exp-config-file', help='Path to experiment configuration file')
 @click.option('--sim-config-base64', help='Base64 encoded simulator configuration')
 @click.option('--exp-config-base64', help='Base64 encoded experiment configuration')
+@click.option('--map-dir', default='./maps', help='Directory containing map files')
+@click.option('--output-dir', default='./output', help='Directory for output files')
 @click.option('--log-level', default='info', help='Logging level')
-def experiment_runner(sim_config_file, exp_config_file, sim_config_base64, exp_config_base64, log_level):
+def experiment_runner(
+    sim_config_file, 
+    exp_config_file, 
+    sim_config_base64, 
+    exp_config_base64, 
+    map_dir,
+    output_dir,
+    log_level
+):
     """Run experiment in Docker container."""
     # 配置日志
     logging.basicConfig(
@@ -93,6 +124,8 @@ def experiment_runner(sim_config_file, exp_config_file, sim_config_base64, exp_c
         exp_config_base64=exp_config_base64,
         sim_config_file=sim_config_file,
         exp_config_file=exp_config_file,
+        map_dir=map_dir,
+        output_dir=output_dir,
         log_level=log_level
     ))
 
