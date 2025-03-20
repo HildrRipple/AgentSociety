@@ -1,149 +1,102 @@
-import argparse
 import asyncio
 import base64
 import json
 import logging
 import os
 import sys
+from pathlib import Path
 from typing import Optional
 
-import aiodocker  # 需要添加这个依赖
+import aiodocker
+import click
 
-
-def setup_logging(log_level: str = "info"):
-    """Configure logging with specified level."""
-    log_level = log_level.upper()
-    logging.basicConfig(
-        level=getattr(logging, log_level),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
-    return logging.getLogger("experiment_runner")
-
+logger = logging.getLogger("experiment_runner")
 
 async def run_experiment_in_container(
-    sim_config_file: Optional[str] = None,
-    exp_config_file: Optional[str] = None,
     sim_config_base64: Optional[str] = None,
     exp_config_base64: Optional[str] = None,
+    sim_config_file: Optional[str] = None,
+    exp_config_file: Optional[str] = None,
     log_level: str = "info"
-):
-    """Run an experiment in a Docker container."""
-    logger = setup_logging(log_level)
-    
+) -> int:
+    """Run experiment in Docker container."""
     try:
-        # 处理配置文件
-        if sim_config_file and not sim_config_base64:
+        # 初始化 Docker 客户端
+        docker = aiodocker.Docker(url="unix:///var/run/docker.sock")
+
+        # 如果提供了配置文件，读取并转换为 base64
+        if sim_config_file and exp_config_file:
             with open(sim_config_file, 'r') as f:
-                sim_config_dict = json.load(f)
-                sim_config_base64 = base64.b64encode(json.dumps(sim_config_dict).encode()).decode()
-        
-        if exp_config_file and not exp_config_base64:
+                sim_config = json.load(f)
+                sim_config_base64 = base64.b64encode(json.dumps(sim_config).encode()).decode()
+            
             with open(exp_config_file, 'r') as f:
-                exp_config_dict = json.load(f)
-                exp_config_base64 = base64.b64encode(json.dumps(exp_config_dict).encode()).decode()
-        
-        if not sim_config_base64 or not exp_config_base64:
-            logger.error("Both simulator and experiment configurations are required")
-            return 1
-        
-        # 创建Docker客户端
-        docker = aiodocker.Docker()
-        
+                exp_config = json.load(f)
+                exp_config_base64 = base64.b64encode(json.dumps(exp_config).encode()).decode()
+
         # 配置容器
         container_config = {
-            "Image": "agentsociety-runner",
+            "Image": "agentsociety-runner:latest",
             "Cmd": [
+                "python", "-m", "agentsociety.cli.runner",
                 "--sim-config-base64", sim_config_base64,
                 "--exp-config-base64", exp_config_base64,
                 "--log-level", log_level
             ],
-            "Entrypoint": ["/bin/bash", "-c"],
             "HostConfig": {
-                "NetworkMode": "host",  # 使用主机网络访问Redis等服务
-                "Binds": [
-                    f"{os.path.abspath(os.path.dirname(__file__))}/../../webapi/docker/entrypoint.sh:/entrypoint.sh:ro"
-                ]
-            },
-            "AttachStdout": True,
-            "AttachStderr": True,
-            "Tty": True
+                "NetworkMode": "host"
+            }
         }
-        
-        # 将 entrypoint.sh 设置为可执行
-        os.chmod(f"{os.path.abspath(os.path.dirname(__file__))}/../../webapi/docker/entrypoint.sh", 0o755)
-        
-        # 修改命令为执行 entrypoint.sh
-        container_config["Cmd"] = [
-            "/entrypoint.sh",
-            "--sim-config-base64", sim_config_base64,
-            "--exp-config-base64", exp_config_base64,
-            "--log-level", log_level
-        ]
-        
+
         # 创建并启动容器
-        logger.info("Creating and starting Docker container...")
         container = await docker.containers.create(config=container_config)
         await container.start()
-        
-        # 获取容器ID
-        container_info = await container.show()
-        container_id = container_info["Id"]
-        logger.info(f"Container started with ID: {container_id}")
-        
-        # 附加到容器日志
-        logger.info("Attaching to container logs...")
-        log_stream = await container.log(stdout=True, stderr=True, follow=True)
-        async for log_line in log_stream:
-            print(log_line, end="")
-        
+
         # 等待容器完成
-        logger.info("Waiting for container to complete...")
-        wait_result = await container.wait()
-        exit_code = wait_result["StatusCode"]
-        
+        exit_data = await container.wait()
+        exit_code = exit_data.get("StatusCode", 1)
+
+        # 获取容器日志
+        logs = await container.log(stdout=True, stderr=True)
+        for line in logs:
+            logger.info(line.strip())
+
         # 清理容器
-        logger.info("Cleaning up container...")
         await container.delete()
         await docker.close()
-        
-        if exit_code == 0:
-            logger.info("Experiment completed successfully")
-        else:
-            logger.error(f"Experiment failed with exit code: {exit_code}")
-        
+
         return exit_code
-    
+
     except Exception as e:
         logger.error(f"Error running experiment in container: {str(e)}")
+        if 'docker' in locals():
+            await docker.close()
         return 1
 
+@click.command()
+@click.option('--sim-config-file', help='Path to simulator configuration file')
+@click.option('--exp-config-file', help='Path to experiment configuration file')
+@click.option('--sim-config-base64', help='Base64 encoded simulator configuration')
+@click.option('--exp-config-base64', help='Base64 encoded experiment configuration')
+@click.option('--log-level', default='info', help='Logging level')
+def experiment_runner(sim_config_file, exp_config_file, sim_config_base64, exp_config_base64, log_level):
+    """Run experiment in Docker container."""
+    # 配置日志
+    logging.basicConfig(
+        level=getattr(logging, log_level.upper()),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
 
-def experiment_runner():
-    """Command-line entry point for running experiments in Docker."""
-    parser = argparse.ArgumentParser(description="AgentSociety Experiment Runner (Docker)")
-    parser.add_argument("--sim-config-base64", help="Simulator configuration in base64 encoding")
-    parser.add_argument("--exp-config-base64", help="Experiment configuration in base64 encoding")
-    parser.add_argument("--sim-config-file", help="Path to simulator configuration file")
-    parser.add_argument("--exp-config-file", help="Path to experiment configuration file")
-    parser.add_argument("--log-level", default="info", choices=["debug", "info", "warning", "error"],
-                        help="Set log level (default: info)")
-    
-    args = parser.parse_args()
-    
     # 运行实验
     exit_code = asyncio.run(run_experiment_in_container(
-        sim_config_file=args.sim_config_file,
-        exp_config_file=args.exp_config_file,
-        sim_config_base64=args.sim_config_base64,
-        exp_config_base64=args.exp_config_base64,
-        log_level=args.log_level
+        sim_config_base64=sim_config_base64,
+        exp_config_base64=exp_config_base64,
+        sim_config_file=sim_config_file,
+        exp_config_file=exp_config_file,
+        log_level=log_level
     ))
-    
-    sys.exit(exit_code)
 
+    sys.exit(exit_code)
 
 if __name__ == "__main__":
     experiment_runner() 
