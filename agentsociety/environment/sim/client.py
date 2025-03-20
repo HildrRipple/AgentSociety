@@ -1,8 +1,5 @@
 import warnings
 
-import grpc
-
-from ..sidecar import OnlyClientSidecar
 from ..utils.grpc import create_aio_channel
 from .aoi_service import AoiService
 from .clock_service import ClockService

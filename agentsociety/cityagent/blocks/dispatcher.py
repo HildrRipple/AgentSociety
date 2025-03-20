@@ -1,10 +1,9 @@
 import logging
 import random
 
-from agentsociety.llm import LLM
-from agentsociety.workflow import Block, FormatPrompt
-
-logger = logging.getLogger("agentsociety")
+from ...llm import LLM
+from ...workflow import Block, FormatPrompt
+from ...logger import get_logger
 
 DISPATCHER_PROMPT = """
 Based on the task information (which describes the needs of the user), select the most appropriate block to handle the task.
@@ -117,5 +116,5 @@ class BlockDispatcher:
             return self.blocks[selected_block]
 
         except Exception as e:
-            logger.warning(f"Failed to dispatch block: {e}")
+            get_logger().warning(f"Failed to dispatch block: {e}")
             return random.choice(list(self.blocks.values()))

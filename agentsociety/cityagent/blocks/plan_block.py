@@ -3,14 +3,13 @@ import logging
 import random
 from typing import Dict, List, Tuple
 
-from agentsociety.environment import Simulator
-from agentsociety.llm import LLM
-from agentsociety.memory import Memory
-from agentsociety.workflow import Block, FormatPrompt
-
+from ...environment import Simulator
+from ...llm import LLM
+from ...memory import Memory
+from ...workflow import Block, FormatPrompt
+from ...logger import get_logger
 from .utils import clean_json_response
 
-logger = logging.getLogger("agentsociety")
 
 GUIDANCE_SELECTION_PROMPT = """As an intelligent agent's decision system, please help me determine a suitable option to satisfy my current need.
 The Environment will influence the choice of steps.
@@ -242,7 +241,9 @@ class PlanBlock(Block):
                 cognition = f"I choose to {result['selected_option']} because {result['evaluation']['reasoning']}"
                 return result, cognition
             except Exception as e:
-                logger.warning(f"Error parsing guidance selection response: {str(e)}")
+                get_logger().warning(
+                    f"Error parsing guidance selection response: {str(e)}"
+                )
                 retry -= 1
         return None, cognition  # type:ignore
 
@@ -303,7 +304,7 @@ class PlanBlock(Block):
                         raise ValueError(f"Invalid step type: {step['type']}")
                 return result
             except Exception as e:
-                logger.warning(f"Error parsing detailed plan: {str(e)}")
+                get_logger().warning(f"Error parsing detailed plan: {str(e)}")
                 retry -= 1
         return None  # type:ignore
 

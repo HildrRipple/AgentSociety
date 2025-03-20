@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import jsonc
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
@@ -10,18 +9,18 @@ from enum import Enum
 from typing import Any, Optional, Union, get_type_hints
 
 import fastavro
+import jsonc
 import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
 from ..environment import EconomyClient, Simulator
 from ..environment.sim.person_service import PersonService
 from ..llm import LLM
+from ..logger import get_logger
 from ..memory import Memory
 from ..message import Messager
 from ..utils import DIALOG_SCHEMA, SURVEY_SCHEMA, process_survey_for_llm
 from ..workflow import Block
-
-logger = logging.getLogger("agentsociety")
 
 __all__ = [
     "Agent",
@@ -740,7 +739,7 @@ class Agent(ABC):
             - Returns a formatted string for logging purposes.
         """
         resp = f"Agent {self.id} received agent chat response: {payload}"
-        logger.info(resp)
+        get_logger().info(resp)
         return resp
 
     async def _process_agent_chat(self, payload: dict):
@@ -806,7 +805,7 @@ class Agent(ABC):
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
-        logger.info(f"Agent {self.id} received agent chat message: {payload}")
+        get_logger().info(f"Agent {self.id} received agent chat message: {payload}")
         asyncio.create_task(self._process_agent_chat(payload))
 
     async def handle_user_chat_message(self, payload: dict):
@@ -823,7 +822,7 @@ class Agent(ABC):
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
-        logger.info(f"Agent {self.id} received user chat message: {payload}")
+        get_logger().info(f"Agent {self.id} received user chat message: {payload}")
         asyncio.create_task(self._process_interview(payload))
 
     async def handle_user_survey_message(self, payload: dict):
@@ -840,7 +839,7 @@ class Agent(ABC):
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
-        logger.info(f"Agent {self.id} received user survey message: {payload}")
+        get_logger().info(f"Agent {self.id} received user survey message: {payload}")
         asyncio.create_task(self._process_survey(payload["data"]))
 
     async def handle_gather_message(self, payload: Any):
@@ -911,7 +910,7 @@ class Agent(ABC):
         if self._messager is None:
             raise RuntimeError("Messager is not set")
         if type not in ["social", "economy"]:
-            logger.warning(f"Invalid message type: {type}, sent from {self.id}")
+            get_logger().warning(f"Invalid message type: {type}, sent from {self.id}")
         payload = {
             "from": self.id,
             "content": content,

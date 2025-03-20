@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class WorkflowType(str, Enum):
     """
     Defines the types of workflow steps in the simulation.
@@ -51,6 +50,9 @@ class LLMProviderType(str, Enum):
     ZhipuAI = "zhipuai"
     SiliconFlow = "siliconflow"
     VLLM = "vllm"
+
+
+LLMProviderTypeValues = {"openai", "deepseek", "qwen", "zhipuai", "siliconflow", "vllm"}
 
 
 class DistributionType(str, Enum):

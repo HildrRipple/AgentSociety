@@ -1,5 +1,4 @@
 import asyncio
-import jsonc
 import logging
 import time
 import uuid
@@ -10,6 +9,7 @@ from typing import Any, Optional, Type, Union
 from uuid import UUID
 
 import fastavro
+import jsonc
 import pyproj
 import ray
 from langchain_core.embeddings import Embeddings
@@ -18,13 +18,18 @@ from ..agent import Agent, InstitutionAgent
 from ..configs import SimConfig
 from ..environment import EconomyClient, Simulator
 from ..llm.llm import LLM
+from ..logger import get_logger
 from ..memory import FaissQuery, Memory
 from ..message import Messager
 from ..metrics import MlflowClient
-from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
-                     STATUS_SCHEMA, SURVEY_SCHEMA)
+from ..utils import (
+    DIALOG_SCHEMA,
+    INSTITUTION_STATUS_SCHEMA,
+    PROFILE_SCHEMA,
+    STATUS_SCHEMA,
+    SURVEY_SCHEMA,
+)
 
-logger = logging.getLogger("agentsociety")
 __all__ = ["AgentGroup"]
 
 
@@ -47,7 +52,7 @@ class AgentGroup:
         message_interceptor: ray.ObjectRef,
         mlflow_run_id: str,
         embedding_model: Embeddings,
-        logging_level: int,
+        logging_level: str,
         agent_config_file: Optional[dict[type[Agent], Any]] = None,
         llm_semaphore: int = 200,
         environment: Optional[dict] = None,
@@ -77,11 +82,11 @@ class AgentGroup:
             - `message_interceptor` (ray.ObjectRef): Reference to a message interceptor object.
             - `mlflow_run_id` (str): Run identifier for MLflow tracking.
             - `embedding_model` (Embeddings): Model used for generating embeddings.
-            - `logging_level` (int): Logging level for the agent group.
+            - `logging_level` (str): Logging level for the agent group.
             - `agent_config_file` (Optional[Dict[Type[Agent], Any]], optional): File paths for loading agent configurations. Defaults to None.
             - `environment` (Optional[Dict[str, str]], optional): Environment variables for the simulator. Defaults to None.
         """
-        logger.setLevel(logging_level)
+        get_logger().setLevel(logging_level.upper())
         self._uuid = str(uuid.uuid4())
         if not isinstance(agent_class, list):
             agent_class = [agent_class]
@@ -111,7 +116,9 @@ class AgentGroup:
         # Mlflow
         metric_config = config.prop_metric_config
         if metric_config is not None and metric_config.mlflow is not None:
-            logger.info(f"-----Creating Mlflow client in AgentGroup {self._uuid} ...")
+            get_logger().info(
+                f"-----Creating Mlflow client in AgentGroup {self._uuid} ..."
+            )
             self.mlflow_client = MlflowClient(
                 config=metric_config.mlflow,
                 experiment_uuid=self.exp_id,  # type:ignore
@@ -143,12 +150,12 @@ class AgentGroup:
         self.initialized = False
         self.id2agent = {}
         # prepare LLM client
-        logger.info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
+        get_logger().info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
         self.llm = LLM(config.prop_llm_config)
         self.llm.set_semaphore(llm_semaphore)
 
         # prepare Simulator
-        logger.info(f"-----Initializing Simulator in AgentGroup {self._uuid} ...")
+        get_logger().info(f"-----Initializing Simulator in AgentGroup {self._uuid} ...")
         self.simulator = Simulator(config)
         self.simulator.set_environment(environment if environment else {})
         self.simulator.set_map(map_ref)
@@ -156,7 +163,9 @@ class AgentGroup:
             ray.get(self.simulator.map.get_projector.remote())  # type:ignore
         )
         # prepare Economy client
-        logger.info(f"-----Creating Economy client in AgentGroup {self._uuid} ...")
+        get_logger().info(
+            f"-----Creating Economy client in AgentGroup {self._uuid} ..."
+        )
         self.economy_client = EconomyClient(config.prop_simulator_server_address)
 
         # set FaissQuery
@@ -253,17 +262,21 @@ class AgentGroup:
         await asyncio.gather(*bind_tasks)
 
     async def init_agents(self):
-        logger.debug(f"-----Initializing Agents in AgentGroup {self._uuid} ...")
-        logger.debug(f"-----Binding Agents to Simulator in AgentGroup {self._uuid} ...")
+        get_logger().debug(f"-----Initializing Agents in AgentGroup {self._uuid} ...")
+        get_logger().debug(
+            f"-----Binding Agents to Simulator in AgentGroup {self._uuid} ..."
+        )
         while True:
             day = await self.simulator.get_simulator_day()
             if day == 0:
                 break
             await asyncio.sleep(1)
         await self.insert_agent()
-        logger.debug(f"-----Agents in AgentGroup {self._uuid} initialized")
+        get_logger().debug(f"-----Agents in AgentGroup {self._uuid} initialized")
         self.id2agent = {agent.id: agent for agent in self.agents}
-        logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
+        get_logger().debug(
+            f"-----Binding Agents to Messager in AgentGroup {self._uuid} ..."
+        )
         assert self.messager is not None
         await self.messager.connect.remote()
         if await self.messager.is_connected.remote():
@@ -278,7 +291,9 @@ class AgentGroup:
             await self.messager.subscribe.remote(topics, agent_ids)
         self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
         if self.enable_avro:
-            logger.debug(f"-----Creating Avro files in AgentGroup {self._uuid} ...")
+            get_logger().debug(
+                f"-----Creating Avro files in AgentGroup {self._uuid} ..."
+            )
             # profile
             if not issubclass(type(self.agents[0]), InstitutionAgent):
                 filename = self.avro_file["profile"]
@@ -354,7 +369,9 @@ class AgentGroup:
                 profiles
             )
         if self.faiss_query is not None:
-            logger.debug(f"-----Initializing embeddings in AgentGroup {self._uuid} ...")
+            get_logger().debug(
+                f"-----Initializing embeddings in AgentGroup {self._uuid} ..."
+            )
             embedding_tasks = []
             for agent in self.agents:
                 embedding_tasks.append(agent.memory.initialize_embeddings())
@@ -363,10 +380,12 @@ class AgentGroup:
                 )
                 agent.memory.set_simulator(self.simulator)
             await asyncio.gather(*embedding_tasks)
-            logger.debug(f"-----Embedding initialized in AgentGroup {self._uuid} ...")
+            get_logger().debug(
+                f"-----Embedding initialized in AgentGroup {self._uuid} ..."
+            )
 
         self.initialized = True
-        logger.debug(f"-----AgentGroup {self._uuid} initialized")
+        get_logger().debug(f"-----AgentGroup {self._uuid} initialized")
 
     async def update_environment(self, key: str, value: str):
         """
@@ -429,7 +448,9 @@ class AgentGroup:
         - **Returns**:
             - `Dict[str, Any]`: A dictionary mapping agent IDs to the gathered content.
         """
-        logger.debug(f"-----Gathering {content} from all agents in group {self._uuid}")
+        get_logger().debug(
+            f"-----Gathering {content} from all agents in group {self._uuid}"
+        )
         results = {}
         if target_agent_ids is None:
             target_agent_ids = self.agent_ids
@@ -452,7 +473,7 @@ class AgentGroup:
             - `target_key` (str): The key in the agent's status to update.
             - `content` (Any): The new value for the specified key.
         """
-        logger.debug(
+        get_logger().debug(
             f"-----Updating {target_key} for agent {target_agent_id} in group {self._uuid}"
         )
         agent = self.id2agent[target_agent_id]
@@ -468,18 +489,18 @@ class AgentGroup:
             - The payload is decoded from bytes to string and then parsed as JSON.
             - Depending on the `topic_type`, different handler methods on the agent are called to process the message.
         """
-        logger.debug(f"-----Starting message dispatch for group {self._uuid}")
+        get_logger().debug(f"-----Starting message dispatch for group {self._uuid}")
         while True:
             assert self.messager is not None
             if not await self.messager.is_connected.remote():
-                logger.warning(
+                get_logger().warning(
                     "Messager is not connected. Skipping message processing."
                 )
                 break
 
             # Step 1: Fetch messages
             messages = await self.messager.fetch_messages.remote()
-            logger.info(f"Group {self._uuid} received {len(messages)} messages")
+            get_logger().info(f"Group {self._uuid} received {len(messages)} messages")
 
             # Step 2: Distribute messages to corresponding Agents
             for message in messages:
@@ -519,7 +540,7 @@ class AgentGroup:
         """
         _statuses_time_list: list[tuple[dict, datetime]] = []
         if self.enable_avro:
-            logger.debug(f"-----Saving status for group {self._uuid} with Avro")
+            get_logger().debug(f"-----Saving status for group {self._uuid} with Avro")
             avros = []
             if simulator_day is not None:
                 _day = simulator_day
@@ -628,7 +649,7 @@ class AgentGroup:
                 with open(self.avro_file["status"], "a+b") as f:
                     fastavro.writer(f, INSTITUTION_STATUS_SCHEMA, avros, codec="snappy")
         if self.enable_pgsql:
-            logger.debug(f"-----Saving status for group {self._uuid} with PgSQL")
+            get_logger().debug(f"-----Saving status for group {self._uuid} with PgSQL")
             if simulator_day is not None:
                 _day = simulator_day
             else:
@@ -824,19 +845,6 @@ class AgentGroup:
                 react_tasks.append(agent.react_to_intervention(intervention_message))
         await asyncio.gather(*react_tasks)
 
-    async def update_environment(self, key: str, value: Any):
-        """
-        Update the environment variables for the simulation and all agent groups.
-
-        - **Description**:
-            - Update the environment variables for the simulation and all agent groups.
-
-        - **Args**:
-            - `key` (str): The key to update.
-            - `value` (Any): The value to update.
-        """
-        self.simulator.update_environment(key, value)
-
     async def step(self):
         """
         Executes a single simulation step by running all agents concurrently.
@@ -870,7 +878,7 @@ class AgentGroup:
         except Exception as e:
             import traceback
 
-            logger.error(f"Simulator Error: {str(e)}\n{traceback.format_exc()}")
+            get_logger().error(f"Simulator Error: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e
 
     async def save(self, day: int, t: int):
@@ -889,7 +897,7 @@ class AgentGroup:
         except Exception as e:
             import traceback
 
-            logger.error(f"Simulator Error: {str(e)}\n{traceback.format_exc()}")
+            get_logger().error(f"Simulator Error: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(
                 str(e) + f" input arg day:({day}, {type(day)}), t:({t}, {type(t)})"
             ) from e

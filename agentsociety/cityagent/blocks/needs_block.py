@@ -2,14 +2,13 @@ import jsonc
 import logging
 from typing import cast
 
-from agentsociety import Simulator
-from agentsociety.llm import LLM
-from agentsociety.memory import Memory
-from agentsociety.workflow import Block, FormatPrompt
-
+from ... import Simulator
+from ...llm import LLM
+from ...memory import Memory
+from ...workflow import Block, FormatPrompt
+from ...logger import get_logger
 from .utils import clean_json_response
 
-logger = logging.getLogger("agentsociety")
 
 INITIAL_NEEDS_PROMPT = """You are an intelligent agent satisfaction initialization system. Based on the profile information below, please help initialize the agent's satisfaction levels and related parameters.
 
@@ -213,12 +212,12 @@ class NeedsBlock(Block):
                     )
                     break
                 except jsonc.JSONDecodeError:
-                    logger.warning(
+                    get_logger().warning(
                         f"Initial response is not a valid JSON format: {response}"
                     )
                     retry -= 1
                 except Exception as e:
-                    logger.warning(f"Initial response error: {e}")
+                    get_logger().warning(f"Initial response error: {e}")
                     retry -= 1
 
             current_plan = await self.memory.status.get("current_plan")
@@ -268,13 +267,13 @@ class NeedsBlock(Block):
                     ]:
                         await self.memory.status.update(need_type, new_value)
         except jsonc.JSONDecodeError:
-            logger.warning(
+            get_logger().warning(
                 f"Reflection response is not a valid JSON format: {response}"
             )
             return None
         except Exception as e:
-            logger.warning(f"Error processing reflection response: {str(e)}")
-            logger.warning(f"Original response: {response}")
+            get_logger().warning(f"Error processing reflection response: {str(e)}")
+            get_logger().warning(f"Original response: {response}")
             return None
 
     async def time_decay(self):
@@ -497,13 +496,13 @@ class NeedsBlock(Block):
                         await self.memory.status.update(need_type, new_value)
                         return
             except jsonc.JSONDecodeError:
-                logger.warning(
+                get_logger().warning(
                     f"Evaluation response is not a valid JSON format: {response}"
                 )
                 retry -= 1
             except Exception as e:
-                logger.warning(f"Error processing evaluation response: {str(e)}")
-                logger.warning(f"Original response: {response}")
+                get_logger().warning(f"Error processing evaluation response: {str(e)}")
+                get_logger().warning(f"Original response: {response}")
                 retry -= 1
 
     async def forward(self):

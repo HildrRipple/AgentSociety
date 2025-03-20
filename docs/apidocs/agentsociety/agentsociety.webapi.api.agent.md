@@ -87,7 +87,7 @@
 
 ````
 
-````{py:function} _find_started_experiment_by_id(db: sqlalchemy.ext.asyncio.AsyncSession, exp_id: uuid.UUID) -> agentsociety.webapi.models.experiment.Experiment
+````{py:function} _find_started_experiment_by_id(request: fastapi.Request, db: sqlalchemy.ext.asyncio.AsyncSession, exp_id: uuid.UUID) -> agentsociety.webapi.models.experiment.Experiment
 :canonical: agentsociety.webapi.api.agent._find_started_experiment_by_id
 :async:
 

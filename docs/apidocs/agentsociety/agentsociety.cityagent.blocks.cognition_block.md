@@ -33,29 +33,7 @@
     ```
 ````
 
-### Data
-
-````{list-table}
-:class: autosummary longtable
-:align: left
-
-* - {py:obj}`logger <agentsociety.cityagent.blocks.cognition_block.logger>`
-  - ```{autodoc2-docstring} agentsociety.cityagent.blocks.cognition_block.logger
-    :summary:
-    ```
-````
-
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.cityagent.blocks.cognition_block.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.cityagent.blocks.cognition_block.logger
-```
-
-````
 
 ````{py:function} extract_json(output_str)
 :canonical: agentsociety.cityagent.blocks.cognition_block.extract_json

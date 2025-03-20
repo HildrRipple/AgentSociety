@@ -10,7 +10,7 @@ from agentsociety.memory import Memory
 from agentsociety.message import Messager
 from agentsociety.workflow.prompt import FormatPrompt
 
-logger = logging.getLogger("agentsociety")
+logger = logging.getLogger(__name__)
 
 AGREE_PROMPT = """
 You are an agent who always agrees with the topic: Whether to support stronger gun control? (You think it is a good idea)

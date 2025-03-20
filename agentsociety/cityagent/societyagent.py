@@ -1,9 +1,10 @@
 import asyncio
-import jsonc
 import logging
 import random
 import time
 from typing import Any, Optional
+
+import jsonc
 
 from agentsociety import CitizenAgent, Simulator
 from agentsociety.agent import Agent
@@ -13,6 +14,7 @@ from agentsociety.memory import Memory
 from agentsociety.tools import UpdateWithSimulator
 from agentsociety.workflow import Block
 
+from ..logger import get_logger
 from .blocks import (
     CognitionBlock,
     EconomyBlock,
@@ -23,8 +25,6 @@ from .blocks import (
     SocialBlock,
 )
 from .blocks.economy_block import MonthPlanBlock
-
-logger = logging.getLogger("agentsociety")
 
 
 class PlanAndActionBlock(Block):
@@ -303,7 +303,7 @@ class SocietyAgent(CitizenAgent):
         try:
             time_end_plan = step_start_time + int(step_consumed_time) * 60
         except Exception as e:
-            logger.warning(f"Error in check_and_update_step: {str(e)}")
+            get_logger().warning(f"Error in check_and_update_step: {str(e)}")
             time_end_plan = time_now
         if time_now >= time_end_plan:
             # The previous step has been completed
@@ -342,7 +342,7 @@ class SocietyAgent(CitizenAgent):
                                 current_plan["stream_nodes"], conclusion  # type:ignore
                             )
                         except Exception as e:
-                            logger.warning(
+                            get_logger().warning(
                                 f"Error in check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}"
                             )
                     await self.memory.status.update("current_plan", current_plan)
@@ -371,7 +371,7 @@ class SocietyAgent(CitizenAgent):
                             current_plan["stream_nodes"], conclusion  # type:ignore
                         )
                     except Exception as e:
-                        logger.warning(
+                        get_logger().warning(
                             f"Error in check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}"
                         )
                 await self.memory.status.update("current_plan", current_plan)
@@ -514,7 +514,7 @@ class SocietyAgent(CitizenAgent):
                 return response  # type:ignore
 
             except Exception as e:
-                logger.warning(f"Error in process_agent_chat_response: {str(e)}")
+                get_logger().warning(f"Error in process_agent_chat_response: {str(e)}")
                 return ""
         else:
             content = payload["content"]

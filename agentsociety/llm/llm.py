@@ -1,21 +1,21 @@
 import asyncio
-import jsonc
 import logging
 import os
 import time
-from typing import Any, Optional, Union
+from typing import Any, List, Optional, Union
 
+import jsonc
 from openai import APIConnectionError, AsyncOpenAI, OpenAI, OpenAIError
 from zhipuai import ZhipuAI
 
 from ..configs import LLMConfig
-from ..utils import LLMProviderType
+from ..logger import get_logger
+from ..utils import LLMProviderType, LLMProviderTypeValues
 from .utils import *
 
 logging.getLogger("zhipuai").setLevel(logging.WARNING)
 os.environ["GRPC_VERBOSITY"] = "ERROR"
 
-logger = logging.getLogger("agentsociety")
 
 __all__ = [
     "LLM",
@@ -31,23 +31,25 @@ class LLM:
         - It initializes clients based on the specified request type and handles token usage and consumption reporting.
     """
 
-    def __init__(self, config: LLMConfig) -> None:
+    def __init__(self, configs: List[LLMConfig]):
         """
         Initializes the LLM instance.
 
         - **Parameters**:
             - `config`: An instance of `LLMConfig` containing configuration settings for the LLM.
         """
-        self.config = config
-        if config.provider not in {t.value for t in LLMProviderType}:
-            raise ValueError("Invalid provider for text request")
+        if len(configs) == 0:
+            raise ValueError(
+                "No LLM config is provided, please check your configuration"
+            )
+
+        self.configs = configs
         self.prompt_tokens_used = 0
         self.completion_tokens_used = 0
         self.request_number = 0
         self.semaphore = asyncio.Semaphore(200)
         self._current_client_index = 0
         self._log_list = []
-
         # statistics about errors
         self._total_calls = 0
         self._total_errors = 0
@@ -57,70 +59,56 @@ class LLM:
             "zhipuai_error": 0,
             "other_error": 0,
         }
-
-        api_keys = self.config.api_key
-        if not isinstance(api_keys, list):
-            api_keys = [api_keys]
-        base_urls = self.config.base_url
-        if not isinstance(base_urls, list):
-            base_urls = [base_urls]
-        base_urls = [url.rstrip("/") for url in base_urls]  # type: ignore
-        if len(base_urls) > 1 and self.config.provider != LLMProviderType.VLLM:
-            logger.warning("For non-VLLM providers, only one base URL is supported")
-        if (
-            len(base_urls) > 1
-            and self.config.provider == LLMProviderType.VLLM
-            and len(api_keys) > 0
-            and len(api_keys) != len(base_urls)
-        ):
-            raise ValueError(
-                "The number of base URLs must be equal to the number of API keys when using VLLM"
-            )
-
-        self._aclients = []
+        self._aclients: List[Union[AsyncOpenAI, ZhipuAI]] = []
         self._client_usage = []
 
-        if self.config.provider != LLMProviderType.VLLM:
-            for api_key in api_keys:
-                if self.config.provider == LLMProviderType.OpenAI:
-                    client = AsyncOpenAI(api_key=api_key, timeout=300, base_url=base_urls[0])  # type: ignore
-                elif self.config.provider == LLMProviderType.DeepSeek:
-                    client = AsyncOpenAI(
-                        api_key=api_key,
-                        base_url="https://api.deepseek.com/v1",
-                        timeout=300,
-                    )
-                elif self.config.provider == LLMProviderType.Qwen:
-                    client = AsyncOpenAI(
-                        api_key=api_key,
-                        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-                        timeout=300,
-                    )
-                elif self.config.provider == LLMProviderType.SiliconFlow:
-                    client = AsyncOpenAI(
-                        api_key=api_key,
-                        base_url="https://api.siliconflow.cn/v1",
-                        timeout=300,
-                    )
-                elif self.config.provider == LLMProviderType.ZhipuAI:
-                    client = ZhipuAI(api_key=api_key, timeout=300)
-                else:
-                    raise ValueError(f"Unsupported `provider` {self.config.provider}!")
-                self._aclients.append(client)
-                self._client_usage.append(
-                    {"prompt_tokens": 0, "completion_tokens": 0, "request_number": 0}
-                )
-        else:
-            for i in range(len(base_urls)):
+        for config in self.configs:
+            if config.provider not in LLMProviderTypeValues:
+                raise ValueError("Invalid provider for text request")
+
+            api_key = config.api_key
+            base_url = config.base_url
+            if base_url is not None:
+                base_url = base_url.rstrip("/")
+
+            if config.provider == LLMProviderType.OpenAI:
+                client = AsyncOpenAI(api_key=api_key, timeout=300, base_url=base_url)
+            elif config.provider == LLMProviderType.DeepSeek:
                 client = AsyncOpenAI(
-                    api_key=api_keys[i] if len(api_keys) > 0 else "EMPTY",
+                    api_key=api_key,
+                    base_url="https://api.deepseek.com/v1",
                     timeout=300,
-                    base_url=base_urls[i],
-                )  # type: ignore
-                self._aclients.append(client)
-                self._client_usage.append(
-                    {"prompt_tokens": 0, "completion_tokens": 0, "request_number": 0}
                 )
+            elif config.provider == LLMProviderType.Qwen:
+                client = AsyncOpenAI(
+                    api_key=api_key,
+                    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    timeout=300,
+                )
+            elif config.provider == LLMProviderType.SiliconFlow:
+                client = AsyncOpenAI(
+                    api_key=api_key,
+                    base_url="https://api.siliconflow.cn/v1",
+                    timeout=300,
+                )
+            elif config.provider == LLMProviderType.VLLM:
+                client = AsyncOpenAI(
+                    api_key=api_key if api_key is not None else "EMPTY",
+                    timeout=300,
+                    base_url=base_url,
+                )
+            elif config.provider == LLMProviderType.ZhipuAI:
+                client = ZhipuAI(api_key=api_key, timeout=300)
+            else:
+                raise ValueError(f"Unsupported `provider` {config.provider}!")
+            self._aclients.append(client)
+            self._client_usage.append(
+                {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "request_number": 0,
+                }
+            )
 
     def get_log_list(self):
         return self._log_list
@@ -221,11 +209,16 @@ class LLM:
         - **Returns**:
             - The next client instance to be used for making requests.
         """
+        if self._current_client_index >= min(len(self._aclients), len(self.configs)):
+            raise ValueError(
+                f"Invalid client index: {self._current_client_index} vs {len(self._aclients)} & {len(self.configs)}"
+            )
+        config = self.configs[self._current_client_index]
         client = self._aclients[self._current_client_index]
         self._current_client_index = (self._current_client_index + 1) % len(
             self._aclients
         )
-        return client
+        return config, client
 
     async def atext_request(
         self,
@@ -272,18 +265,14 @@ class LLM:
             self.semaphore is not None
         ), "Please set semaphore with `set_semaphore` first!"
         async with self.semaphore:
-            if (
-                self.config.provider == LLMProviderType.OpenAI
-                or self.config.provider == LLMProviderType.DeepSeek
-                or self.config.provider == LLMProviderType.Qwen
-                or self.config.provider == LLMProviderType.SiliconFlow
-            ):
-                response = None
-                for attempt in range(retries):
+            for attempt in range(retries):
+                config, client = self._get_next_client()
+                if type(client) == AsyncOpenAI:
+                    response = None
                     try:
-                        client = self._get_next_client()
+
                         response = await client.chat.completions.create(
-                            model=self.config.model,
+                            model=config.model,
                             messages=dialog,
                             response_format=response_format,
                             temperature=temperature,
@@ -315,7 +304,7 @@ class LLM:
                         else:
                             return response.choices[0].message.content
                     except APIConnectionError as e:
-                        logger.warning(
+                        get_logger().warning(
                             f"API connection error: `{e}`, original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
                         if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
@@ -327,11 +316,11 @@ class LLM:
                             raise e
                     except OpenAIError as e:
                         if hasattr(e, "http_status"):
-                            logger.warning(
+                            get_logger().warning(
                                 f"HTTP status code: {e.http_status}. Retry {attempt+1} of {retries}"  # type: ignore
                             )  # type: ignore
                         else:
-                            logger.warning(
+                            get_logger().warning(
                                 f"OpenAIError: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
                             )
                         if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
@@ -342,7 +331,7 @@ class LLM:
                         else:
                             raise e
                     except Exception as e:
-                        logger.warning(
+                        get_logger().warning(
                             f"LLM Error (OpenAI): `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
                         if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
@@ -352,13 +341,12 @@ class LLM:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
-            elif self.config.provider == LLMProviderType.ZhipuAI:
-                response = None
-                for attempt in range(retries):
+                else:
+                    response = None
                     try:
                         client = self._get_next_client()
                         response = client.chat.asyncCompletions.create(  # type: ignore
-                            model=self.config.model,
+                            model=config.model,
                             messages=dialog,
                             temperature=temperature,
                             top_p=top_p,
@@ -400,7 +388,7 @@ class LLM:
                         else:
                             return result_response.choices[0].message.content  # type: ignore
                     except APIConnectionError as e:
-                        logger.warning(
+                        get_logger().warning(
                             f"API connection error: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
                         if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
@@ -411,7 +399,7 @@ class LLM:
                         else:
                             raise e
                     except Exception as e:
-                        logger.warning(
+                        get_logger().warning(
                             f"LLM Error: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
                         if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
@@ -421,8 +409,6 @@ class LLM:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
-            else:
-                raise ValueError("ERROR: Wrong Config")
 
     def get_error_statistics(self):
         """

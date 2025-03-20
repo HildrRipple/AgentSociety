@@ -17,12 +17,11 @@ from pycityproto.city.person.v2 import person_service_pb2 as person_service
 from shapely.geometry import Point
 
 from ..configs import SimConfig
+from ..logger import get_logger
 from ..utils.decorators import log_execution_time
-from .sidecar import OnlyClientSidecar
 from .sim import CityClient, ControlSimEnv
+from .syncerclient import SyncerClient
 from .utils.const import *
-
-logger = logging.getLogger("agentsociety")
 
 __all__ = [
     "Simulator",
@@ -32,10 +31,12 @@ __all__ = [
 @ray.remote
 class CityMap:
     def __init__(self, map_cache_path: str):
+        get_logger().info(f"Loading map from {map_cache_path}")
         self.map = SimMap(
             pb_path=map_cache_path,
         )
         self.poi_cate = POI_CATG_DICT
+        get_logger().info("Map loaded successfully!")
 
     def get_aoi(self, aoi_id: Optional[int] = None):
         if aoi_id is None:
@@ -113,18 +114,17 @@ class Simulator:
             self._client = CityClient(
                 sim_env.sim_addr, self.server_addr.startswith("https")
             )
+            self._syncer = SyncerClient.remote(
+                syncer_address=sim_env.syncer_addr, # type:ignore
+                name="within-syncer",
+                secure=self.server_addr.startswith("https"),
+            )
             for retry in range(60):
                 try:
-                    self._syncer = OnlyClientSidecar.remote(
-                        syncer_address=sim_env.syncer_addr,  # type:ignore
-                        name="within-syncer",
-                        secure=self.server_addr.startswith("https"),
-                    )
-                    time.sleep(5)
                     ray.get(self._syncer.init.remote())
                     break
                 except:
-                    logging.warning(
+                    get_logger().warning(
                         f"Failed to connect to syncer {sim_env.syncer_addr}, retrying..."
                     )
                     time.sleep(1)
@@ -465,7 +465,7 @@ class Simulator:
             reset_position["aoi_position"] = {"aoi_id": aoi_id}
             if poi_id is not None:
                 reset_position["aoi_position"]["poi_id"] = poi_id
-            logger.debug(
+            get_logger().debug(
                 f"Setting person {person_id} pos to AoiPosition {reset_position}"
             )
             await self._client.person_service.ResetPersonPosition(
@@ -478,14 +478,14 @@ class Simulator:
             }
             if s is not None:
                 reset_position["lane_position"]["s"] = s
-            logger.debug(
+            get_logger().debug(
                 f"Setting person {person_id} pos to LanePosition {reset_position}"
             )
             await self._client.person_service.ResetPersonPosition(
                 {"person_id": person_id, "position": reset_position}
             )
         else:
-            logger.debug(
+            get_logger().debug(
                 f"Neither aoi or lane pos provided for person {person_id} position reset!!"
             )
 

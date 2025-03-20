@@ -27,10 +27,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`logger <agentsociety.simulation.agentgroup.logger>`
-  - ```{autodoc2-docstring} agentsociety.simulation.agentgroup.logger
-    :summary:
-    ```
 * - {py:obj}`__all__ <agentsociety.simulation.agentgroup.__all__>`
   - ```{autodoc2-docstring} agentsociety.simulation.agentgroup.__all__
     :summary:
@@ -38,16 +34,6 @@
 ````
 
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.simulation.agentgroup.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.simulation.agentgroup.logger
-```
-
-````
 
 ````{py:data} __all__
 :canonical: agentsociety.simulation.agentgroup.__all__
@@ -59,7 +45,7 @@
 
 ````
 
-`````{py:class} AgentGroup(agent_class: typing.Union[type[agentsociety.agent.Agent], list[type[agentsociety.agent.Agent]]], number_of_agents: typing.Union[int, list[int]], memory_values_dict: dict[type[agentsociety.agent.Agent], list[dict]], config: agentsociety.configs.SimConfig, map_ref: ray.ObjectRef, exp_name: str, exp_id: typing.Union[str, uuid.UUID], tenant_id: str, enable_avro: bool, avro_path: pathlib.Path, enable_pgsql: bool, pgsql_writer: ray.ObjectRef, message_interceptor: ray.ObjectRef, mlflow_run_id: str, embedding_model: langchain_core.embeddings.Embeddings, logging_level: int, agent_config_file: typing.Optional[dict[type[agentsociety.agent.Agent], typing.Any]] = None, llm_semaphore: int = 200, environment: typing.Optional[dict] = None)
+`````{py:class} AgentGroup(agent_class: typing.Union[type[agentsociety.agent.Agent], list[type[agentsociety.agent.Agent]]], number_of_agents: typing.Union[int, list[int]], memory_values_dict: dict[type[agentsociety.agent.Agent], list[dict]], config: agentsociety.configs.SimConfig, map_ref: ray.ObjectRef, exp_name: str, exp_id: typing.Union[str, uuid.UUID], tenant_id: str, enable_avro: bool, avro_path: pathlib.Path, enable_pgsql: bool, pgsql_writer: ray.ObjectRef, message_interceptor: ray.ObjectRef, mlflow_run_id: str, embedding_model: langchain_core.embeddings.Embeddings, logging_level: str, agent_config_file: typing.Optional[dict[type[agentsociety.agent.Agent], typing.Any]] = None, llm_semaphore: int = 200, environment: typing.Optional[dict] = None)
 :canonical: agentsociety.simulation.agentgroup.AgentGroup
 
 ```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup
@@ -164,6 +150,15 @@
 
 ````
 
+````{py:method} update_environment(key: str, value: str)
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.update_environment
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.update_environment
+```
+
+````
+
 ````{py:method} filter(types: typing.Optional[list[typing.Type[agentsociety.agent.Agent]]] = None, keys: typing.Optional[list[str]] = None, values: typing.Optional[list[typing.Any]] = None) -> list[str]
 :canonical: agentsociety.simulation.agentgroup.AgentGroup.filter
 :async:
@@ -231,15 +226,6 @@
 :async:
 
 ```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.react_to_intervention
-```
-
-````
-
-````{py:method} update_environment(key: str, value: typing.Any)
-:canonical: agentsociety.simulation.agentgroup.AgentGroup.update_environment
-:async:
-
-```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.update_environment
 ```
 
 ````

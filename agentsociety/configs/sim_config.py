@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -11,13 +11,11 @@ __all__ = [
 
 class LLMConfig(BaseModel):
     provider: LLMProviderType = Field(..., description="The type of the LLM provider")
-    base_url: Optional[Union[list[str], str]] = Field(
+    base_url: Optional[str] = Field(
         None,
-        description="The base URL for the LLM provider, or a list of base URLs when using VLLM",
+        description="The base URL for the LLM provider",
     )
-    api_key: Union[list[str], str] = Field(
-        ..., description="API key for accessing the LLM provider"
-    )
+    api_key: str = Field(..., description="API key for accessing the LLM provider")
     model: str = Field(..., description="The model to use")
 
 
@@ -82,7 +80,7 @@ class SimStatus(BaseModel):
 
 
 class SimConfig(BaseModel):
-    llm_config: Optional["LLMConfig"] = None
+    llm_configs: List["LLMConfig"] = []
     simulator_config: Optional["SimulatorConfig"] = None
     redis: Optional["RedisConfig"] = None
     map_config: Optional["MapConfig"] = None
@@ -93,8 +91,8 @@ class SimConfig(BaseModel):
     status: Optional["SimStatus"] = SimStatus()
 
     @property
-    def prop_llm_config(self) -> "LLMConfig":
-        return self.llm_config  # type:ignore
+    def prop_llm_config(self) -> List["LLMConfig"]:
+        return self.llm_configs
 
     @property
     def prop_status(self) -> "SimStatus":
@@ -128,15 +126,17 @@ class SimConfig(BaseModel):
     def prop_metric_config(self) -> "MetricConfig":
         return self.metric_config  # type:ignore
 
-    def SetLLMConfig(
+    def AddLLMConfig(
         self,
         provider: LLMProviderType,
-        api_key: Union[list[str], str],
+        api_key: str,
         model: str,
         base_url: Optional[str] = None,
     ) -> "SimConfig":
-        self.llm_config = LLMConfig(
-            provider=provider, api_key=api_key, model=model, base_url=base_url
+        self.llm_configs.append(
+            LLMConfig(
+                provider=provider, api_key=api_key, model=model, base_url=base_url
+            )
         )
         return self
 
@@ -205,15 +205,3 @@ class SimConfig(BaseModel):
         }
         data = super().model_dump(*args, **kwargs)
         return {k: v for k, v in data.items() if k not in exclude_fields}
-
-
-if __name__ == "__main__":
-    config = (
-        SimConfig()
-        .SetLLMConfig("openai", "key", "model")  # type:ignore
-        .SetRedis("server", 6379, password="password")
-        .SetMapConfig("./path/to/map")
-        .SetMetricConfig("username", "password", "uri")
-        .SetPostgreSql("dsn", True)
-    )
-    print(config.llm_config)

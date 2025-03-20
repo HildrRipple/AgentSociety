@@ -10,14 +10,12 @@ import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
 from ..environment import EconomyClient, Simulator
-from ..environment.economy import EconomyEntityType
 from ..llm import LLM
+from ..logger import get_logger
 from ..memory import Memory
 from ..message import MessageInterceptor, Messager
 from ..metrics import MlflowClient
 from .agent_base import Agent, AgentType
-
-logger = logging.getLogger("agentsociety")
 
 __all__ = [
     "InstitutionAgent",
@@ -99,7 +97,7 @@ class CitizenAgent(Agent):
             - Logs the successful binding to the person entity added to the simulator.
         """
         if self._simulator is None:
-            logger.warning("Simulator is not set")
+            get_logger().warning("Simulator is not set")
             return
         FROM_MEMORY_KEYS = {
             "attribute",
@@ -123,7 +121,7 @@ class CitizenAgent(Agent):
         resp = await simulator.add_person(dict_person)
         person_id = resp["person_id"]
         await status.update("id", person_id, protect_llm_read_only_fields=False)
-        logger.debug(f"Binding to Person `{person_id}` just added to Simulator")
+        get_logger().debug(f"Binding to Person `{person_id}` just added to Simulator")
         self._agent_id = person_id
         self.status.set_agent_id(person_id)
 
@@ -136,7 +134,7 @@ class CitizenAgent(Agent):
             - Sets `_has_bound_to_economy` to `True` after successfully adding the agent.
         """
         if self._economy_client is None:
-            logger.warning("Economy client is not set")
+            get_logger().warning("Economy client is not set")
             return
         if not self._has_bound_to_economy:
             try:
@@ -273,7 +271,7 @@ class InstitutionAgent(Agent):
             - Note that this method does not bind the agent to the simulator itself; it only handles the economy integration.
         """
         if self._economy_client is None:
-            logger.debug("Economy client is not set")
+            get_logger().debug("Economy client is not set")
             return
         if not self._has_bound_to_economy:
             # TODO: More general id generation
@@ -359,7 +357,7 @@ class InstitutionAgent(Agent):
                     }
                 )
             except Exception as e:
-                logger.error(f"Failed to bind to Economy: {e}")
+                get_logger().error(f"Failed to bind to Economy: {e}")
             self._has_bound_to_economy = True
 
     async def handle_gather_message(self, payload: dict):

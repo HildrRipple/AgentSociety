@@ -73,7 +73,7 @@
 
 ````
 
-````{py:function} create_app(pg_dsn: str, mlflow_url: str, read_only: bool)
+````{py:function} create_app(pg_dsn: str, mlflow_url: str, read_only: bool, get_tenant_id: typing.Callable[[fastapi.Request], str] = lambda _: '', more_router: typing.Optional[fastapi.APIRouter] = None, session_secret_key: str = 'agentsociety-session')
 :canonical: agentsociety.webapi.app.create_app
 
 ```{autodoc2-docstring} agentsociety.webapi.app.create_app

@@ -1,22 +1,20 @@
-import jsonc
 import logging
 import math
 import random
 from operator import itemgetter
 from typing import Any
 
+import jsonc
 import numpy as np
 import ray
 
-from agentsociety.environment import Simulator
-from agentsociety.llm import LLM
-from agentsociety.memory import Memory
-from agentsociety.workflow import Block, FormatPrompt
-
+from ...environment import Simulator
+from ...llm import LLM
+from ...logger import get_logger
+from ...memory import Memory
+from ...workflow import Block, FormatPrompt
 from .dispatcher import BlockDispatcher
 from .utils import clean_json_response
-
-logger = logging.getLogger("agentsociety")
 
 # Prompt templates for LLM interactions
 PLACE_TYPE_SELECTION_PROMPT = """
@@ -203,7 +201,7 @@ class PlaceSelectionBlock(Block):
             ]
             sub_category = poi_cate[levelOneType]
         except Exception as e:
-            logger.warning(f"Level 1 selection failed: {e}")
+            get_logger().warning(f"Level 1 selection failed: {e}")
             levelOneType = random.choice(list(poi_cate.keys()))
             sub_category = poi_cate[levelOneType]
 
@@ -223,7 +221,7 @@ class PlaceSelectionBlock(Block):
                 "place_type"
             ]
         except Exception as e:
-            logger.warning(f"Level 2 selection failed: {e}")
+            get_logger().warning(f"Level 2 selection failed: {e}")
             levelTwoType = random.choice(sub_category)
 
         # Get travel radius from LLM
@@ -240,7 +238,7 @@ class PlaceSelectionBlock(Block):
             )
             radius = int(jsonc.loads(radius)["radius"])  # type:ignore
         except Exception as e:
-            logger.warning(f"Radius selection failed: {e}")
+            get_logger().warning(f"Radius selection failed: {e}")
             radius = 10000  # Default 10km
 
         # Query and select POI
@@ -301,7 +299,7 @@ class MoveBlock(Block):
             response = clean_json_response(response)  # type:ignore
             response = jsonc.loads(response)["place_type"]
         except Exception as e:
-            logger.warning(
+            get_logger().warning(
                 f"Place Analysis: wrong type of place, raw response: {response}"
             )
             response = "home"

@@ -1,12 +1,12 @@
-import jsonc
 import logging
 
-from agentsociety.environment.simulator import Simulator
-from agentsociety.llm import LLM
-from agentsociety.memory import Memory
-from agentsociety.workflow import Block, FormatPrompt
+import jsonc
 
-logger = logging.getLogger("agentsociety")
+from ...environment.simulator import Simulator
+from ...llm import LLM
+from ...logger import get_logger
+from ...memory import Memory
+from ...workflow import Block, FormatPrompt
 
 
 def extract_json(output_str):
@@ -33,7 +33,7 @@ def extract_json(output_str):
         # Convert the JSON string to a dictionary
         return json_str
     except (ValueError, jsonc.JSONDecodeError) as e:
-        logger.warning(f"Failed to extract JSON: {e}")
+        get_logger().warning(f"Failed to extract JSON: {e}")
         return None
 
 
@@ -381,7 +381,7 @@ class CognitionBlock(Block):
                 evaluation = False
                 break
             except Exception as e:
-                logger.warning(f"Request for cognition update failed: {e}")
+                get_logger().warning(f"Request for cognition update failed: {e}")
                 pass
         if evaluation:
             raise Exception("Request for cognition update failed")

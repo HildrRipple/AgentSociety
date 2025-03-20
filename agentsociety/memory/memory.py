@@ -10,14 +10,13 @@ from typing import Any, Dict, Literal, Optional, Union
 from langchain_core.embeddings import Embeddings
 from pyparsing import deque
 
+from ..logger import get_logger
 from ..utils.decorators import lock_decorator
 from .const import *
 from .faiss_query import FaissQuery
 from .profile import ProfileMemory
 from .self_define import DynamicMemory
 from .state import StateMemory
-
-logger = logging.getLogger("agentsociety")
 
 
 class MemoryTag(str, Enum):
@@ -545,7 +544,7 @@ class StatusMemory:
     async def initialize_embeddings(self) -> None:
         """Initialize embeddings for all fields that require them."""
         if not self._embedding_model or not self._faiss_query:
-            logger.warning(
+            get_logger().warning(
                 "Search components not initialized, skipping embeddings initialization"
             )
             return
@@ -769,7 +768,7 @@ class StatusMemory:
         """
         if protect_llm_read_only_fields:
             if any(key in _attrs for _attrs in [STATE_ATTRIBUTES]):
-                logger.warning(f"Trying to write protected key `{key}`!")
+                get_logger().warning(f"Trying to write protected key `{key}`!")
                 return
 
         for mem in [self.state, self.profile, self.dynamic]:
@@ -812,7 +811,7 @@ class StatusMemory:
                     elif isinstance(original_value, deque):
                         original_value.extend(deque(value))
                     else:
-                        logger.debug(
+                        get_logger().debug(
                             f"Type of {type(original_value)} does not support mode `merge`, using `replace` instead!"
                         )
                         await mem.update(key, value, store_snapshot)
@@ -993,9 +992,9 @@ class Memory:
                                 _type.extend(_value)
                                 _value = deepcopy(_type)
                             else:
-                                logger.warning(f"type `{_type}` is not supported!")
+                                get_logger().warning(f"type `{_type}` is not supported!")
                     except TypeError as e:
-                        logger.warning(f"Type conversion failed for key {k}: {e}")
+                        get_logger().warning(f"Type conversion failed for key {k}: {e}")
                 except TypeError as e:
                     if isinstance(v, type):
                         _value = v()
@@ -1008,7 +1007,7 @@ class Memory:
                     or k in STATE_ATTRIBUTES
                     or k == TIME_STAMP_KEY
                 ):
-                    logger.warning(f"key `{k}` already declared in memory!")
+                    get_logger().warning(f"key `{k}` already declared in memory!")
                     continue
 
                 _dynamic_config[k] = deepcopy(_value)
@@ -1021,7 +1020,7 @@ class Memory:
         if profile is not None:
             for k, v in profile.items():
                 if k not in PROFILE_ATTRIBUTES:
-                    logger.warning(f"key `{k}` is not a correct `profile` field!")
+                    get_logger().warning(f"key `{k}` is not a correct `profile` field!")
                     continue
                 try:
                     # Handle configuration tuple formats
@@ -1046,9 +1045,9 @@ class Memory:
                                     _type.extend(_value)
                                     _value = deepcopy(_type)
                                 else:
-                                    logger.warning(f"type `{_type}` is not supported!")
+                                    get_logger().warning(f"type `{_type}` is not supported!")
                         except TypeError as e:
-                            logger.warning(f"Type conversion failed for key {k}: {e}")
+                            get_logger().warning(f"Type conversion failed for key {k}: {e}")
                     else:
                         # Maintain compatibility with simple key-value pairs
                         _value = v
@@ -1067,7 +1066,7 @@ class Memory:
         if base is not None:
             for k, v in base.items():
                 if k not in STATE_ATTRIBUTES:
-                    logger.warning(f"key `{k}` is not a correct `base` field!")
+                    get_logger().warning(f"key `{k}` is not a correct `base` field!")
                     continue
                 _state_config[k] = v
 

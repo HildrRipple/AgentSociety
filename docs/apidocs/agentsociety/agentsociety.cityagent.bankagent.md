@@ -33,29 +33,7 @@
     ```
 ````
 
-### Data
-
-````{list-table}
-:class: autosummary longtable
-:align: left
-
-* - {py:obj}`logger <agentsociety.cityagent.bankagent.logger>`
-  - ```{autodoc2-docstring} agentsociety.cityagent.bankagent.logger
-    :summary:
-    ```
-````
-
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.cityagent.bankagent.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.cityagent.bankagent.logger
-```
-
-````
 
 ````{py:function} calculate_inflation(prices)
 :canonical: agentsociety.cityagent.bankagent.calculate_inflation

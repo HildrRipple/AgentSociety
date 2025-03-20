@@ -31,10 +31,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`logger <agentsociety.agent.agent_base.logger>`
-  - ```{autodoc2-docstring} agentsociety.agent.agent_base.logger
-    :summary:
-    ```
 * - {py:obj}`__all__ <agentsociety.agent.agent_base.__all__>`
   - ```{autodoc2-docstring} agentsociety.agent.agent_base.__all__
     :summary:
@@ -42,16 +38,6 @@
 ````
 
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.agent.agent_base.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.logger
-```
-
-````
 
 ````{py:data} __all__
 :canonical: agentsociety.agent.agent_base.__all__

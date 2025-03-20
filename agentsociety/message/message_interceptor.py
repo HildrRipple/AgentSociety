@@ -13,6 +13,7 @@ from ray.util.queue import Queue
 from ..configs import LLMConfig
 from ..llm import LLM
 from ..utils.decorators import lock_decorator
+from ..logger import get_logger
 
 DEFAULT_ERROR_STRING = """
 From `{from_id}` To `{to_id}` abort due to block `{block_name}`
@@ -120,7 +121,7 @@ class MessageInterceptor:
                 []
             )  # list[tuple(from_id, to_id)] `None` means forbidden for everyone.
         if llm_config:
-            self._llm = LLM(llm_config)
+            self._llm = LLM([llm_config])
         else:
             self._llm = None
         self._queue = queue
@@ -454,7 +455,7 @@ class MessageInterceptor:
                 )
             if not is_valid:
                 if self.has_queue:
-                    logger.debug(f"put `{err}` into queue")
+                    get_logger().debug(f"put `{err}` into queue")
                     await self.queue.put_async(err)  # type:ignore
                 self._violation_counts[from_id] += 1
                 print(self._black_list)
@@ -568,6 +569,6 @@ class MessageBlockListenerBase(ABC):
                 value = await self.queue.get_async()  # type: ignore
                 if self._save_queue_values:
                     self._values_from_queue.append(value)
-                logger.debug(f"get `{value}` from queue")
+                get_logger().debug(f"get `{value}` from queue")
                 # do something with the value
             await asyncio.sleep(self._get_queue_period)

@@ -1,6 +1,5 @@
 import asyncio
 import inspect
-import jsonc
 import logging
 import time
 import uuid
@@ -9,37 +8,51 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional, Type, Union, cast
 
+import jsonc
 import ray
 import yaml
 from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, InstitutionAgent
-from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
-                         SocietyAgent)
+from ..cityagent import BankAgent, FirmAgent, GovernmentAgent, NBSAgent, SocietyAgent
 from ..cityagent.initial import bind_agent_info, initialize_social_network
-from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
-                                       memory_config_government,
-                                       memory_config_load_file,
-                                       memory_config_merge, memory_config_nbs,
-                                       memory_config_societyagent,
-                                       set_distribution)
-from ..cityagent.message_intercept import (EdgeMessageBlock,
-                                           MessageBlockListener,
-                                           PointMessageBlock)
+from ..cityagent.memory_config import (
+    memory_config_bank,
+    memory_config_firm,
+    memory_config_government,
+    memory_config_load_file,
+    memory_config_merge,
+    memory_config_nbs,
+    memory_config_societyagent,
+    set_distribution,
+)
+from ..cityagent.message_intercept import (
+    EdgeMessageBlock,
+    MessageBlockListener,
+    PointMessageBlock,
+)
 from ..configs import ExpConfig, MemoryConfig, MetricExtractor, SimConfig
 from ..environment import EconomyClient, Simulator
 from ..llm import SimpleEmbedding
-from ..message import (MessageBlockBase, MessageBlockListenerBase,
-                       MessageInterceptor, Messager)
+from ..logger import get_logger
+from ..message import (
+    MessageBlockBase,
+    MessageBlockListenerBase,
+    MessageInterceptor,
+    Messager,
+)
 from ..metrics import init_mlflow_connection
 from ..metrics.mlflow_client import MlflowClient
 from ..survey import Survey
-from ..utils import (SURVEY_SENDER_UUID, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES,
-                     MetricType, WorkflowType)
+from ..utils import (
+    SURVEY_SENDER_UUID,
+    TO_UPDATE_EXP_INFO_KEYS_AND_TYPES,
+    MetricType,
+    WorkflowType,
+)
 from .agentgroup import AgentGroup
 from .storage.pg import PgWriter, create_pg_tables
 
-logger = logging.getLogger("agentsociety")
 # ExpConfig.model_rebuild()  # rebuild the schema due to circular import
 
 
@@ -57,7 +70,7 @@ class AgentSimulation:
         exp_id (str): A unique identifier for the current experiment.
         agent_class (List[Type[Agent]]): A list of agent classes that will be instantiated in the simulation.
         agent_config_file (Optional[dict]): Configuration file or dictionary for initializing agents.
-        logging_level (int): The level of logging to be used throughout the simulation.
+        logging_level (str): The level of logging to be used throughout the simulation, including "debug"|"info"|"warning"|"error"
         default_memory_config_func (Dict[Type[Agent], Callable]): Dictionary mapping agent classes to their respective memory configuration functions.
     """
 
@@ -70,7 +83,7 @@ class AgentSimulation:
         tenant_id: str = "",
         agent_prefix: str = "agent_",
         exp_name: str = "default_experiment",
-        logging_level: int = logging.WARNING,
+        logging_level: str = "info",
     ):
         """
         Initializes the AgentSimulation with the given parameters.
@@ -89,11 +102,13 @@ class AgentSimulation:
             - `tenant_id` (str, optional): The tenant ID for the simulation. Defaults to "".
             - `agent_prefix` (str, optional): Prefix string for naming agents. Defaults to "agent_".
             - `exp_name` (str, optional): The name of the experiment. Defaults to "default_experiment".
-            - `logging_level` (int, optional): Logging level to set for the simulation's logger. Defaults to logging.WARNING.
+            - `logging_level` (str, optional): Logging level to set for the simulation's get_logger(). Defaults to "INFO".
 
         - **Returns**:
             - None
         """
+        self.logging_level = logging_level.upper()
+        get_logger().setLevel(self.logging_level)
         self.exp_id = str(uuid.uuid4())
         self.tenant_id = tenant_id
         if isinstance(agent_class, list):
@@ -116,16 +131,17 @@ class AgentSimulation:
         else:
             self.agent_class = [agent_class]
         self.agent_class_configs = agent_class_configs
-        self.logging_level = logging_level
         self.config = config
         self.exp_name = exp_name
+        get_logger().info(f"Creating Simulator with config: {config.model_dump()}")
         simulator = Simulator(config, create_map=True)
         self._simulator = simulator
+        get_logger().info("Simulator created")
         self._map_ref = self._simulator.map
         server_addr = self._simulator.get_server_addr()
         config.SetServerAddress(server_addr)
         self._economy_client = EconomyClient(server_addr)
-        self._economy_addr = economy_addr = server_addr
+        self._economy_addr = server_addr
         self.agent_prefix = agent_prefix
         self._groups: dict[str, AgentGroup] = {}  # type:ignore
         self._agent_id2group: dict[int, AgentGroup] = {}  # type:ignore
@@ -155,19 +171,19 @@ class AgentSimulation:
             self._enable_avro: bool = avro_config.enabled  # type:ignore
             if not self._enable_avro:
                 self._avro_path = None
-                logger.warning("AVRO is not enabled, NO AVRO LOCAL STORAGE")
+                get_logger().warning("AVRO is not enabled, NO AVRO LOCAL STORAGE")
             else:
                 self._avro_path = Path(avro_config.path) / f"{self.exp_id}"
                 self._avro_path.mkdir(parents=True, exist_ok=True)
         else:
             self._avro_path = None
-            logger.warning("AVRO is not enabled, NO AVRO LOCAL STORAGE")
+            get_logger().warning("AVRO is not enabled, NO AVRO LOCAL STORAGE")
             self._enable_avro = False
 
         # mlflow
         metric_config = config.prop_metric_config
         if metric_config is not None and metric_config.mlflow is not None:
-            logger.info(f"-----Creating Mlflow client...")
+            get_logger().info(f"-----Creating Mlflow client...")
             mlflow_run_id, _ = init_mlflow_connection(
                 config=metric_config.mlflow,
                 experiment_uuid=self.exp_id,
@@ -183,7 +199,7 @@ class AgentSimulation:
             )
             self.metric_extractors = metric_extractors
         else:
-            logger.warning("Mlflow is not enabled, NO MLFLOW STORAGE")
+            get_logger().warning("Mlflow is not enabled, NO MLFLOW STORAGE")
             self.mlflow_client = None
             self.metric_extractors = None
 
@@ -192,7 +208,7 @@ class AgentSimulation:
         if pgsql_config is not None:
             self._enable_pgsql: bool = pgsql_config.enabled  # type:ignore
             if not self._enable_pgsql:
-                logger.warning(
+                get_logger().warning(
                     "PostgreSQL is not enabled, NO POSTGRESQL DATABASE STORAGE"
                 )
                 self._pgsql_dsn = ""
@@ -242,10 +258,11 @@ class AgentSimulation:
                 - agent_time_log_lists: list of agent time log lists
                 - llm_error_statistics: dictionary of llm error statistics
         """
+        get_logger().setLevel("INFO")
 
         agent_config = config.prop_agent_config
 
-        logger.info("Creating AgentSimulation Task...")
+        get_logger().info("Creating AgentSimulation Task...")
         simulation = cls(
             config=sim_config,
             agent_class_configs=agent_config.agent_class_configs,
@@ -255,7 +272,7 @@ class AgentSimulation:
         )
         environment = config.prop_environment.model_dump()
         simulation._simulator.set_environment(environment)
-        logger.info("Initializing Agents...")
+        get_logger().info("Initializing Agents...")
         agent_count: dict[type[Agent], int] = {
             SocietyAgent: agent_config.number_of_citizen,
             FirmAgent: agent_config.number_of_firm,
@@ -320,7 +337,7 @@ class AgentSimulation:
             environment=environment,
             llm_semaphore=config.llm_semaphore,
         )
-        logger.info("Running Init Functions...")
+        get_logger().info("Running Init Functions...")
         # # test eco get
         # for firm_id in simulation.economy_client._firm_ids:
         #     firm = await simulation.economy_client._get_firm(firm_id)
@@ -343,13 +360,13 @@ class AgentSimulation:
             else:
                 init_func = cast(Callable, init_func)
                 init_func(simulation)
-        logger.info("Starting Simulation...")
+        get_logger().info("Starting Simulation...")
         llm_log_lists = []
         redis_log_lists = []
         simulator_log_lists = []
         agent_time_log_lists = []
         for step in config.prop_workflow:
-            logger.info(
+            get_logger().info(
                 f"Running step: type: {step.type} - description: {step.description}"
             )
             if step.type not in {t.value for t in WorkflowType}:
@@ -417,7 +434,7 @@ class AgentSimulation:
                     )
                 await simulation.update(target_agents, key, value)
             elif step.type == WorkflowType.MESSAGE_INTERVENE:
-                logger.warning(
+                get_logger().warning(
                     "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congition of target agents"
                 )
                 target_agents = step.target_agent
@@ -432,7 +449,7 @@ class AgentSimulation:
             else:
                 _func = cast(Callable, step.func)
                 await _func(simulation)
-        logger.info("Simulation finished")
+        get_logger().info("Simulation finished")
         tasks = []
         for group in simulation._groups.values():
             tasks.append(group.get_llm_error_statistics.remote())
@@ -501,7 +518,7 @@ class AgentSimulation:
                 with open(self._exp_info_file, "w") as f:
                     yaml.dump(self._exp_info, f)
         except Exception as e:
-            logger.error(f"Avro save experiment info failed: {str(e)}")
+            get_logger().error(f"Avro save experiment info failed: {str(e)}")
         try:
             if self.enable_pgsql:
                 worker: ray.ObjectRef = self._pgsql_writers[0]  # type:ignore
@@ -514,7 +531,7 @@ class AgentSimulation:
                     pg_exp_info
                 )
         except Exception as e:
-            logger.error(f"PostgreSQL save experiment info failed: {str(e)}")
+            get_logger().error(f"PostgreSQL save experiment info failed: {str(e)}")
 
     async def _update_exp_status(self, status: int, error: str = "") -> None:
         self._exp_updated_time = datetime.now(timezone.utc)
@@ -557,7 +574,7 @@ class AgentSimulation:
             # normal cancellation, no special handling needed
             pass
         except Exception as e:
-            logger.error(f"Error monitoring experiment status: {str(e)}")
+            get_logger().error(f"Error monitoring experiment status: {str(e)}")
             raise
 
     async def __aenter__(self):
@@ -1086,7 +1103,7 @@ class AgentSimulation:
         remain_payback = len(agent_ids)
         while True:
             messages = await self.messager.fetch_messages.remote()  # type:ignore
-            logger.info(f"Received {len(messages)} payback messages [survey]")
+            get_logger().info(f"Received {len(messages)} payback messages [survey]")
             remain_payback -= len(messages)
             if remain_payback <= 0:
                 break
@@ -1120,7 +1137,7 @@ class AgentSimulation:
         remain_payback = len(agent_ids)
         while True:
             messages = await self.messager.fetch_messages.remote()  # type:ignore
-            logger.info(f"Received {len(messages)} payback messages [interview]")
+            get_logger().info(f"Received {len(messages)} payback messages [interview]")
             remain_payback -= len(messages)
             if remain_payback <= 0:
                 break
@@ -1167,7 +1184,7 @@ class AgentSimulation:
                     metric_extractor.key, metric_extractor.target_agent, flatten=True
                 )
                 if values is None or len(values) == 0:
-                    logger.warning(
+                    get_logger().warning(
                         f"No values found for metric extractor {metric_extractor.key} in extraction step {metric_extractor.extract_time}"
                     )
                     return
@@ -1222,7 +1239,7 @@ class AgentSimulation:
             simulator_time = int(
                 await self._simulator.get_simulator_second_from_start_of_day()
             )
-            logger.info(
+            get_logger().info(
                 f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}"
             )
             tasks = []
@@ -1273,7 +1290,7 @@ class AgentSimulation:
         except Exception as e:
             import traceback
 
-            logger.error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
+            get_logger().error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e
 
     async def run(
@@ -1347,6 +1364,6 @@ class AgentSimulation:
             )
         except Exception as e:
             error_msg = f"Simulation error: {str(e)}"
-            logger.error(error_msg)
+            get_logger().error(error_msg)
             await self._update_exp_status(3, error_msg)
             raise RuntimeError(error_msg) from e

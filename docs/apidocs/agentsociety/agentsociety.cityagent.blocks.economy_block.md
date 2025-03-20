@@ -49,29 +49,7 @@
     ```
 ````
 
-### Data
-
-````{list-table}
-:class: autosummary longtable
-:align: left
-
-* - {py:obj}`logger <agentsociety.cityagent.blocks.economy_block.logger>`
-  - ```{autodoc2-docstring} agentsociety.cityagent.blocks.economy_block.logger
-    :summary:
-    ```
-````
-
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.cityagent.blocks.economy_block.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.cityagent.blocks.economy_block.logger
-```
-
-````
 
 ````{py:function} softmax(x, gamma=1.0)
 :canonical: agentsociety.cityagent.blocks.economy_block.softmax

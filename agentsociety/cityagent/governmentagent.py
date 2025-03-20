@@ -10,8 +10,6 @@ from agentsociety.llm.llm import LLM
 from agentsociety.memory import Memory
 from agentsociety.message import Messager
 
-logger = logging.getLogger("agentsociety")
-
 
 class GovernmentAgent(InstitutionAgent):
     """A government institution agent that handles periodic economic operations such as tax collection."""

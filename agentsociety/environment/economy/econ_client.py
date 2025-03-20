@@ -12,9 +12,8 @@ import pycityproto.city.economy.v2.org_service_pb2 as org_service
 import pycityproto.city.economy.v2.org_service_pb2_grpc as org_grpc
 from google.protobuf.json_format import MessageToDict, ParseDict
 
+from ...logger import get_logger
 from ...utils.decorators import lock_decorator, log_execution_time
-
-logger = logging.getLogger("agentsociety")
 
 __all__ = [
     "EconomyClient",
@@ -191,7 +190,7 @@ class EconomyClient:
         - **Returns**:
             - `economyv2.Agent`: The agent object.
         """
-        logger.debug(f"Getting agent {id}")
+        get_logger().debug(f"Getting agent {id}")
         if not isinstance(id, Sequence):
             id = [id]
         agents: org_service.GetAgentResponse = await self._aio_stub.GetAgent(
@@ -218,7 +217,7 @@ class EconomyClient:
         - **Returns**:
             - `economyv2.Bank`: The bank object.
         """
-        logger.debug(f"Getting bank {id}")
+        get_logger().debug(f"Getting bank {id}")
         if isinstance(id, list):
             banks = []
             for bank_id in id:
@@ -253,7 +252,7 @@ class EconomyClient:
         - **Returns**:
             - `economyv2.Firm`: The firm object.
         """
-        logger.debug(f"Getting firm {id}")
+        get_logger().debug(f"Getting firm {id}")
         if not isinstance(id, list):
             _id = [id]
         else:
@@ -280,7 +279,7 @@ class EconomyClient:
         - **Returns**:
             - `economyv2.Government`: The government object.
         """
-        logger.debug(f"Getting government {id}")
+        get_logger().debug(f"Getting government {id}")
         if isinstance(id, list):
             governments: list[org_service.GetGovernmentResponse] = [
                 await self._aio_stub.GetGovernment(
@@ -317,7 +316,7 @@ class EconomyClient:
         - **Returns**:
             - `economyv2.Nbs`: The nbs object.
         """
-        logger.debug(f"Getting NBS {id}")
+        get_logger().debug(f"Getting NBS {id}")
         if isinstance(id, list):
             nbss: list[org_service.GetNBSResponse] = [
                 await self._aio_stub.GetNBS(org_service.GetNBSRequest(nbs_id=nbs_id))
@@ -374,9 +373,9 @@ class EconomyClient:
                     results.append([res[k] for res in response])
             return results
         else:
-            logger.debug(f"response: {response}")
+            get_logger().debug(f"response: {response}")
             res = cast(dict[str, Any], response)
-            logger.debug(f"res: {res}")
+            get_logger().debug(f"res: {res}")
             if isinstance(key, list):
                 return [res[k] for k in key]
             else:
@@ -393,7 +392,7 @@ class EconomyClient:
             _new_type = type_
             orig_value = type_()
         if _orig_type != _new_type:
-            logger.debug(
+            get_logger().debug(
                 f"Inconsistent type of original value {_orig_type.__name__} and to-update value {_new_type.__name__}"
             )
             return False
@@ -408,7 +407,7 @@ class EconomyClient:
                 orig_value.extend(list(value))
                 original_dict[key] = orig_value
             else:
-                logger.warning(
+                get_logger().warning(
                     f"Type of {type(orig_value)} does not support mode `merge`, using `replace` instead!"
                 )
                 return False

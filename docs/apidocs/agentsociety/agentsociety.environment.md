@@ -13,10 +13,10 @@
 :titlesonly:
 :maxdepth: 3
 
+agentsociety.environment.syncerclient
 agentsociety.environment.sim
 agentsociety.environment.utils
 agentsociety.environment.economy
-agentsociety.environment.sidecar
 ```
 
 ## Submodules

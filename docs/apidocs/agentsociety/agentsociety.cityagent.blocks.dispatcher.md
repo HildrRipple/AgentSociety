@@ -27,10 +27,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`logger <agentsociety.cityagent.blocks.dispatcher.logger>`
-  - ```{autodoc2-docstring} agentsociety.cityagent.blocks.dispatcher.logger
-    :summary:
-    ```
 * - {py:obj}`DISPATCHER_PROMPT <agentsociety.cityagent.blocks.dispatcher.DISPATCHER_PROMPT>`
   - ```{autodoc2-docstring} agentsociety.cityagent.blocks.dispatcher.DISPATCHER_PROMPT
     :summary:
@@ -38,16 +34,6 @@
 ````
 
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.cityagent.blocks.dispatcher.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.cityagent.blocks.dispatcher.logger
-```
-
-````
 
 ````{py:data} DISPATCHER_PROMPT
 :canonical: agentsociety.cityagent.blocks.dispatcher.DISPATCHER_PROMPT

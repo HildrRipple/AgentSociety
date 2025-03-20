@@ -31,10 +31,6 @@
   - ```{autodoc2-docstring} agentsociety.message.messager.__all__
     :summary:
     ```
-* - {py:obj}`logger <agentsociety.message.messager.logger>`
-  - ```{autodoc2-docstring} agentsociety.message.messager.logger
-    :summary:
-    ```
 ````
 
 ### API
@@ -49,17 +45,7 @@
 
 ````
 
-````{py:data} logger
-:canonical: agentsociety.message.messager.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.message.messager.logger
-```
-
-````
-
-`````{py:class} Messager(hostname: str, port: int = 6379, username=None, password=None, timeout=60, message_interceptor: typing.Optional[ray.ObjectRef] = None)
+`````{py:class} Messager(hostname: str, port: int = 6379, db=0, password: typing.Optional[str] = None, timeout: float = 60, message_interceptor: typing.Optional[ray.ObjectRef] = None)
 :canonical: agentsociety.message.messager.Messager
 
 ```{autodoc2-docstring} agentsociety.message.messager.Messager
@@ -194,7 +180,7 @@
 
 ````
 
-````{py:method} _listen_for_messages(pubsub)
+````{py:method} _listen_for_messages(pubsub: redis.asyncio.client.PubSub)
 :canonical: agentsociety.message.messager.Messager._listen_for_messages
 :async:
 
@@ -203,11 +189,11 @@
 
 ````
 
-````{py:method} _update_subscribe(pubsub, new_topics)
-:canonical: agentsociety.message.messager.Messager._update_subscribe
+````{py:method} _update_psubscribe(pubsub: redis.asyncio.client.PubSub, new_topics: set[str])
+:canonical: agentsociety.message.messager.Messager._update_psubscribe
 :async:
 
-```{autodoc2-docstring} agentsociety.message.messager.Messager._update_subscribe
+```{autodoc2-docstring} agentsociety.message.messager.Messager._update_psubscribe
 ```
 
 ````

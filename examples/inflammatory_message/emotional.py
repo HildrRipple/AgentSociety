@@ -42,7 +42,7 @@ async def update_chat_histories(simulation: AgentSimulation):
 
 sim_config = (
     SimConfig()
-    .SetLLMConfig(
+    .AddLLMConfig(
         provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
     .SetSimulatorConfig()
@@ -53,7 +53,7 @@ sim_config = (
 )
 exp_config = (
     ExpConfig(
-        exp_name="social_experiment", llm_semaphore=200, logging_level=logging.INFO
+        exp_name="social_experiment", llm_semaphore=200, logging_level="INFO"
     )
     .SetAgentConfig(number_of_citizen=100, group_size=50)
     .SetWorkFlow(

@@ -41,10 +41,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`logger <agentsociety.environment.economy.econ_client.logger>`
-  - ```{autodoc2-docstring} agentsociety.environment.economy.econ_client.logger
-    :summary:
-    ```
 * - {py:obj}`__all__ <agentsociety.environment.economy.econ_client.__all__>`
   - ```{autodoc2-docstring} agentsociety.environment.economy.econ_client.__all__
     :summary:
@@ -52,16 +48,6 @@
 ````
 
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.environment.economy.econ_client.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.environment.economy.econ_client.logger
-```
-
-````
 
 ````{py:data} __all__
 :canonical: agentsociety.environment.economy.econ_client.__all__

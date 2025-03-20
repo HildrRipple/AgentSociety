@@ -164,7 +164,7 @@ class ExpConfig(BaseModel):
     environment: Optional[EnvironmentConfig] = EnvironmentConfig()
     message_intercept: Optional[MessageInterceptConfig] = None
     metric_extractors: Optional[list[MetricExtractor]] = None
-    logging_level: int = Field(logging.WARNING)
+    logging_level: str = Field("info")
     exp_name: str = Field("default_experiment")
     llm_semaphore: int = Field(200)
 

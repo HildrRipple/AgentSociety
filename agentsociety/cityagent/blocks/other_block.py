@@ -2,14 +2,12 @@ import jsonc
 import logging
 import random
 
-from agentsociety.llm import LLM
-from agentsociety.memory import Memory
-from agentsociety.workflow import Block, FormatPrompt
-
+from ...llm import LLM
+from ...memory import Memory
+from ...workflow import Block, FormatPrompt
+from ...logger import get_logger
 from .dispatcher import BlockDispatcher
 from .utils import TIME_ESTIMATE_PROMPT, clean_json_response
-
-logger = logging.getLogger("agentsociety")
 
 
 class SleepBlock(Block):
@@ -54,7 +52,7 @@ class SleepBlock(Block):
                 "node_id": node_id,
             }
         except Exception as e:
-            logger.warning(
+            get_logger().warning(
                 f"An error occurred while evaluating the response at parse time: {str(e)}, original result: {result}"
             )
             return {
@@ -100,7 +98,7 @@ class OtherNoneBlock(Block):
                 "node_id": node_id,
             }
         except Exception as e:
-            logger.warning(
+            get_logger().warning(
                 f"An error occurred while evaluating the response at parse time: {str(e)}, original result: {result}"
             )
             return {

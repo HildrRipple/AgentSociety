@@ -26,7 +26,7 @@ async def gather_ubi_opinions(simulation: AgentSimulation):
 
 sim_config = (
     SimConfig()
-    .SetLLMConfig(
+    .AddLLMConfig(
         provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
     .SetSimulatorConfig()
@@ -36,12 +36,12 @@ sim_config = (
     # .SetAvro(path='./__avro', enabled=True)
     .SetPostgreSql(dsn="postgresql://user:pass@localhost:5432/db", enabled=True)
     .SetMetricConfig(
-        username="mlflow_user", password="mlflow_pass", mlflow_uri="http://mlflow:5000"
+        username="mlflow_user", password="mlflow_pass", mlflow_uri="http://mlflow:59000"
     )
 )
 exp_config = (
     ExpConfig(
-        exp_name="allinone_economy", llm_semaphore=200, logging_level=logging.INFO
+        exp_name="allinone_economy", llm_semaphore=200, logging_level="INFO"
     )
     .SetAgentConfig(
         number_of_citizen=100,

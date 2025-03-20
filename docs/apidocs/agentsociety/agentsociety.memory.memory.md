@@ -37,29 +37,7 @@
     ```
 ````
 
-### Data
-
-````{list-table}
-:class: autosummary longtable
-:align: left
-
-* - {py:obj}`logger <agentsociety.memory.memory.logger>`
-  - ```{autodoc2-docstring} agentsociety.memory.memory.logger
-    :summary:
-    ```
-````
-
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.memory.memory.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.memory.memory.logger
-```
-
-````
 
 `````{py:class} MemoryTag()
 :canonical: agentsociety.memory.memory.MemoryTag

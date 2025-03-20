@@ -11,7 +11,7 @@ from agentsociety.cityagent import (
     SocietyAgent,
 )
 
-logger = logging.getLogger("agentsociety")
+from ..logger import get_logger
 
 
 async def initialize_social_network(simulation):
@@ -28,7 +28,7 @@ async def initialize_social_network(simulation):
         - None
     """
     try:
-        logger.info("Initializing social network...")
+        get_logger().info("Initializing social network...")
 
         # Define possible relationship types
         relation_types = ["family", "colleague", "friend"]
@@ -78,7 +78,7 @@ async def initialize_social_network(simulation):
         return True
 
     except Exception as e:
-        logger.error(f"Error initializing social network: {str(e)}")
+        get_logger().error(f"Error initializing social network: {str(e)}")
         return False
 
 
@@ -139,7 +139,7 @@ async def bind_agent_info(simulation):
     - **Returns**:
         - None
     """
-    logger.info("Binding economy relationship...")
+    get_logger().info("Binding economy relationship...")
     citizen_ids = await simulation.filter(types=[SocietyAgent])
     firm_ids = []
     government_ids = []
@@ -188,4 +188,4 @@ async def bind_agent_info(simulation):
     for nbs_id in nbs_ids:
         await simulation.update(nbs_id, "citizen_ids", citizen_ids)
         await simulation.economy_update(nbs_id, "citizen_ids", citizen_ids)
-    logger.info("Agent info binding completed!")
+    get_logger().info("Agent info binding completed!")

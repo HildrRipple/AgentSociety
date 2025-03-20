@@ -8,7 +8,7 @@ from typing import Optional
 
 import yaml
 
-from ..utils import encode_to_base64, find_free_port
+from ..utils import encode_to_base64, find_free_ports
 
 __all__ = ["ControlSimEnv"]
 
@@ -97,7 +97,7 @@ class ControlSimEnv:
             # agentsociety-sim -config-data configbase64 -job test -listen :51102
             assert self.sim_port is None
             assert self._sim_proc is None
-            _ports: list[int] = find_free_port(2)  # type:ignore
+            _ports = find_free_ports(2)
             self.sim_port, self.syncer_port = _ports
             config_base64 = encode_to_base64(self._sim_config)
             os.environ["GOMAXPROCS"] = str(self._max_procs)
@@ -126,7 +126,6 @@ class ControlSimEnv:
                 f"start agentsociety-sim at {sim_addr}, PID={self._sim_proc.pid}"
             )
             atexit.register(self.close)
-            time.sleep(5)
         else:
             warnings.warn(
                 "Starting the simulator separately will be deprecated",

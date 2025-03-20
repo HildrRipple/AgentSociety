@@ -1,18 +1,16 @@
 import logging
-from time import sleep
-from typing import cast
 import ray
 
-import grpc
 from pycityproto.city.sync.v2 import sync_service_pb2 as sync_service
 from pycityproto.city.sync.v2 import sync_service_pb2_grpc as sync_grpc
 
 from ..utils.grpc import create_channel
 
-__all__ = ["OnlyClientSidecar"]
+__all__ = ["SyncerClient"]
+
 
 @ray.remote
-class OnlyClientSidecar:
+class SyncerClient:
     """
     Sidecar框架服务（仅支持作为客户端，不支持对外提供gRPC服务）
     Sidecar framework service (only supported as a client, does not support external gRPC services)
@@ -31,32 +29,6 @@ class OnlyClientSidecar:
         self._name = name
         channel = create_channel(syncer_address, secure)
         self._sync_stub = sync_grpc.SyncServiceStub(channel)
-
-    def wait_url(self, name: str) -> str:
-        """
-        获取服务的uri
-        Get the uri of the service
-
-        Args:
-        - name (str): 服务的注册名。Service registration name.
-
-        Returns:
-        - str: 服务的url。service url.
-        """
-        while True:
-            try:
-                resp = cast(
-                    sync_service.GetURLResponse,
-                    self._sync_stub.GetURL(sync_service.GetURLRequest(name=name)),
-                )
-                url = resp.url
-                break
-            except grpc.RpcError as e:
-                logging.warning("get uri failed, retrying..., %s", e)
-                sleep(1)
-
-        logging.debug("get uri: %s for name=%s", url, name)
-        return url
 
     def step(self, close: bool = False) -> bool:
         """

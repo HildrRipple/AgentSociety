@@ -47,7 +47,7 @@ async def gather_attitude(simulation: AgentSimulation):
 
 sim_config = (
     SimConfig()
-    .SetLLMConfig(
+    .AddLLMConfig(
         provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
     .SetSimulatorConfig()
@@ -56,7 +56,7 @@ sim_config = (
     .SetMapConfig(file_path="map.pb")
 )
 exp_config = (
-    ExpConfig(exp_name="cognition_exp1", llm_semaphore=200, logging_level=logging.INFO)
+    ExpConfig(exp_name="cognition_exp1", llm_semaphore=200, logging_level="INFO")
     .SetAgentConfig(number_of_citizen=100, group_size=50)
     .SetWorkFlow(
         [

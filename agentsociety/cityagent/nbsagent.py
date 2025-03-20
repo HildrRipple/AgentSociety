@@ -11,7 +11,7 @@ from agentsociety.llm import LLM
 from agentsociety.memory import Memory
 from agentsociety.message import Messager
 
-logger = logging.getLogger("agentsociety")
+
 
 
 class NBSAgent(InstitutionAgent):

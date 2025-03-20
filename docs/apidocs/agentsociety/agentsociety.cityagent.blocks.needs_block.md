@@ -27,10 +27,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`logger <agentsociety.cityagent.blocks.needs_block.logger>`
-  - ```{autodoc2-docstring} agentsociety.cityagent.blocks.needs_block.logger
-    :summary:
-    ```
 * - {py:obj}`INITIAL_NEEDS_PROMPT <agentsociety.cityagent.blocks.needs_block.INITIAL_NEEDS_PROMPT>`
   - ```{autodoc2-docstring} agentsociety.cityagent.blocks.needs_block.INITIAL_NEEDS_PROMPT
     :summary:
@@ -46,16 +42,6 @@
 ````
 
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.cityagent.blocks.needs_block.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.cityagent.blocks.needs_block.logger
-```
-
-````
 
 ````{py:data} INITIAL_NEEDS_PROMPT
 :canonical: agentsociety.cityagent.blocks.needs_block.INITIAL_NEEDS_PROMPT

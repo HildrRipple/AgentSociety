@@ -4,15 +4,13 @@ import jsonc
 import logging
 from typing import Any, Optional
 
-from agentsociety.environment import Simulator
-from agentsociety.llm import LLM
-from agentsociety.memory import Memory
-from agentsociety.workflow import Block, FormatPrompt
-
+from ...environment import Simulator
+from ...llm import LLM
+from ...memory import Memory
+from ...workflow import Block, FormatPrompt
+from ...logger import get_logger
 from .dispatcher import BlockDispatcher
 from .utils import TIME_ESTIMATE_PROMPT, clean_json_response
-
-logger = logging.getLogger("agentsociety")
 
 
 class MessagePromptManager:
@@ -114,7 +112,7 @@ class SocialNoneBlock(Block):
                 "node_id": node_id,
             }
         except Exception as e:
-            logger.warning(
+            get_logger().warning(
                 f"Error occurred while parsing the evaluation response: {e}, original result: {result}"
             )
             node_id = await self.memory.stream.add_social(
@@ -324,7 +322,7 @@ class MessageBlock(Block):
                 ensure_ascii=False,
             )
         except Exception as e:
-            logger.warning(f"Error serializing message: {e}")
+            get_logger().warning(f"Error serializing message: {e}")
             return message
 
     async def forward(  # type:ignore

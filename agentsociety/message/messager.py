@@ -1,21 +1,20 @@
 import asyncio
-import jsonc
 import logging
 import os
 import time
 from typing import Any, Optional, Union
 
+import jsonc
 import ray
 import redis.asyncio as aioredis
 from redis.asyncio.client import PubSub
 
+from ..logger import get_logger
 from ..utils.decorators import lock_decorator
 
 __all__ = [
     "Messager",
 ]
-
-logger = logging.getLogger("agentsociety")
 
 
 @ray.remote
@@ -54,6 +53,7 @@ class Messager:
             - `timeout` (int, optional): Connection timeout in seconds. Defaults to 60.
             - `message_interceptor` (Optional[ray.ObjectRef], optional): Reference to a message interceptor object.
         """
+        get_logger().info(f"Connecting to Redis at {hostname}:{port}")
         self.client = aioredis.Redis(
             host=hostname,
             port=port,
@@ -68,6 +68,7 @@ class Messager:
         self._log_list = []
         self._lock = asyncio.Lock()
         self._topics: set[str] = set()
+        get_logger().info("Messager initialized")
 
     @property
     def message_interceptor(self) -> Union[None, ray.ObjectRef]:
@@ -132,17 +133,9 @@ class Messager:
             - Tries to establish a connection to Redis. Retries up to three times with delays between attempts.
             - Logs success or failure accordingly.
         """
-        for i in range(3):
-            try:
-                await self.client.__aenter__()
-                self.connected = True
-                logger.info("Connected to Redis")
-                return
-            except Exception as e:
-                logger.error(f"Attempt {i+1}: Failed to connect to Redis: {e}")
-                await asyncio.sleep(10)
-        self.connected = False
-        logger.error("All connection attempts failed.")
+        await self.client.__aenter__()
+        self.connected = True
+        get_logger().info("Connected to Redis")
 
     async def disconnect(self):
         """
@@ -153,7 +146,7 @@ class Messager:
         """
         await self.client.__aexit__(None, None, None)
         self.connected = False
-        logger.info("Disconnected from Redis")
+        get_logger().info("Disconnected from Redis")
 
     async def is_connected(self):
         """
@@ -181,7 +174,7 @@ class Messager:
             - The actual subscription happens dynamically in the _listen_for_messages method.
         """
         if not await self.is_connected():
-            logger.error(
+            get_logger().error(
                 f"Cannot subscribe to {channels} because not connected to the Redis."
             )
             return
@@ -244,9 +237,11 @@ class Messager:
             )
         if is_valid:
             await self.client.publish(channel, message)
-            logger.info(f"Message sent to {channel}: {message}")
+            get_logger().info(f"Message sent to {channel}: {message}")
         else:
-            logger.info(f"Message not sent to {channel}: {message} due to interceptor")
+            get_logger().info(
+                f"Message not sent to {channel}: {message} due to interceptor"
+            )
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
 
@@ -273,7 +268,7 @@ class Messager:
             - Only starts the task if the connection to Redis is active.
         """
         if not await self.is_connected():
-            logger.error("Cannot start listening because not connected to Redis.")
+            get_logger().error("Cannot start listening because not connected to Redis.")
             return
 
         # Create a new pubsub connection
@@ -283,7 +278,7 @@ class Messager:
         self.receive_messages_task = asyncio.create_task(
             self._listen_for_messages(pubsub)
         )
-        logger.info("Started message listening")
+        get_logger().info("Started message listening")
 
     async def _listen_for_messages(self, pubsub: PubSub):
         """
@@ -304,19 +299,19 @@ class Messager:
                 if new_topics:
                     await self._update_psubscribe(pubsub, new_topics)
                     current_topics.update(new_topics)
-                    logger.info(f"Subscribed to new topics: {new_topics}")
+                    get_logger().info(f"Subscribed to new topics: {new_topics}")
                 if current_topics:
                     message = await pubsub.get_message(ignore_subscribe_messages=True)
                     if message and message["type"] in ("pmessage",):
                         await self.message_queue.put(message)
-                        logger.debug(f"Received message: {message}")
+                        get_logger().debug(f"Received message: {message}")
                 await asyncio.sleep(1)
 
         except asyncio.CancelledError:
             await pubsub.unsubscribe()
-            logger.info("Message listening stopped")
+            get_logger().info("Message listening stopped")
         except Exception as e:
-            logger.error(f"Error in message listening: {e}")
+            get_logger().error(f"Error in message listening: {e}")
             await pubsub.unsubscribe()
             raise
 

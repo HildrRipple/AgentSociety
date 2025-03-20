@@ -9,8 +9,7 @@ from psycopg.rows import dict_row
 
 from ...utils.decorators import lock_decorator
 from ...utils.pg_query import PGSQL_DICT, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-
-logger = logging.getLogger("pg")
+from ...logger import get_logger
 
 
 def create_pg_tables(exp_id: str, dsn: str):
@@ -29,7 +28,7 @@ def create_pg_tables(exp_id: str, dsn: str):
                 if not table_type == "experiment":
                     # delete table
                     cur.execute(f"DROP TABLE IF EXISTS {table_name}")  # type:ignore
-                    logger.debug(
+                    get_logger().debug(
                         f"table:{table_name} sql: DROP TABLE IF EXISTS {table_name}"
                     )
                     conn.commit()
@@ -37,7 +36,7 @@ def create_pg_tables(exp_id: str, dsn: str):
                 for _exec_str in exec_strs:
                     exec_str = _exec_str.format(table_name=table_name)
                     cur.execute(exec_str)
-                    logger.debug(f"table:{table_name} sql: {exec_str}")
+                    get_logger().debug(f"table:{table_name} sql: {exec_str}")
                 conn.commit()
 
 
@@ -66,7 +65,7 @@ class PgWriter:
                         ]
                         await copy.write_row(_row)
                         _rows.append(_row)
-            logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
+            get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
     async def async_write_status(self, rows: list[tuple]):
@@ -86,7 +85,7 @@ class PgWriter:
                         ]
                         await copy.write_row(_row)
                         _rows.append(_row)
-            logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
+            get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
     async def async_write_profile(self, rows: list[tuple]):
@@ -106,7 +105,7 @@ class PgWriter:
                         ]
                         await copy.write_row(_row)
                         _rows.append(_row)
-            logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
+            get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
     async def async_write_survey(self, rows: list[tuple]):
@@ -126,7 +125,7 @@ class PgWriter:
                         ]
                         await copy.write_row(_row)
                         _rows.append(_row)
-            logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
+            get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
     async def async_save_global_prompt(self, prompt_info: dict[str, Any]):
@@ -144,7 +143,7 @@ class PgWriter:
                 )
                 async with cur.copy(copy_sql) as copy:
                     await copy.write_row(row)
-                logger.debug(f"table:{table_name} sql: {copy_sql} values: {row}")
+                get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {row}")
 
     @lock_decorator
     async def async_update_exp_info(self, exp_info: dict[str, Any]):
@@ -161,7 +160,7 @@ class PgWriter:
                     ),
                     (self.exp_id,),
                 )  # type:ignore
-                logger.debug(f"table:{table_name} sql: {exec_str}")
+                get_logger().debug(f"table:{table_name} sql: {exec_str}")
                 record_exists = await cur.fetchall()
                 if record_exists:
                     # UPDATE
@@ -179,7 +178,7 @@ class PgWriter:
                         )
                         for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
                     ]
-                    logger.debug(
+                    get_logger().debug(
                         f"table:{table_name} sql: {update_sql} values: {params}"
                     )
                     await cur.execute(update_sql, params)
@@ -202,7 +201,7 @@ class PgWriter:
                         )
                         for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
                     ]
-                    logger.debug(
+                    get_logger().debug(
                         f"table:{table_name} sql: {insert_sql} values: {params}"
                     )
                     await cur.execute(insert_sql, params)

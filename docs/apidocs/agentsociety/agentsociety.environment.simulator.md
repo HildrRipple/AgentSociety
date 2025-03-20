@@ -31,10 +31,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`logger <agentsociety.environment.simulator.logger>`
-  - ```{autodoc2-docstring} agentsociety.environment.simulator.logger
-    :summary:
-    ```
 * - {py:obj}`__all__ <agentsociety.environment.simulator.__all__>`
   - ```{autodoc2-docstring} agentsociety.environment.simulator.__all__
     :summary:
@@ -42,16 +38,6 @@
 ````
 
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.environment.simulator.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.environment.simulator.logger
-```
-
-````
 
 ````{py:data} __all__
 :canonical: agentsociety.environment.simulator.__all__
@@ -91,7 +77,7 @@
 
 ````
 
-````{py:method} query_pois(**kwargs)
+````{py:method} query_pois(center: typing.Union[tuple[float, float], shapely.geometry.Point], radius: typing.Optional[float] = None, category_prefix: typing.Optional[str] = None, limit: typing.Optional[int] = None, return_distance: bool = True)
 :canonical: agentsociety.environment.simulator.CityMap.query_pois
 
 ```{autodoc2-docstring} agentsociety.environment.simulator.CityMap.query_pois

@@ -1,21 +1,19 @@
 import asyncio
-import jsonc
 import logging
 import numbers
 import random
 
+import jsonc
 import numpy as np
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
 
-from agentsociety.environment import EconomyClient, Simulator
-from agentsociety.llm import LLM
-from agentsociety.memory import Memory
-from agentsociety.workflow import Block, FormatPrompt
-
+from ...environment import EconomyClient, Simulator
+from ...llm import LLM
+from ...logger import get_logger
+from ...memory import Memory
+from ...workflow import Block, FormatPrompt
 from .dispatcher import BlockDispatcher
 from .utils import *
-
-logger = logging.getLogger("agentsociety")
 
 
 def softmax(x, gamma=1.0):
@@ -99,7 +97,9 @@ class WorkBlock(Block):
                 "node_id": node_id,
             }
         except Exception as e:
-            logger.warning(f"解析时间评估响应时发生错误: {str(e)}, 原始结果: {result}")
+            get_logger().warning(
+                f"解析时间评估响应时发生错误: {str(e)}, 原始结果: {result}"
+            )
             time = random.randint(1, 3) * 60
             start_time = await self.simulator.get_time(format_time=True)
             await self.memory.status.update(
@@ -352,7 +352,7 @@ class MonthPlanBlock(Block):
             skill, consumption, wealth = await self.economy_client.get(
                 agent_id, ["skill", "consumption", "currency"]
             )
-            logger.debug(f"type of skill: {type(skill)}, value: {skill}")
+            get_logger().debug(f"type of skill: {type(skill)}, value: {skill}")
             tax_paid = await self.memory.status.get("tax_paid")
             prices = await self.economy_client.get(firms_id, "price")
             price = np.mean(prices)

@@ -16,13 +16,33 @@
 :align: left
 
 * - {py:obj}`WorkflowType <agentsociety.utils.config_const.WorkflowType>`
-  -
-* - {py:obj}`LLMRequestType <agentsociety.utils.config_const.LLMRequestType>`
-  -
+  - ```{autodoc2-docstring} agentsociety.utils.config_const.WorkflowType
+    :summary:
+    ```
+* - {py:obj}`LLMProviderType <agentsociety.utils.config_const.LLMProviderType>`
+  - ```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderType
+    :summary:
+    ```
 * - {py:obj}`DistributionType <agentsociety.utils.config_const.DistributionType>`
-  -
+  - ```{autodoc2-docstring} agentsociety.utils.config_const.DistributionType
+    :summary:
+    ```
 * - {py:obj}`MetricType <agentsociety.utils.config_const.MetricType>`
-  -
+  - ```{autodoc2-docstring} agentsociety.utils.config_const.MetricType
+    :summary:
+    ```
+````
+
+### Data
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`LLMProviderTypeValues <agentsociety.utils.config_const.LLMProviderTypeValues>`
+  - ```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderTypeValues
+    :summary:
+    ```
 ````
 
 ### API
@@ -31,6 +51,15 @@
 :canonical: agentsociety.utils.config_const.WorkflowType
 
 Bases: {py:obj}`str`, {py:obj}`enum.Enum`
+
+```{autodoc2-docstring} agentsociety.utils.config_const.WorkflowType
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} agentsociety.utils.config_const.WorkflowType.__init__
+```
 
 ````{py:attribute} STEP
 :canonical: agentsociety.utils.config_const.WorkflowType.STEP
@@ -124,67 +153,105 @@ Bases: {py:obj}`str`, {py:obj}`enum.Enum`
 
 `````
 
-`````{py:class} LLMRequestType()
-:canonical: agentsociety.utils.config_const.LLMRequestType
+`````{py:class} LLMProviderType()
+:canonical: agentsociety.utils.config_const.LLMProviderType
 
 Bases: {py:obj}`str`, {py:obj}`enum.Enum`
 
+```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderType
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderType.__init__
+```
+
 ````{py:attribute} OpenAI
-:canonical: agentsociety.utils.config_const.LLMRequestType.OpenAI
+:canonical: agentsociety.utils.config_const.LLMProviderType.OpenAI
 :value: >
    'openai'
 
-```{autodoc2-docstring} agentsociety.utils.config_const.LLMRequestType.OpenAI
+```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderType.OpenAI
 ```
 
 ````
 
 ````{py:attribute} DeepSeek
-:canonical: agentsociety.utils.config_const.LLMRequestType.DeepSeek
+:canonical: agentsociety.utils.config_const.LLMProviderType.DeepSeek
 :value: >
    'deepseek'
 
-```{autodoc2-docstring} agentsociety.utils.config_const.LLMRequestType.DeepSeek
+```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderType.DeepSeek
 ```
 
 ````
 
 ````{py:attribute} Qwen
-:canonical: agentsociety.utils.config_const.LLMRequestType.Qwen
+:canonical: agentsociety.utils.config_const.LLMProviderType.Qwen
 :value: >
    'qwen'
 
-```{autodoc2-docstring} agentsociety.utils.config_const.LLMRequestType.Qwen
+```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderType.Qwen
 ```
 
 ````
 
 ````{py:attribute} ZhipuAI
-:canonical: agentsociety.utils.config_const.LLMRequestType.ZhipuAI
+:canonical: agentsociety.utils.config_const.LLMProviderType.ZhipuAI
 :value: >
    'zhipuai'
 
-```{autodoc2-docstring} agentsociety.utils.config_const.LLMRequestType.ZhipuAI
+```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderType.ZhipuAI
 ```
 
 ````
 
 ````{py:attribute} SiliconFlow
-:canonical: agentsociety.utils.config_const.LLMRequestType.SiliconFlow
+:canonical: agentsociety.utils.config_const.LLMProviderType.SiliconFlow
 :value: >
    'siliconflow'
 
-```{autodoc2-docstring} agentsociety.utils.config_const.LLMRequestType.SiliconFlow
+```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderType.SiliconFlow
+```
+
+````
+
+````{py:attribute} VLLM
+:canonical: agentsociety.utils.config_const.LLMProviderType.VLLM
+:value: >
+   'vllm'
+
+```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderType.VLLM
 ```
 
 ````
 
 `````
 
+````{py:data} LLMProviderTypeValues
+:canonical: agentsociety.utils.config_const.LLMProviderTypeValues
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.utils.config_const.LLMProviderTypeValues
+```
+
+````
+
 `````{py:class} DistributionType()
 :canonical: agentsociety.utils.config_const.DistributionType
 
 Bases: {py:obj}`str`, {py:obj}`enum.Enum`
+
+```{autodoc2-docstring} agentsociety.utils.config_const.DistributionType
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} agentsociety.utils.config_const.DistributionType.__init__
+```
 
 ````{py:attribute} CHOICE
 :canonical: agentsociety.utils.config_const.DistributionType.CHOICE
@@ -242,6 +309,15 @@ Bases: {py:obj}`str`, {py:obj}`enum.Enum`
 :canonical: agentsociety.utils.config_const.MetricType
 
 Bases: {py:obj}`str`, {py:obj}`enum.Enum`
+
+```{autodoc2-docstring} agentsociety.utils.config_const.MetricType
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} agentsociety.utils.config_const.MetricType.__init__
+```
 
 ````{py:attribute} FUNCTION
 :canonical: agentsociety.utils.config_const.MetricType.FUNCTION

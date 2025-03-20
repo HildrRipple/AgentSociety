@@ -27,10 +27,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`logger <agentsociety.cityagent.blocks.plan_block.logger>`
-  - ```{autodoc2-docstring} agentsociety.cityagent.blocks.plan_block.logger
-    :summary:
-    ```
 * - {py:obj}`GUIDANCE_SELECTION_PROMPT <agentsociety.cityagent.blocks.plan_block.GUIDANCE_SELECTION_PROMPT>`
   - ```{autodoc2-docstring} agentsociety.cityagent.blocks.plan_block.GUIDANCE_SELECTION_PROMPT
     :summary:
@@ -42,16 +38,6 @@
 ````
 
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.cityagent.blocks.plan_block.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.cityagent.blocks.plan_block.logger
-```
-
-````
 
 ````{py:data} GUIDANCE_SELECTION_PROMPT
 :canonical: agentsociety.cityagent.blocks.plan_block.GUIDANCE_SELECTION_PROMPT

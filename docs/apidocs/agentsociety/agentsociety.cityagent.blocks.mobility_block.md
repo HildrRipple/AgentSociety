@@ -51,10 +51,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`logger <agentsociety.cityagent.blocks.mobility_block.logger>`
-  - ```{autodoc2-docstring} agentsociety.cityagent.blocks.mobility_block.logger
-    :summary:
-    ```
 * - {py:obj}`PLACE_TYPE_SELECTION_PROMPT <agentsociety.cityagent.blocks.mobility_block.PLACE_TYPE_SELECTION_PROMPT>`
   - ```{autodoc2-docstring} agentsociety.cityagent.blocks.mobility_block.PLACE_TYPE_SELECTION_PROMPT
     :summary:
@@ -74,16 +70,6 @@
 ````
 
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.cityagent.blocks.mobility_block.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.cityagent.blocks.mobility_block.logger
-```
-
-````
 
 ````{py:data} PLACE_TYPE_SELECTION_PROMPT
 :canonical: agentsociety.cityagent.blocks.mobility_block.PLACE_TYPE_SELECTION_PROMPT

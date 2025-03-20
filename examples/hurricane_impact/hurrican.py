@@ -36,7 +36,7 @@ async def update_weather_and_temperature(
 
 sim_config = (
     SimConfig()
-    .SetLLMConfig(
+    .AddLLMConfig(
         provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
     )
     .SetSimulatorConfig()
@@ -47,7 +47,7 @@ sim_config = (
     .SetPostgreSql(dsn="postgresql://user:pass@localhost:5432/db", enabled=True)
 )
 exp_config = (
-    ExpConfig(exp_name="hurrican", llm_semaphore=200, logging_level=logging.INFO)
+    ExpConfig(exp_name="hurrican", llm_semaphore=200, logging_level="INFO")
     .SetAgentConfig(
         number_of_citizen=1000,
         group_size=50,

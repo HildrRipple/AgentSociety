@@ -27,10 +27,6 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`logger <agentsociety.simulation.simulation.logger>`
-  - ```{autodoc2-docstring} agentsociety.simulation.simulation.logger
-    :summary:
-    ```
 * - {py:obj}`__all__ <agentsociety.simulation.simulation.__all__>`
   - ```{autodoc2-docstring} agentsociety.simulation.simulation.__all__
     :summary:
@@ -38,16 +34,6 @@
 ````
 
 ### API
-
-````{py:data} logger
-:canonical: agentsociety.simulation.simulation.logger
-:value: >
-   'getLogger(...)'
-
-```{autodoc2-docstring} agentsociety.simulation.simulation.logger
-```
-
-````
 
 ````{py:data} __all__
 :canonical: agentsociety.simulation.simulation.__all__
@@ -59,7 +45,7 @@
 
 ````
 
-`````{py:class} AgentSimulation(config: agentsociety.configs.SimConfig, agent_class: typing.Union[None, type[agentsociety.agent.Agent], list[type[agentsociety.agent.Agent]]] = None, agent_class_configs: typing.Optional[dict] = None, metric_extractors: typing.Optional[list[agentsociety.configs.MetricExtractor]] = None, tenant_id: str = '', agent_prefix: str = 'agent_', exp_name: str = 'default_experiment', logging_level: int = logging.WARNING)
+`````{py:class} AgentSimulation(config: agentsociety.configs.SimConfig, agent_class: typing.Union[None, type[agentsociety.agent.Agent], list[type[agentsociety.agent.Agent]]] = None, agent_class_configs: typing.Optional[dict] = None, metric_extractors: typing.Optional[list[agentsociety.configs.MetricExtractor]] = None, tenant_id: str = '', agent_prefix: str = 'agent_', exp_name: str = 'default_experiment', logging_level: str = 'info')
 :canonical: agentsociety.simulation.simulation.AgentSimulation
 
 ```{autodoc2-docstring} agentsociety.simulation.simulation.AgentSimulation
@@ -284,7 +270,7 @@
 
 ````
 
-````{py:method} send_intervention_message(intervention_message: str, agent_uuids: list[str])
+````{py:method} send_intervention_message(intervention_message: str, agent_ids: list[int])
 :canonical: agentsociety.simulation.simulation.AgentSimulation.send_intervention_message
 :async:
 
