@@ -432,22 +432,6 @@ class Agent(ABC):
             raise RuntimeError("Messager is not set")
         return self._messager
 
-    async def messager_ping(self):
-        """
-        Send a ping request to the connected Messager.
-
-        - **Raises**:
-            - `RuntimeError`: If the Messager is not set.
-
-        - **Returns**:
-            - The result of the remote ping call from the Messager.
-
-        - **Description**:
-            - This method checks if the `_messager` attribute is set. If it is, it sends a ping request asynchronously to the Messager and returns the response.
-            - If the Messager is not set, it raises a RuntimeError.
-        """
-        return await self.messager.ping()
-
     async def react_to_intervention(self, intervention_message: str):
         """
         React to an intervention.
@@ -972,6 +956,5 @@ class Agent(ABC):
             - If the agent is not blocked (`_blocked` is False), it calls the `forward` method to execute the agent's behavior logic.
             - Acts as the main control flow for the agent, coordinating when and how the agent performs its actions.
         """
-        await self.messager.ping()
         if not self._blocked:
             return await self.forward()

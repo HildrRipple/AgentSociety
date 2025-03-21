@@ -249,7 +249,7 @@ class AgentGroup:
         self.message_dispatch_task.cancel()  # type: ignore
         await asyncio.gather(self.message_dispatch_task, return_exceptions=True)  # type: ignore
 
-    async def insert_agent(self):
+    async def insert_agents(self):
         bind_tasks = []
         for agent in self.agents:
             bind_tasks.append(agent.bind_to_simulator())  # type: ignore
@@ -265,23 +265,19 @@ class AgentGroup:
             if day == 0:
                 break
             await asyncio.sleep(1)
-        await self.insert_agent()
+        await self.insert_agents()
         get_logger().debug(f"-----Agents in AgentGroup {self._uuid} initialized")
         self.id2agent = {agent.id: agent for agent in self.agents}
         get_logger().debug(
             f"-----Binding Agents to Messager in AgentGroup {self._uuid} ..."
         )
         await self.messager.connect()
-        if await self.messager.is_connected():
-            await self.messager.start_listening()
-            topics: list[str] = []
-            agent_ids: list[int] = []
-            for agent in self.agents:
-                agent.set_messager(self.messager)
-                topic = f"exps:{self.exp_id}:agents:{agent.id}:*"
-                topics.append(topic)
-                agent_ids.append(agent.id)
-            await self.messager.subscribe(topics, agent_ids)
+        topics: list[str] = []
+        for agent in self.agents:
+            agent.set_messager(self.messager)
+            topic = f"exps:{self.exp_id}:agents:{agent.id}:*"
+            topics.append(topic)
+        await self.messager.subscribe_and_start_listening(topics)
         self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
         if self.enable_avro:
             get_logger().debug(
@@ -485,7 +481,7 @@ class AgentGroup:
         get_logger().debug(f"-----Starting message dispatch for group {self._uuid}")
         while True:
             assert self.messager is not None
-            if not await self.messager.is_connected():
+            if not self.messager.is_connected():
                 get_logger().warning(
                     "Messager is not connected. Skipping message processing."
                 )

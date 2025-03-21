@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any, Optional, Union
+from typing import Any, List, Optional, Union
 
 import jsonc
 import ray
@@ -59,6 +59,9 @@ class Messager:
             db=db,
             password=password,
             socket_timeout=timeout,
+            socket_keepalive=True,
+            health_check_interval=5,
+            single_connection_client=True,
         )
         self.connected = False  # whether is messager connected
         self.message_queue = asyncio.Queue()  # store received messages
@@ -66,7 +69,6 @@ class Messager:
         self._message_interceptor = message_interceptor
         self._log_list = []
         self._lock = asyncio.Lock()
-        self._topics: set[str] = set()
         get_logger().info("Messager initialized")
 
     @property
@@ -106,18 +108,6 @@ class Messager:
         """
         self._message_interceptor = message_interceptor
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        await self.stop()
-
-    async def ping(self):
-        """
-        Send a ping message to Redis.
-
-        - **Description**:
-            - Publishes a 'ping' message on the 'ping' channel to verify connection to Redis.
-        """
-        await self.client.publish("ping", "ping")
-
     async def connect(self):
         """
         Attempt to connect to the Redis server up to three times.
@@ -141,7 +131,7 @@ class Messager:
         self.connected = False
         get_logger().info("Disconnected from Redis")
 
-    async def is_connected(self):
+    def is_connected(self):
         """
         Check if the connection to Redis is established.
 
@@ -151,31 +141,26 @@ class Messager:
         return self.connected
 
     @lock_decorator
-    async def subscribe(
-        self, channels: Union[str, list[str]], agents: Union[Any, list[Any]]
-    ):
+    async def subscribe_and_start_listening(self, channels: List[str]):
         """
         Subscribe to one or more Redis channels.
 
         - **Args**:
             - `channels` (Union[str, list[str]]): Channel or list of channels to subscribe to.
-            - `agents` (Union[Any, list[Any]]): Agents or list of agents associated with the subscription.
 
-        - **Description**:
-            - Adds the specified channels to the set of topics to monitor.
-            - Ensures input parameters are properly formatted as lists.
-            - The actual subscription happens dynamically in the _listen_for_messages method.
         """
-        if not await self.is_connected():
-            get_logger().error(
-                f"Cannot subscribe to {channels} because not connected to the Redis."
+        if not self.is_connected():
+            raise Exception(
+                "Cannot subscribe to channels because not connected to Redis."
             )
-            return
-        if not isinstance(channels, list):
-            channels = [channels]
-        if not isinstance(agents, list):
-            agents = [agents]
-        self._topics.update(channels)
+        # Create a new pubsub connection
+        pubsub = self.client.pubsub()
+
+        # Create task to monitor messages
+        self.receive_messages_task = asyncio.create_task(
+            self._listen_for_messages(pubsub, channels)
+        )
+        get_logger().info("Started message listening")
 
     async def fetch_messages(self):
         """
@@ -220,7 +205,6 @@ class Messager:
             "start_time": start_time,
             "consumption": 0,
         }
-        self._topics.add(channel)
         message = jsonc.dumps(payload, default=str)
         interceptor = self.message_interceptor
         is_valid: bool = True
@@ -251,29 +235,7 @@ class Messager:
             await asyncio.gather(self.receive_messages_task, return_exceptions=True)
         await self.disconnect()
 
-    async def start_listening(self):
-        """
-        Start the task for listening to incoming messages from Redis.
-
-        - **Description**:
-            - Creates a new Redis pubsub connection and starts a task that listens for incoming messages.
-            - Manages dynamic subscriptions to topics that are added over time.
-            - Only starts the task if the connection to Redis is active.
-        """
-        if not await self.is_connected():
-            get_logger().error("Cannot start listening because not connected to Redis.")
-            return
-
-        # Create a new pubsub connection
-        pubsub = self.client.pubsub()
-
-        # Create task to monitor messages
-        self.receive_messages_task = asyncio.create_task(
-            self._listen_for_messages(pubsub)
-        )
-        get_logger().info("Started message listening")
-
-    async def _listen_for_messages(self, pubsub: PubSub):
+    async def _listen_for_messages(self, pubsub: PubSub, channels: List[str]):
         """
         Internal method to continuously listen for messages and handle dynamic subscriptions.
 
@@ -286,40 +248,24 @@ class Messager:
             - Handles cancellation and errors gracefully.
         """
         try:
-            current_topics = set()
+            await pubsub.psubscribe(*channels)
+            get_logger().info(
+                f"Subscribed to new channels: len(channels)={len(channels)}"
+            )
             while True:
-                new_topics = self._topics - current_topics
-                if new_topics:
-                    await self._update_psubscribe(pubsub, new_topics)
-                    current_topics.update(new_topics)
-                    get_logger().info(
-                        f"Subscribed to new topics: len(new_topics)={len(new_topics)}"
-                    )
-                if current_topics:
-                    message = await pubsub.get_message(ignore_subscribe_messages=True)
-                    if message and message["type"] in ("pmessage",):
-                        await self.message_queue.put(message)
-                        get_logger().debug(f"Received message: {message}")
-                await asyncio.sleep(1)
+                message = await pubsub.get_message(
+                    ignore_subscribe_messages=True, timeout=1
+                )
+                if message and message["type"] in ("pmessage",):
+                    await self.message_queue.put(message)
+                    get_logger().debug(f"Received message: {message}")
 
         except asyncio.CancelledError:
-            await pubsub.unsubscribe()
+            await pubsub.punsubscribe()
+            await pubsub.aclose()
             get_logger().info("Message listening stopped")
         except Exception as e:
             get_logger().error(f"Error in message listening: {e}")
             await pubsub.unsubscribe()
-            raise
-
-    @lock_decorator
-    async def _update_psubscribe(self, pubsub: PubSub, new_topics: set[str]):
-        """
-        Subscribe to new topics with the given pubsub connection.
-
-        - **Args**:
-            - `pubsub` (aioredis.client.PubSub): The Redis pubsub connection to use for subscribing.
-            - `new_topics` (set[str]): Set of new topics to subscribe to.
-
-        - **Description**:
-            - Thread-safe method to subscribe the pubsub connection to the specified new topics.
-        """
-        await pubsub.psubscribe(*new_topics)
+            await pubsub.aclose()
+            raise e

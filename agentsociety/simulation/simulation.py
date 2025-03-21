@@ -901,10 +901,9 @@ class AgentSimulation:
             init_tasks.append(group.init_agents.remote())
         await asyncio.gather(*init_tasks)
         await self.messager.connect()
-        await self.messager.subscribe(
-            [f"exps:{self.exp_id}:user_payback"], [self.exp_id]
+        await self.messager.subscribe_and_start_listening(
+            [f"exps:{self.exp_id}:user_payback"]
         )
-        await self.messager.start_listening()
 
         # update data structure
         for group_name, group in self._groups.items():
