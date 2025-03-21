@@ -305,6 +305,9 @@ class PlanBlock(Block):
                 return result
             except Exception as e:
                 get_logger().warning(f"Error parsing detailed plan: {str(e)}")
+                get_logger().debug(
+                    f"Error parsing detailed plan: {str(e)} with response={response}"
+                )
                 retry -= 1
         return None  # type:ignore
 

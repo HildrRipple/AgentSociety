@@ -1,6 +1,7 @@
 import atexit
 import logging
 import os
+import subprocess
 import time
 import warnings
 from subprocess import Popen
@@ -100,7 +101,7 @@ class ControlSimEnv:
             _ports = find_free_ports(2)
             self.sim_port, self.syncer_port = _ports
             config_base64 = encode_to_base64(self._sim_config)
-            os.environ["GOMAXPROCS"] = str(self._max_procs)
+            # os.environ["GOMAXPROCS"] = str(self._max_procs)
             sim_addr = self._primary_node_ip.rstrip("/") + f":{self.sim_port}"
             syncer_addr = f"http://localhost:{self.syncer_port}"
             self._sim_proc = Popen(
@@ -140,9 +141,16 @@ class ControlSimEnv:
         """
         if self._sim_proc is not None:
             self._sim_proc.terminate()
-            sim_code = self._sim_proc.wait()
-            logging.info(f"agentsociety-sim exit with code {sim_code}")
+            try:
+                sim_code = self._sim_proc.wait(10)
+                logging.info(f"agentsociety-sim exit with code {sim_code}")
+            except subprocess.TimeoutExpired as te:
+                self._sim_proc.kill()
+                logging.warning(f"agentsociety-sim killed: {te}")
 
         # sim
         self.sim_port = None
         self._sim_proc = None
+
+    def __del__(self):
+        self.close()

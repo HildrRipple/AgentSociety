@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import random
 import time
 from typing import Any, List, Optional, Union
 
@@ -260,17 +261,16 @@ class LLM:
         """
         start_time = time.time()
         log = {"request_time": start_time}
-        self._total_calls += 1  # 增加总调用次数
         assert (
             self.semaphore is not None
         ), "Please set semaphore with `set_semaphore` first!"
         async with self.semaphore:
             for attempt in range(retries):
+                self._total_calls += 1  # 增加总调用次数
                 config, client = self._get_next_client()
                 if type(client) == AsyncOpenAI:
                     response = None
                     try:
-
                         response = await client.chat.completions.create(
                             model=config.model,
                             messages=dialog,
@@ -282,8 +282,10 @@ class LLM:
                             presence_penalty=presence_penalty,  # type: ignore
                             stream=False,
                             timeout=timeout,
-                            tools=tools,
-                            tool_choice=tool_choice,
+                            tools=tools if tools is not None else [],
+                            tool_choice=(
+                                tool_choice if tool_choice is not None else "none"
+                            ),
                         )  # type: ignore
                         self._client_usage[self._current_client_index]["prompt_tokens"] += response.usage.prompt_tokens  # type: ignore
                         self._client_usage[self._current_client_index]["completion_tokens"] += response.usage.completion_tokens  # type: ignore
@@ -305,40 +307,37 @@ class LLM:
                             return response.choices[0].message.content
                     except APIConnectionError as e:
                         get_logger().warning(
-                            f"API connection error: `{e}`, original response: `{response}`. Retry {attempt+1} of {retries}"
+                            f"API connection error: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
-                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
-                            self._total_errors += 1
-                            self._error_types["connection_error"] += 1
+                        self._total_errors += 1
+                        self._error_types["connection_error"] += 1
                         if attempt < retries - 1:
-                            await asyncio.sleep(2**attempt)
+                            await asyncio.sleep(random.random() * 2**attempt)
                         else:
                             raise e
                     except OpenAIError as e:
                         if hasattr(e, "http_status"):
                             get_logger().warning(
-                                f"HTTP status code: {e.http_status}. Retry {attempt+1} of {retries}"  # type: ignore
+                                f"HTTP status code: {e.http_status}. for request {dialog} {tools} {tool_choice}. Retry {attempt+1} of {retries}"  # type: ignore
                             )  # type: ignore
                         else:
                             get_logger().warning(
-                                f"OpenAIError: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
+                                f"OpenAIError: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
                             )
-                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
-                            self._total_errors += 1
-                            self._error_types["openai_error"] += 1
+                        self._total_errors += 1
+                        self._error_types["openai_error"] += 1
                         if attempt < retries - 1:
-                            await asyncio.sleep(2**attempt)
+                            await asyncio.sleep(random.random() * 2**attempt)
                         else:
                             raise e
                     except Exception as e:
                         get_logger().warning(
-                            f"LLM Error (OpenAI): `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
+                            f"LLM Error (OpenAI): `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
-                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
-                            self._total_errors += 1
-                            self._error_types["other_error"] += 1
+                        self._total_errors += 1
+                        self._error_types["other_error"] += 1
                         if attempt < retries - 1:
-                            await asyncio.sleep(2**attempt)
+                            await asyncio.sleep(random.random() * 2**attempt)
                         else:
                             raise e
                 else:
@@ -389,24 +388,22 @@ class LLM:
                             return result_response.choices[0].message.content  # type: ignore
                     except APIConnectionError as e:
                         get_logger().warning(
-                            f"API connection error: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
+                            f"API connection error: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
-                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
-                            self._total_errors += 1
-                            self._error_types["connection_error"] += 1
+                        self._total_errors += 1
+                        self._error_types["connection_error"] += 1
                         if attempt < retries - 1:
-                            await asyncio.sleep(2**attempt)
+                            await asyncio.sleep(random.random() * 2**attempt)
                         else:
                             raise e
                     except Exception as e:
                         get_logger().warning(
-                            f"LLM Error: `{e}` original response: `{response}`. Retry {attempt+1} of {retries}"
+                            f"LLM Error: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
                         )
-                        if attempt == retries - 1:  # 只在最后一次重试失败时记录错误
-                            self._total_errors += 1
-                            self._error_types["zhipuai_error"] += 1
+                        self._total_errors += 1
+                        self._error_types["zhipuai_error"] += 1
                         if attempt < retries - 1:
-                            await asyncio.sleep(2**attempt)
+                            await asyncio.sleep(random.random() * 2**attempt)
                         else:
                             raise e
 
