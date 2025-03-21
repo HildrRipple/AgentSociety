@@ -450,6 +450,9 @@ class AgentSimulation:
                 _func = cast(Callable, step.func)
                 await _func(simulation)
         get_logger().info("Simulation finished")
+        # close simulator
+        simulation._simulator.close()
+
         tasks = []
         for group in simulation._groups.values():
             tasks.append(group.get_llm_error_statistics.remote())

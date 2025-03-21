@@ -22,6 +22,7 @@ from ..utils.decorators import log_execution_time
 from .sim import CityClient, ControlSimEnv
 from .syncerclient import SyncerClient
 from .utils.const import *
+import pickle
 
 __all__ = [
     "Simulator",
@@ -32,6 +33,19 @@ __all__ = [
 class CityMap:
     def __init__(self, map_cache_path: str):
         get_logger().info(f"Loading map from {map_cache_path}")
+        # cache_path = "/tmp/city_map_cache"
+        # os.makedirs(cache_path, exist_ok=True)
+        # if not os.path.exists(f"{cache_path}/map.pkl"):
+        #     get_logger().info("Cache not found, loading map from pb file...")
+        #     self.map = SimMap(
+        #         pb_path=map_cache_path,
+        #     )
+        #     with open(f"{cache_path}/map.pkl", "wb") as f:
+        #         pickle.dump(self.map, f)
+        # else:
+        #     get_logger().info("Loading map from cache...")
+        #     with open(f"{cache_path}/map.pkl", "rb") as f:
+        #         self.map = pickle.load(f)
         self.map = SimMap(
             pb_path=map_cache_path,
         )
@@ -96,6 +110,7 @@ class Simulator:
         """
         _map_pb_path = sim_config.prop_map_config.file_path
         config = sim_config.prop_simulator_config
+        self._sim_env = None
         if not sim_config.prop_status.simulator_activated:
             self._sim_env = sim_env = ControlSimEnv(
                 task_name=config.task_name,
@@ -167,6 +182,10 @@ class Simulator:
         self._lock = asyncio.Lock()
         self._environment_prompt: dict[str, Any] = {}
         self._log_list = []
+
+    def close(self):
+        if self._sim_env is not None:
+            self._sim_env.close()
 
     def set_map(self, map: ray.ObjectRef):
         self._map = map
