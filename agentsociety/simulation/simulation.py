@@ -155,8 +155,8 @@ class AgentSimulation:
         # self._last_asyncio_pg_task = None  # hide SQL write IO to calculation task
 
         redis_config = config.prop_redis
-        self._messager = Messager.remote(
-            hostname=redis_config.server,  # type:ignore
+        self._messager = Messager(
+            hostname=redis_config.server,
             port=redis_config.port,
             db=redis_config.db,
             password=redis_config.password,
@@ -506,7 +506,7 @@ class AgentSimulation:
         return self._agent_id2group
 
     @property
-    def messager(self) -> ray.ObjectRef:
+    def messager(self) -> Messager:
         return self._messager
 
     @property
@@ -863,9 +863,7 @@ class AgentSimulation:
             ]
         else:
             _num_interceptors = 1
-            self._message_interceptors = [
-                None for _ in range(_num_interceptors)
-            ]
+            self._message_interceptors = [None for _ in range(_num_interceptors)]
         for i, (
             agent_class,
             number_of_agents,
@@ -902,11 +900,11 @@ class AgentSimulation:
         for group in self._groups.values():
             init_tasks.append(group.init_agents.remote())
         await asyncio.gather(*init_tasks)
-        await self.messager.connect.remote()  # type:ignore
-        await self.messager.subscribe.remote(  # type:ignore
+        await self.messager.connect()
+        await self.messager.subscribe(
             [f"exps:{self.exp_id}:user_payback"], [self.exp_id]
         )
-        await self.messager.start_listening.remote()  # type:ignore
+        await self.messager.start_listening()
 
         # update data structure
         for group_name, group in self._groups.items():
@@ -1100,10 +1098,10 @@ class AgentSimulation:
         }
         for id in agent_ids:
             topic = self._user_survey_topics[id]
-            await self.messager.send_message.remote(topic, payload)  # type:ignore
+            await self.messager.send_message(topic, payload)
         remain_payback = len(agent_ids)
         while True:
-            messages = await self.messager.fetch_messages.remote()  # type:ignore
+            messages = await self.messager.fetch_messages()
             get_logger().info(f"Received {len(messages)} payback messages [survey]")
             remain_payback -= len(messages)
             if remain_payback <= 0:
@@ -1134,10 +1132,10 @@ class AgentSimulation:
             agent_ids = [agent_ids]
         for id in agent_ids:
             topic = self._user_chat_topics[id]
-            await self.messager.send_message.remote(topic, payload)  # type:ignore
+            await self.messager.send_message(topic, payload)
         remain_payback = len(agent_ids)
         while True:
-            messages = await self.messager.fetch_messages.remote()  # type:ignore
+            messages = await self.messager.fetch_messages()
             get_logger().info(f"Received {len(messages)} payback messages [interview]")
             remain_payback -= len(messages)
             if remain_payback <= 0:

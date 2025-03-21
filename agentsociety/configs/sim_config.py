@@ -23,7 +23,7 @@ class RedisConfig(BaseModel):
     server: str = Field(..., description="Redis server address")
     port: int = Field(..., description="Port number for Redis connection")
     password: Optional[str] = Field(None, description="Password for Redis connection")
-    db: Optional[str] = Field(None, description="Database number for Redis connection")
+    db: str = Field("0", description="Database number for Redis connection")
 
 
 class SimulatorConfig(BaseModel):

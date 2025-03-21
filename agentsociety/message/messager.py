@@ -17,7 +17,6 @@ __all__ = [
 ]
 
 
-@ray.remote
 class Messager:
     """
     A class to manage message sending and receiving using Redis pub/sub.
@@ -37,7 +36,7 @@ class Messager:
         self,
         hostname: str,
         port: int = 6379,
-        db=0,
+        db: Union[str, int] = "0",
         password: Optional[str] = None,
         timeout: float = 60,
         message_interceptor: Optional[ray.ObjectRef] = None,
@@ -48,7 +47,7 @@ class Messager:
         - **Args**:
             - `hostname` (str): The hostname or IP address of the Redis server.
             - `port` (int, optional): Port number of the Redis server. Defaults to 6379.
-            - `db` (str, int): Database number, defaults to zero.
+            - `db` (str, int): Database number, defaults to 0.
             - `password` (str, optional): Password for Redis authentication.
             - `timeout` (int, optional): Connection timeout in seconds. Defaults to 60.
             - `message_interceptor` (Optional[ray.ObjectRef], optional): Reference to a message interceptor object.

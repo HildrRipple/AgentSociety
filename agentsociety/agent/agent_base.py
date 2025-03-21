@@ -56,7 +56,7 @@ class Agent(ABC):
         type: AgentType = AgentType.Unspecified,
         llm_client: Optional[LLM] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[ray.ObjectRef] = None,
+        messager: Optional[Messager] = None,
         message_interceptor: Optional[ray.ObjectRef] = None,
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
@@ -296,6 +296,7 @@ class Agent(ABC):
         """
         Set the messager of the agent.
         """
+        assert self._messager is None
         self._messager = messager
 
     def set_llm_client(self, llm_client: LLM):
@@ -445,9 +446,7 @@ class Agent(ABC):
             - This method checks if the `_messager` attribute is set. If it is, it sends a ping request asynchronously to the Messager and returns the response.
             - If the Messager is not set, it raises a RuntimeError.
         """
-        if self._messager is None:
-            raise RuntimeError("Messager is not set")
-        return await self._messager.ping.remote()  # type:ignore
+        return await self.messager.ping()
 
     async def react_to_intervention(self, intervention_message: str):
         """
@@ -567,7 +566,7 @@ class Agent(ABC):
                     _data_tuples
                 )
             )
-        await self.messager.send_message.remote(  # type:ignore
+        await self.messager.send_message(
             f"exps:{self._exp_id}:user_payback", {"count": 1}
         )
 
@@ -678,7 +677,7 @@ class Agent(ABC):
                     _data
                 )
             )
-        await self.messager.send_message.remote(  # type:ignore
+        await self.messager.send_message(
             f"exps:{self._exp_id}:user_payback", {"count": 1}
         )
         print(f"Sent payback message to {self._exp_id}")
@@ -875,10 +874,8 @@ class Agent(ABC):
             - Used internally by other methods like `send_message_to_agent`.
         """
         # send message with `Messager`
-        if self._messager is None:
-            raise RuntimeError("Messager is not set")
         topic = f"exps:{self._exp_id}:agents:{to_agent_id}:{sub_topic}"
-        await self._messager.send_message.remote(  # type:ignore
+        await self.messager.send_message(
             topic,
             payload,
             self.id,
@@ -907,8 +904,6 @@ class Agent(ABC):
             - Ensures thread-safe operations when writing to PostgreSQL by waiting for any previous write task to complete before starting a new one.
         """
         # send message with `Messager`
-        if self._messager is None:
-            raise RuntimeError("Messager is not set")
         if type not in ["social", "economy"]:
             get_logger().warning(f"Invalid message type: {type}, sent from {self.id}")
         payload = {
@@ -977,7 +972,6 @@ class Agent(ABC):
             - If the agent is not blocked (`_blocked` is False), it calls the `forward` method to execute the agent's behavior logic.
             - Acts as the main control flow for the agent, coordinating when and how the agent performs its actions.
         """
-        if self._messager is not None:
-            await self._messager.ping.remote()  # type:ignore
+        await self.messager.ping()
         if not self._blocked:
             return await self.forward()

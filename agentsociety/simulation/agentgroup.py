@@ -132,15 +132,12 @@ class AgentGroup:
 
         # prepare Messager
         redis_config = config.prop_redis
-        if redis_config is not None:
-            self.messager = Messager.remote(
-                hostname=redis_config.server,  # type:ignore
-                port=redis_config.port,
-                db=redis_config.db,
-                password=redis_config.password,
-            )
-        else:
-            self.messager = None
+        self.messager = Messager(
+            hostname=redis_config.server,
+            port=redis_config.port,
+            db=redis_config.db,
+            password=redis_config.password,
+        )
 
         self.message_dispatch_task = None
         self._pgsql_writer = pgsql_writer
@@ -193,8 +190,6 @@ class AgentGroup:
                 )
                 agent.set_exp_id(self.exp_id)  # type: ignore
                 agent.set_tenant_id(self.tenant_id)
-                if self.messager is not None:
-                    agent.set_messager(self.messager)
                 if self.mlflow_client is not None:
                     agent.set_mlflow_client(self.mlflow_client)  # type: ignore
                 if self.enable_avro:
@@ -276,10 +271,9 @@ class AgentGroup:
         get_logger().debug(
             f"-----Binding Agents to Messager in AgentGroup {self._uuid} ..."
         )
-        assert self.messager is not None
-        await self.messager.connect.remote()
-        if await self.messager.is_connected.remote():
-            await self.messager.start_listening.remote()
+        await self.messager.connect()
+        if await self.messager.is_connected():
+            await self.messager.start_listening()
             topics: list[str] = []
             agent_ids: list[int] = []
             for agent in self.agents:
@@ -287,7 +281,7 @@ class AgentGroup:
                 topic = f"exps:{self.exp_id}:agents:{agent.id}:*"
                 topics.append(topic)
                 agent_ids.append(agent.id)
-            await self.messager.subscribe.remote(topics, agent_ids)
+            await self.messager.subscribe(topics, agent_ids)
         self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
         if self.enable_avro:
             get_logger().debug(
@@ -491,14 +485,14 @@ class AgentGroup:
         get_logger().debug(f"-----Starting message dispatch for group {self._uuid}")
         while True:
             assert self.messager is not None
-            if not await self.messager.is_connected.remote():
+            if not await self.messager.is_connected():
                 get_logger().warning(
                     "Messager is not connected. Skipping message processing."
                 )
                 break
 
             # Step 1: Fetch messages
-            messages = await self.messager.fetch_messages.remote()
+            messages = await self.messager.fetch_messages()
             get_logger().info(f"Group {self._uuid} received {len(messages)} messages")
 
             # Step 2: Distribute messages to corresponding Agents
@@ -863,14 +857,12 @@ class AgentGroup:
             )
             group_logs = {
                 "llm_log": self.llm.get_log_list(),
-                "redis_log": await (
-                    self.messager.get_log_list.remote()  # type:ignore
-                ),
+                "redis_log": self.messager.get_log_list(),
                 "simulator_log": simulator_log,
                 "agent_time_log": agent_time_log,
             }
             self.llm.clear_log_list()
-            self.messager.clear_log_list.remote()  # type:ignore
+            self.messager.clear_log_list()
             self.simulator.clear_log_list()
             self.economy_client.clear_log_list()
             return group_logs
