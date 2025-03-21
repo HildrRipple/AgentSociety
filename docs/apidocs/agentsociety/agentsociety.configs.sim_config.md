@@ -274,6 +274,17 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
+````{py:attribute} cache_path
+:canonical: agentsociety.configs.sim_config.MapConfig.cache_path
+:type: typing.Optional[str]
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} agentsociety.configs.sim_config.MapConfig.cache_path
+```
+
+````
+
 `````
 
 `````{py:class} MlflowConfig(/, **data: typing.Any)
@@ -619,7 +630,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} SetMapConfig(file_path: str) -> agentsociety.configs.sim_config.SimConfig
+````{py:method} SetMapConfig(file_path: str, cache_path: typing.Optional[str] = None) -> agentsociety.configs.sim_config.SimConfig
 :canonical: agentsociety.configs.sim_config.SimConfig.SetMapConfig
 
 ```{autodoc2-docstring} agentsociety.configs.sim_config.SimConfig.SetMapConfig

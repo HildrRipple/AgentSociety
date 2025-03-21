@@ -49,6 +49,7 @@ class SimulatorConfig(BaseModel):
 
 class MapConfig(BaseModel):
     file_path: str = Field(..., description="Path to the map file")
+    cache_path: Optional[str] = Field(None, description="Cache for the processed map")
 
 
 class MlflowConfig(BaseModel):
@@ -173,8 +174,10 @@ class SimConfig(BaseModel):
         self.redis = RedisConfig(server=server, port=port, db=db, password=password)
         return self
 
-    def SetMapConfig(self, file_path: str) -> "SimConfig":
-        self.map_config = MapConfig(file_path=file_path)
+    def SetMapConfig(
+        self, file_path: str, cache_path: Optional[str] = None
+    ) -> "SimConfig":
+        self.map_config = MapConfig(file_path=file_path, cache_path=cache_path)
         return self
 
     def SetMetricConfig(

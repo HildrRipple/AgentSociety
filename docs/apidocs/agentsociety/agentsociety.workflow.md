@@ -13,9 +13,9 @@
 :titlesonly:
 :maxdepth: 1
 
+agentsociety.workflow.prompt
 agentsociety.workflow.block
 agentsociety.workflow.trigger
-agentsociety.workflow.prompt
 ```
 
 ## Package Contents

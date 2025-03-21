@@ -49,7 +49,7 @@
 
 ````
 
-`````{py:class} CityMap(map_cache_path: str)
+`````{py:class} CityMap(map_pb_path: str, map_cache_path: str)
 :canonical: agentsociety.environment.simulator.CityMap
 
 ```{autodoc2-docstring} agentsociety.environment.simulator.CityMap
@@ -158,6 +158,14 @@
    0
 
 ```{autodoc2-docstring} agentsociety.environment.simulator.Simulator.time
+```
+
+````
+
+````{py:method} close()
+:canonical: agentsociety.environment.simulator.Simulator.close
+
+```{autodoc2-docstring} agentsociety.environment.simulator.Simulator.close
 ```
 
 ````

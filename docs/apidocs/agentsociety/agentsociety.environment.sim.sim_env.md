@@ -92,4 +92,12 @@
 
 ````
 
+````{py:method} __del__()
+:canonical: agentsociety.environment.sim.sim_env.ControlSimEnv.__del__
+
+```{autodoc2-docstring} agentsociety.environment.sim.sim_env.ControlSimEnv.__del__
+```
+
+````
+
 `````
