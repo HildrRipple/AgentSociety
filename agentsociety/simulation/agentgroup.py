@@ -17,6 +17,7 @@ from langchain_core.embeddings import Embeddings
 from ..agent import Agent, InstitutionAgent
 from ..configs import SimConfig
 from ..environment import EconomyClient, Simulator
+from ..environment.mapdata import MapData
 from ..llm.llm import LLM
 from ..logger import get_logger
 from ..memory import FaissQuery, Memory
@@ -41,7 +42,7 @@ class AgentGroup:
         number_of_agents: Union[int, list[int]],
         memory_values_dict: dict[type[Agent], list[dict]],
         config: SimConfig,
-        map_ref: ray.ObjectRef,
+        mapdata: MapData,
         exp_name: str,
         exp_id: Union[str, UUID],
         tenant_id: str,
@@ -71,7 +72,7 @@ class AgentGroup:
             - `number_of_agents` (Union[int, List[int]]): Number of instances to create for each agent class.
             - `memory_values_dict` (Dict[Type[Agent], List[Dict]]): Functions to configure memory for each agent type.
             - `config` (SimConfig): Configuration settings for the agent group.
-            - `map_ref` (ray.ObjectRef): Reference to the map object.
+            - `mapdata` (MapData): MapData object.
             - `exp_name` (str): Name of the experiment.
             - `exp_id` (str | UUID): Identifier for the experiment.
             - `tenant_id` (str): Identifier for the tenant.
@@ -158,10 +159,8 @@ class AgentGroup:
         get_logger().info(f"-----Initializing Simulator in AgentGroup {self._uuid} ...")
         self.simulator = Simulator(config)
         self.simulator.set_environment(environment if environment else {})
-        self.simulator.set_map(map_ref)
-        self.projector = pyproj.Proj(
-            ray.get(self.simulator.map.get_projector.remote())  # type:ignore
-        )
+        self.simulator.set_map(mapdata)
+        self.projector = pyproj.Proj(self.simulator.map.get_projector())
         # prepare Economy client
         get_logger().info(
             f"-----Creating Economy client in AgentGroup {self._uuid} ..."

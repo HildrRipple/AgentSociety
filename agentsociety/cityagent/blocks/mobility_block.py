@@ -196,7 +196,9 @@ class PlaceSelectionBlock(Block):
                 self.typeSelectionPrompt.to_dialog(),
                 response_format={"type": "json_object"},
             )
-            levelOneType = jsonc.loads(clean_json_response(levelOneType))[  # type:ignore
+            levelOneType = jsonc.loads(
+                clean_json_response(levelOneType)
+            )[  # type:ignore
                 "place_type"
             ]
             sub_category = poi_cate[levelOneType]
@@ -217,7 +219,9 @@ class PlaceSelectionBlock(Block):
                 self.secondTypeSelectionPrompt.to_dialog(),
                 response_format={"type": "json_object"},
             )
-            levelTwoType = jsonc.loads(clean_json_response(levelTwoType))[  # type:ignore
+            levelTwoType = jsonc.loads(
+                clean_json_response(levelTwoType)
+            )[  # type:ignore
                 "place_type"
             ]
         except Exception as e:
@@ -244,13 +248,11 @@ class PlaceSelectionBlock(Block):
         # Query and select POI
         xy = (await self.memory.status.get("position"))["xy_position"]
         center = (xy["x"], xy["y"])
-        pois = await (
-            self.simulator.map.query_pois.remote(  # type:ignore
-                center=center,
-                category_prefix=levelTwoType,
-                radius=radius,
-                limit=self.search_limit,
-            )
+        pois = self.simulator.map.query_pois(
+            center=center,
+            category_prefix=levelTwoType,
+            radius=radius,
+            limit=self.search_limit,
         )
 
         if pois:
@@ -259,7 +261,7 @@ class PlaceSelectionBlock(Block):
             selected = np.random.choice(len(pois), p=probabilities)
             next_place = (pois[selected][0], pois[selected][1])
         else:  # Fallback random selection
-            all_pois = await self.simulator.map.get_poi.remote()  # type:ignore
+            all_pois = self.simulator.map.get_poi()
             next_place = random.choice(all_pois)
             next_place = (next_place["name"], next_place["id"])
 
@@ -413,13 +415,13 @@ class MoveBlock(Block):
                     target_positions=next_place[1],
                 )
             else:
-                aois = await self.simulator.map.get_aoi.remote()  # type:ignore
+                aois = self.simulator.map.get_aoi()
                 while True:
                     r_aoi = random.choice(aois)
                     if len(r_aoi["poi_ids"]) > 0:
                         r_poi = random.choice(r_aoi["poi_ids"])
                         break
-                poi = await self.simulator.map.get_poi.remote(r_poi)  # type:ignore
+                poi = self.simulator.map.get_poi(r_poi)
                 next_place = (poi["name"], poi["aoi_id"])  # type:ignore
                 await self.simulator.set_aoi_schedules(
                     person_id=agent_id,

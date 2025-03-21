@@ -251,7 +251,7 @@ class LLM:
             - `frequency_penalty`: Penalizes new tokens based on their existing frequency in the text so far. Default is None.
             - `presence_penalty`: Penalizes new tokens based on whether they appear in the text so far. Default is None.
             - `timeout`: Request timeout in seconds. Default is 300 seconds.
-            - `retries`: Number of retry attempts in case of failure. Default is 3.
+            - `retries`: Number of retry attempts in case of failure. Default is 10.
             - `tools`: List of dictionaries describing the tools that can be called by the model. Default is None.
             - `tool_choice`: Dictionary specifying how the model should choose from the provided tools. Default is None.
 

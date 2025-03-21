@@ -10,7 +10,6 @@ from typing import Any, Optional, Union, cast
 import ray
 from mosstool.type import TripMode
 from mosstool.util.format_converter import dict2pb
-from pycitydata.map import Map as SimMap
 from pycityproto.city.map.v2 import map_pb2 as map_pb2
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pycityproto.city.person.v2 import person_service_pb2 as person_service
@@ -19,6 +18,7 @@ from shapely.geometry import Point
 from ..configs import SimConfig
 from ..logger import get_logger
 from ..utils.decorators import log_execution_time
+from .mapdata import MapData
 from .sim import CityClient, ControlSimEnv
 from .syncerclient import SyncerClient
 from .utils.const import *
@@ -26,58 +26,6 @@ from .utils.const import *
 __all__ = [
     "Simulator",
 ]
-
-
-@ray.remote
-class CityMap:
-    def __init__(self, map_pb_path: str, map_cache_path: str):
-        get_logger().info(f"Loading map from {map_cache_path}")
-        self.map = SimMap(
-            pb_path=map_pb_path,
-            cache_path=map_cache_path,
-        )
-        self.poi_cate = POI_CATG_DICT
-        get_logger().info("Map loaded successfully!")
-
-    def get_aoi(self, aoi_id: Optional[int] = None):
-        if aoi_id is None:
-            return list(self.map.aois.values())
-        else:
-            return self.map.aois[aoi_id]
-
-    def get_poi(self, poi_id: Optional[int] = None):
-        if poi_id is None:
-            return list(self.map.pois.values())
-        else:
-            return self.map.pois[poi_id]
-
-    def query_pois(
-        self,
-        center: Union[tuple[float, float], Point],
-        radius: Optional[float] = None,
-        category_prefix: Optional[str] = None,
-        limit: Optional[int] = None,
-        return_distance: bool = True,
-    ):
-        return self.map.query_pois(
-            center=center,
-            radius=radius,
-            category_prefix=category_prefix,
-            limit=limit,
-            return_distance=return_distance,
-        )
-
-    def get_poi_cate(self):
-        return self.poi_cate
-
-    def get_map(self):
-        return self.map
-
-    def get_map_header(self):
-        return self.map.header
-
-    def get_projector(self):
-        return self.map.header["projection"]
 
 
 class Simulator:
@@ -153,10 +101,7 @@ class Simulator:
         - Simulator map object
         """
         if create_map:
-            self._map = CityMap.remote(
-                _map_pb_path,
-                _map_cache_path,  # type:ignore
-            )
+            self._map = MapData(_map_pb_path, _map_cache_path)
             self._create_poi_id_2_aoi_id()
 
         self.time: int = 0
@@ -176,18 +121,20 @@ class Simulator:
         if self._sim_env is not None:
             self._sim_env.close()
 
-    def set_map(self, map: ray.ObjectRef):
+    def set_map(self, map: MapData):
         self._map = map
         self._create_poi_id_2_aoi_id()
 
     def _create_poi_id_2_aoi_id(self):
-        pois = ray.get(self._map.get_poi.remote())  # type:ignore
+        assert self._map is not None
+        pois = self._map.get_poi()
         self.poi_id_2_aoi_id: dict[int, int] = {
             poi["id"]: poi["aoi_id"] for poi in pois
         }
 
     @property
     def map(self):
+        assert self._map is not None
         return self._map
 
     def get_log_list(self):
@@ -277,13 +224,12 @@ class Simulator:
         categories: list[str] = []
         if center is None:
             center = (0, 0)
-        _pois: list[dict] = ray.get(
-            self.map.query_pois.remote(  # type:ignore
-                center=center,
-                radius=radius,
-                return_distance=False,
-            )
-        )
+        assert self._map is not None
+        _pois: list[dict] = self._map.query_pois(
+            center=center,
+            radius=radius,
+            return_distance=False,
+        )  # type:ignore
         for poi in _pois:
             catg = poi["category"]
             categories.append(catg.split("|")[-1])
@@ -525,13 +471,12 @@ class Simulator:
                 transformed_poi_type += self.poi_cate[t]
         poi_type_set = set(transformed_poi_type)
         # query pois within the radius
-        _pois: list[dict] = ray.get(
-            self.map.query_pois.remote(  # type:ignore
-                center=center,
-                radius=radius,
-                return_distance=False,
-            )
-        )
+        assert self._map is not None
+        _pois: list[dict] = self._map.query_pois(
+            center=center,
+            radius=radius,
+            return_distance=False,
+        )  # type:ignore
         # Filter out POIs that do not meet the category prefix
         pois = []
         for poi in _pois:

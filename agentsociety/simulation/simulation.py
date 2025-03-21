@@ -137,7 +137,6 @@ class AgentSimulation:
         simulator = Simulator(config, create_map=True)
         self._simulator = simulator
         get_logger().info("Simulator created")
-        self._map_ref = self._simulator.map
         server_addr = self._simulator.get_server_addr()
         config.SetServerAddress(server_addr)
         self._economy_client = EconomyClient(server_addr)
@@ -864,10 +863,9 @@ class AgentSimulation:
             ]
         else:
             _num_interceptors = 1
-            self._message_interceptors = _interceptors = [
+            self._message_interceptors = [
                 None for _ in range(_num_interceptors)
             ]
-        creation_tasks = []
         for i, (
             agent_class,
             number_of_agents,
@@ -881,7 +879,7 @@ class AgentSimulation:
                 number_of_agents,
                 memory_values_dict,
                 self.config,
-                self._map_ref,
+                self._simulator.map,
                 self.exp_name,
                 self.exp_id,
                 self.tenant_id,
