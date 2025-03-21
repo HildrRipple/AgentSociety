@@ -107,12 +107,6 @@ class Messager:
         self._message_interceptor = message_interceptor
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        """
-        Set the message interceptor reference.
-
-        - **Args**:
-            - `message_interceptor` (ray.ObjectRef): The message interceptor reference to be set.
-        """
         await self.stop()
 
     async def ping(self):

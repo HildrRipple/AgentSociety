@@ -892,3 +892,10 @@ class AgentGroup:
             raise RuntimeError(
                 str(e) + f" input arg day:({day}, {type(day)}), t:({t}, {type(t)})"
             ) from e
+
+    async def close(self):
+        """
+        Closes the agent group by stopping the message dispatch task and disconnecting the messager.
+        """
+        get_logger().debug(f"-----Closing AgentGroup {self._uuid} ...")
+        await self.messager.stop()

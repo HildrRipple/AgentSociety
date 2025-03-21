@@ -134,8 +134,7 @@ class AgentSimulation:
         self.config = config
         self.exp_name = exp_name
         get_logger().info(f"Creating Simulator with config: {config.model_dump()}")
-        simulator = Simulator(config, create_map=True)
-        self._simulator = simulator
+        self._simulator = Simulator(config, create_map=True)
         get_logger().info("Simulator created")
         server_addr = self._simulator.get_server_addr()
         config.SetServerAddress(server_addr)
@@ -450,6 +449,7 @@ class AgentSimulation:
                 await _func(simulation)
         get_logger().info("Simulation finished")
         # close simulator
+        await simulation.messager.stop()
         simulation._simulator.close()
 
         tasks = []
