@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Select, Space, Typography, Divider, message, Row, Col, Spin } from 'antd';
+import { Card, Button, Select, Space, Typography, Divider, message, Row, Col, Spin, Form, Input } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { ExperimentOutlined, EnvironmentOutlined, TeamOutlined, GlobalOutlined, RocketOutlined, NodeIndexOutlined } from '@ant-design/icons';
 import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
+import configService from '../../services/configService';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -33,11 +34,13 @@ const CreateExperiment: React.FC = () => {
   const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [selectedWorkflow, setSelectedWorkflow] = useState<string>('');
   const [selectedMap, setSelectedMap] = useState<string>('');
+  const [experimentName, setExperimentName] = useState<string>('');
   const [experimentRunning, setExperimentRunning] = useState(false);
   const [experimentId, setExperimentId] = useState<string | null>(null);
   const [statusCheckInterval, setStatusCheckInterval] = useState<NodeJS.Timeout | null>(null);
   const [experimentStatus, setExperimentStatus] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [form] = Form.useForm();
 
   // Load all configurations
   useEffect(() => {
@@ -57,6 +60,12 @@ const CreateExperiment: React.FC = () => {
         setAgents(agts);
         setWorkflows(wkfs);
         setMaps(mps);
+        
+        // Set defaults if available
+        if (envs.length > 0) setSelectedEnvironment(envs[0].id);
+        if (agts.length > 0) setSelectedAgent(agts[0].id);
+        if (wkfs.length > 0) setSelectedWorkflow(wkfs[0].id);
+        if (mps.length > 0) setSelectedMap(mps[0].id);
       } catch (error) {
         message.error('Failed to load configurations');
         console.error(error);
@@ -68,7 +77,7 @@ const CreateExperiment: React.FC = () => {
     loadConfigurations();
   }, []);
 
-  // 清理定时器
+  // Clean up interval timer
   useEffect(() => {
     return () => {
       if (statusCheckInterval) {
@@ -77,7 +86,7 @@ const CreateExperiment: React.FC = () => {
     };
   }, [statusCheckInterval]);
 
-  // 检查实验状态
+  // Check experiment status
   const checkExperimentStatus = async () => {
     if (!experimentId) return;
     
@@ -93,119 +102,26 @@ const CreateExperiment: React.FC = () => {
       setExperimentStatus(status);
       
       if (status !== 'running') {
-        // 实验已完成或失败，停止检查
+        // If experiment is no longer running, stop checking
         if (statusCheckInterval) {
           clearInterval(statusCheckInterval);
           setStatusCheckInterval(null);
         }
         
         if (status === 'completed') {
-          message.success('Experiment completed successfully');
+          message.success('Experiment completed successfully!');
+          navigate(`/exp/${experimentId}`);
         } else if (status === 'failed') {
-          message.error(`Experiment failed with return code ${data.data.returncode}`);
+          message.error('Experiment failed. Check logs for details.');
         }
-        
-        setExperimentRunning(false);
       }
     } catch (error) {
       console.error('Error checking experiment status:', error);
     }
   };
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    try {
-      // Get selected configurations
-      const environment = environments.find(env => env.id === selectedEnvironment);
-      const agent = agents.find(agent => agent.id === selectedAgent);
-      const workflow = workflows.find(workflow => workflow.id === selectedWorkflow) as WorkflowConfig;  // Add type assertion here
-      const map = maps.find(map => map.id === selectedMap);
-
-      if (!environment || !agent || !workflow || !map) {
-        message.error('Please select all required configurations');
-        return;
-      }
-
-      // Combine configurations
-      const fullConfig = {
-        environment: {
-          ...environment.config,
-        },
-        agent: {
-          ...agent.config,
-        },
-        experiment: {
-          ...workflow.config,
-          environment: {
-            weather: workflow.config.environment?.weather ?? "Normal Weather",
-            temperature: workflow.config.environment?.temperature ?? "Normal Temperature",
-            workday: workflow.config.environment?.workday ?? true,
-            other_information: workflow.config.environment?.other_information ?? ""
-          }
-        }
-      };
-      
-      // Send request to start experiment
-      const response = await fetch('/api/experiments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(fullConfig),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        message.success('Experiment started successfully!');
-        navigate(`/exp/${data.experimentId}`);
-      } else {
-        message.error(`Start failed: ${data.message || 'Unknown error'}`);
-      }
-    } catch (error) {
-      message.error('Error starting experiment');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStopExperiment = async () => {
-    if (!experimentId) {
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/experiments/${experimentId}/stop`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to stop experiment');
-      }
-      
-      message.success('Experiment stopped successfully');
-      
-      // 清理定时器并重置状态
-      if (statusCheckInterval) {
-        clearInterval(statusCheckInterval);
-        setStatusCheckInterval(null);
-      }
-      
-      setExperimentRunning(false);
-      setExperimentStatus('stopped');
-      
-    } catch (error) {
-      console.error('Error stopping experiment:', error);
-      message.error(`Failed to stop experiment: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateNew = (type: string) => {
+  // Handle navigation to create new configuration pages
+  const handleCreateNew = (type: 'environment' | 'agent' | 'workflow' | 'map') => {
     switch (type) {
       case 'environment':
         navigate('/environments');
@@ -214,168 +130,259 @@ const CreateExperiment: React.FC = () => {
         navigate('/agents');
         break;
       case 'workflow':
-        navigate('/experiments');
+        navigate('/workflows');
         break;
       case 'map':
         navigate('/maps');
         break;
-      default:
-        break;
     }
   };
 
-  // 自定义下拉框选项渲染
+  // Render option content with name and description
   const renderOptionContent = (item: ConfigItem) => (
-    <Space direction="vertical" style={{ width: '100%' }}>
-      <Text strong>{item.name}</Text>
+    <div>
+      <div>{item.name}</div>
       {item.description && <Text type="secondary">{item.description}</Text>}
-    </Space>
+    </div>
   );
 
+  // Handle form submission to start experiment
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      // Validate form
+      await form.validateFields();
+      
+      // Build configuration from selected components
+      const config = await configService.buildExperimentConfig(
+        selectedEnvironment,
+        selectedAgent,
+        selectedWorkflow,
+        selectedMap,
+        experimentName
+      );
+      
+      if (!config) {
+        throw new Error('Failed to build experiment configuration');
+      }
+      
+      // Send request to start experiment
+      const response = await fetch('/api/run-experiments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to start experiment');
+      }
+      
+      const data = await response.json();
+      const newExperimentId = data.data.id;
+      
+      setExperimentId(newExperimentId);
+      setExperimentRunning(true);
+      message.success('Experiment started successfully!');
+      
+      // Start checking status
+      const interval = setInterval(checkExperimentStatus, 5000);
+      setStatusCheckInterval(interval);
+      
+      // Navigate to experiment details after a short delay
+      setTimeout(() => {
+        navigate(`/exp/${newExperimentId}`);
+      }, 2000);
+    } catch (error) {
+      message.error(`Failed to start experiment: ${error.message}`);
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <Card title={<Space><ExperimentOutlined /> Create New Experiment</Space>} style={{ margin: 20 }}>
-      <Row gutter={[16, 16]}>
-        <Col span={12}>
-          <Card 
-            title={<Space><EnvironmentOutlined /> Environment</Space>} 
-            extra={<Button type="link" onClick={() => handleCreateNew('environment')}>Create New</Button>}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>Select an environment configuration:</Text>
-              <Select
-                placeholder="Select environment"
-                style={{ width: '100%' }}
-                loading={loading}
-                value={selectedEnvironment || undefined}
-                onChange={setSelectedEnvironment}
-                optionLabelProp="label"
-                disabled={experimentRunning}
-              >
-                {environments.map(env => (
-                  <Option key={env.id} value={env.id} label={env.name}>
-                    {renderOptionContent(env)}
-                  </Option>
-                ))}
-              </Select>
-            </Space>
-          </Card>
-        </Col>
+    <Form
+      form={form}
+      layout="vertical"
+      onFinish={handleSubmit}
+      initialValues={{
+        experimentName: '',
+      }}
+    >
+      <Card title="Create New Experiment" extra={
+        <Button 
+          type="primary" 
+          htmlType="submit"
+          loading={loading}
+          disabled={experimentRunning}
+        >
+          Start Experiment
+        </Button>
+      }>
+        <Form.Item
+          name="experimentName"
+          label="Experiment Name"
+          rules={[{ required: true, message: 'Please enter an experiment name' }]}
+        >
+          <Input 
+            placeholder="Enter experiment name" 
+            onChange={(e) => setExperimentName(e.target.value)}
+            disabled={experimentRunning}
+          />
+        </Form.Item>
         
-        <Col span={12}>
-          <Card 
-            title={<Space><GlobalOutlined /> Map</Space>} 
-            extra={<Button type="link" onClick={() => handleCreateNew('map')}>Create New</Button>}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>Select a map:</Text>
-              <Select
-                placeholder="Select map"
-                style={{ width: '100%' }}
-                loading={loading}
-                value={selectedMap || undefined}
-                onChange={setSelectedMap}
-                optionLabelProp="label"
-                disabled={experimentRunning}
-              >
-                {maps.map(map => (
-                  <Option key={map.id} value={map.id} label={map.name}>
-                    {renderOptionContent(map)}
-                  </Option>
-                ))}
-              </Select>
-            </Space>
-          </Card>
-        </Col>
+        <Divider orientation="left">Configuration Components</Divider>
         
-        <Col span={12}>
-          <Card 
-            title={<Space><TeamOutlined /> Agent</Space>} 
-            extra={<Button type="link" onClick={() => handleCreateNew('agent')}>Create New</Button>}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>Select an agent configuration:</Text>
-              <Select
-                placeholder="Select agent"
-                style={{ width: '100%' }}
-                loading={loading}
-                value={selectedAgent || undefined}
-                onChange={setSelectedAgent}
-                optionLabelProp="label"
-                disabled={experimentRunning}
-              >
-                {agents.map(agent => (
-                  <Option key={agent.id} value={agent.id} label={agent.name}>
-                    {renderOptionContent(agent)}
-                  </Option>
-                ))}
-              </Select>
-            </Space>
-          </Card>
-        </Col>
-        
-        <Col span={12}>
-          <Card 
-            title={<Space><NodeIndexOutlined /> Workflow</Space>} 
-            extra={<Button type="link" onClick={() => handleCreateNew('workflow')}>Create New</Button>}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>Select a workflow:</Text>
-              <Select
-                placeholder="Select workflow"
-                style={{ width: '100%' }}
-                loading={loading}
-                value={selectedWorkflow || undefined}
-                onChange={setSelectedWorkflow}
-                optionLabelProp="label"
-                disabled={experimentRunning}
-              >
-                {workflows.map(workflow => (
-                  <Option key={workflow.id} value={workflow.id} label={workflow.name}>
-                    {renderOptionContent(workflow)}
-                  </Option>
-                ))}
-              </Select>
-            </Space>
-          </Card>
-        </Col>
-      </Row>
-      
-      <Divider />
-      
-      <div style={{ textAlign: 'center' }}>
-        {!experimentRunning ? (
-          <Button 
-            type="primary" 
-            size="large" 
-            icon={<RocketOutlined />} 
-            onClick={handleSubmit}
-            loading={loading}
-            disabled={!selectedEnvironment || !selectedAgent || !selectedWorkflow || !selectedMap}
-          >
-            Start Experiment
-          </Button>
-        ) : (
-          <Space direction="vertical" size="large">
-            <Space>
-              <Spin spinning={experimentStatus === 'running'} />
-              <Text>
-                Experiment is {experimentStatus}
-                {experimentStatus === 'running' && '...'}
-              </Text>
-            </Space>
-            <Button 
-              type="primary" 
-              danger
-              size="large" 
-              onClick={handleStopExperiment}
-              loading={loading}
+        <Row gutter={[16, 16]}>
+          <Col span={12}>
+            <Card 
+              title={<Space><EnvironmentOutlined /> Environment</Space>} 
+              extra={<Button type="link" onClick={() => handleCreateNew('environment')}>Create New</Button>}
             >
-              Stop Experiment
-            </Button>
-          </Space>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Text>Select an environment configuration:</Text>
+                <Form.Item
+                  name="environment"
+                  rules={[{ required: true, message: 'Please select an environment' }]}
+                  initialValue={selectedEnvironment}
+                >
+                  <Select
+                    placeholder="Select environment"
+                    style={{ width: '100%' }}
+                    loading={loading}
+                    value={selectedEnvironment || undefined}
+                    onChange={setSelectedEnvironment}
+                    optionLabelProp="label"
+                    disabled={experimentRunning}
+                  >
+                    {environments.map(env => (
+                      <Option key={env.id} value={env.id} label={env.name}>
+                        {renderOptionContent(env)}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Space>
+            </Card>
+          </Col>
+          
+          <Col span={12}>
+            <Card 
+              title={<Space><GlobalOutlined /> Map</Space>} 
+              extra={<Button type="link" onClick={() => handleCreateNew('map')}>Create New</Button>}
+            >
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Text>Select a map:</Text>
+                <Form.Item
+                  name="map"
+                  rules={[{ required: true, message: 'Please select a map' }]}
+                  initialValue={selectedMap}
+                >
+                  <Select
+                    placeholder="Select map"
+                    style={{ width: '100%' }}
+                    loading={loading}
+                    value={selectedMap || undefined}
+                    onChange={setSelectedMap}
+                    optionLabelProp="label"
+                    disabled={experimentRunning}
+                  >
+                    {maps.map(map => (
+                      <Option key={map.id} value={map.id} label={map.name}>
+                        {renderOptionContent(map)}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Space>
+            </Card>
+          </Col>
+          
+          <Col span={12}>
+            <Card 
+              title={<Space><TeamOutlined /> Agent</Space>} 
+              extra={<Button type="link" onClick={() => handleCreateNew('agent')}>Create New</Button>}
+            >
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Text>Select an agent configuration:</Text>
+                <Form.Item
+                  name="agent"
+                  rules={[{ required: true, message: 'Please select an agent configuration' }]}
+                  initialValue={selectedAgent}
+                >
+                  <Select
+                    placeholder="Select agent"
+                    style={{ width: '100%' }}
+                    loading={loading}
+                    value={selectedAgent || undefined}
+                    onChange={setSelectedAgent}
+                    optionLabelProp="label"
+                    disabled={experimentRunning}
+                  >
+                    {agents.map(agent => (
+                      <Option key={agent.id} value={agent.id} label={agent.name}>
+                        {renderOptionContent(agent)}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Space>
+            </Card>
+          </Col>
+          
+          <Col span={12}>
+            <Card 
+              title={<Space><NodeIndexOutlined /> Workflow</Space>} 
+              extra={<Button type="link" onClick={() => handleCreateNew('workflow')}>Create New</Button>}
+            >
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Text>Select a workflow:</Text>
+                <Form.Item
+                  name="workflow"
+                  rules={[{ required: true, message: 'Please select a workflow' }]}
+                  initialValue={selectedWorkflow}
+                >
+                  <Select
+                    placeholder="Select workflow"
+                    style={{ width: '100%' }}
+                    loading={loading}
+                    value={selectedWorkflow || undefined}
+                    onChange={setSelectedWorkflow}
+                    optionLabelProp="label"
+                    disabled={experimentRunning}
+                  >
+                    {workflows.map(workflow => (
+                      <Option key={workflow.id} value={workflow.id} label={workflow.name}>
+                        {renderOptionContent(workflow)}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Space>
+            </Card>
+          </Col>
+        </Row>
+        
+        <Divider />
+        
+        {experimentRunning && (
+          <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <Spin />
+            <div style={{ marginTop: 8 }}>
+              <Text>Experiment is running. Status: {experimentStatus || 'Starting...'}</Text>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <Button type="primary" onClick={() => navigate(`/exp/${experimentId}`)}>
+                View Experiment
+              </Button>
+            </div>
+          </div>
         )}
-      </div>
-    </Card>
+      </Card>
+    </Form>
   );
 };
 

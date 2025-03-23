@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
-import ExperimentForm from '../ExperimentConfig/components/ExperimentForm';
+import WorkflowForm from './WorkflowForm';
 import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
+import configService from '../../services/configService';
+import { ExpConfig } from '../../types/config';
 
 const WorkflowList: React.FC = () => {
   const [workflows, setWorkflows] = useState<ConfigItem[]>([]);
@@ -10,29 +12,15 @@ const WorkflowList: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentWorkflow, setCurrentWorkflow] = useState<ConfigItem | null>(null);
-  const [formValues, setFormValues] = useState<Record<string, unknown>>({});
+  const [formValues, setFormValues] = useState<Partial<ExpConfig>>({});
   const [metaForm] = Form.useForm();
-  const [environmentConfig, setEnvironmentConfig] = useState<Record<string, unknown>>({});
-  const [agentConfig, setAgentConfig] = useState<Record<string, unknown>>({});
 
-  // 加载工作流配置
+  // Load workflow configurations
   const loadWorkflows = async () => {
     setLoading(true);
     try {
       const data = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.WORKFLOWS);
       setWorkflows(data);
-      
-      // 加载环境和智能体配置，用于实验表单
-      const environments = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.ENVIRONMENTS);
-      const agents = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.AGENTS);
-      
-      if (environments.length > 0) {
-        setEnvironmentConfig(environments[0].config);
-      }
-      
-      if (agents.length > 0) {
-        setAgentConfig(agents[0].config);
-      }
     } catch (error) {
       message.error('Failed to load workflows');
       console.error(error);
@@ -41,7 +29,7 @@ const WorkflowList: React.FC = () => {
     }
   };
 
-  // 初始化数据
+  // Initialize data
   useEffect(() => {
     const init = async () => {
       await storageService.initializeExampleData();
@@ -50,61 +38,68 @@ const WorkflowList: React.FC = () => {
     init();
   }, []);
 
-  const handleSearch = (value: string) => {
-    setSearchText(value);
+  // Handle search
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchText(e.target.value);
   };
 
+  // Filter workflows based on search text
   const filteredWorkflows = workflows.filter(workflow => 
     workflow.name.toLowerCase().includes(searchText.toLowerCase()) || 
     (workflow.description && workflow.description.toLowerCase().includes(searchText.toLowerCase()))
   );
 
+  // Handle create new workflow
   const handleCreate = () => {
     setCurrentWorkflow(null);
-    setFormValues({});
-    metaForm.resetFields();
-    setIsModalVisible(true);
-  };
-
-  const handleEdit = (record: ConfigItem) => {
-    setCurrentWorkflow(record);
-    setFormValues(record.config);
+    setFormValues(configService.getDefaultConfigs().workflow);
     metaForm.setFieldsValue({
-      name: record.name,
-      description: record.description || ''
+      name: `Workflow ${workflows.length + 1}`,
+      description: ''
     });
     setIsModalVisible(true);
   };
 
-  const handleDuplicate = (record: ConfigItem) => {
+  // Handle edit workflow
+  const handleEdit = (workflow: ConfigItem) => {
+    setCurrentWorkflow(workflow);
+    setFormValues(workflow.config);
+    metaForm.setFieldsValue({
+      name: workflow.name,
+      description: workflow.description
+    });
+    setIsModalVisible(true);
+  };
+
+  // Handle duplicate workflow
+  const handleDuplicate = (workflow: ConfigItem) => {
     setCurrentWorkflow(null);
-    setFormValues({
-      ...record.config
-    });
+    setFormValues(workflow.config);
     metaForm.setFieldsValue({
-      name: `Copy of ${record.name}`,
-      description: record.description || ''
+      name: `${workflow.name} (Copy)`,
+      description: workflow.description
     });
     setIsModalVisible(true);
   };
 
+  // Handle delete workflow
   const handleDelete = async (id: string) => {
     try {
-      setLoading(true);
       await storageService.deleteConfig(STORAGE_KEYS.WORKFLOWS, id);
       message.success('Workflow deleted successfully');
-      await loadWorkflows();
-    } catch {
+      loadWorkflows();
+    } catch (error) {
       message.error('Failed to delete workflow');
-      setLoading(false);
+      console.error(error);
     }
   };
 
-  const handleExport = (record: ConfigItem) => {
-    const dataStr = JSON.stringify(record.config, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+  // Handle export workflow
+  const handleExport = (workflow: ConfigItem) => {
+    const dataStr = JSON.stringify(workflow, null, 2);
+    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
     
-    const exportFileDefaultName = `${record.name.replace(/\s+/g, '_')}_workflow.json`;
+    const exportFileDefaultName = `${workflow.name.replace(/\s+/g, '_')}_workflow.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -112,53 +107,37 @@ const WorkflowList: React.FC = () => {
     linkElement.click();
   };
 
+  // Handle modal OK
   const handleModalOk = async () => {
     try {
-      // 验证元数据表单
+      // Validate meta form
       const metaValues = await metaForm.validateFields();
       
-      setLoading(true);
+      const configData: ConfigItem = {
+        id: currentWorkflow?.id || `workflow_${Date.now()}`,
+        name: metaValues.name,
+        description: metaValues.description || '',
+        config: formValues,
+        createdAt: currentWorkflow?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
       
-      const configToSave: ConfigItem = currentWorkflow 
-        ? { 
-            ...currentWorkflow, 
-            name: metaValues.name,
-            description: metaValues.description,
-            config: formValues,
-            updatedAt: new Date().toISOString()
-          } 
-        : {
-            id: Date.now().toString(),
-            name: metaValues.name,
-            description: metaValues.description,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            config: formValues
-          };
+      await storageService.saveConfig(STORAGE_KEYS.WORKFLOWS, configData);
       
-      await storageService.saveConfig(STORAGE_KEYS.WORKFLOWS, configToSave);
-      
-      message.success(currentWorkflow 
-        ? 'Workflow updated successfully' 
-        : 'Workflow created successfully'
-      );
-      
+      message.success(`Workflow ${currentWorkflow ? 'updated' : 'created'} successfully`);
       setIsModalVisible(false);
-      await loadWorkflows();
+      loadWorkflows();
     } catch (error) {
-      if (error instanceof Error) {
-        message.error(`Failed to save workflow: ${error.message}`);
-      } else {
-        message.error('Failed to save workflow');
-      }
-      setLoading(false);
+      console.error('Validation failed:', error);
     }
   };
 
+  // Handle modal cancel
   const handleModalCancel = () => {
     setIsModalVisible(false);
   };
 
+  // Table columns
   const columns = [
     {
       title: 'Name',
@@ -177,34 +156,21 @@ const WorkflowList: React.FC = () => {
       dataIndex: 'updatedAt',
       key: 'updatedAt',
       render: (text: string) => new Date(text).toLocaleString(),
-      sorter: (a: ConfigItem, b: ConfigItem) => 
-        new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+      sorter: (a: ConfigItem, b: ConfigItem) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
     },
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: unknown, record: ConfigItem) => (
+      render: (_: any, record: ConfigItem) => (
         <Space size="small">
           <Tooltip title="Edit">
-            <Button 
-              icon={<EditOutlined />} 
-              onClick={() => handleEdit(record)} 
-              type="text"
-            />
+            <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
           </Tooltip>
           <Tooltip title="Duplicate">
-            <Button 
-              icon={<CopyOutlined />} 
-              onClick={() => handleDuplicate(record)} 
-              type="text"
-            />
+            <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
           </Tooltip>
           <Tooltip title="Export">
-            <Button 
-              icon={<ExportOutlined />} 
-              onClick={() => handleExport(record)} 
-              type="text"
-            />
+            <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
           </Tooltip>
           <Tooltip title="Delete">
             <Popconfirm
@@ -213,11 +179,7 @@ const WorkflowList: React.FC = () => {
               okText="Yes"
               cancelText="No"
             >
-              <Button 
-                icon={<DeleteOutlined />} 
-                type="text"
-                danger
-              />
+              <Button icon={<DeleteOutlined />} size="small" danger />
             </Popconfirm>
           </Tooltip>
         </Space>
@@ -226,38 +188,31 @@ const WorkflowList: React.FC = () => {
   ];
 
   return (
-    <Card title="Workflow Configurations" extra={
-      <Space>
-        <Input.Search
-          placeholder="Search workflows"
-          onSearch={handleSearch}
-          onChange={(e) => handleSearch(e.target.value)}
-          style={{ width: 250 }}
-        />
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />} 
-          onClick={handleCreate}
-        >
-          Create Workflow
-        </Button>
-      </Space>
-    }>
-      <Table 
-        columns={columns} 
-        dataSource={filteredWorkflows} 
+    <Card 
+      title="Workflow Configurations" 
+      extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>Create New</Button>}
+    >
+      <Input.Search
+        placeholder="Search workflows"
+        onChange={handleSearch}
+        style={{ marginBottom: 16 }}
+      />
+      
+      <Table
+        columns={columns}
+        dataSource={filteredWorkflows}
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10 }}
       />
-
+      
       <Modal
         title={currentWorkflow ? "Edit Workflow" : "Create Workflow"}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
         width={800}
-        confirmLoading={loading}
+        destroyOnClose
       >
         <Card title="Configuration Metadata" style={{ marginBottom: 16 }}>
           <Form
@@ -267,9 +222,9 @@ const WorkflowList: React.FC = () => {
             <Form.Item
               name="name"
               label="Name"
-              rules={[{ required: true, message: 'Please enter a name for this workflow' }]}
+              rules={[{ required: true, message: 'Please enter a name for this configuration' }]}
             >
-              <Input placeholder="Enter workflow name" />
+              <Input placeholder="Enter configuration name" />
             </Form.Item>
             <Form.Item
               name="description"
@@ -277,18 +232,16 @@ const WorkflowList: React.FC = () => {
             >
               <Input.TextArea 
                 rows={2} 
-                placeholder="Enter a description for this workflow" 
+                placeholder="Enter a description for this configuration" 
               />
             </Form.Item>
           </Form>
         </Card>
         
         <Card title="Workflow Settings">
-          <ExperimentForm 
+          <WorkflowForm 
             value={formValues} 
             onChange={setFormValues}
-            environmentConfig={environmentConfig}
-            agentConfig={agentConfig}
           />
         </Card>
       </Modal>

@@ -37,8 +37,8 @@ const RootMenu = ({ selectedKey, style }: {
             icon: <TeamOutlined />,
         },
         {
-            key: '/experiments',
-            label: <Link to="/experiments">Workflows</Link>,
+            key: '/workflows',
+            label: <Link to="/workflows">Workflows</Link>,
             icon: <NodeIndexOutlined />,
         },
         {

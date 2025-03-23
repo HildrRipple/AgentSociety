@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
-import AgentForm from '../ExperimentConfig/components/AgentForm';
+import AgentForm from './AgentForm';
 import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
+import configService from '../../services/configService';
+import { AgentConfig } from '../../types/config';
 
 const AgentList: React.FC = () => {
   const [agents, setAgents] = useState<ConfigItem[]>([]);
@@ -10,10 +12,10 @@ const AgentList: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<ConfigItem | null>(null);
-  const [formValues, setFormValues] = useState<Record<string, unknown>>({});
+  const [formValues, setFormValues] = useState<Partial<AgentConfig>>({});
   const [metaForm] = Form.useForm();
 
-  // 加载智能体配置
+  // Load agent configurations
   const loadAgents = async () => {
     setLoading(true);
     try {
@@ -27,7 +29,7 @@ const AgentList: React.FC = () => {
     }
   };
 
-  // 初始化数据
+  // Initialize data
   useEffect(() => {
     const init = async () => {
       await storageService.initializeExampleData();
@@ -36,61 +38,68 @@ const AgentList: React.FC = () => {
     init();
   }, []);
 
-  const handleSearch = (value: string) => {
-    setSearchText(value);
+  // Handle search
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchText(e.target.value);
   };
 
+  // Filter agents based on search text
   const filteredAgents = agents.filter(agent => 
     agent.name.toLowerCase().includes(searchText.toLowerCase()) || 
     (agent.description && agent.description.toLowerCase().includes(searchText.toLowerCase()))
   );
 
+  // Handle create new agent
   const handleCreate = () => {
     setCurrentAgent(null);
-    setFormValues({});
-    metaForm.resetFields();
-    setIsModalVisible(true);
-  };
-
-  const handleEdit = (record: ConfigItem) => {
-    setCurrentAgent(record);
-    setFormValues(record.config);
+    setFormValues(configService.getDefaultConfigs().agent);
     metaForm.setFieldsValue({
-      name: record.name,
-      description: record.description || ''
+      name: `Agent ${agents.length + 1}`,
+      description: ''
     });
     setIsModalVisible(true);
   };
 
-  const handleDuplicate = (record: ConfigItem) => {
+  // Handle edit agent
+  const handleEdit = (agent: ConfigItem) => {
+    setCurrentAgent(agent);
+    setFormValues(agent.config);
+    metaForm.setFieldsValue({
+      name: agent.name,
+      description: agent.description
+    });
+    setIsModalVisible(true);
+  };
+
+  // Handle duplicate agent
+  const handleDuplicate = (agent: ConfigItem) => {
     setCurrentAgent(null);
-    setFormValues({
-      ...record.config
-    });
+    setFormValues(agent.config);
     metaForm.setFieldsValue({
-      name: `Copy of ${record.name}`,
-      description: record.description || ''
+      name: `${agent.name} (Copy)`,
+      description: agent.description
     });
     setIsModalVisible(true);
   };
 
+  // Handle delete agent
   const handleDelete = async (id: string) => {
     try {
-      setLoading(true);
       await storageService.deleteConfig(STORAGE_KEYS.AGENTS, id);
-      message.success('Agent configuration deleted successfully');
-      await loadAgents();
-    } catch {
-      message.error('Failed to delete agent configuration');
-      setLoading(false);
+      message.success('Agent deleted successfully');
+      loadAgents();
+    } catch (error) {
+      message.error('Failed to delete agent');
+      console.error(error);
     }
   };
 
-  const handleExport = (record: ConfigItem) => {
-    const dataStr = JSON.stringify(record.config, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+  // Handle export agent
+  const handleExport = (agent: ConfigItem) => {
+    const dataStr = JSON.stringify(agent, null, 2);
+    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
     
-    const exportFileDefaultName = `${record.name.replace(/\s+/g, '_')}_agent.json`;
+    const exportFileDefaultName = `${agent.name.replace(/\s+/g, '_')}_agent.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -98,53 +107,37 @@ const AgentList: React.FC = () => {
     linkElement.click();
   };
 
+  // Handle modal OK
   const handleModalOk = async () => {
     try {
-      // 验证元数据表单
+      // Validate meta form
       const metaValues = await metaForm.validateFields();
       
-      setLoading(true);
+      const configData: ConfigItem = {
+        id: currentAgent?.id || `agent_${Date.now()}`,
+        name: metaValues.name,
+        description: metaValues.description || '',
+        config: formValues,
+        createdAt: currentAgent?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
       
-      const configToSave: ConfigItem = currentAgent 
-        ? { 
-            ...currentAgent, 
-            name: metaValues.name,
-            description: metaValues.description,
-            config: formValues,
-            updatedAt: new Date().toISOString()
-          } 
-        : {
-            id: Date.now().toString(),
-            name: metaValues.name,
-            description: metaValues.description,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            config: formValues
-          };
+      await storageService.saveConfig(STORAGE_KEYS.AGENTS, configData);
       
-      await storageService.saveConfig(STORAGE_KEYS.AGENTS, configToSave);
-      
-      message.success(currentAgent 
-        ? 'Agent configuration updated successfully' 
-        : 'Agent configuration created successfully'
-      );
-      
+      message.success(`Agent ${currentAgent ? 'updated' : 'created'} successfully`);
       setIsModalVisible(false);
-      await loadAgents();
+      loadAgents();
     } catch (error) {
-      if (error instanceof Error) {
-        message.error(`Failed to save agent configuration: ${error.message}`);
-      } else {
-        message.error('Failed to save agent configuration');
-      }
-      setLoading(false);
+      console.error('Validation failed:', error);
     }
   };
 
+  // Handle modal cancel
   const handleModalCancel = () => {
     setIsModalVisible(false);
   };
 
+  // Table columns
   const columns = [
     {
       title: 'Name',
@@ -163,47 +156,30 @@ const AgentList: React.FC = () => {
       dataIndex: 'updatedAt',
       key: 'updatedAt',
       render: (text: string) => new Date(text).toLocaleString(),
-      sorter: (a: ConfigItem, b: ConfigItem) => 
-        new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+      sorter: (a: ConfigItem, b: ConfigItem) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
     },
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: unknown, record: ConfigItem) => (
+      render: (_: any, record: ConfigItem) => (
         <Space size="small">
           <Tooltip title="Edit">
-            <Button 
-              icon={<EditOutlined />} 
-              onClick={() => handleEdit(record)} 
-              type="text"
-            />
+            <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
           </Tooltip>
           <Tooltip title="Duplicate">
-            <Button 
-              icon={<CopyOutlined />} 
-              onClick={() => handleDuplicate(record)} 
-              type="text"
-            />
+            <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
           </Tooltip>
           <Tooltip title="Export">
-            <Button 
-              icon={<ExportOutlined />} 
-              onClick={() => handleExport(record)} 
-              type="text"
-            />
+            <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
           </Tooltip>
           <Tooltip title="Delete">
             <Popconfirm
-              title="Are you sure you want to delete this agent configuration?"
+              title="Are you sure you want to delete this agent?"
               onConfirm={() => handleDelete(record.id)}
               okText="Yes"
               cancelText="No"
             >
-              <Button 
-                icon={<DeleteOutlined />} 
-                type="text"
-                danger
-              />
+              <Button icon={<DeleteOutlined />} size="small" danger />
             </Popconfirm>
           </Tooltip>
         </Space>
@@ -212,38 +188,31 @@ const AgentList: React.FC = () => {
   ];
 
   return (
-    <Card title="Agent Configurations" extra={
-      <Space>
-        <Input.Search
-          placeholder="Search agents"
-          onSearch={handleSearch}
-          onChange={(e) => handleSearch(e.target.value)}
-          style={{ width: 250 }}
-        />
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />} 
-          onClick={handleCreate}
-        >
-          Create Agent
-        </Button>
-      </Space>
-    }>
-      <Table 
-        columns={columns} 
-        dataSource={filteredAgents} 
+    <Card 
+      title="Agent Configurations" 
+      extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>Create New</Button>}
+    >
+      <Input.Search
+        placeholder="Search agents"
+        onChange={handleSearch}
+        style={{ marginBottom: 16 }}
+      />
+      
+      <Table
+        columns={columns}
+        dataSource={filteredAgents}
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10 }}
       />
-
+      
       <Modal
-        title={currentAgent ? "Edit Agent Configuration" : "Create Agent Configuration"}
+        title={currentAgent ? "Edit Agent" : "Create Agent"}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
         width={800}
-        confirmLoading={loading}
+        destroyOnClose
       >
         <Card title="Configuration Metadata" style={{ marginBottom: 16 }}>
           <Form
@@ -273,7 +242,6 @@ const AgentList: React.FC = () => {
           <AgentForm 
             value={formValues} 
             onChange={setFormValues}
-            environmentConfig={{}}
           />
         </Card>
       </Modal>

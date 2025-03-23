@@ -6,13 +6,12 @@ import { ConfigProvider, ThemeConfig } from 'antd'
 import RootLayout from './Layout'
 import Console from './pages/Console/index'
 import Replay from './pages/Replay/index'
-import Survey from './pages/Survey'
+import Survey from './pages/Survey/index'
 import EnvironmentList from './pages/Console/EnvironmentList'
 import AgentList from './pages/Console/AgentList'
 import WorkflowList from './pages/Console/WorkflowList'
 import MapList from './pages/Console/MapList'
 import CreateExperiment from './pages/Console/CreateExperiment'
-import ExperimentTemplateList from './pages/Console/ExperimentTemplateList'
 import Home from './pages/Home'
 import storageService from './services/storageService'
 import enUS from 'antd/locale/en_US'
@@ -53,10 +52,6 @@ const router = createBrowserRouter([
     {
         path: "/maps",
         element: <RootLayout selectedKey='/maps'><MapList /></RootLayout>,
-    },
-    {
-        path: "/experiments",
-        element: <RootLayout selectedKey='/experiments'><ExperimentTemplateList /></RootLayout>,
     },
     {
         path: "*",

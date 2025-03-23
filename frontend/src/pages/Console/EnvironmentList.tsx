@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
-import EnvironmentForm from '../ExperimentConfig/components/EnvironmentForm';
+import EnvironmentForm from './EnvironmentForm';
 import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
+import configService from '../../services/configService';
+import { SimConfig } from '../../types/config';
 
 const EnvironmentList: React.FC = () => {
   const [environments, setEnvironments] = useState<ConfigItem[]>([]);
@@ -10,10 +12,10 @@ const EnvironmentList: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentEnvironment, setCurrentEnvironment] = useState<ConfigItem | null>(null);
-  const [formValues, setFormValues] = useState<Record<string, unknown>>({});
+  const [formValues, setFormValues] = useState<Partial<SimConfig>>({});
   const [metaForm] = Form.useForm();
 
-  // 加载环境配置
+  // Load environment configurations
   const loadEnvironments = async () => {
     setLoading(true);
     try {
@@ -27,7 +29,7 @@ const EnvironmentList: React.FC = () => {
     }
   };
 
-  // 初始化数据
+  // Initialize data
   useEffect(() => {
     const init = async () => {
       await storageService.initializeExampleData();
@@ -36,61 +38,68 @@ const EnvironmentList: React.FC = () => {
     init();
   }, []);
 
-  const handleSearch = (value: string) => {
-    setSearchText(value);
+  // Handle search
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchText(e.target.value);
   };
 
+  // Filter environments based on search text
   const filteredEnvironments = environments.filter(env => 
     env.name.toLowerCase().includes(searchText.toLowerCase()) || 
     (env.description && env.description.toLowerCase().includes(searchText.toLowerCase()))
   );
 
+  // Handle create new environment
   const handleCreate = () => {
     setCurrentEnvironment(null);
-    setFormValues({});
-    metaForm.resetFields();
-    setIsModalVisible(true);
-  };
-
-  const handleEdit = (record: ConfigItem) => {
-    setCurrentEnvironment(record);
-    setFormValues(record.config);
+    setFormValues(configService.getDefaultConfigs().environment);
     metaForm.setFieldsValue({
-      name: record.name,
-      description: record.description || ''
+      name: `Environment ${environments.length + 1}`,
+      description: ''
     });
     setIsModalVisible(true);
   };
 
-  const handleDuplicate = (record: ConfigItem) => {
+  // Handle edit environment
+  const handleEdit = (environment: ConfigItem) => {
+    setCurrentEnvironment(environment);
+    setFormValues(environment.config);
+    metaForm.setFieldsValue({
+      name: environment.name,
+      description: environment.description
+    });
+    setIsModalVisible(true);
+  };
+
+  // Handle duplicate environment
+  const handleDuplicate = (environment: ConfigItem) => {
     setCurrentEnvironment(null);
-    setFormValues({
-      ...record.config
-    });
+    setFormValues(environment.config);
     metaForm.setFieldsValue({
-      name: `Copy of ${record.name}`,
-      description: record.description || ''
+      name: `${environment.name} (Copy)`,
+      description: environment.description
     });
     setIsModalVisible(true);
   };
 
+  // Handle delete environment
   const handleDelete = async (id: string) => {
     try {
-      setLoading(true);
       await storageService.deleteConfig(STORAGE_KEYS.ENVIRONMENTS, id);
       message.success('Environment deleted successfully');
-      await loadEnvironments();
-    } catch {
+      loadEnvironments();
+    } catch (error) {
       message.error('Failed to delete environment');
-      setLoading(false);
+      console.error(error);
     }
   };
 
-  const handleExport = (record: ConfigItem) => {
-    const dataStr = JSON.stringify(record.config, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+  // Handle export environment
+  const handleExport = (environment: ConfigItem) => {
+    const dataStr = JSON.stringify(environment, null, 2);
+    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
     
-    const exportFileDefaultName = `${record.name.replace(/\s+/g, '_')}_environment.json`;
+    const exportFileDefaultName = `${environment.name.replace(/\s+/g, '_')}_environment.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -98,53 +107,37 @@ const EnvironmentList: React.FC = () => {
     linkElement.click();
   };
 
+  // Handle modal OK
   const handleModalOk = async () => {
     try {
-      // 验证元数据表单
+      // Validate meta form
       const metaValues = await metaForm.validateFields();
       
-      setLoading(true);
+      const configData: ConfigItem = {
+        id: currentEnvironment?.id || `env_${Date.now()}`,
+        name: metaValues.name,
+        description: metaValues.description || '',
+        config: formValues,
+        createdAt: currentEnvironment?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
       
-      const configToSave: ConfigItem = currentEnvironment 
-        ? { 
-            ...currentEnvironment, 
-            name: metaValues.name,
-            description: metaValues.description,
-            config: formValues,
-            updatedAt: new Date().toISOString()
-          } 
-        : {
-            id: Date.now().toString(),
-            name: metaValues.name,
-            description: metaValues.description,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            config: formValues
-          };
+      await storageService.saveConfig(STORAGE_KEYS.ENVIRONMENTS, configData);
       
-      await storageService.saveConfig(STORAGE_KEYS.ENVIRONMENTS, configToSave);
-      
-      message.success(currentEnvironment 
-        ? 'Environment updated successfully' 
-        : 'Environment created successfully'
-      );
-      
+      message.success(`Environment ${currentEnvironment ? 'updated' : 'created'} successfully`);
       setIsModalVisible(false);
-      await loadEnvironments();
+      loadEnvironments();
     } catch (error) {
-      if (error instanceof Error) {
-        message.error(`Failed to save environment: ${error.message}`);
-      } else {
-        message.error('Failed to save environment');
-      }
-      setLoading(false);
+      console.error('Validation failed:', error);
     }
   };
 
+  // Handle modal cancel
   const handleModalCancel = () => {
     setIsModalVisible(false);
   };
 
+  // Table columns
   const columns = [
     {
       title: 'Name',
@@ -163,34 +156,21 @@ const EnvironmentList: React.FC = () => {
       dataIndex: 'updatedAt',
       key: 'updatedAt',
       render: (text: string) => new Date(text).toLocaleString(),
-      sorter: (a: ConfigItem, b: ConfigItem) => 
-        new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+      sorter: (a: ConfigItem, b: ConfigItem) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
     },
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: unknown, record: ConfigItem) => (
+      render: (_: any, record: ConfigItem) => (
         <Space size="small">
           <Tooltip title="Edit">
-            <Button 
-              icon={<EditOutlined />} 
-              onClick={() => handleEdit(record)} 
-              type="text"
-            />
+            <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
           </Tooltip>
           <Tooltip title="Duplicate">
-            <Button 
-              icon={<CopyOutlined />} 
-              onClick={() => handleDuplicate(record)} 
-              type="text"
-            />
+            <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
           </Tooltip>
           <Tooltip title="Export">
-            <Button 
-              icon={<ExportOutlined />} 
-              onClick={() => handleExport(record)} 
-              type="text"
-            />
+            <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
           </Tooltip>
           <Tooltip title="Delete">
             <Popconfirm
@@ -199,11 +179,7 @@ const EnvironmentList: React.FC = () => {
               okText="Yes"
               cancelText="No"
             >
-              <Button 
-                icon={<DeleteOutlined />} 
-                type="text"
-                danger
-              />
+              <Button icon={<DeleteOutlined />} size="small" danger />
             </Popconfirm>
           </Tooltip>
         </Space>
@@ -212,38 +188,31 @@ const EnvironmentList: React.FC = () => {
   ];
 
   return (
-    <Card title="Environment Configurations" extra={
-      <Space>
-        <Input.Search
-          placeholder="Search environments"
-          onSearch={handleSearch}
-          onChange={(e) => handleSearch(e.target.value)}
-          style={{ width: 250 }}
-        />
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />} 
-          onClick={handleCreate}
-        >
-          Create Environment
-        </Button>
-      </Space>
-    }>
-      <Table 
-        columns={columns} 
-        dataSource={filteredEnvironments} 
+    <Card 
+      title="Environment Configurations" 
+      extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>Create New</Button>}
+    >
+      <Input.Search
+        placeholder="Search environments"
+        onChange={handleSearch}
+        style={{ marginBottom: 16 }}
+      />
+      
+      <Table
+        columns={columns}
+        dataSource={filteredEnvironments}
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10 }}
       />
-
+      
       <Modal
         title={currentEnvironment ? "Edit Environment" : "Create Environment"}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
         width={800}
-        confirmLoading={loading}
+        destroyOnClose
       >
         <Card title="Configuration Metadata" style={{ marginBottom: 16 }}>
           <Form
@@ -272,7 +241,7 @@ const EnvironmentList: React.FC = () => {
         <Card title="Environment Settings">
           <EnvironmentForm 
             value={formValues} 
-            onChange={setFormValues} 
+            onChange={setFormValues}
           />
         </Card>
       </Modal>
