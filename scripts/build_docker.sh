@@ -43,7 +43,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "Script directory: $SCRIPT_DIR"
 
 # Get project root directory
-PROJECT_ROOT="$( cd "$SCRIPT_DIR/../../.." && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 echo "Project root directory: $PROJECT_ROOT"
 
 # Check project structure
@@ -54,21 +54,9 @@ if [ ! -f "$PROJECT_ROOT/Dockerfile" ]; then
     exit 1
 fi
 
-# Copy entrypoint.sh to project root directory
-cp "$SCRIPT_DIR/entrypoint.sh" "$PROJECT_ROOT/"
-
-# Change to project root directory
-cd "$PROJECT_ROOT"
-
-# Ensure entrypoint.sh has execute permission
-chmod +x entrypoint.sh
-
 # Build Docker image
 echo "Building Docker image..."
 docker build -t $TAG -f "$PROJECT_ROOT/Dockerfile" "$PROJECT_ROOT"
-
-# Clean up temporary files
-rm -f "$PROJECT_ROOT/entrypoint.sh"
 
 # Check build result
 if [ $? -eq 0 ]; then
@@ -76,8 +64,6 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "Usage example:"
     echo "  docker run --rm $TAG --help"
-    echo ""
-    echo "For more information, refer to $SCRIPT_DIR/README.docker.md"
 else
     echo "Docker image build failed"
     exit 1
