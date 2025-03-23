@@ -258,17 +258,17 @@ class AgentSimulation:
         """
         get_logger().setLevel("INFO")
 
-        agent_config = config.prop_agent_config
+        agent_config = config.agent_config
 
         get_logger().info("Creating AgentSimulation Task...")
         simulation = cls(
             config=sim_config,
             agent_class_configs=agent_config.agent_class_configs,
-            metric_extractors=config.prop_metric_extractors,
+            metric_extractors=config.metric_extractors,
             exp_name=config.exp_name,
             logging_level=config.logging_level,
         )
-        environment = config.prop_environment.model_dump()
+        environment = config.environment.model_dump()
         simulation._simulator.set_environment(environment)
         get_logger().info("Initializing Agents...")
         agent_count: dict[type[Agent], int] = {
@@ -363,7 +363,7 @@ class AgentSimulation:
         redis_log_lists = []
         simulator_log_lists = []
         agent_time_log_lists = []
-        for step in config.prop_workflow:
+        for step in config.workflow:
             get_logger().info(
                 f"Running step: type: {step.type} - description: {step.description}"
             )

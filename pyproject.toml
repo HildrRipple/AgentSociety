@@ -29,6 +29,7 @@ dependencies = [
     "fastavro>=1.10.0",
     "geojson>=3.1.0",
     "grpcio>=1.67.1,<2.0.0",
+    "json-with-comments>=1.2.10",
     "langchain-community>=0.3.13",
     "langchain-core>=0.3.28",
     "matplotlib>=3.8.3",
@@ -52,9 +53,6 @@ dependencies = [
     "torch>=2.5.1",
     "transformers>=4.47.1",
     "uvicorn>=0.23.2",
-    "zhipuai>=2.1.5.20230904",
-    "aiodocker>=0.21.0",
-    "json-with-comments>=1.2.10",
 ]
 
 [project.urls]
@@ -65,8 +63,8 @@ Issues = "https://github.com/tsinghua-fib-lab/agentsociety/issues"
 [project.scripts]
 agentsociety-sim = "agentsociety.cli.sim:agentsociety_sim"
 agentsociety-ui = "agentsociety.cli.webui:cli"
-docker-runner = "agentsociety.cli.docker_runner:experiment_runner"
-runner = "agentsociety.cli.runner:main"
+# docker-runner = "agentsociety.cli.docker_runner:experiment_runner"
+# runner = "agentsociety.cli.runner:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

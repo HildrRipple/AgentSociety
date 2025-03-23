@@ -1,9 +1,11 @@
 import logging
 import random
 
+from openai.types.chat import ChatCompletionToolParam
+
 from ...llm import LLM
-from ...workflow import Block, FormatPrompt
 from ...logger import get_logger
+from ...workflow import Block, FormatPrompt
 
 DISPATCHER_PROMPT = """
 Based on the task information (which describes the needs of the user), select the most appropriate block to handle the task.
@@ -43,7 +45,7 @@ class BlockDispatcher:
             block_name = block.__class__.__name__.lower()
             self.blocks[block_name] = block
 
-    def _get_function_schema(self) -> dict:
+    def _get_function_schema(self) -> ChatCompletionToolParam:
         """Generate LLM function calling schema describing available blocks.
 
         Returns:

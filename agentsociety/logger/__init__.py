@@ -9,8 +9,11 @@ __all__ = ["get_logger"]
 
 def get_logger():
     logger = logging.getLogger("agentsociety")
+    # check if there is already a handler, avoid duplicate output
     if not logger.hasHandlers():
         logger.setLevel(logging.INFO)
+        # set propagate to False, avoid duplicate output
+        logger.propagate = False
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )

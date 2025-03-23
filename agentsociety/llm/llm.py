@@ -3,20 +3,22 @@ import logging
 import os
 import random
 import time
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional
 
 import jsonc
-from openai import APIConnectionError, AsyncOpenAI, OpenAI, OpenAIError
-from zhipuai import ZhipuAI
+from openai import NOT_GIVEN, APIConnectionError, AsyncOpenAI, NotGiven, OpenAIError
+from openai.types.chat import (
+    ChatCompletionToolParam,
+    ChatCompletionToolChoiceOptionParam,
+    completion_create_params,
+)
 
 from ..configs import LLMConfig
 from ..logger import get_logger
 from ..utils import LLMProviderType, LLMProviderTypeValues
 from .utils import *
 
-logging.getLogger("zhipuai").setLevel(logging.WARNING)
 os.environ["GRPC_VERBOSITY"] = "ERROR"
-
 
 __all__ = [
     "LLM",
@@ -57,10 +59,9 @@ class LLM:
         self._error_types = {
             "connection_error": 0,
             "openai_error": 0,
-            "zhipuai_error": 0,
             "other_error": 0,
         }
-        self._aclients: List[Union[AsyncOpenAI, ZhipuAI]] = []
+        self._aclients: List[AsyncOpenAI] = []
         self._client_usage = []
 
         for config in self.configs:
@@ -73,35 +74,21 @@ class LLM:
                 base_url = base_url.rstrip("/")
 
             if config.provider == LLMProviderType.OpenAI:
-                client = AsyncOpenAI(api_key=api_key, timeout=300, base_url=base_url)
+                ...
             elif config.provider == LLMProviderType.DeepSeek:
-                client = AsyncOpenAI(
-                    api_key=api_key,
-                    base_url="https://api.deepseek.com/v1",
-                    timeout=300,
-                )
+                base_url = "https://api.deepseek.com/v1"
             elif config.provider == LLMProviderType.Qwen:
-                client = AsyncOpenAI(
-                    api_key=api_key,
-                    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-                    timeout=300,
-                )
+                base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
             elif config.provider == LLMProviderType.SiliconFlow:
-                client = AsyncOpenAI(
-                    api_key=api_key,
-                    base_url="https://api.siliconflow.cn/v1",
-                    timeout=300,
-                )
+                base_url = "https://api.siliconflow.cn/v1"
             elif config.provider == LLMProviderType.VLLM:
-                client = AsyncOpenAI(
-                    api_key=api_key if api_key is not None else "EMPTY",
-                    timeout=300,
-                    base_url=base_url,
-                )
+                ...
             elif config.provider == LLMProviderType.ZhipuAI:
-                client = ZhipuAI(api_key=api_key, timeout=300)
+                base_url = "https://open.bigmodel.cn/api/paas/v4/"
             else:
                 raise ValueError(f"Unsupported `provider` {config.provider}!")
+
+            client = AsyncOpenAI(api_key=api_key, timeout=300, base_url=base_url)
             self._aclients.append(client)
             self._client_usage.append(
                 {
@@ -224,7 +211,7 @@ class LLM:
     async def atext_request(
         self,
         dialog: Any,
-        response_format: Optional[dict[str, Any]] = None,
+        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
         temperature: float = 1,
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
@@ -232,9 +219,9 @@ class LLM:
         presence_penalty: Optional[float] = None,
         timeout: int = 300,
         retries=10,
-        tools: Optional[list[dict[str, Any]]] = None,
-        tool_choice: Optional[dict[str, Any]] = None,
-    ):
+        tools: List[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
+        tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN,
+    ) -> Any:
         """
         Sends an asynchronous text request to the configured LLM API.
 
@@ -266,146 +253,76 @@ class LLM:
         ), "Please set semaphore with `set_semaphore` first!"
         async with self.semaphore:
             for attempt in range(retries):
-                self._total_calls += 1  # 增加总调用次数
+                self._total_calls += 1
                 config, client = self._get_next_client()
-                if type(client) == AsyncOpenAI:
-                    response = None
-                    try:
-                        response = await client.chat.completions.create(
-                            model=config.model,
-                            messages=dialog,
-                            response_format=response_format,
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                            top_p=top_p,
-                            frequency_penalty=frequency_penalty,  # type: ignore
-                            presence_penalty=presence_penalty,  # type: ignore
-                            stream=False,
-                            timeout=timeout,
-                            tools=tools if tools is not None else [],
-                            tool_choice=(
-                                tool_choice if tool_choice is not None else "none"
-                            ),
-                        )  # type: ignore
-                        self._client_usage[self._current_client_index]["prompt_tokens"] += response.usage.prompt_tokens  # type: ignore
-                        self._client_usage[self._current_client_index]["completion_tokens"] += response.usage.completion_tokens  # type: ignore
+                response = None
+                try:
+                    response = await client.chat.completions.create(
+                        model=config.model,
+                        messages=dialog,
+                        response_format=response_format,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        top_p=top_p,
+                        frequency_penalty=frequency_penalty,
+                        presence_penalty=presence_penalty,
+                        stream=False,
+                        timeout=timeout,
+                        tools=tools,
+                        tool_choice=tool_choice,
+                    )
+                    if response.usage is not None:
+                        self._client_usage[self._current_client_index][
+                            "prompt_tokens"
+                        ] += response.usage.prompt_tokens
+                        self._client_usage[self._current_client_index][
+                            "completion_tokens"
+                        ] += response.usage.completion_tokens
                         self._client_usage[self._current_client_index][
                             "request_number"
                         ] += 1
-                        end_time = time.time()
-                        log["consumption"] = end_time - start_time
                         log["input_tokens"] = response.usage.prompt_tokens
                         log["output_tokens"] = response.usage.completion_tokens
-                        self._log_list.append(log)
-                        if tools and response.choices[0].message.tool_calls:
-                            return jsonc.loads(
-                                response.choices[0]
-                                .message.tool_calls[0]
-                                .function.arguments
-                            )
-                        else:
-                            return response.choices[0].message.content
-                    except APIConnectionError as e:
-                        get_logger().warning(
-                            f"API connection error: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
+                    end_time = time.time()
+                    log["consumption"] = end_time - start_time
+                    self._log_list.append(log)
+                    if tools and response.choices[0].message.tool_calls:
+                        return jsonc.loads(
+                            response.choices[0].message.tool_calls[0].function.arguments
                         )
-                        self._total_errors += 1
-                        self._error_types["connection_error"] += 1
-                        if attempt < retries - 1:
-                            await asyncio.sleep(random.random() * 2**attempt)
-                        else:
-                            raise e
-                    except OpenAIError as e:
-                        if hasattr(e, "http_status"):
-                            get_logger().warning(
-                                f"HTTP status code: {e.http_status}. for request {dialog} {tools} {tool_choice}. Retry {attempt+1} of {retries}"  # type: ignore
-                            )  # type: ignore
-                        else:
-                            get_logger().warning(
-                                f"OpenAIError: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
-                            )
-                        self._total_errors += 1
-                        self._error_types["openai_error"] += 1
-                        if attempt < retries - 1:
-                            await asyncio.sleep(random.random() * 2**attempt)
-                        else:
-                            raise e
-                    except Exception as e:
-                        get_logger().warning(
-                            f"LLM Error (OpenAI): `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
-                        )
-                        self._total_errors += 1
-                        self._error_types["other_error"] += 1
-                        if attempt < retries - 1:
-                            await asyncio.sleep(random.random() * 2**attempt)
-                        else:
-                            raise e
-                else:
-                    response = None
-                    try:
-                        client = self._get_next_client()
-                        response = client.chat.asyncCompletions.create(  # type: ignore
-                            model=config.model,
-                            messages=dialog,
-                            temperature=temperature,
-                            top_p=top_p,
-                            timeout=timeout,
-                            tools=tools,
-                            tool_choice=tool_choice,
-                        )
-                        task_id = response.id
-                        task_status = ""
-                        get_cnt = 0
-                        cnt_threshold = int(timeout / 0.5)
-                        while (
-                            task_status != "SUCCESS"
-                            and task_status != "FAILED"
-                            and get_cnt <= cnt_threshold
-                        ):
-                            result_response = client.chat.asyncCompletions.retrieve_completion_result(id=task_id)  # type: ignore
-                            task_status = result_response.task_status
-                            await asyncio.sleep(0.5)
-                            get_cnt += 1
-                        if task_status != "SUCCESS":
-                            raise Exception(f"Task failed with status: {task_status}")
-
-                        self._client_usage[self._current_client_index]["prompt_tokens"] += result_response.usage.prompt_tokens  # type: ignore
-                        self._client_usage[self._current_client_index]["completion_tokens"] += result_response.usage.completion_tokens  # type: ignore
-                        self._client_usage[self._current_client_index][
-                            "request_number"
-                        ] += 1
-                        end_time = time.time()
-                        log["used_time"] = end_time - start_time
-                        log["token_consumption"] = result_response.usage.prompt_tokens + result_response.usage.completion_tokens  # type: ignore
-                        self._log_list.append(log)
-                        if tools and result_response.choices[0].message.tool_calls:  # type: ignore
-                            return jsonc.loads(
-                                result_response.choices[0]  # type: ignore
-                                .message.tool_calls[0]
-                                .function.arguments
-                            )
-                        else:
-                            return result_response.choices[0].message.content  # type: ignore
-                    except APIConnectionError as e:
-                        get_logger().warning(
-                            f"API connection error: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
-                        )
-                        self._total_errors += 1
-                        self._error_types["connection_error"] += 1
-                        if attempt < retries - 1:
-                            await asyncio.sleep(random.random() * 2**attempt)
-                        else:
-                            raise e
-                    except Exception as e:
-                        get_logger().warning(
-                            f"LLM Error: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
-                        )
-                        self._total_errors += 1
-                        self._error_types["zhipuai_error"] += 1
-                        if attempt < retries - 1:
-                            await asyncio.sleep(random.random() * 2**attempt)
-                        else:
-                            raise e
+                    else:
+                        return response.choices[0].message.content
+                except APIConnectionError as e:
+                    get_logger().warning(
+                        f"API connection error: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
+                    )
+                    self._total_errors += 1
+                    self._error_types["connection_error"] += 1
+                    if attempt < retries - 1:
+                        await asyncio.sleep(random.random() * 2**attempt)
+                    else:
+                        raise e
+                except OpenAIError as e:
+                    error_message = str(e)
+                    get_logger().warning(
+                        f"OpenAIError: {error_message} for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
+                    )
+                    self._total_errors += 1
+                    self._error_types["openai_error"] += 1
+                    if attempt < retries - 1:
+                        await asyncio.sleep(random.random() * 2**attempt)
+                    else:
+                        raise e
+                except Exception as e:
+                    get_logger().warning(
+                        f"LLM Error: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
+                    )
+                    self._total_errors += 1
+                    self._error_types["other_error"] += 1
+                    if attempt < retries - 1:
+                        await asyncio.sleep(random.random() * 2**attempt)
+                    else:
+                        raise e
 
     def get_error_statistics(self):
         """
