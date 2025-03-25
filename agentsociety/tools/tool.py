@@ -4,11 +4,9 @@ from collections import defaultdict
 from collections.abc import Callable, Sequence
 from typing import Any, Optional, Union
 
-import ray
 from mlflow.entities import Metric
 
 from ..agent import Agent
-from ..environment import AoiService, PersonService
 from ..utils.decorators import lock_decorator
 from ..workflow import Block
 
@@ -31,7 +29,7 @@ class Tool:
         - `_instance`: A reference to the instance (`Agent` or `Block`) this tool is bound to.
     """
 
-    def __get__(self, instance, owner):
+    def __get__(self, instance: Union[Agent, Block], owner):
         """
         Descriptor method for binding the tool to an instance.
 
@@ -47,14 +45,13 @@ class Tool:
             - Otherwise, it checks if the tool has already been instantiated for this instance,
               and if not, creates and stores a new tool instance specifically for this instance.
         """
-        if instance is None:
-            return self
+        assert instance is not None
         subclass = type(self)
         if not hasattr(instance, "_tools"):
             instance._tools = {}
         if subclass not in instance._tools:
             tool_instance = subclass()
-            tool_instance._instance = instance  # type: ignore
+            tool_instance._instance = instance
             instance._tools[subclass] = tool_instance
         return instance._tools[subclass]
 
@@ -245,7 +242,7 @@ class ExportMlflowMetrics(Tool):
             self.metric_log_cache[metric_key].append(item)
         for metric_key, _cache in self.metric_log_cache.items():
             if len(_cache) > batch_size:
-                client = agent.mlflow_client  # type:ignore
+                client = agent.mlflow_client
                 await client.log_batch(
                     metrics=_cache[:batch_size],
                 )
@@ -260,7 +257,7 @@ class ExportMlflowMetrics(Tool):
         Log any remaining metrics from the cache to MLflow and then clear the cache.
         """
         agent = self.agent
-        client = agent.mlflow_client  # type:ignore
+        client = agent.mlflow_client
         for metric_key, _cache in self.metric_log_cache.items():
             if len(_cache) > 0:
                 await client.log_batch(

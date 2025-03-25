@@ -1,17 +1,16 @@
-import atexit
 import logging
+from multiprocessing import cpu_count
 import os
 import subprocess
-import time
-import warnings
 from subprocess import Popen
-from typing import Optional
 
 import yaml
 
 from ..utils import encode_to_base64, find_free_ports
 
 __all__ = ["ControlSimEnv"]
+
+JOB_NAME = "agentsociety"
 
 
 def _generate_yaml_config(
@@ -38,16 +37,13 @@ def _generate_yaml_config(
 class ControlSimEnv:
     def __init__(
         self,
-        task_name: str,
         map_file: str,
         max_day: int,
         start_step: int,
         total_step: int,
         log_dir: str,
         primary_node_ip: str,
-        timeout: int = 5,
-        max_process: int = 32,
-        sim_addr: Optional[str] = None,
+        max_process: int = cpu_count(),
     ):
         """
         A control environment for managing a agentsociety-sim process.
@@ -56,13 +52,11 @@ class ControlSimEnv:
             - This class sets up and manages a simulation environment using the specified parameters.
             - It can start a new simulation process or connect to an existing one.
         """
-        self._task_name = task_name
         self._map_file = map_file
         self._max_day = max_day
         self._start_step = start_step
         self._total_step = total_step
         self._log_dir = log_dir
-        self._timeout = timeout
         self._primary_node_ip = primary_node_ip
         self._max_procs = max_process
 
@@ -74,65 +68,51 @@ class ControlSimEnv:
         self._sim_proc = None
         os.makedirs(log_dir, exist_ok=True)
 
-        self.sim_addr, self.syncer_addr = self.reset(sim_addr)
+        self.sim_addr, self.syncer_addr = self.init()
 
-    def reset(
-        self,
-        sim_addr: Optional[str] = None,
-    ):
+    def init(self):
         """
-        Reset the simulation environment by either starting a new simulation process or connecting to an existing one.
-
-        - **Args**:
-            - `sim_addr` (`Optional[str]`): Address of an existing simulation to connect to. If `None`, a new simulation is started.
+        Initialize the simulation environment by either starting a new simulation process.
 
         - **Returns**:
-            - `str`: The address of the simulation server.
+            - tuple[str, str]: The address of the simulation server and the syncer server.
 
         - **Raises**:
             - `AssertionError`: If trying to start a new simulation when one is already running.
         """
         syncer_addr = ""
-        if sim_addr is None:
-            # 启动agentsociety-sim
-            # agentsociety-sim -config-data configbase64 -job test -listen :51102
-            assert self.sim_port is None
-            assert self._sim_proc is None
-            _ports = find_free_ports(2)
-            self.sim_port, self.syncer_port = _ports
-            config_base64 = encode_to_base64(self._sim_config)
-            # os.environ["GOMAXPROCS"] = str(self._max_procs)
-            sim_addr = self._primary_node_ip.rstrip("/") + f":{self.sim_port}"
-            syncer_addr = f"http://localhost:{self.syncer_port}"
-            self._sim_proc = Popen(
-                [
-                    "agentsociety-sim",
-                    "-config-data",
-                    config_base64,
-                    "-job",
-                    self._task_name,
-                    "-listen",
-                    sim_addr,
-                    "-syncer",
-                    syncer_addr,
-                    "-output",
-                    self._log_dir,
-                    "-cache",
-                    "",
-                    "-log.level",
-                    "info",
-                ],
-            )
-            logging.info(
-                f"start agentsociety-sim at {sim_addr}, PID={self._sim_proc.pid}"
-            )
-            atexit.register(self.close)
-        else:
-            warnings.warn(
-                "Starting the simulator separately will be deprecated",
-                DeprecationWarning,
-            )
-
+        # 启动agentsociety-sim
+        # agentsociety-sim -config-data configbase64 -job test -listen :51102
+        assert self.sim_port is None, "Simulation already running"
+        assert self._sim_proc is None, "Simulation already running"
+        _ports = find_free_ports(2)
+        self.sim_port, self.syncer_port = _ports
+        config_base64 = encode_to_base64(self._sim_config)
+        os.environ["GOMAXPROCS"] = str(self._max_procs)
+        sim_addr = self._primary_node_ip.rstrip("/") + f":{self.sim_port}"
+        syncer_addr = f"http://localhost:{self.syncer_port}"
+        self._sim_proc = Popen(
+            [
+                "agentsociety-sim",
+                "-config-data",
+                config_base64,
+                "-job",
+                JOB_NAME,
+                "-listen",
+                sim_addr,
+                "-syncer",
+                syncer_addr,
+                "-output",
+                self._log_dir,
+                "-cache",
+                "",
+                "-log.level",
+                "info",
+            ],
+            env=os.environ,
+        )
+        logging.info(f"start agentsociety-sim at {sim_addr}, PID={self._sim_proc.pid}")
+        
         return sim_addr, syncer_addr
 
     def close(self):
@@ -151,6 +131,3 @@ class ControlSimEnv:
         # sim
         self.sim_port = None
         self._sim_proc = None
-
-    def __del__(self):
-        self.close()

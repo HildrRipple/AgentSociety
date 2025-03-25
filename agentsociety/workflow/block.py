@@ -6,7 +6,7 @@ import inspect
 from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any, Optional, Union
 
-from ..environment.simulator import Simulator
+from ..environment.environment import Simulator
 from ..llm import LLM
 from ..memory import Memory
 from ..utils.decorators import record_call_aio
@@ -228,7 +228,7 @@ class Block:
         - **Returns**:
             - `Block`: An instance of the Block created from the provided configuration.
         """
-        instance = cls(name=config["name"])  # type: ignore
+        instance = cls(name=config["name"])  # 
         assert isinstance(config["config"], dict)
         for field, value in config["config"].items():
             if field in cls.configurable_fields:
@@ -236,7 +236,7 @@ class Block:
 
         # Recursively create sub-blocks
         for child_config in config.get("children", []):
-            child_block = Block.import_config(child_config)  # type: ignore
+            child_block = Block.import_config(child_config)  # 
             setattr(instance, child_block.name.lower(), child_block)
 
         return instance
@@ -276,7 +276,7 @@ class Block:
         for block_data in config.get("children", []):
             build_or_update_block(block_data)
 
-    async def forward(self):
+    async def forward(self, step, context):
         """
         - **Description**:
             - Each block performs a specific reasoning task. This method should be overridden by subclasses.
@@ -287,17 +287,13 @@ class Block:
         raise NotImplementedError("Subclasses should implement this method")
 
     @property
-    def llm(
-        self,
-    ) -> LLM:
+    def llm(self) -> LLM:
         if self._llm is None:
             raise RuntimeError(f"LLM access before assignment, please `set_llm` first!")
         return self._llm
 
     @property
-    def memory(
-        self,
-    ) -> Memory:
+    def memory(self) -> Memory:
         if self._memory is None:
             raise RuntimeError(
                 f"Memory access before assignment, please `set_memory` first!"
@@ -305,9 +301,7 @@ class Block:
         return self._memory
 
     @property
-    def simulator(
-        self,
-    ) -> Simulator:
+    def simulator(self) -> Simulator:
         if self._simulator is None:
             raise RuntimeError(
                 f"Simulator access before assignment, please `set_simulator` first!"

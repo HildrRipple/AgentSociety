@@ -9,6 +9,7 @@ from google.protobuf.json_format import MessageToDict
 from pycityproto.city.map.v2 import map_pb2
 from shapely.geometry import Point, Polygon
 
+from ..configs import MapConfig
 from ..logger import get_logger
 from .utils.const import POI_CATG_DICT
 
@@ -21,29 +22,22 @@ class MapData:
     Map API
     """
 
-    def __init__(
-        self,
-        pb_path: str,
-        cache_path: Optional[str] = None,
-    ):
+    def __init__(self, config: MapConfig):
         """
         Args:
-        - pb_path (str): pb文件路径, Defaults to None. pb file path.
-        - cache_path (Optional[str]): 缓存文件路径, Defaults to None. Cache file path, Defaults to None.
-
-        Users can init Map with either mongo_uri, mongo_db, mongo_coll or pb_path.
+        - config (MapConfig): Map config, Defaults to None. Map config.
         """
         get_logger().info("Map init")
         map_data = None
         # 1. try to load from cache
-        if cache_path is not None and os.path.exists(cache_path):
+        if config.cache_path is not None and os.path.exists(config.cache_path):
             get_logger().info("Start load cache file")
-            with open(cache_path, "rb") as f:
+            with open(config.cache_path, "rb") as f:
                 map_data = pickle.load(f)
             get_logger().info("Finish load cache file")
         else:
             get_logger().info("No cache file found, start parse pb file")
-            with open(pb_path, "rb") as f:
+            with open(config.file_path, "rb") as f:
                 pb = map_pb2.Map().FromString(f.read())
 
             jsons = []
@@ -87,9 +81,9 @@ class MapData:
                 )
             map_data = self._parse_map(jsons)
             get_logger().info("Finish parse pb file")
-            if cache_path is not None:
+            if config.cache_path is not None:
                 get_logger().info("Start save cache file")
-                with open(cache_path, "wb") as f:
+                with open(config.cache_path, "wb") as f:
                     pickle.dump(map_data, f)
 
         self.header: dict = map_data["header"]
@@ -174,7 +168,7 @@ class MapData:
                 header = data
         assert header is not None, "header is None"
         get_logger().info("Finish parse map data - classify")
-        projector = pyproj.Proj(header["projection"])  # type: ignore
+        projector = pyproj.Proj(header["projection"])  #
         # 处理Aoi的Geos
         get_logger().info("Start process aoi geos")
         for aoi in aois.values():

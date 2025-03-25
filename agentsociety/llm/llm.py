@@ -3,7 +3,7 @@ import logging
 import os
 import random
 import time
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import jsonc
 from openai import NOT_GIVEN, APIConnectionError, AsyncOpenAI, NotGiven, OpenAIError
@@ -11,6 +11,7 @@ from openai.types.chat import (
     ChatCompletionToolParam,
     ChatCompletionToolChoiceOptionParam,
     completion_create_params,
+    ChatCompletionMessageParam,
 )
 
 from ..configs import LLMConfig
@@ -39,7 +40,7 @@ class LLM:
         Initializes the LLM instance.
 
         - **Parameters**:
-            - `config`: An instance of `LLMConfig` containing configuration settings for the LLM.
+            - `configs`: An instance of `LLMConfig` containing configuration settings for the LLM.
         """
         if len(configs) == 0:
             raise ValueError(
@@ -50,7 +51,6 @@ class LLM:
         self.prompt_tokens_used = 0
         self.completion_tokens_used = 0
         self.request_number = 0
-        self.semaphore = asyncio.Semaphore(200)
         self._current_client_index = 0
         self._log_list = []
         # statistics about errors
@@ -61,7 +61,7 @@ class LLM:
             "openai_error": 0,
             "other_error": 0,
         }
-        self._aclients: List[AsyncOpenAI] = []
+        self._aclients: List[Tuple[AsyncOpenAI, asyncio.Semaphore]] = []
         self._client_usage = []
 
         for config in self.configs:
@@ -89,7 +89,7 @@ class LLM:
                 raise ValueError(f"Unsupported `provider` {config.provider}!")
 
             client = AsyncOpenAI(api_key=api_key, timeout=300, base_url=base_url)
-            self._aclients.append(client)
+            self._aclients.append((client, asyncio.Semaphore(config.semaphore)))
             self._client_usage.append(
                 {
                     "prompt_tokens": 0,
@@ -98,26 +98,16 @@ class LLM:
                 }
             )
 
+    async def close(self):
+        """Close the LLM instance."""
+        for client, _ in self._aclients:
+            await client.close()
+
     def get_log_list(self):
         return self._log_list
 
     def clear_log_list(self):
         self._log_list = []
-
-    def set_semaphore(self, number_of_coroutine: int):
-        """
-        Sets the semaphore for controlling concurrent coroutines.
-
-        - **Parameters**:
-            - `number_of_coroutine`: The maximum number of concurrent coroutines allowed.
-        """
-        self.semaphore = asyncio.Semaphore(number_of_coroutine)
-
-    def clear_semaphore(self):
-        """
-        Clears the semaphore setting.
-        """
-        self.semaphore = None
 
     def clear_used(self):
         """
@@ -210,7 +200,7 @@ class LLM:
 
     async def atext_request(
         self,
-        dialog: Any,
+        dialog: list[ChatCompletionMessageParam],
         response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
         temperature: float = 1,
         max_tokens: Optional[int] = None,
@@ -231,7 +221,7 @@ class LLM:
 
         - **Parameters**:
             - `dialog`: Messages to send as part of the chat completion request.
-            - `response_format`: JSON schema for the response. Default is None.
+            - `response_format`: JSON schema for the response. Default is NOT_GIVEN.
             - `temperature`: Controls randomness in the model's output. Default is 1.
             - `max_tokens`: Maximum number of tokens to generate in the response. Default is None.
             - `top_p`: Limits the next token selection to a subset of tokens with a cumulative probability above this value. Default is None.
@@ -239,8 +229,8 @@ class LLM:
             - `presence_penalty`: Penalizes new tokens based on whether they appear in the text so far. Default is None.
             - `timeout`: Request timeout in seconds. Default is 300 seconds.
             - `retries`: Number of retry attempts in case of failure. Default is 10.
-            - `tools`: List of dictionaries describing the tools that can be called by the model. Default is None.
-            - `tool_choice`: Dictionary specifying how the model should choose from the provided tools. Default is None.
+            - `tools`: List of dictionaries describing the tools that can be called by the model. Default is NOT_GIVEN.
+            - `tool_choice`: Dictionary specifying how the model should choose from the provided tools. Default is NOT_GIVEN.
 
         - **Returns**:
             - A string containing the message content or a dictionary with tool call arguments if tools are used.
@@ -248,14 +238,11 @@ class LLM:
         """
         start_time = time.time()
         log = {"request_time": start_time}
-        assert (
-            self.semaphore is not None
-        ), "Please set semaphore with `set_semaphore` first!"
-        async with self.semaphore:
-            for attempt in range(retries):
-                self._total_calls += 1
-                config, client = self._get_next_client()
-                response = None
+        for attempt in range(retries):
+            self._total_calls += 1
+            config, (client, semaphore) = self._get_next_client()
+            response = None
+            async with semaphore:
                 try:
                     response = await client.chat.completions.create(
                         model=config.model,
@@ -344,3 +331,24 @@ class LLM:
             stats[f"{error_type}"] = count
 
         return stats
+
+
+if __name__ == "__main__":
+
+    import asyncio
+    async def main():
+        configs = [
+                LLMConfig(
+                provider=LLMProviderType.DeepSeek,
+                api_key=os.getenv("DEEPSEEK_API_KEY", ""),
+                model="deepseek-chat",
+                base_url=None,
+                semaphore=1,
+            )
+        ]
+        llm = LLM(configs)
+
+        resp = await llm.atext_request([{"role": "user", "content": "Hello, world!"}])
+        print(resp)
+
+    asyncio.run(main())

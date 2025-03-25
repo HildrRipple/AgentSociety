@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from typing import Any
 
 import psycopg
@@ -7,17 +6,127 @@ import psycopg.sql
 import ray
 from psycopg.rows import dict_row
 
-from ...utils.decorators import lock_decorator
-from ...utils.pg_query import PGSQL_DICT, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-from ...logger import get_logger
+from ..utils.decorators import lock_decorator
+from ..logger import get_logger
+
+__all__ = ["PgWriter"]
+
+TABLE_PREFIX = "as_"
+
+PGSQL_DICT: dict[str, list[Any]] = {
+    # Experiment
+    "experiment": [
+        """
+    CREATE TABLE IF NOT EXISTS {table_name} (
+        tenant_id TEXT,
+        id UUID,
+        name TEXT,
+        num_day INT4,
+        status INT4, 
+        cur_day INT4,
+        cur_t FLOAT,
+        config TEXT,
+        error TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (tenant_id, id)
+    )
+""",
+    ],
+    # Agent Profile
+    "agent_profile": [
+        """
+    CREATE TABLE IF NOT EXISTS {table_name} (
+        id INT PRIMARY KEY,
+        name TEXT,
+        profile JSONB
+    )
+""",
+    ],
+    # Global Prompt
+    "global_prompt": [
+        """
+    CREATE TABLE IF NOT EXISTS {table_name} (
+        day INT4,
+        t FLOAT,
+        prompt TEXT,
+        created_at TIMESTAMPTZ
+    )
+""",
+        "CREATE INDEX {table_name}_day_t_idx ON {table_name} (day,t)",
+    ],
+    # Agent Dialog
+    "agent_dialog": [
+        """
+    CREATE TABLE IF NOT EXISTS {table_name} (
+        id INT,
+        day INT4,
+        t FLOAT,
+        type INT4,
+        speaker TEXT,
+        content TEXT,
+        created_at TIMESTAMPTZ
+    )
+""",
+        "CREATE INDEX {table_name}_id_idx ON {table_name} (id)",
+        "CREATE INDEX {table_name}_day_t_idx ON {table_name} (day,t)",
+    ],
+    # Agent Status
+    "agent_status": [
+        """
+    CREATE TABLE IF NOT EXISTS {table_name} (
+        id INT,
+        day INT4,
+        t FLOAT,
+        lng DOUBLE PRECISION,
+        lat DOUBLE PRECISION,
+        parent_id INT4,
+        friend_ids INT[],
+        action TEXT,
+        status JSONB,
+        created_at TIMESTAMPTZ
+    )
+""",
+        "CREATE INDEX {table_name}_id_idx ON {table_name} (id)",
+        "CREATE INDEX {table_name}_day_t_idx ON {table_name} (day,t)",
+    ],
+    # Agent Survey
+    "agent_survey": [
+        """
+    CREATE TABLE IF NOT EXISTS {table_name} (
+        id INT,
+        day INT4,
+        t FLOAT,
+        survey_id UUID,
+        result JSONB,
+        created_at TIMESTAMPTZ
+    )
+""",
+        "CREATE INDEX {table_name}_id_idx ON {table_name} (id)",
+        "CREATE INDEX {table_name}_day_t_idx ON {table_name} (day,t)",
+    ],
+}
+TO_UPDATE_EXP_INFO_KEYS_AND_TYPES: list[tuple[str, Any]] = [
+    ("tenant_id", str),
+    ("id", None),
+    ("name", str),
+    ("num_day", int),
+    ("status", int),
+    ("cur_day", int),
+    ("cur_t", float),
+    ("config", str),
+    ("error", str),
+    ("created_at", None),
+    ("updated_at", None),
+]
 
 
-def create_pg_tables(exp_id: str, dsn: str):
+def _create_pg_tables(exp_id: str, dsn: str):
     for table_type, exec_strs in PGSQL_DICT.items():
         if not table_type == "experiment":
-            table_name = f"as_{exp_id.replace('-', '_')}_{table_type}"
+            table_name = f"{TABLE_PREFIX}{exp_id.replace('-', '_')}_{table_type}"
         else:
-            table_name = f"as_{table_type}"
+            table_name = f"{TABLE_PREFIX}{table_type}"
         # # debug str
         # for _str in [f"DROP TABLE IF EXISTS {table_name}"] + [
         #     _exec_str.format(table_name=table_name) for _exec_str in exec_strs
@@ -42,15 +151,27 @@ def create_pg_tables(exp_id: str, dsn: str):
 
 @ray.remote
 class PgWriter:
-    def __init__(self, exp_id: str, dsn: str):
+    def __init__(self, tenant_id: str, exp_id: str, dsn: str, init: bool):
+        """
+        Initialize the PgWriter.
+
+        - **Args**:
+            - `tenant_id` (str): The ID of the tenant.
+            - `exp_id` (str): The ID of the experiment.
+            - `dsn` (str): The DSN of the PostgreSQL database.
+            - `init` (bool): Whether to initialize the PostgreSQL tables.
+        """
+        self.tenant_id = tenant_id
         self.exp_id = exp_id
         self._dsn = dsn
         self._lock = asyncio.Lock()
+        if init:
+            _create_pg_tables(exp_id, dsn)
 
     @lock_decorator
-    async def async_write_dialog(self, rows: list[tuple]):
+    async def write_dialog(self, rows: list[tuple]):
         _tuple_types = [int, int, float, int, str, str, str, None]
-        table_name = f"as_{self.exp_id.replace('-', '_')}_agent_dialog"
+        table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_agent_dialog"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
                 "COPY {} (id, day, t, type, speaker, content, created_at) FROM STDIN"
@@ -68,9 +189,9 @@ class PgWriter:
             get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
-    async def async_write_status(self, rows: list[tuple]):
+    async def write_status(self, rows: list[tuple]):
         _tuple_types = [int, int, float, float, float, int, list, str, str, None]
-        table_name = f"as_{self.exp_id.replace('-', '_')}_agent_status"
+        table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_agent_status"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
                 "COPY {} (id, day, t, lng, lat, parent_id, friend_ids, action, status, created_at) FROM STDIN"
@@ -88,9 +209,9 @@ class PgWriter:
             get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
-    async def async_write_profile(self, rows: list[tuple]):
+    async def write_profile(self, rows: list[tuple]):
         _tuple_types = [int, str, str]
-        table_name = f"as_{self.exp_id.replace('-', '_')}_agent_profile"
+        table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_agent_profile"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL("COPY {} (id, name, profile) FROM STDIN").format(
                 psycopg.sql.Identifier(table_name)
@@ -108,9 +229,9 @@ class PgWriter:
             get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
-    async def async_write_survey(self, rows: list[tuple]):
+    async def write_survey(self, rows: list[tuple]):
         _tuple_types = [str, int, int, float, str, str, None]
-        table_name = f"as_{self.exp_id.replace('-', '_')}_agent_survey"
+        table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_agent_survey"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
                 "COPY {} (id, day, t, survey_id, result, created_at) FROM STDIN"
@@ -128,8 +249,8 @@ class PgWriter:
             get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
-    async def async_save_global_prompt(self, prompt_info: dict[str, Any]):
-        table_name = f"as_{self.exp_id.replace('-', '_')}_global_prompt"
+    async def save_global_prompt(self, prompt_info: dict[str, Any]):
+        table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_global_prompt"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             async with aconn.cursor() as cur:
                 copy_sql = psycopg.sql.SQL(
@@ -146,9 +267,9 @@ class PgWriter:
                 get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {row}")
 
     @lock_decorator
-    async def async_update_exp_info(self, exp_info: dict[str, Any]):
+    async def update_exp_info(self, exp_info: dict[str, Any]):
         # timestamp不做类型转换
-        table_name = f"as_experiment"
+        table_name = f"{TABLE_PREFIX}experiment"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             async with aconn.cursor(row_factory=dict_row) as cur:
                 exec_str = "SELECT * FROM {table_name} WHERE id=%s".format(

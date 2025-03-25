@@ -258,7 +258,7 @@ class EconomyBlock(Block):
             [self.work_block, self.consumption_block, self.none_block]
         )
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):
         """Coordinate economic activity execution.
 
         Workflow:
@@ -267,7 +267,7 @@ class EconomyBlock(Block):
         """
         self.trigger_time += 1
         selected_block = await self.dispatcher.dispatch(step)
-        result = await selected_block.forward(step, context)  # type: ignore
+        result = await selected_block.forward(step, context)
         return result
 
 

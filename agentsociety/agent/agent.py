@@ -9,7 +9,9 @@ from typing import Any, Optional
 import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
-from ..environment import EconomyClient, Simulator
+from ..environment.sim.person_service import PersonService
+
+from ..environment import EconomyClient, Environment
 from ..llm import LLM
 from ..logger import get_logger
 from ..memory import Memory
@@ -39,13 +41,11 @@ class CitizenAgent(Agent):
     def __init__(
         self,
         name: str,
-        llm_client: Optional[LLM] = None,
-        simulator: Optional[Simulator] = None,
-        memory: Optional[Memory] = None,
-        economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,  # type:ignore
-        message_interceptor: Optional[MessageInterceptor] = None,  # type:ignore
-        avro_file: Optional[dict] = None,
+        memory: Memory,
+        llm: LLM,
+        environment: Environment,
+        messager: Messager,
+        message_interceptor: ray.ObjectRef,
     ) -> None:
         """
         Initialize a new instance of the CitizenAgent.
@@ -110,7 +110,7 @@ class CitizenAgent(Agent):
         }
         simulator = self.simulator
         status = self.status
-        dict_person = deepcopy(self._person_template)
+        dict_person = PersonService.default_dict_person()
         for _key in FROM_MEMORY_KEYS:
             try:
                 _value = await status.get(_key)
@@ -403,7 +403,7 @@ class InstitutionAgent(Agent):
         futures = {}
         for agent_id in agent_ids:
             futures[agent_id] = asyncio.Future()
-            self._gather_responses[agent_id] = futures[agent_id]  # type: ignore
+            self._gather_responses[agent_id] = futures[agent_id]  #
 
         # Send gather requests
         payload = {

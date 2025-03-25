@@ -1,0 +1,866 @@
+"""
+A clear version of the simulation.
+"""
+
+__all__ = ["AgentSociety"]
+
+import asyncio
+import inspect
+import time
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Callable, Literal, Optional, Type, cast
+
+import ray
+import yaml
+
+from ..agent import Agent
+from ..cityagent import (
+    BankAgent,
+    FirmAgent,
+    GovernmentAgent,
+    NBSAgent,
+    SocietyAgent,
+    memory_config_bank,
+    memory_config_firm,
+    memory_config_government,
+    memory_config_nbs,
+    memory_config_societyagent,
+)
+from ..cityagent.initial import bind_agent_info, initialize_social_network
+from ..cityagent.memory_config import Distribution, MemoryConfigGenerator
+from ..configs import AgentConfig, Config, MetricExtractorConfig
+from ..environment import EnvironmentStarter
+from ..logger import get_logger, set_logger_level
+from ..message import Messager
+from ..metrics import MlflowClient
+from ..storage import AvroSaver
+from ..storage.pgsql import TO_UPDATE_EXP_INFO_KEYS_AND_TYPES, PgWriter
+from ..survey.models import Survey
+from ..utils import NONE_SENDER_ID, AgentClassType
+from ..utils.config_const import MetricType
+from .agentgroupv2 import AgentGroupV2
+
+__all__ = ["AgentSociety"]
+
+
+def _map_agent_class(agent_config: AgentConfig) -> type[Agent]:
+    """
+    Map the str of agent class to the actual class
+    """
+    if isinstance(agent_config.agent_class, str):
+        if agent_config.agent_class == AgentClassType.CITIZEN:
+            return SocietyAgent
+        elif agent_config.agent_class == AgentClassType.FIRM:
+            return FirmAgent
+        elif agent_config.agent_class == AgentClassType.GOVERNMENT:
+            return GovernmentAgent
+        elif agent_config.agent_class == AgentClassType.BANK:
+            return BankAgent
+        elif agent_config.agent_class == AgentClassType.NBS:
+            return NBSAgent
+        else:
+            raise ValueError(f"Invalid agent class: {agent_config.agent_class}")
+    else:
+        return agent_config.agent_class
+
+
+def _init_agent_class(agent_config: AgentConfig):
+    """
+    Initialize the agent class.
+
+    - **Args**:
+        - `agent_config` (AgentConfig): The agent configuration.
+
+    - **Returns**:
+        - `agents`: A list of tuples, each containing an agent class, a memory config generator, and an index.
+    """
+    agent_class = _map_agent_class(agent_config)
+    n = agent_config.number
+    # memory config function
+    memory_config_func = cast(
+        Callable[
+            [dict[str, Distribution]],
+            tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
+        ],
+        agent_config.memory_config_func,
+    )
+    if memory_config_func is None:
+        # use default memory config
+        if agent_class == SocietyAgent:
+            memory_config_func = memory_config_societyagent
+        elif agent_class == FirmAgent:
+            memory_config_func = memory_config_firm
+        elif agent_class == BankAgent:
+            memory_config_func = memory_config_bank
+        elif agent_class == NBSAgent:
+            memory_config_func = memory_config_nbs
+        elif agent_class == GovernmentAgent:
+            memory_config_func = memory_config_government
+    generator = MemoryConfigGenerator(
+        memory_config_func,
+        agent_config.memory_from_file,
+        agent_config.memory_distributions,
+    )
+    # lazy generate memory values
+    agents = [(agent_class, generator, i) for i in range(n)]
+    # TODO: how to use the agent config ??
+    return agents
+
+
+class AgentSociety:
+    def __init__(
+        self,
+        config: Config,
+        tenant_id: str = "",
+    ) -> None:
+        self._config = config
+        self.tenant_id = tenant_id
+
+        # ====================
+        # Initialize the logger
+        # ====================
+        set_logger_level(self._config.logging_level)
+
+        self.exp_id = str(uuid.uuid4())
+        get_logger().info(
+            f"Creating AgentSociety with config: {self._config.model_dump()} as exp_id={self.exp_id}"
+        )
+
+        # typing definition
+        self._environment: Optional[EnvironmentStarter] = None
+        self._messager: Optional[Messager] = None
+        self._avro_saver: Optional[AvroSaver] = None
+        self._mlflow: Optional[MlflowClient] = None
+        self._pgsql_writers: list[ray.ObjectRef] = []
+        self._groups: dict[str, ray.ObjectRef] = {}
+        self._agent_ids: set[int] = set()
+        self._agent_id2group: dict[int, ray.ObjectRef] = {}
+        self._exp_info: dict[str, Any] = {}
+        self._exp_created_time: datetime = datetime.now(timezone.utc)
+        self._exp_updated_time: datetime = datetime.now(timezone.utc)
+        self._total_steps: int = 0
+
+    @property
+    def exp_name(self):
+        return self._config.exp.exp_name
+
+    @property
+    def config(self):
+        return self._config
+
+    async def init(self):
+        """Initialize all the components"""
+
+        # ====================
+        # Initialize the environment
+        # ====================
+        get_logger().info(f"Initializing environment...")
+        self._environment = EnvironmentStarter(
+            self._config.env.map,
+            self._config.env.simulator,
+            self._config.exp.environment,
+        )
+        get_logger().info(f"Environment initialized")
+
+        # ====================
+        # Initialize the messager
+        # ====================
+        get_logger().info(f"Initializing messager...")
+        self._messager = Messager(
+            config=self._config.env.redis,
+            exp_id=self.exp_id,
+        )
+        await self._messager.init()
+        await self._messager.subscribe_and_start_listening(
+            [f"exps:{self.exp_id}:user_payback"]
+        )
+        get_logger().info(f"Messager initialized")
+        # TODO: message_listener and message interceptor
+
+        # ====================
+        # Initialize the avro saver
+        # ====================
+        if self._config.env.avro.enabled:
+            get_logger().info(f"Initializing avro saver...")
+            self._avro_saver = AvroSaver(
+                config=self._config.env.avro,
+                exp_id=self.exp_id,
+                group_id=None,
+            )
+            get_logger().info(f"Avro saver initialized")
+
+        # ====================
+        # Initialize the mlflow
+        # ====================
+        if self._config.env.mlflow.enabled:
+            get_logger().info(f"Initializing mlflow...")
+            self._mlflow = MlflowClient(
+                config=self._config.env.mlflow,
+                exp_name=self.exp_name,
+                exp_id=self.exp_id,
+            )
+            get_logger().info(f"Mlflow initialized")
+
+        # ====================
+        # Initialize the pgsql writer
+        # ====================
+        if self._config.env.pgsql.enabled:
+            self._pgsql_writers = [
+                PgWriter.remote(
+                    self.tenant_id, self.exp_id, self._config.env.pgsql.dsn, (i == 0)
+                )
+                for i in range(self._config.env.pgsql.num_workers)
+            ]
+
+        # ======================================
+        # Initialize agent groups
+        # ======================================
+        get_logger().info(f"Initializing agent groups...")
+        agents = []  # (id, agent_class, generator, memory_index)
+        next_id = 1
+        group_size = self._config.group_size
+        for agent_config in self._config.agents:
+            this_agents = _init_agent_class(agent_config)
+            agents += [(next_id + i, *agent) for i, agent in enumerate(this_agents)]
+            next_id += len(this_agents)
+        self._agent_ids = set([agent[0] for agent in agents])
+        environment_init = self._environment.to_init_args()
+        for i in range(0, len(agents), group_size):
+            group_agents = agents[i : i + group_size]
+            group_id = str(uuid.uuid4())
+            self._groups[group_id] = AgentGroupV2.remote(
+                tenant_id=self.tenant_id,
+                exp_name=self.exp_name,
+                exp_id=self.exp_id,
+                group_id=group_id,
+                config=self._config,
+                agent_inits=group_agents,
+                environment_init=environment_init,
+                message_interceptor=self._messager.message_interceptor,
+                pgsql_writer=(
+                    self._pgsql_writers[i % len(self._pgsql_writers)]
+                    if len(self._pgsql_writers) > 0
+                    else None
+                ),
+                mlflow_run_id=self._mlflow.run_id if self._mlflow is not None else None,
+            )
+            for agent_id in group_agents:
+                self._agent_id2group[agent_id] = self._groups[group_id]
+        await asyncio.gather(*[group.init() for group in self._groups.values()])
+        # get all groups' agent ids
+        # TODO: 看不懂啥意思
+        agent_ids = set()
+        bank_ids = set()
+        nbs_ids = set()
+        government_ids = set()
+        firm_ids = set()
+        for group in self._groups.values():
+            _agent_ids, _bank_ids, _nbs_ids, _government_ids, _firm_ids = (
+                await group.get_economy_ids.remote()
+            )
+            agent_ids.update(_agent_ids)
+            bank_ids.update(_bank_ids)
+            nbs_ids.update(_nbs_ids)
+            government_ids.update(_government_ids)
+            firm_ids.update(_firm_ids)
+        await self._environment.economy_client.set_ids(
+            agent_ids=agent_ids,
+            firm_ids=firm_ids,
+            bank_ids=bank_ids,
+            nbs_ids=nbs_ids,
+            government_ids=government_ids,
+        )
+        for group in self._groups.values():
+            await group.set_economy_ids.remote(
+                agent_ids, firm_ids, bank_ids, nbs_ids, government_ids
+            )
+        get_logger().info(f"Agent groups initialized")
+
+        # ===================================
+        # save the experiment info
+        # ===================================
+        # add experiment info related properties
+        self._exp_created_time = datetime.now(timezone.utc)
+        self._exp_updated_time = datetime.now(timezone.utc)
+        self._exp_info = {
+            "id": self.exp_id,
+            "tenant_id": self.tenant_id,
+            "name": self.exp_name,
+            "num_day": 0,  # will be updated in run method
+            "status": 0,
+            "cur_day": 0,
+            "cur_t": 0.0,
+            "config": str(self._config.model_dump()),
+            "error": "",
+            "created_at": self._exp_created_time.isoformat(),
+            "updated_at": self._exp_updated_time.isoformat(),
+        }
+        if self.enable_avro:
+            assert self._avro_saver is not None
+            self._exp_info_file = self._avro_saver.exp_info_file
+            with open(self._exp_info_file, "w") as f:
+                yaml.dump(self._exp_info, f)
+
+        # ===================================
+        # run init functions
+        # ===================================
+        init_funcs = self._config.init_funcs
+        if init_funcs is None:
+            init_funcs = [bind_agent_info, initialize_social_network]
+        for init_func in init_funcs:
+            if inspect.iscoroutinefunction(init_func):
+                await init_func(self)
+            else:
+                init_func(self)
+
+    async def close(self):
+        """Close all the components"""
+
+        if self._mlflow is not None:
+            self._mlflow.close()
+            self._mlflow = None
+
+        if self._avro_saver is not None:
+            self._avro_saver.close()
+            self._avro_saver = None
+
+        if self._messager is not None:
+            await self._messager.close()
+            self._messager = None
+
+        if self._environment is not None:
+            self._environment.close()
+            self._environment = None
+
+    @property
+    def enable_avro(self):
+        return self._config.env.avro.enabled
+
+    @property
+    def enable_pgsql(self):
+        return self._config.env.pgsql.enabled
+
+    @property
+    def environment(self):
+        assert self._environment is not None, "environment is not initialized"
+        return self._environment
+
+    @property
+    def messager(self):
+        assert self._messager is not None, "messager is not initialized"
+        return self._messager
+
+    @property
+    def mlflow_client(self):
+        assert self._mlflow is not None, "mlflow is not initialized"
+        return self._mlflow
+
+    async def gather(
+        self,
+        content: str,
+        target_agent_ids: Optional[list[int]] = None,
+        flatten: bool = False,
+    ):
+        """
+        Collect specific information from agents.
+
+        - **Description**:
+            - Asynchronously gathers specified content from targeted agents within all groups.
+
+        - **Args**:
+            - `content` (str): The information to collect from the agents.
+            - `target_agent_ids` (Optional[List[int]], optional): A list of agent IDs to target. Defaults to None, meaning all agents are targeted.
+            - `flatten` (bool, optional): Whether to flatten the result. Defaults to False.
+
+        - **Returns**:
+            - Result of the gathering process as returned by each group's `gather` method.
+        """
+        gather_tasks = []
+        for group in self._groups.values():
+            gather_tasks.append(group.gather.remote(content, target_agent_ids))
+        data = await asyncio.gather(*gather_tasks)
+        if flatten:
+            data_flatten = []
+            for group_data in data:
+                for _, data in group_data.items():
+                    data_flatten.extend(data)
+            return data_flatten
+        else:
+            return data
+
+    async def filter(
+        self,
+        types: Optional[list[Type[Agent]]] = None,
+        keys: Optional[list[str]] = None,
+        values: Optional[list[Any]] = None,
+    ) -> list[int]:
+        """
+        Filter out agents of specified types or with matching key-value pairs.
+
+        - **Args**:
+            - `types` (Optional[List[Type[Agent]]], optional): Types of agents to filter for. Defaults to None.
+            - `keys` (Optional[List[str]], optional): Keys to match in agent attributes. Defaults to None.
+            - `values` (Optional[List[Any]], optional): Values corresponding to keys for matching. Defaults to None.
+
+        - **Raises**:
+            - `ValueError`: If neither types nor keys and values are provided, or if the lengths of keys and values do not match.
+
+        - **Returns**:
+            - `List[int]`: A list of filtered agent UUIDs.
+        """
+        if not types and not keys and not values:
+            return list(self._agent_ids)
+        filtered_ids = []
+        if keys:
+            if values is None or len(keys) != len(values):
+                raise ValueError("the length of key and value does not match")
+            for group in self._groups.values():
+                filtered_ids.extend(await group.filter.remote(types, keys, values))
+            return filtered_ids
+        else:
+            for group in self._groups.values():
+                filtered_ids.extend(await group.filter.remote(types))
+            return filtered_ids
+
+    async def update_environment(self, key: str, value: str):
+        """
+        Update the environment variables for the simulation and all agent groups.
+
+        - **Args**:
+            - `key` (str): The environment variable key to update.
+            - `value` (str): The new value for the environment variable.
+        """
+        self.environment.update_environment(key, value)
+        await asyncio.gather(
+            *[
+                group.update_environment.remote(key, value)
+                for group in self._groups.values()
+            ]
+        )
+
+    async def update(self, target_agent_ids: list[int], target_key: str, content: Any):
+        """
+        Update the memory of specified agents.
+
+        - **Args**:
+            - `target_agent_id` (list[int]): The IDs of the target agents to update.
+            - `target_key` (str): The key in the agent's memory to update.
+            - `content` (Any): The new content to set for the target key.
+        """
+        tasks = []
+        for id in target_agent_ids:
+            group = self._agent_id2group[id]
+            tasks.append(group.update.remote(id, target_key, content))
+        await asyncio.gather(*tasks)
+
+    async def economy_update(
+        self,
+        target_agent_id: int,
+        target_key: str,
+        content: Any,
+        mode: Literal["replace", "merge"] = "replace",
+    ):
+        """
+        Update economic data for a specified agent.
+
+        - **Args**:
+            - `target_agent_id` (int): The ID of the target agent whose economic data to update.
+            - `target_key` (str): The key in the agent's economic data to update.
+            - `content` (Any): The new content to set for the target key.
+            - `mode` (Literal["replace", "merge"], optional): Mode of updating the economic data. Defaults to "replace".
+        """
+        await self.environment.economy_client.update(
+            id=target_agent_id, key=target_key, value=content, mode=mode
+        )
+
+    # TODO: bug when send_interview_message and send_survey at the same time
+    async def send_survey(
+        self,
+        survey: Survey,
+        agent_ids: list[int] = [],
+        poll_interval: float = 3,
+        timeout: float = -1,
+    ):
+        """
+        Send a survey to specified agents.
+
+        - **Args**:
+            - `survey` (Survey): The survey object to send.
+            - `agent_ids` (List[int], optional): List of agent IDs to receive the survey. Defaults to an empty list.
+            - `poll_interval` (float, optional): The interval to poll for messages. Defaults to 3 seconds.
+            - `timeout` (float, optional): The timeout for the survey. Defaults to -1 (no timeout).
+
+        - **Returns**:
+            - None
+        """
+        survey_dict = survey.to_dict()
+        _date_time = datetime.now(timezone.utc)
+        payload = {
+            "from": NONE_SENDER_ID,
+            "survey_id": survey_dict["id"],
+            "timestamp": int(_date_time.timestamp() * 1000),
+            "data": survey_dict,
+            "_date_time": _date_time,
+        }
+        tasks = []
+        for id in agent_ids:
+            channel = self.messager.get_user_survey_channel(id)
+            tasks.append(self.messager.send_message.remote(channel, payload))
+        await asyncio.gather(*tasks)
+        remain_payback = len(agent_ids)
+        start_t = time.time()
+        while True:
+            messages = await self.messager.fetch_messages()
+            get_logger().info(f"Received {len(messages)} payback messages [survey]")
+            remain_payback -= len(messages)
+            if remain_payback <= 0:
+                break
+            await asyncio.sleep(poll_interval)
+            if timeout > 0:
+                if time.time() - start_t > timeout:
+                    get_logger().warning(f"Survey timeout after {timeout} seconds")
+                    break
+
+    # TODO: bug when send_interview_message and send_survey at the same time
+    async def send_interview_message(
+        self,
+        content: str,
+        agent_ids: list[int],
+        poll_interval: float = 3,
+        timeout: float = -1,
+    ):
+        """
+        Send an interview message to specified agents.
+
+        - **Args**:
+            - `content` (str): The content of the message to send.
+            - `agent_ids` (list[int]): A list of IDs for the agents to receive the message.
+            - `poll_interval` (float, optional): The interval to poll for messages. Defaults to 3 seconds.
+            - `timeout` (float, optional): The timeout for the survey. Defaults to -1 (no timeout).
+
+        - **Returns**:
+            - None
+        """
+        _date_time = datetime.now(timezone.utc)
+        payload = {
+            "from": NONE_SENDER_ID,
+            "content": content,
+            "timestamp": int(_date_time.timestamp() * 1000),
+            "_date_time": _date_time,
+        }
+        tasks = []
+        for id in agent_ids:
+            channel = self.messager.get_user_chat_channel(id)
+            tasks.append(self.messager.send_message.remote(channel, payload))
+        await asyncio.gather(*tasks)
+        remain_payback = len(agent_ids)
+        start_t = time.time()
+        while True:
+            messages = await self.messager.fetch_messages()
+            get_logger().info(f"Received {len(messages)} payback messages [interview]")
+            remain_payback -= len(messages)
+            if remain_payback <= 0:
+                break
+            await asyncio.sleep(poll_interval)
+            if timeout > 0:
+                if time.time() - start_t > timeout:
+                    get_logger().warning(f"Interview timeout after {timeout} seconds")
+                    break
+
+    async def send_intervention_message(
+        self, intervention_message: str, agent_ids: list[int]
+    ):
+        """
+        Send an intervention message to specified agents.
+
+        - **Description**:
+            - Send an intervention message to specified agents.
+
+        - **Args**:
+            - `intervention_message` (str): The content of the intervention message to send.
+            - `agent_ids` (list[int]): A list of agent IDs to receive the intervention message.
+        """
+        tasks = []
+        for group in self._groups.values():
+            tasks.append(
+                group.react_to_intervention.remote(intervention_message, agent_ids)
+            )
+        await asyncio.gather(*tasks)
+
+    async def extract_metric(self, metric_extractors: list[MetricExtractorConfig]):
+        """
+        Extract metrics using provided extractors.
+
+        - **Description**:
+            - Asynchronously applies each metric extractor function to the simulation to collect various metrics.
+
+        - **Args**:
+            - `metric_extractors` (List[MetricExtractorConfig]): A list of MetricExtractorConfig for extracting metrics from the simulation.
+
+        - **Returns**:
+            - None
+        """
+        for metric_extractor in metric_extractors:
+            if metric_extractor.type == MetricType.FUNCTION:
+                if metric_extractor.func is not None:
+                    await metric_extractor.func(self)
+                else:
+                    raise ValueError("func is not set for metric extractor")
+            elif metric_extractor.type == MetricType.STATE:
+                assert metric_extractor.key is not None
+                values = await self.gather(
+                    metric_extractor.key, metric_extractor.target_agent, flatten=True
+                )
+                if values is None or len(values) == 0:
+                    get_logger().warning(
+                        f"No values found for metric extractor {metric_extractor.key} in extraction step {metric_extractor.extract_time}"
+                    )
+                    return
+                if type(values[0]) == float or type(values[0]) == int:
+                    if metric_extractor.method == "mean":
+                        value = sum(values) / len(values)
+                    elif metric_extractor.method == "sum":
+                        value = sum(values)
+                    elif metric_extractor.method == "max":
+                        value = max(values)
+                    elif metric_extractor.method == "min":
+                        value = min(values)
+                    else:
+                        raise ValueError(
+                            f"method {metric_extractor.method} is not supported"
+                        )
+                    assert (
+                        self.mlflow_client is not None
+                        and metric_extractor.key is not None
+                    )
+                    await self.mlflow_client.log_metric(
+                        key=metric_extractor.key,
+                        value=value,
+                        step=metric_extractor.extract_time,
+                    )
+                else:
+                    raise ValueError(f"values type {type(values[0])} is not supported")
+            metric_extractor.extract_time += 1
+
+    async def _save_exp_info(self) -> None:
+        """Async save experiment info to YAML file"""
+        try:
+            if self.enable_avro:
+                with open(self._exp_info_file, "w") as f:
+                    yaml.dump(self._exp_info, f)
+        except Exception as e:
+            get_logger().error(f"Avro save experiment info failed: {str(e)}")
+        try:
+            if self.enable_pgsql:
+                worker: ray.ObjectRef = self._pgsql_writers[0]
+                pg_exp_info = {
+                    k: self._exp_info[k] for (k, _) in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+                }
+                pg_exp_info["created_at"] = self._exp_created_time
+                pg_exp_info["updated_at"] = self._exp_updated_time
+                await worker.update_exp_info.remote(pg_exp_info)  # type: ignore
+        except Exception as e:
+            get_logger().error(f"PostgreSQL save experiment info failed: {str(e)}")
+
+    async def _update_exp_status(self, status: int, error: str = ""):
+        self._exp_updated_time = datetime.now(timezone.utc)
+        """Update experiment status and save"""
+        self._exp_info["status"] = status
+        self._exp_info["error"] = error
+        self._exp_info["updated_at"] = self._exp_updated_time.isoformat()
+        await self._save_exp_info()
+
+    async def _save_global_prompt(self, prompt: str, day: int, t: float):
+        """Save global prompt"""
+        if self.enable_pgsql:
+            worker: ray.ObjectRef = self._pgsql_writers[0]
+            prompt_info = {
+                "day": day,
+                "t": t,
+                "prompt": prompt,
+                "created_at": datetime.now(timezone.utc),
+            }
+            await worker.save_global_prompt.remote(prompt_info)  # type:ignore
+
+    async def _monitor_exp_status(self, stop_event: asyncio.Event):
+        """Monitor experiment status and update
+
+        - **Args**:
+            stop_event: event for notifying monitor task to stop
+        """
+        try:
+            while not stop_event.is_set():
+                # update experiment status
+                # assume all groups' cur_day and cur_t are synchronized, take the first one
+                assert self._environment is not None
+                self._exp_info["cur_day"] = await self._environment.get_simulator_day()
+                self._exp_info["cur_t"] = (
+                    await self._environment.get_simulator_second_from_start_of_day()
+                )
+                await self._save_exp_info()
+
+                await asyncio.sleep(1)  # avoid too frequent updates
+        except asyncio.CancelledError:
+            # normal cancellation, no special handling needed
+            pass
+        except Exception as e:
+            get_logger().error(f"Error monitoring experiment status: {str(e)}")
+            raise
+
+    # TODO: check it
+    async def step(self, num_simulator_steps: int = 1):
+        """
+        Execute one step of the simulation where each agent performs its forward action.
+
+        - **Description**:
+            - Checks if new agents need to be inserted based on the current day of the simulation. If so, it inserts them.
+            - Executes the forward method for each agent group to advance the simulation by one step.
+            - Saves the state of all agent groups after the step has been completed.
+            - Optionally extracts metrics if the current step matches the interval specified for any metric extractors.
+
+        - **Args**:
+            - `num_simulator_steps` (int): The number of steps for the simulator to step forward.
+
+        - **Raises**:
+            - `RuntimeError`: If there is an error during the execution of the step, it logs the error and rethrows it as a RuntimeError.
+
+        - **Returns**:
+            - None
+        """
+        try:
+            # step
+            simulator_day = await self.environment.get_simulator_day()
+            simulator_time = int(
+                await self.environment.get_simulator_second_from_start_of_day()
+            )
+            get_logger().info(
+                f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}"
+            )
+            tasks = []
+            # TODO: bug here
+            for group in self._groups.values():
+                tasks.append(group.step.remote())
+            self.environment.step(num_simulator_steps)
+            log_messages_groups = await asyncio.gather(*tasks)
+            llm_log_list = []
+            redis_log_list = []
+            simulator_log_list = []
+            agent_time_log_list = []
+            for log_messages_group in log_messages_groups:
+                llm_log_list.extend(log_messages_group["llm_log"])
+                redis_log_list.extend(log_messages_group["redis_log"])
+                simulator_log_list.extend(log_messages_group["simulator_log"])
+                agent_time_log_list.extend(log_messages_group["agent_time_log"])
+            # save
+            simulator_day = await self.environment.get_simulator_day()
+            simulator_time = int(
+                await self.environment.get_simulator_second_from_start_of_day()
+            )
+            save_tasks = []
+            for group in self._groups.values():
+                save_tasks.append(group.save.remote(simulator_day, simulator_time))
+            await asyncio.gather(*save_tasks)
+            # save global prompt
+            await self._save_global_prompt(
+                prompt=self.environment.get_environment(),
+                day=simulator_day,
+                t=simulator_time,
+            )
+            self._total_steps += 1
+            if self.metric_extractors is not None:  # type:ignore
+                to_execute_metric = []
+                for metric_extractor in self.metric_extractors:  # type:ignore
+                    if self._total_steps % metric_extractor.step_interval == 0:
+                        if metric_extractor.type == MetricType.FUNCTION:
+                            to_execute_metric.append(metric_extractor)
+                        elif metric_extractor.type == MetricType.STATE:
+                            # For STATE type, we need to gather data from target agents
+                            if metric_extractor.target_agent and metric_extractor.key:
+                                to_execute_metric.append(metric_extractor)
+
+                if to_execute_metric:
+                    await self.extract_metric(to_execute_metric)
+
+            return llm_log_list, redis_log_list, simulator_log_list, agent_time_log_list
+        except Exception as e:
+            import traceback
+
+            get_logger().error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
+            raise RuntimeError(str(e)) from e
+
+    # TODO: check it and fix the day bug
+    async def run(
+        self,
+        day: float = 1,
+    ):
+        """
+        Run the simulation for a specified number of days.
+
+        - **Args**:
+            - `day` (float, optional): The number of days to run the simulation. Defaults to 1.
+
+        - **Description**:
+            - Updates the experiment status to running and sets up monitoring for the experiment's status.
+            - Runs the simulation loop until the end time, which is calculated based on the current time and the number of days to simulate.
+            - After completing the simulation, updates the experiment status to finished, or to failed if an exception occurs.
+
+        - **Raises**:
+            - `RuntimeError`: If there is an error during the simulation, it logs the error and updates the experiment status to failed before rethrowing the exception.
+
+        - **Returns**:
+            - None
+        """
+        llm_log_lists = []
+        redis_log_lists = []
+        simulator_log_lists = []
+        agent_time_log_lists = []
+        try:
+            self._exp_info["num_day"] += day
+            await self._update_exp_status(1)  # Update status to running
+
+            # Create stop event
+            stop_event = asyncio.Event()
+            # Create monitor task
+            monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
+
+            try:
+                total_steps = int(day * 24 * 60 * 60)
+                current_step = 0
+                while True:
+                    current_step += (
+                        self.config.prop_simulator_config.steps_per_simulation_day
+                    )
+                    if current_step >= total_steps:
+                        break
+                    (
+                        llm_log_list,
+                        redis_log_list,
+                        simulator_log_list,
+                        agent_time_log_list,
+                    ) = await self.step(
+                        self.config.prop_simulator_config.steps_per_simulation_day
+                    )
+                    llm_log_lists.extend(llm_log_list)
+                    redis_log_lists.extend(redis_log_list)
+                    simulator_log_lists.extend(simulator_log_list)
+                    agent_time_log_lists.extend(agent_time_log_list)
+            finally:
+                # Set stop event
+                stop_event.set()
+                # Wait for monitor task to finish
+                await monitor_task
+
+            # Update experiment status after successful run
+            await self._update_exp_status(2)
+            return (
+                llm_log_lists,
+                redis_log_lists,
+                simulator_log_lists,
+                agent_time_log_lists,
+            )
+        except Exception as e:
+            error_msg = f"Simulation error: {str(e)}"
+            get_logger().error(error_msg)
+            await self._update_exp_status(3, error_msg)
+            raise RuntimeError(error_msg) from e

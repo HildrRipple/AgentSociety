@@ -1,6 +1,5 @@
-from .mlflow_client import MlflowClient, init_mlflow_connection
+from .mlflow_client import MlflowClient
 
 __all__ = [
     "MlflowClient",
-    "init_mlflow_connection",
 ]

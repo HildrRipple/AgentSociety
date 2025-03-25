@@ -61,7 +61,7 @@ async def run_experiment(
     # 运行实验
     logger.info(f"Starting experiment with config: {exp_config}")
     simulation = AgentSimulation.run_from_config(
-        config=exp_config,
+        exp_config=exp_config,
         sim_config=sim_config,
     )
     await simulation

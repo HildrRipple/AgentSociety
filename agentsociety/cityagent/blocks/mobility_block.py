@@ -296,7 +296,7 @@ class MoveBlock(Block):
             place_list=places,
             other_info=self.simulator.environment.get("other_information", "None"),
         )
-        response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
+        response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog(), response_format={"type": "json_object"})  # 
         try:
             response = clean_json_response(response)  # type:ignore
             response = jsonc.loads(response)["place_type"]
@@ -495,6 +495,6 @@ class MobilityBlock(Block):
         selected_block = await self.dispatcher.dispatch(step)
 
         # Execute the selected sub-block and get the result
-        result = await selected_block.forward(step, context)  # type: ignore
+        result = await selected_block.forward(step, context)  # 
 
         return result

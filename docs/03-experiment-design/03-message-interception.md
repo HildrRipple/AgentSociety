@@ -179,7 +179,7 @@ class CustomMessageBlockListener(MessageBlockListenerBase):
     ):
         while True:
             if self.has_queue:
-                value = await self.queue.get_async()  # type: ignore
+                value = await self.queue.get_async()  # 
                 if self._save_queue_values:
                     self._values_from_queue.append(value)
                 print(f"get `{value}` from queue")

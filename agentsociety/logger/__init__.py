@@ -4,7 +4,7 @@ Create logger named agentsociety as singleton for ray.
 
 import logging
 
-__all__ = ["get_logger"]
+__all__ = ["get_logger", "set_logger_level"]
 
 
 def get_logger():
@@ -21,3 +21,8 @@ def get_logger():
         handler.setFormatter(formatter)
         logger.addHandler(handler)
     return logger
+
+
+def set_logger_level(level: str):
+    """Set the logger level"""
+    get_logger().setLevel(level)

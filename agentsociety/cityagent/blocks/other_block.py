@@ -135,7 +135,7 @@ class OtherBlock(Block):
         # register all blocks
         self.dispatcher.register_blocks([self.sleep_block, self.other_none_block])
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):
         """Route workflow steps to appropriate sub-blocks and track resource usage.
 
         Args:
@@ -154,7 +154,7 @@ class OtherBlock(Block):
         selected_block = await self.dispatcher.dispatch(step)
 
         # Execute the selected sub-block and get the result
-        result = await selected_block.forward(step, context)  # type: ignore
+        result = await selected_block.forward(step, context)
 
         consumption_end = self.llm.prompt_tokens_used + self.llm.completion_tokens_used
         self.token_consumption += consumption_end - consumption_start

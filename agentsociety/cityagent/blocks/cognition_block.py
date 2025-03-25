@@ -2,7 +2,7 @@ import logging
 
 import jsonc
 
-from ...environment.simulator import Simulator
+from ...environment.environment import Simulator
 from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
