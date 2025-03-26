@@ -9,7 +9,6 @@ from ..utils.grpc import create_channel
 __all__ = ["SyncerClient"]
 
 
-@ray.remote
 class SyncerClient:
     """
     Sidecar框架服务（仅支持作为客户端，不支持对外提供gRPC服务）
@@ -27,8 +26,11 @@ class SyncerClient:
         - secure (bool, optional): 是否使用安全连接. Defaults to False. Whether to use a secure connection. Defaults to False.
         """
         self._name = name
-        channel = create_channel(syncer_address, secure)
-        self._sync_stub = sync_grpc.SyncServiceStub(channel)
+        self._syncer_address = syncer_address
+        self._secure = secure
+
+        # type annotation
+        self._sync_stub: sync_grpc.SyncServiceStub
 
     def step(self, close: bool = False) -> bool:
         """
@@ -64,6 +66,8 @@ class SyncerClient:
         # > False
         ```
         """
+        channel = create_channel(self._syncer_address, self._secure)
+        self._sync_stub = sync_grpc.SyncServiceStub(channel)
         return self.step()
 
     def close(self) -> bool:

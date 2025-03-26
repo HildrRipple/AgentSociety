@@ -3,7 +3,7 @@ import random
 
 import numpy as np
 
-from agentsociety.cityagent import (
+from . import (
     BankAgent,
     FirmAgent,
     GovernmentAgent,

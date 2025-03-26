@@ -19,11 +19,15 @@ class SleepBlock(Block):
     """
 
     def __init__(self, llm: LLM, memory: Memory):
-        super().__init__("SleepBlock", llm=llm, memory=memory)
-        self.description = "Sleep"
+        super().__init__(
+            "SleepBlock",
+            llm=llm,
+            memory=memory,
+            description="Sleep",
+        )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):  
         """Execute sleep action and estimate time consumption using LLM.
 
         Args:
@@ -41,7 +45,7 @@ class SleepBlock(Block):
         result = await self.llm.atext_request(
             self.guidance_prompt.to_dialog(), response_format={"type": "json_object"}
         )
-        result = clean_json_response(result)  # type:ignore
+        result = clean_json_response(result)  
         node_id = await self.memory.stream.add_other(description=f"I slept")
         try:
             result = jsonc.loads(result)
@@ -72,11 +76,15 @@ class OtherNoneBlock(Block):
     """
 
     def __init__(self, llm: LLM, memory: Memory):
-        super().__init__("OtherNoneBlock", llm=llm, memory=memory)
-        self.description = "Used to handle other cases"
+        super().__init__(
+            "OtherNoneBlock",
+            llm=llm,
+            memory=memory,
+            description="Used to handle other cases",
+        )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):  
         self.guidance_prompt.format(
             plan=context["plan"],
             intention=step["intention"],
@@ -85,7 +93,7 @@ class OtherNoneBlock(Block):
         result = await self.llm.atext_request(
             self.guidance_prompt.to_dialog(), response_format={"type": "json_object"}
         )
-        result = clean_json_response(result)  # type:ignore
+        result = clean_json_response(result)  
         node_id = await self.memory.stream.add_other(
             description=f"I {step['intention']}"
         )
@@ -135,7 +143,7 @@ class OtherBlock(Block):
         # register all blocks
         self.dispatcher.register_blocks([self.sleep_block, self.other_none_block])
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):
         """Route workflow steps to appropriate sub-blocks and track resource usage.
 
         Args:
@@ -154,7 +162,7 @@ class OtherBlock(Block):
         selected_block = await self.dispatcher.dispatch(step)
 
         # Execute the selected sub-block and get the result
-        result = await selected_block.forward(step, context)  # type: ignore
+        result = await selected_block.forward(step, context)
 
         consumption_end = self.llm.prompt_tokens_used + self.llm.completion_tokens_used
         self.token_consumption += consumption_end - consumption_start

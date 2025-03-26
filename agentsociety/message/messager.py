@@ -1,14 +1,14 @@
 import asyncio
 import logging
-import os
 import time
-from typing import Any, List, Optional, Union
+from typing import List, Optional
 
 import jsonc
 import ray
 import redis.asyncio as aioredis
 from redis.asyncio.client import PubSub
 
+from ..configs.env import RedisConfig
 from ..logger import get_logger
 from ..utils.decorators import lock_decorator
 
@@ -34,35 +34,30 @@ class Messager:
 
     def __init__(
         self,
-        hostname: str,
-        port: int = 6379,
-        db: Union[str, int] = "0",
-        password: Optional[str] = None,
-        timeout: float = 60,
+        config: RedisConfig,
+        exp_id: str,
         message_interceptor: Optional[ray.ObjectRef] = None,
     ):
         """
         Initialize the Messager with Redis connection parameters.
 
         - **Args**:
-            - `hostname` (str): The hostname or IP address of the Redis server.
-            - `port` (int, optional): Port number of the Redis server. Defaults to 6379.
-            - `db` (str, int): Database number, defaults to 0.
-            - `password` (str, optional): Password for Redis authentication.
-            - `timeout` (int, optional): Connection timeout in seconds. Defaults to 60.
+            - `config` (RedisConfig): Redis configuration.
+            - `exp_id` (str): Experiment ID.
             - `message_interceptor` (Optional[ray.ObjectRef], optional): Reference to a message interceptor object.
         """
-        get_logger().info(f"Connecting to Redis at {hostname}:{port}")
+        get_logger().info(f"Connecting to Redis at {config.server}:{config.port}")
         self.client = aioredis.Redis(
-            host=hostname,
-            port=port,
-            db=db,
-            password=password,
-            socket_timeout=timeout,
+            host=config.server,
+            port=config.port,
+            db=config.db,
+            password=config.password,
+            socket_timeout=config.timeout,
             socket_keepalive=True,
             health_check_interval=5,
             single_connection_client=True,
         )
+        self.exp_id = exp_id
         self.connected = False  # whether is messager connected
         self.message_queue = asyncio.Queue()  # store received messages
         self.receive_messages_task = None
@@ -72,12 +67,12 @@ class Messager:
         get_logger().info("Messager initialized")
 
     @property
-    def message_interceptor(self) -> Union[None, ray.ObjectRef]:
+    def message_interceptor(self) -> Optional[ray.ObjectRef]:
         """
         Access the message interceptor reference.
 
         - **Returns**:
-            - `Union[None, ray.ObjectRef]`: The message interceptor reference.
+            - `Optional[ray.ObjectRef]`: The message interceptor reference.
         """
         return self._message_interceptor
 
@@ -108,7 +103,7 @@ class Messager:
         """
         self._message_interceptor = message_interceptor
 
-    async def connect(self):
+    async def init(self):
         """
         Attempt to connect to the Redis server up to three times.
 
@@ -120,25 +115,22 @@ class Messager:
         self.connected = True
         get_logger().info("Connected to Redis")
 
-    async def disconnect(self):
+    async def close(self):
         """
-        Disconnect from the Redis server.
+        Stop the listener and disconnect from Redis.
 
         - **Description**:
-            - Closes the connection to Redis and logs the disconnection.
+            - Cancels the receive_messages_task if it exists and ensures the Redis connection is closed.
+            - Gracefully handles any exceptions during the task cancellation.
         """
-        await self.client.__aexit__(None, None, None)
-        self.connected = False
-        get_logger().info("Disconnected from Redis")
+        if self.connected:
+            if self.receive_messages_task:
+                self.receive_messages_task.cancel()
+                await asyncio.gather(self.receive_messages_task, return_exceptions=True)
 
-    def is_connected(self):
-        """
-        Check if the connection to Redis is established.
-
-        - **Returns**:
-            - `bool`: True if connected, otherwise False.
-        """
-        return self.connected
+            await self.client.__aexit__(None, None, None)
+            self.connected = False
+            get_logger().info("Disconnected from Redis")
 
     @lock_decorator
     async def subscribe_and_start_listening(self, channels: List[str]):
@@ -148,8 +140,11 @@ class Messager:
         - **Args**:
             - `channels` (Union[str, list[str]]): Channel or list of channels to subscribe to.
 
+        - **Description**:
+            - Creates a new pubsub connection and starts listening for messages on the specified channels.
+            - Logs the start of message listening.
         """
-        if not self.is_connected():
+        if not self.connected:
             raise Exception(
                 "Cannot subscribe to channels because not connected to Redis."
             )
@@ -162,6 +157,7 @@ class Messager:
         )
         get_logger().info("Started message listening")
 
+    @lock_decorator
     async def fetch_messages(self):
         """
         Retrieve all messages currently in the queue.
@@ -174,7 +170,6 @@ class Messager:
             messages.append(await self.message_queue.get())
         return messages
 
-    @lock_decorator
     async def send_message(
         self,
         channel: str,
@@ -204,36 +199,25 @@ class Messager:
             "to_id": to_id,
             "start_time": start_time,
             "consumption": 0,
+            "sent": False,
         }
         message = jsonc.dumps(payload, default=str)
         interceptor = self.message_interceptor
         is_valid: bool = True
         if interceptor is not None and (from_id is not None and to_id is not None):
-            is_valid = await interceptor.forward.remote(  # type:ignore
-                from_id, to_id, message
-            )
+            # if all of from_id and to_id are not None, the message is intercepted by the message interceptor (agent-agent message)
+            is_valid = await interceptor.forward.remote(from_id, to_id, message)  # type: ignore
         if is_valid:
             await self.client.publish(channel, message)
+            log["sent"] = True
             get_logger().info(f"Message sent to {channel}: {message}")
         else:
             get_logger().info(
                 f"Message not sent to {channel}: {message} due to interceptor"
             )
         log["consumption"] = time.time() - start_time
-        self._log_list.append(log)
-
-    async def stop(self):
-        """
-        Stop the listener and disconnect from Redis.
-
-        - **Description**:
-            - Cancels the receive_messages_task if it exists and ensures the Redis connection is closed.
-            - Gracefully handles any exceptions during the task cancellation.
-        """
-        if self.receive_messages_task:
-            self.receive_messages_task.cancel()
-            await asyncio.gather(self.receive_messages_task, return_exceptions=True)
-        await self.disconnect()
+        async with self._lock:
+            self._log_list.append(log)
 
     async def _listen_for_messages(self, pubsub: PubSub, channels: List[str]):
         """
@@ -269,3 +253,20 @@ class Messager:
             await pubsub.unsubscribe()
             await pubsub.aclose()
             raise e
+        
+    # utility
+
+    def get_subtopic_channel(self, agent_id: int, subtopic: str):
+        return f"exps:{self.exp_id}:agents:{agent_id}:{subtopic}"
+
+    def get_user_survey_channel(self, agent_id: int):
+        return self.get_subtopic_channel(agent_id, "user-survey")
+
+    def get_user_chat_channel(self, agent_id: int):
+        return self.get_subtopic_channel(agent_id, "user-chat")
+    
+    def get_agent_chat_channel(self, agent_id: int):
+        return self.get_subtopic_channel(agent_id, "agent-chat")
+    
+    def get_user_payback_channel(self):
+        return f"exps:{self.exp_id}:user-payback"

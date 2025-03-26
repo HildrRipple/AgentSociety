@@ -57,7 +57,7 @@ class BlockDispatcher:
         """
         # create block descriptions
         block_descriptions = {
-            name: block.description  # type: ignore
+            name: block.description
             for name, block in self.blocks.items()
         }
 
@@ -108,7 +108,7 @@ class BlockDispatcher:
                 tool_choice={"type": "function", "function": {"name": "select_block"}},
             )
 
-            selected_block = function_args.get("block_name")  # type: ignore
+            selected_block = function_args.get("block_name")  # 
 
             if selected_block not in self.blocks:
                 raise ValueError(

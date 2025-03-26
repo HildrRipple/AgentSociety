@@ -8,7 +8,7 @@ import jsonc
 import numpy as np
 import ray
 
-from ...environment import Simulator
+from ...environment import Environment
 from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
@@ -166,12 +166,13 @@ class PlaceSelectionBlock(Block):
     configurable_fields = ["search_limit"]
     default_values = {"search_limit": 50}
 
-    def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
         super().__init__(
-            "PlaceSelectionBlock", llm=llm, memory=memory, simulator=simulator
-        )
-        self.description = (
-            "Selects destinations for unknown locations (excluding home/work)"
+            "PlaceSelectionBlock",
+            llm=llm,
+            environment=environment,
+            memory=memory,
+            description="Selects destinations for unknown locations (excluding home/work)",
         )
         self.typeSelectionPrompt = FormatPrompt(PLACE_TYPE_SELECTION_PROMPT)
         self.secondTypeSelectionPrompt = FormatPrompt(
@@ -180,15 +181,15 @@ class PlaceSelectionBlock(Block):
         self.radiusPrompt = FormatPrompt(RADIUS_PROMPT)
         self.search_limit = 50  # Default config value
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):  
         """Execute the destination selection workflow"""
         # Stage 1: Select primary POI category
-        poi_cate = self.simulator.get_poi_cate()
+        poi_cate = self.environment.get_poi_cate()
         self.typeSelectionPrompt.format(
             plan=context["plan"],
             intention=step["intention"],
             poi_category=list(poi_cate.keys()),
-            other_info=self.simulator.environment.get("other_information", "None"),
+            other_info=self.environment.environment.get("other_information", "None"),
         )
         try:
             # LLM-based category selection
@@ -198,7 +199,7 @@ class PlaceSelectionBlock(Block):
             )
             levelOneType = jsonc.loads(
                 clean_json_response(levelOneType)
-            )[  # type:ignore
+            )[  
                 "place_type"
             ]
             sub_category = poi_cate[levelOneType]
@@ -213,7 +214,9 @@ class PlaceSelectionBlock(Block):
                 plan=context["plan"],
                 intention=step["intention"],
                 poi_category=sub_category,
-                other_info=self.simulator.environment.get("other_information", "None"),
+                other_info=self.environment.environment.get(
+                    "other_information", "None"
+                ),
             )
             levelTwoType = await self.llm.atext_request(
                 self.secondTypeSelectionPrompt.to_dialog(),
@@ -221,7 +224,7 @@ class PlaceSelectionBlock(Block):
             )
             levelTwoType = jsonc.loads(
                 clean_json_response(levelTwoType)
-            )[  # type:ignore
+            )[  
                 "place_type"
             ]
         except Exception as e:
@@ -233,14 +236,16 @@ class PlaceSelectionBlock(Block):
             self.radiusPrompt.format(
                 emotion_types=await self.memory.status.get("emotion_types"),
                 thought=await self.memory.status.get("thought"),
-                weather=self.simulator.sense("weather"),
-                temperature=self.simulator.sense("temperature"),
-                other_info=self.simulator.environment.get("other_information", "None"),
+                weather=self.environment.sense("weather"),
+                temperature=self.environment.sense("temperature"),
+                other_info=self.environment.environment.get(
+                    "other_information", "None"
+                ),
             )
             radius = await self.llm.atext_request(
                 self.radiusPrompt.to_dialog(), response_format={"type": "json_object"}
             )
-            radius = int(jsonc.loads(radius)["radius"])  # type:ignore
+            radius = int(jsonc.loads(radius)["radius"])  
         except Exception as e:
             get_logger().warning(f"Radius selection failed: {e}")
             radius = 10000  # Default 10km
@@ -248,7 +253,7 @@ class PlaceSelectionBlock(Block):
         # Query and select POI
         xy = (await self.memory.status.get("position"))["xy_position"]
         center = (xy["x"], xy["y"])
-        pois = self.simulator.map.query_pois(
+        pois = self.environment.map.query_pois(
             center=center,
             category_prefix=levelTwoType,
             radius=radius,
@@ -261,7 +266,7 @@ class PlaceSelectionBlock(Block):
             selected = np.random.choice(len(pois), p=probabilities)
             next_place = (pois[selected][0], pois[selected][1])
         else:  # Fallback random selection
-            all_pois = self.simulator.map.get_poi()
+            all_pois = self.environment.map.get_all_pois()
             next_place = random.choice(all_pois)
             next_place = (next_place["name"], next_place["id"])
 
@@ -280,12 +285,17 @@ class PlaceSelectionBlock(Block):
 class MoveBlock(Block):
     """Block for executing mobility operations (home/work/other)"""
 
-    def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__("MoveBlock", llm=llm, memory=memory, simulator=simulator)
-        self.description = "Executes mobility operations between locations"
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+        super().__init__(
+            "MoveBlock",
+            llm=llm,
+            environment=environment,
+            memory=memory,
+            description="Executes mobility operations between locations",
+        )
         self.placeAnalysisPrompt = FormatPrompt(PLACE_ANALYSIS_PROMPT)
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):  
         agent_id = await self.memory.status.get("id")
         place_knowledge = await self.memory.status.get("location_knowledge")
         known_places = list(place_knowledge.keys())
@@ -294,11 +304,14 @@ class MoveBlock(Block):
             plan=context["plan"],
             intention=step["intention"],
             place_list=places,
-            other_info=self.simulator.environment.get("other_information", "None"),
+            other_info=self.environment.environment.get("other_information", "None"),
         )
-        response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
+        response = await self.llm.atext_request(
+            self.placeAnalysisPrompt.to_dialog(),
+            response_format={"type": "json_object"},
+        )  #
         try:
-            response = clean_json_response(response)  # type:ignore
+            response = clean_json_response(response)  
             response = jsonc.loads(response)["place_type"]
         except Exception as e:
             get_logger().warning(
@@ -324,7 +337,7 @@ class MoveBlock(Block):
                     "consumed_time": 0,
                     "node_id": node_id,
                 }
-            await self.simulator.set_aoi_schedules(
+            await self.environment.set_aoi_schedules(
                 person_id=agent_id,
                 target_positions=home,
             )
@@ -357,7 +370,7 @@ class MoveBlock(Block):
                     "consumed_time": 0,
                     "node_id": node_id,
                 }
-            await self.simulator.set_aoi_schedules(
+            await self.environment.set_aoi_schedules(
                 person_id=agent_id,
                 target_positions=work,
             )
@@ -388,7 +401,7 @@ class MoveBlock(Block):
                     "consumed_time": 0,
                     "node_id": node_id,
                 }
-            await self.simulator.set_aoi_schedules(
+            await self.environment.set_aoi_schedules(
                 person_id=agent_id,
                 target_positions=the_place,
             )
@@ -410,20 +423,20 @@ class MoveBlock(Block):
                 description=f"I went to {next_place}"
             )
             if next_place != None:
-                await self.simulator.set_aoi_schedules(
+                await self.environment.set_aoi_schedules(
                     person_id=agent_id,
                     target_positions=next_place[1],
                 )
             else:
-                aois = self.simulator.map.get_aoi()
+                aois = self.environment.map.get_all_aois()
                 while True:
                     r_aoi = random.choice(aois)
                     if len(r_aoi["poi_ids"]) > 0:
                         r_poi = random.choice(r_aoi["poi_ids"])
                         break
-                poi = self.simulator.map.get_poi(r_poi)
-                next_place = (poi["name"], poi["aoi_id"])  # type:ignore
-                await self.simulator.set_aoi_schedules(
+                poi = self.environment.map.get_poi(r_poi)
+                next_place = (poi["name"], poi["aoi_id"])  
+                await self.environment.set_aoi_schedules(
                     person_id=agent_id,
                     target_positions=next_place[1],
                 )
@@ -445,10 +458,14 @@ class MobilityNoneBlock(Block):
     """
 
     def __init__(self, llm: LLM, memory: Memory):
-        super().__init__("MobilityNoneBlock", llm=llm, memory=memory)
-        self.description = "Handles completed mobility operations"
+        super().__init__(
+            "MobilityNoneBlock",
+            llm=llm,
+            memory=memory,
+            description="Handles completed mobility operations",
+        )
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):
         """Log completion without action"""
         node_id = await self.memory.stream.add_mobility(
             description=f"I finished {step['intention']}"
@@ -472,11 +489,13 @@ class MobilityBlock(Block):
     Uses BlockDispatcher to route requests to appropriate sub-blocks.
     """
 
-    def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__("MobilityBlock", llm=llm, memory=memory, simulator=simulator)
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+        super().__init__(
+            "MobilityBlock", llm=llm, environment=environment, memory=memory
+        )
         # initialize all blocks
-        self.place_selection_block = PlaceSelectionBlock(llm, memory, simulator)
-        self.move_block = MoveBlock(llm, memory, simulator)
+        self.place_selection_block = PlaceSelectionBlock(llm, environment, memory)
+        self.move_block = MoveBlock(llm, environment, memory)
         self.mobility_none_block = MobilityNoneBlock(llm, memory)
         self.trigger_time = 0  # Block invocation counter
         self.token_consumption = 0  # LLM token tracker
@@ -488,13 +507,13 @@ class MobilityBlock(Block):
             [self.place_selection_block, self.move_block, self.mobility_none_block]
         )
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):  
         """Main entry point - delegates to sub-blocks"""
         self.trigger_time += 1
         # Select the appropriate sub-block using dispatcher
         selected_block = await self.dispatcher.dispatch(step)
 
         # Execute the selected sub-block and get the result
-        result = await selected_block.forward(step, context)  # type: ignore
+        result = await selected_block.forward(step, context)  #
 
         return result

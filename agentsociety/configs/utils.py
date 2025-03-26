@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TypeVar
 
 import yaml
 
-if TYPE_CHECKING:
-    from .exp_config import ExpConfig
-    from .sim_config import SimConfig
-T = TypeVar("T", "SimConfig", "ExpConfig")
+
+T = TypeVar("T")
 
 
 def load_config_from_file(filepath: str, config_type: type[T]) -> T:

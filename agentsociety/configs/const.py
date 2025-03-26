@@ -89,3 +89,14 @@ class MetricType(str, Enum):
 
     FUNCTION = "function"
     STATE = "state"
+
+class AgentClassType(str, Enum):
+    """
+    Defines the types of agent class types.
+    """
+
+    CITIZEN = "citizen"
+    FIRM = "firm"
+    GOVERNMENT = "government"
+    BANK = "bank"
+    NBS = "nbs"

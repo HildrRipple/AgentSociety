@@ -1,5 +1,4 @@
 import hashlib
-import jsonc
 import os
 from typing import Optional, Union
 
@@ -11,6 +10,7 @@ from transformers import AutoModel, AutoTokenizer
 __all__ = [
     "SentenceEmbedding",
     "SimpleEmbedding",
+    "init_embedding",
 ]
 
 
@@ -323,6 +323,13 @@ class SimpleEmbedding(Embeddings):
         return self._embed(text)
 
 
+def init_embedding(embedding_model: Optional[str], **kwargs) -> Embeddings:
+    if embedding_model is None:
+        return SimpleEmbedding()
+    else:
+        return SentenceEmbedding(embedding_model, **kwargs)
+
+
 if __name__ == "__main__":
-    se = SimpleEmbedding()
+    se = SentenceEmbedding()
     print(se.embed_query("hello world"))

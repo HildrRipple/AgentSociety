@@ -1,13 +1,16 @@
+import copy
 import random
+from abc import abstractmethod
 from collections import deque
-from typing import Any, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 import jsonc
 import numpy as np
 from mosstool.map._map_util.const import AOI_START_ID
 from pydantic import BaseModel
 
-from ..configs.exp_config import DistributionConfig
+from ..configs import DistributionConfig
+from ..configs.const import DistributionType
 from ..environment.economy import EconomyEntityType
 from ..logger import get_logger
 
@@ -19,6 +22,22 @@ pareto_samples = np.random.pareto(pareto_param, size=(1000, 10))
 clipped_skills = np.minimum(pmsm, (pmsm - 1) * pareto_samples + 1)
 sorted_clipped_skills = np.sort(clipped_skills, axis=1)
 agent_skills = list(sorted_clipped_skills.mean(axis=0))
+
+__all__ = [
+    "Distribution",
+    "ChoiceDistribution",
+    "UniformIntDistribution",
+    "UniformFloatDistribution",
+    "NormalDistribution",
+    "ConstantDistribution",
+    "MemoryConfigGenerator",
+    "MemoryT",
+    "memory_config_societyagent",
+    "memory_config_firm",
+    "memory_config_government",
+    "memory_config_bank",
+    "memory_config_nbs",
+]
 
 
 # Distribution system for memory configuration
@@ -35,6 +54,7 @@ class Distribution:
         - None
     """
 
+    @abstractmethod
     def sample(self) -> Any:
         """
         Sample a value from this distribution.
@@ -89,16 +109,52 @@ class Distribution:
         - **Returns**:
             - Distribution: A distribution instance
         """
-        return Distribution.create(
-            dist_type=config.dist_type.value,
-            choices=config.choices,
-            weights=config.weights,
-            min_value=config.min_value,
-            max_value=config.max_value,
-            mean=config.mean,
-            std=config.std,
-            value=config.value,
-        )
+        if config.dist_type == DistributionType.CHOICE:
+            assert (
+                config.choices is not None
+            ), "choices must be provided for choice distribution"
+            return ChoiceDistribution(
+                choices=config.choices,
+                weights=config.weights,
+            )
+        elif config.dist_type == DistributionType.UNIFORM_INT:
+            assert (
+                config.min_value is not None and config.max_value is not None
+            ), "min_value and max_value must be provided for uniform int distribution"
+            assert isinstance(config.min_value, int) and isinstance(
+                config.max_value, int
+            ), "min_value and max_value must be integers for uniform int distribution"
+            return UniformIntDistribution(
+                min_value=config.min_value,
+                max_value=config.max_value,
+            )
+        elif config.dist_type == DistributionType.UNIFORM_FLOAT:
+            assert (
+                config.min_value is not None and config.max_value is not None
+            ), "min_value and max_value must be provided for uniform float distribution"
+            return UniformFloatDistribution(
+                min_value=config.min_value,
+                max_value=config.max_value,
+            )
+        elif config.dist_type == DistributionType.NORMAL:
+            assert (
+                config.mean is not None and config.std is not None
+            ), "mean and std must be provided for normal distribution"
+            return NormalDistribution(
+                mean=config.mean,
+                std=config.std,
+                min_value=config.min_value,
+                max_value=config.max_value,
+            )
+        elif config.dist_type == DistributionType.CONSTANT:
+            assert (
+                config.value is not None
+            ), "value must be provided for constant distribution"
+            return ConstantDistribution(
+                value=config.value,
+            )
+        else:
+            raise ValueError(f"Unknown distribution type: {config.dist_type}")
 
 
 class ChoiceDistribution(Distribution):
@@ -315,48 +371,30 @@ DEFAULT_DISTRIBUTIONS = {
     ),
 }
 
-# User-configurable distributions
-CUSTOM_DISTRIBUTIONS = {}
 
-
-def set_distribution(field: str, dist_type: str, **kwargs):
-    """
-    Set a custom distribution for a specific field.
-    - **Description**:
-        - Configures a custom distribution for sampling values for a specific field.
-
-    - **Args**:
-        - `field` (str): The field name to configure
-        - `dist_type` (str): Type of distribution (e.g., 'choice', 'uniform_int')
-        - `**kwargs`: Parameters specific to the distribution type
-
-    - **Returns**:
-        - None
-    """
-    CUSTOM_DISTRIBUTIONS[field] = Distribution.create(dist_type, **kwargs)
-
-
-def get_distribution(field: str) -> Distribution:
+def get_distribution(
+    distributions: dict[str, Distribution], field: str
+) -> Distribution:
     """
     Get the distribution for a specific field.
     - **Description**:
         - Returns the configured distribution for a field, preferring custom over default.
 
     - **Args**:
+        - `distributions` (dict[str, Distribution]): The distributions to use
         - `field` (str): The field name
 
     - **Returns**:
         - Distribution: The distribution to use for sampling values
     """
-    if field in CUSTOM_DISTRIBUTIONS:
-        return CUSTOM_DISTRIBUTIONS[field]
-    elif field in DEFAULT_DISTRIBUTIONS:
-        return DEFAULT_DISTRIBUTIONS[field]
+
+    if field in distributions:
+        return distributions[field]
     else:
-        return None  # type: ignore
+        raise ValueError(f"No distribution configured for field: {field}")
 
 
-def sample_field_value(field: str) -> Any:
+def sample_field_value(distributions: dict[str, Distribution], field: str) -> Any:
     """
     Sample a value for a specific field using its configured distribution.
     - **Description**:
@@ -368,13 +406,24 @@ def sample_field_value(field: str) -> Any:
     - **Returns**:
         - Any: A sampled value for the field
     """
-    dist = get_distribution(field)
+    dist = get_distribution(distributions, field)
     if dist:
         return dist.sample()
     raise ValueError(f"No distribution configured for field: {field}")
 
 
-def memory_config_societyagent():
+MemoryT = Union[tuple[type, Any], tuple[type, Any, bool]]
+"""
+MemoryT is a tuple of (type, value, use embedding model)
+- type: the type of the value
+- value: the value
+- use embedding model (optional): whether the value is generated by embedding model
+"""
+
+
+def memory_config_societyagent(
+    distributions: dict[str, Distribution],
+) -> tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]]:
     EXTRA_ATTRIBUTES = {
         "type": (str, "citizen"),
         # Needs Model
@@ -416,16 +465,20 @@ def memory_config_societyagent():
         "work_propensity": (float, 0.0, False),
         "consumption_propensity": (float, 0.0, False),
         "to_consumption_currency": (float, 0.0, False),
-        "firm_id": (int, 0, False),
-        "government_id": (int, 0, False),
-        "bank_id": (int, 0, False),
-        "nbs_id": (int, 0, False),
+        "firm_id": (int, sample_field_value(distributions, "firm_id"), False),
+        "government_id": (
+            int,
+            sample_field_value(distributions, "government_id"),
+            False,
+        ),
+        "bank_id": (int, sample_field_value(distributions, "bank_id"), False),
+        "nbs_id": (int, sample_field_value(distributions, "nbs_id"), False),
         "dialog_queue": (deque(maxlen=3), [], False),
-        "firm_forward": (int, 0, False),
-        "bank_forward": (int, 0, False),
-        "nbs_forward": (int, 0, False),
-        "government_forward": (int, 0, False),
-        "forward": (int, 0, False),
+        "firm_forward": (int, 0, False),  # TODO: what is this ??
+        "bank_forward": (int, 0, False),  # TODO: what is this ??
+        "nbs_forward": (int, 0, False),  # TODO: what is this ??
+        "government_forward": (int, 0, False),  # TODO: what is this ??
+        "forward": (int, 0, False),  # TODO: what is this ??
         "depression": (float, 0.0, False),
         "ubi_opinion": (list, [], False),
         "working_experience": (list, [], False),
@@ -443,37 +496,48 @@ def memory_config_societyagent():
     }
 
     PROFILE = {
-        "name": (str, sample_field_value("name"), True),
-        "gender": (str, sample_field_value("gender"), True),
-        "age": (int, sample_field_value("age"), True),
-        "education": (str, sample_field_value("education"), True),
-        "skill": (str, sample_field_value("skill"), True),
-        "occupation": (str, sample_field_value("occupation"), True),
-        "family_consumption": (str, sample_field_value("family_consumption"), True),
-        "consumption": (str, sample_field_value("consumption"), True),
-        "personality": (str, sample_field_value("personality"), True),
-        "income": (float, sample_field_value("income"), True),
-        "currency": (float, sample_field_value("currency"), True),
-        "residence": (str, sample_field_value("residence"), True),
-        "city": (str, sample_field_value("city"), True),
-        "race": (str, sample_field_value("race"), True),
-        "religion": (str, sample_field_value("religion"), True),
-        "marital_status": (str, sample_field_value("marital_status"), True),
+        "name": (str, sample_field_value(distributions, "name"), True),
+        "gender": (str, sample_field_value(distributions, "gender"), True),
+        "age": (int, sample_field_value(distributions, "age"), True),
+        "education": (str, sample_field_value(distributions, "education"), True),
+        "skill": (str, sample_field_value(distributions, "skill"), True),
+        "occupation": (str, sample_field_value(distributions, "occupation"), True),
+        "family_consumption": (
+            str,
+            sample_field_value(distributions, "family_consumption"),
+            True,
+        ),
+        "consumption": (str, sample_field_value(distributions, "consumption"), True),
+        "personality": (str, sample_field_value(distributions, "personality"), True),
+        "income": (float, sample_field_value(distributions, "income"), True),
+        "currency": (float, sample_field_value(distributions, "currency"), True),
+        "residence": (str, sample_field_value(distributions, "residence"), True),
+        "city": (str, sample_field_value(distributions, "city"), True),
+        "race": (str, sample_field_value(distributions, "race"), True),
+        "religion": (str, sample_field_value(distributions, "religion"), True),
+        "marital_status": (
+            str,
+            sample_field_value(distributions, "marital_status"),
+            True,
+        ),
     }
 
+    # TODO: fix it in V1.3
     BASE = {
         "home": {
-            "aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}
+            "aoi_position": {"aoi_id": sample_field_value(distributions, "home_aoi_id")}
         },
         "work": {
-            "aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}
+            "aoi_position": {"aoi_id": sample_field_value(distributions, "work_aoi_id")}
         },
     }
 
     return EXTRA_ATTRIBUTES, PROFILE, BASE
 
 
-def memory_config_firm():
+def memory_config_firm(
+    distributions: dict[str, Distribution],
+) -> tuple[dict[str, MemoryT], dict[str, Union[MemoryT, float]], dict[str, Any]]:
     EXTRA_ATTRIBUTES = {
         "type": (int, EconomyEntityType.Firm),
         "location": {
@@ -507,7 +571,9 @@ def memory_config_firm():
     return EXTRA_ATTRIBUTES, {"currency": 1e12}, {}
 
 
-def memory_config_government():
+def memory_config_government(
+    distributions: dict[str, Distribution],
+) -> tuple[dict[str, MemoryT], dict[str, Union[MemoryT, float]], dict[str, Any]]:
     EXTRA_ATTRIBUTES = {
         "type": (int, EconomyEntityType.Government),
         # 'bracket_cutoffs': (list, list(np.array([0, 97, 394.75, 842, 1607.25, 2041, 5103])*100/12)),
@@ -537,7 +603,9 @@ def memory_config_government():
     return EXTRA_ATTRIBUTES, {"currency": 1e12}, {}
 
 
-def memory_config_bank():
+def memory_config_bank(
+    distributions: dict[str, Distribution],
+) -> tuple[dict[str, MemoryT], dict[str, Union[MemoryT, float]], dict[str, Any]]:
     EXTRA_ATTRIBUTES = {
         "type": (int, EconomyEntityType.Bank),
         "interest_rate": (float, 0.03),
@@ -565,7 +633,9 @@ def memory_config_bank():
     return EXTRA_ATTRIBUTES, {"currency": 1e12}, {}
 
 
-def memory_config_nbs():
+def memory_config_nbs(
+    distributions: dict[str, Distribution],
+) -> tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]]:
     EXTRA_ATTRIBUTES = {
         "type": (int, EconomyEntityType.NBS),
         # economy simulator
@@ -597,6 +667,61 @@ def memory_config_nbs():
     return EXTRA_ATTRIBUTES, {}, {}
 
 
+class MemoryConfigGenerator:
+    """
+    Generate memory configuration.
+    """
+
+    def __init__(
+        self,
+        memory_config_func: Callable[
+            [dict[str, Distribution]],
+            tuple[dict[str, MemoryT], dict[str, Union[MemoryT, float]], dict[str, Any]],
+        ],
+        memory_from_file: Optional[str] = None,
+        memory_distributions: Optional[dict[str, DistributionConfig]] = None,
+    ):
+        """
+        Initialize the memory config generator.
+
+        - **Args**:
+            - `memory_config_func` (Callable): The function to generate the memory configuration.
+            - `memory_from_file` (Optional[str]): The path to the file containing the memory configuration.
+            - `memory_distributions` (Optional[dict[str, DistributionConfig]]): The distributions to use for the memory configuration.
+        """
+        self._memory_config_func = memory_config_func
+        if memory_from_file is not None:
+            self._memory_data = memory_config_load_file(memory_from_file)
+        else:
+            self._memory_data = None
+        self._distributions = copy.deepcopy(DEFAULT_DISTRIBUTIONS)
+        if memory_distributions is not None:
+            for field, distribution in memory_distributions.items():
+                self._distributions[field] = Distribution.from_config(distribution)
+
+    def generate(self, i: int):
+        """
+        Generate memory configuration.
+
+        Args:
+            i (int): The index of the memory configuration to generate. Used to find the i-th memory configuration in the file.
+
+        Returns:
+            tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]]: The memory configuration.
+        """
+        extra_attrs, profile, base = self._memory_config_func(self._distributions)
+        if self._memory_data is not None:
+            if i >= len(self._memory_data):
+                raise ValueError(
+                    f"Index out of range. Expected index <= {len(self._memory_data)}, got: {i}"
+                )
+            memory_data = self._memory_data[i]
+        else:
+            memory_data = {}
+        return memory_config_merge(memory_data, extra_attrs, profile, base)
+
+
+# TODO: TEST THIS in V1.3
 def memory_config_load_file(file_path):
     """
     Loads the memory configuration from the given file.
@@ -619,6 +744,10 @@ def memory_config_load_file(file_path):
     if file_path.endswith(".json"):
         with open(file_path, "r") as f:
             memory_data = jsonc.load(f)
+        if not isinstance(memory_data, list):
+            raise ValueError(
+                f"Invalid memory data. Expected a list, got: {memory_data}"
+            )
         return memory_data
     elif file_path.endswith(".jsonl"):
         memory_data = []
@@ -633,7 +762,12 @@ def memory_config_load_file(file_path):
         )
 
 
-def memory_config_merge(file_data, base_extra_attrs, base_profile, base_base):
+def memory_config_merge(
+    file_data: dict,
+    base_extra_attrs: dict[str, MemoryT],
+    base_profile: dict[str, Union[MemoryT, float]],
+    base_base: dict[str, Any],
+) -> dict[str, Any]:
     """
     Merges memory configuration from file with base configuration.
 

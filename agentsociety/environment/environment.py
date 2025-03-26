@@ -5,137 +5,111 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
-from typing import Any, Optional, Union, cast
+from typing import Any, Literal, Optional, Union, cast, overload
 
+import grpc._channel
 import ray
 from mosstool.type import TripMode
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.map.v2 import map_pb2 as map_pb2
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pycityproto.city.person.v2 import person_service_pb2 as person_service
+from pyproj import Proj
 from shapely.geometry import Point
 
-from ..configs import SimConfig
+from ..configs import EnvironmentConfig, MapConfig, SimulatorConfig
 from ..logger import get_logger
 from ..utils.decorators import log_execution_time
+from .economy.econ_client import EconomyClient
 from .mapdata import MapData
 from .sim import CityClient, ControlSimEnv
 from .syncerclient import SyncerClient
 from .utils.const import *
 
 __all__ = [
-    "Simulator",
+    "Environment",
+    "EnvironmentStarter",
 ]
 
 
-class Simulator:
+class Environment:
     """
-    Main class of the simulator.
-
-    - **Description**:
-        - This class is the core of the simulator, responsible for initializing and managing the simulation environment.
-        - It reads parameters from a configuration dictionary, initializes map data, and starts or connects to a simulation server as needed.
+    The environment, including map data, simulator clients, and environment variables.
     """
 
-    def __init__(self, sim_config: SimConfig, create_map: bool = False) -> None:
-        self.sim_config = sim_config
+    def __init__(
+        self,
+        map_data: MapData,
+        server_addr: str,
+        environment_config: EnvironmentConfig,
+        # TEMP
+        # TODO: try to remove this
+        citizen_ids: set[int] = set(),
+        firm_ids: set[int] = set(),
+        bank_ids: set[int] = set(),
+        nbs_ids: set[int] = set(),
+        government_ids: set[int] = set(),
+    ):
         """
-        - 模拟器配置
-        - simulator config
+        Initialize the Environment.
+
+        - **Args**:
+            - `map_data`: `MapData`, map data
+            - `server_addr`: `str`, server address
+            - `environment_config`: `EnvironmentConfig`, environment config
         """
-        _map_pb_path = sim_config.prop_map_config.file_path
-        _map_cache_path = sim_config.prop_map_config.cache_path
-        config = sim_config.prop_simulator_config
-        self._sim_env = None
-        if not sim_config.prop_status.simulator_activated:
-            self._sim_env = sim_env = ControlSimEnv(
-                task_name=config.task_name,
-                map_file=_map_pb_path,
-                max_day=config.max_day,
-                start_step=config.start_step,
-                total_step=config.total_step,
-                log_dir=config.log_dir,
-                primary_node_ip=config.primary_node_ip,
-                sim_addr=sim_config.simulator_server_address,
-            )
-            self.server_addr = sim_env.sim_addr
-            sim_config.SetServerAddress(self.server_addr)
-            sim_config.prop_status.simulator_activated = True
-            # using local client
-            self._client = CityClient(
-                sim_env.sim_addr, self.server_addr.startswith("https")
-            )
-            self._syncer = SyncerClient.remote(
-                syncer_address=sim_env.syncer_addr,  # type:ignore
-                name="within-syncer",
-                secure=self.server_addr.startswith("https"),
-            )
-            for retry in range(60):
-                try:
-                    ray.get(self._syncer.init.remote())
-                    break
-                except:
-                    get_logger().warning(
-                        f"Failed to connect to syncer {sim_env.syncer_addr}, retrying..."
-                    )
-                    time.sleep(1)
-                    continue
-            else:
-                raise ValueError(
-                    f"Failed to connect to syncer {sim_env.syncer_addr} after 60 retries!"
-                )
-            """
-            - 模拟器grpc客户端
-            - grpc client of simulator
-            """
-        else:
-            self.server_addr: str = sim_config.simulator_server_address  # type:ignore
-            self._client = CityClient(
-                self.server_addr, secure=self.server_addr.startswith("https")
-            )
-            # syncer只能由主节点控制
-            self._syncer = None
-        self._map = None
-        """
-        - 模拟器地图对象
-        - Simulator map object
-        """
-        if create_map:
-            self._map = MapData(_map_pb_path, _map_cache_path)
-            self._create_poi_id_2_aoi_id()
+        self._map = map_data
+        self._create_poi_id_2_aoi_id()
+        self._server_addr = server_addr
+        self.poi_cate = POI_CATG_DICT
+        """poi categories"""
+
+        self._projector = Proj(self._map.get_projector())
+
+        self._environment_prompt = environment_config.to_prompts()
+
+        self._client = CityClient(self._server_addr)
+        self._economy_client = EconomyClient(self._server_addr)
+        self._economy_client.set_ids(
+            citizen_ids=citizen_ids,
+            firm_ids=firm_ids,
+            bank_ids=bank_ids,
+            nbs_ids=nbs_ids,
+            government_ids=government_ids,
+        )
 
         self.time: int = 0
-        """
-        - 模拟城市当前时间
-        - The current time of simulator
-        """
-        self.poi_cate = POI_CATG_DICT
-        self.map_x_gap = None
-        self.map_y_gap = None
-        self._bbox: tuple[float, float, float, float] = (-1, -1, -1, -1)
-        self._lock = asyncio.Lock()
-        self._environment_prompt: dict[str, Any] = {}
+        """current time of simulator"""
+
         self._log_list = []
+        """log list"""
+
+        self._lock = asyncio.Lock()
+        """lock for simulator"""
 
     def close(self):
-        if self._sim_env is not None:
-            self._sim_env.close()
-
-    def set_map(self, map: MapData):
-        self._map = map
-        self._create_poi_id_2_aoi_id()
+        """Close the Environment."""
+        pass
 
     def _create_poi_id_2_aoi_id(self):
         assert self._map is not None
-        pois = self._map.get_poi()
+        pois = self._map.get_all_pois()
         self.poi_id_2_aoi_id: dict[int, int] = {
             poi["id"]: poi["aoi_id"] for poi in pois
         }
 
     @property
     def map(self):
-        assert self._map is not None
+        assert self._map is not None, "Map not initialized"
         return self._map
+
+    @property
+    def economy_client(self):
+        return self._economy_client
+
+    @property
+    def projector(self):
+        return self._projector
 
     def get_log_list(self):
         return self._log_list
@@ -146,15 +120,16 @@ class Simulator:
     def get_poi_cate(self):
         return self.poi_cate
 
+    def get_aoi_ids(self):
+        aois = self._map.get_all_aois()
+        return [aoi["id"] for aoi in aois]
+
     @property
     def environment(self) -> dict[str, str]:
         """
         Get the current state of environment variables.
         """
         return self._environment_prompt
-
-    def get_server_addr(self) -> str:
-        return self.server_addr  # type:ignore
 
     def set_environment(self, environment: dict[str, str]):
         """
@@ -225,15 +200,24 @@ class Simulator:
         if center is None:
             center = (0, 0)
         assert self._map is not None
-        _pois: list[dict] = self._map.query_pois(
+        _pois: list[Any] = self._map.query_pois(
             center=center,
             radius=radius,
             return_distance=False,
-        )  # type:ignore
+        )
         for poi in _pois:
             catg = poi["category"]
             categories.append(catg.split("|")[-1])
         return list(set(categories))
+
+    @overload
+    async def get_time(self) -> int: ...
+    @overload
+    async def get_time(self, format_time: Literal[False]) -> int: ...
+    @overload
+    async def get_time(
+        self, format_time: Literal[True], format: str = "%H:%M:%S"
+    ) -> str: ...
 
     @log_execution_time
     async def get_time(
@@ -299,9 +283,9 @@ class Simulator:
         - **Returns**:
             - `Dict`: Information about the specified person.
         """
-        person: dict = await self._client.person_service.GetPerson(
+        person = await self._client.person_service.GetPerson(
             req={"person_id": person_id}
-        )  # type:ignore
+        )
         return person
 
     @log_execution_time
@@ -320,7 +304,7 @@ class Simulator:
             req = person_service.AddPersonRequest(person=person)
         else:
             req = person
-        resp: dict = await self._client.person_service.AddPerson(req)  # type:ignore
+        resp: dict = await self._client.person_service.AddPerson(req)
         return resp
 
     @log_execution_time
@@ -476,7 +460,7 @@ class Simulator:
             center=center,
             radius=radius,
             return_distance=False,
-        )  # type:ignore
+        )
         # Filter out POIs that do not meet the category prefix
         pois = []
         for poi in _pois:
@@ -486,11 +470,84 @@ class Simulator:
             pois.append(poi)
         return pois
 
-    def step(self, n: int = 1):
-        syncer = self._syncer
-        if syncer is None:
+
+class EnvironmentStarter(Environment):
+    """
+    The entrypoint of the simulator, used to initialize the simulator and map.
+
+    - **Description**:
+        - This class is the core of the simulator, responsible for initializing and managing the simulation environment.
+        - It reads parameters from a configuration dictionary, initializes map data, and starts or connects to a simulation server as needed.
+    """
+
+    def __init__(
+        self,
+        map_config: MapConfig,
+        simulator_config: SimulatorConfig,
+        environment_config: EnvironmentConfig,
+    ):
+        """
+        Environment config
+
+        - **Args**:
+            - `map_config` (MapConfig): Map config
+            - `simulator_config` (SimulatorConfig): Simulator config
+            - `environment_config` (EnvironmentConfig): Environment config
+        """
+        mapdata = MapData(map_config)
+        self._sim_env = ControlSimEnv(
+            map_file=map_config.file_path,
+            max_day=environment_config.max_day,
+            start_step=environment_config.start_tick,
+            total_step=environment_config.total_tick,
+            log_dir=simulator_config.log_dir,
+            primary_node_ip=simulator_config.primary_node_ip,
+        )
+        self._environment_config = environment_config
+
+        super().__init__(mapdata, self._sim_env.sim_addr, environment_config)
+
+        self._syncer = SyncerClient(
+            syncer_address=self._sim_env.syncer_addr,
+            name="within-syncer",
+            secure=self._server_addr.startswith("https"),
+        )
+        for _ in range(int(simulator_config.timeout)):
+            try:
+                self._syncer.init()
+                break
+            except Exception as e:
+                get_logger().warning(
+                    f"Failed to connect to syncer {self._sim_env.syncer_addr}, retrying..."
+                )
+                time.sleep(1)
+                continue
+        else:
+            raise ValueError(
+                f"Failed to connect to syncer {self._sim_env.syncer_addr} after {simulator_config.timeout} retries!"
+            )
+
+    def to_init_args(self):
+        return {
+            "map_data": self._map,
+            "server_addr": self._server_addr,
+            "environment_config": self._environment_config,
+            "citizen_ids": self.economy_client._citizen_ids,
+            "firm_ids": self.economy_client._firm_ids,
+            "bank_ids": self.economy_client._bank_ids,
+            "nbs_ids": self.economy_client._nbs_ids,
+            "government_ids": self.economy_client._government_ids,
+        }
+
+    def close(self):
+        if self._sim_env is not None:
+            self._sim_env.close()
+            self._sim_env = None
+
+    def step(self, n: int):
+        if self._syncer is None:
             raise ValueError("Step can only be called in primary node!")
         if n <= 0:
             raise ValueError("`n` must >=1!")
         for _ in range(n):
-            ray.get(syncer.step.remote())
+            self._syncer.step()

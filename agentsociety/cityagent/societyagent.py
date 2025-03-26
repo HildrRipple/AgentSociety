@@ -6,13 +6,12 @@ from typing import Any, Optional
 
 import jsonc
 
-from agentsociety import CitizenAgent, Simulator
-from agentsociety.agent import Agent
-from agentsociety.environment import EconomyClient
-from agentsociety.llm import LLM
-from agentsociety.memory import Memory
-from agentsociety.tools import UpdateWithSimulator
-from agentsociety.workflow import Block
+from ..agent import Agent, CitizenAgentBase, AgentToolbox
+from ..environment import Environment
+from ..llm import LLM
+from ..memory import Memory
+from ..tools import UpdateWithSimulator
+from ..workflow import Block
 
 from ..logger import get_logger
 from .blocks import (
@@ -47,9 +46,8 @@ class PlanAndActionBlock(Block):
         self,
         agent: Agent,
         llm: LLM,
+        environment: Environment,
         memory: Memory,
-        simulator: Simulator,
-        economy_client: EconomyClient,
         enable_mobility: bool = True,
         enable_social: bool = True,
         enable_economy: bool = True,
@@ -57,7 +55,10 @@ class PlanAndActionBlock(Block):
     ):
         """Initialize PlanAndActionBlock with configurable behavior switches and sub-modules."""
         super().__init__(
-            name="plan_and_action_block", llm=llm, memory=memory, simulator=simulator
+            name="plan_and_action_block",
+            llm=llm,
+            environment=environment,
+            memory=memory,
         )
         self._agent = agent
         # Configuration flags for enabling/disabling behaviors
@@ -66,16 +67,18 @@ class PlanAndActionBlock(Block):
         self.enable_economy = enable_economy
         self.enable_cognition = enable_cognition
         self.monthPlanBlock = MonthPlanBlock(
-            llm=llm, memory=memory, simulator=simulator, economy_client=economy_client
+            llm=llm, environment=environment, memory=memory
         )
-        self.needsBlock = NeedsBlock(llm=llm, memory=memory, simulator=simulator)
-        self.planBlock = PlanBlock(llm=llm, memory=memory, simulator=simulator)
-        self.mobilityBlock = MobilityBlock(llm=llm, memory=memory, simulator=simulator)
+        self.needsBlock = NeedsBlock(llm=llm, environment=environment, memory=memory)
+        self.planBlock = PlanBlock(llm=llm, environment=environment, memory=memory)
+        self.mobilityBlock = MobilityBlock(
+            llm=llm, environment=environment, memory=memory
+        )
         self.socialBlock = SocialBlock(
-            agent=agent, llm=llm, memory=memory, simulator=simulator
+            agent=agent, llm=llm, environment=environment, memory=memory
         )
         self.economyBlock = EconomyBlock(
-            llm=llm, memory=memory, simulator=simulator, economy_client=economy_client
+            llm=llm, environment=environment, memory=memory
         )
         self.otherBlock = OtherBlock(llm=llm, memory=memory)
 
@@ -107,10 +110,10 @@ class PlanAndActionBlock(Block):
             position = await self.memory.status.get("position")
             if "aoi_position" in position:
                 current_step["position"] = position["aoi_position"]["aoi_id"]
-            current_step["start_time"] = int(await self.simulator.get_time())
+            current_step["start_time"] = int(await self.environment.get_time())
             result = None
             if step_type == "mobility":
-                if self.enable_mobility:  # type:ignore
+                if self.enable_mobility:
                     result = await self.mobilityBlock.forward(
                         current_step, execution_context
                     )
@@ -122,7 +125,7 @@ class PlanAndActionBlock(Block):
                         "node_id": None,
                     }
             elif step_type == "social":
-                if self.enable_social:  # type:ignore
+                if self.enable_social:
                     result = await self.socialBlock.forward(
                         current_step, execution_context
                     )
@@ -134,7 +137,7 @@ class PlanAndActionBlock(Block):
                         "node_id": None,
                     }
             elif step_type == "economy":
-                if self.enable_economy:  # type:ignore
+                if self.enable_economy:
                     result = await self.economyBlock.forward(
                         current_step, execution_context
                     )
@@ -183,25 +186,30 @@ class PlanAndActionBlock(Block):
 class MindBlock(Block):
     """Cognitive workflow handling emotion updates and reasoning processes."""
 
-    cognitionBlock: CognitionBlock
+    cognition_block: CognitionBlock
 
-    def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__(name="mind_block", llm=llm, memory=memory, simulator=simulator)
-        self.cognitionBlock = CognitionBlock(
-            llm=self.llm, memory=self.memory, simulator=simulator
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+        super().__init__(
+            name="mind_block",
+            llm=llm,
+            environment=environment,
+            memory=memory,
+        )
+        self.cognition_block = CognitionBlock(
+            llm=self.llm, memory=self.memory, environment=self.environment
         )
 
     async def forward(self):
         """Execute cognitive processing for emotion updates."""
-        await self.cognitionBlock.forward()
+        await self.cognition_block.forward()
 
 
-class SocietyAgent(CitizenAgent):
+class SocietyAgent(CitizenAgentBase):
     """Agent implementation with configurable cognitive/behavioral modules and social interaction capabilities."""
 
     update_with_sim = UpdateWithSimulator()
-    mindBlock: MindBlock
-    planAndActionBlock: PlanAndActionBlock
+    mind_block: MindBlock
+    plan_and_action_block: PlanAndActionBlock
 
     configurable_fields = [
         "enable_cognition",
@@ -224,19 +232,17 @@ class SocietyAgent(CitizenAgent):
 
     def __init__(
         self,
+        id: int,
         name: str,
-        llm_client: Optional[LLM] = None,
-        simulator: Optional[Simulator] = None,
-        memory: Optional[Memory] = None,
-        economy_client: Optional[EconomyClient] = None,
+        toolbox: AgentToolbox,
+        memory: Memory,
     ) -> None:
         """Initialize agent with core components and configuration."""
         super().__init__(
+            id=id,
             name=name,
-            llm_client=llm_client,
-            simulator=simulator,
+            toolbox=toolbox,
             memory=memory,
-            economy_client=economy_client,
         )
 
         # config
@@ -245,15 +251,14 @@ class SocietyAgent(CitizenAgent):
         self.enable_social = True
         self.enable_economy = True
 
-        self.mindBlock = MindBlock(
-            llm=self.llm, memory=self.memory, simulator=self.simulator
+        self.mind_block = MindBlock(
+            llm=self.llm, environment=self.environment, memory=self.memory
         )
-        self.planAndActionBlock = PlanAndActionBlock(
+        self.plan_and_action_block = PlanAndActionBlock(
             agent=self,
             llm=self.llm,
+            environment=self.environment,
             memory=self.memory,
-            simulator=self.simulator,
-            economy_client=self.economy_client,
             enable_mobility=self.enable_mobility,
             enable_social=self.enable_social,
             enable_economy=self.enable_economy,
@@ -263,7 +268,7 @@ class SocietyAgent(CitizenAgent):
         self.cognition_update = -1
 
     # Main workflow
-    async def forward(self):  # type:ignore
+    async def forward(self):
         """Main agent loop coordinating status updates, plan execution, and cognition."""
         start_time = time.time()
         self.step_count += 1
@@ -276,11 +281,11 @@ class SocietyAgent(CitizenAgent):
             return
 
         # plan and action
-        await self.planAndActionBlock.forward()
+        await self.plan_and_action_block.forward()
 
         # cognition
         if self.enable_cognition:
-            await self.mindBlock.forward()
+            await self.mind_block.forward()
         return time.time() - start_time
 
     async def check_and_update_step(self):
@@ -297,7 +302,7 @@ class SocietyAgent(CitizenAgent):
             return True
         step_index = current_plan.get("index", 0)
         current_step = current_plan.get("steps", [])[step_index]
-        time_now = int(await self.simulator.get_time())
+        time_now = int(await self.environment.get_time())
         step_start_time = current_step["start_time"]
         step_consumed_time = current_step["evaluation"]["consumed_time"]
         try:
@@ -321,7 +326,7 @@ class SocietyAgent(CitizenAgent):
                 else:
                     # Whole plan is completed
                     current_plan["completed"] = True
-                    current_plan["end_time"] = await self.simulator.get_time(
+                    current_plan["end_time"] = await self.environment.get_time(
                         format_time=True
                     )
                     related_memories = None
@@ -333,13 +338,13 @@ class SocietyAgent(CitizenAgent):
                             )
                             incident = f"You have successfully completed the plan: {related_memories}"
                             conclusion = (
-                                await self.mindBlock.cognitionBlock.emotion_update(
+                                await self.mind_block.cognition_block.emotion_update(
                                     incident
                                 )
                             )
                             await self.save_agent_thought(conclusion)
                             await self.memory.stream.add_cognition_to_memory(
-                                current_plan["stream_nodes"], conclusion  # type:ignore
+                                current_plan["stream_nodes"], conclusion
                             )
                         except Exception as e:
                             get_logger().warning(
@@ -350,7 +355,7 @@ class SocietyAgent(CitizenAgent):
             else:
                 # last step is failed
                 current_plan["failed"] = True
-                current_plan["end_time"] = await self.simulator.get_time(
+                current_plan["end_time"] = await self.environment.get_time(
                     format_time=True
                 )
                 if self.enable_cognition:
@@ -363,12 +368,14 @@ class SocietyAgent(CitizenAgent):
                         incident = (
                             f"You have failed to complete the plan: {related_memories}"
                         )
-                        conclusion = await self.mindBlock.cognitionBlock.emotion_update(
-                            incident
+                        conclusion = (
+                            await self.mind_block.cognition_block.emotion_update(
+                                incident
+                            )
                         )
                         await self.save_agent_thought(conclusion)
                         await self.memory.stream.add_cognition_to_memory(
-                            current_plan["stream_nodes"], conclusion  # type:ignore
+                            current_plan["stream_nodes"], conclusion
                         )
                     except Exception as e:
                         get_logger().warning(
@@ -379,7 +386,7 @@ class SocietyAgent(CitizenAgent):
         # The previous step has not been completed
         return False
 
-    async def process_agent_chat_response(self, payload: dict) -> str:  # type:ignore
+    async def process_agent_chat_response(self, payload: dict) -> str:
         """Process incoming social/economic messages and generate responses."""
         if payload["type"] == "social":
             resp = f"Agent {self.id} received agent chat response: {payload}"
@@ -408,7 +415,7 @@ class SocietyAgent(CitizenAgent):
                 await self.memory.stream.add_social(description=description)
                 if self.enable_cognition:
                     # update emotion
-                    await self.mindBlock.cognitionBlock.emotion_update(description)
+                    await self.mind_block.cognition_block.emotion_update(description)
 
                 # Get chat histories and ensure proper format
                 chat_histories = await self.memory.status.get("chat_histories") or {}
@@ -451,7 +458,7 @@ class SocietyAgent(CitizenAgent):
 
         Answer only YES or NO, in JSON format, e.g. {{"should_respond": "YES"}}"""
 
-                should_respond = await self._llm_client.atext_request(  # type:ignore
+                should_respond = await self.llm.atext_request(
                     dialog=[
                         {
                             "role": "system",
@@ -461,9 +468,7 @@ class SocietyAgent(CitizenAgent):
                     ],
                     response_format={"type": "json_object"},
                 )
-                should_respond = jsonc.loads(should_respond)[  # type:ignore
-                    "should_respond"
-                ]
+                should_respond = jsonc.loads(should_respond)["should_respond"]
                 if should_respond == "NO":
                     return ""
 
@@ -511,7 +516,7 @@ class SocietyAgent(CitizenAgent):
                         ensure_ascii=False,
                     )
                     await self.send_message_to_agent(sender_id, serialized_response)
-                return response  # type:ignore
+                return response
 
             except Exception as e:
                 get_logger().warning(f"Error in process_agent_chat_response: {str(e)}")
@@ -525,21 +530,20 @@ class SocietyAgent(CitizenAgent):
                 value = int(value)
             description = f"You received a economic message: Your {key} has changed from {await self.memory.status.get(key)} to {value}"
             await self.memory.status.update(key, value)
-            await self.memory.stream.add_economic(  # type:ignore
-                description=description
-            )
+            await self.memory.stream.add_economy(description=description)
             if self.enable_cognition:
-                await self.mindBlock.cognitionBlock.emotion_update(description)
+                await self.mind_block.cognition_block.emotion_update(description)
+            return ""
 
     async def react_to_intervention(self, intervention_message: str):
         """React to an intervention"""
         # cognition
-        conclusion = await self.mindBlock.cognitionBlock.emotion_update(
+        conclusion = await self.mind_block.cognition_block.emotion_update(
             intervention_message
         )
         await self.save_agent_thought(conclusion)
         await self.memory.stream.add_cognition(description=conclusion)
         # needs
-        await self.planAndActionBlock.needsBlock.reflect_to_intervention(
+        await self.plan_and_action_block.needsBlock.reflect_to_intervention(
             intervention_message
         )

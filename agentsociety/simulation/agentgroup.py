@@ -14,8 +14,9 @@ import pyproj
 import ray
 from langchain_core.embeddings import Embeddings
 
-from ..agent import Agent, InstitutionAgent
-from ..configs import SimConfig
+from ..cityagent.memory_config import MemoryConfigGenerator
+from ..agent import Agent, InstitutionAgentBase
+from ..configs import Config
 from ..environment import EconomyClient, Simulator
 from ..environment.mapdata import MapData
 from ..llm.llm import LLM
@@ -38,25 +39,21 @@ __all__ = ["AgentGroup"]
 class AgentGroup:
     def __init__(
         self,
-        agent_class: Union[type[Agent], list[type[Agent]]],
-        number_of_agents: Union[int, list[int]],
-        memory_values_dict: dict[type[Agent], list[dict]],
-        config: SimConfig,
-        mapdata: MapData,
-        exp_name: str,
-        exp_id: Union[str, UUID],
         tenant_id: str,
-        enable_avro: bool,
-        avro_path: Path,
-        enable_pgsql: bool,
-        pgsql_writer: ray.ObjectRef,
+        exp_name: str,
+        exp_id: str,
+        group_id: str,
+        config: Config,
+        agent_inits: list[tuple[int, type[Agent], MemoryConfigGenerator, int]],
+        environment_init: dict,
+        # PostgreSQL
+        pgsql_writer: Optional[ray.ObjectRef],
+        # Message Interceptor
         message_interceptor: ray.ObjectRef,
-        mlflow_run_id: str,
-        embedding_model: Embeddings,
-        logging_level: str,
+        # MLflow
+        mlflow_run_id: Optional[str],
+        # Others
         agent_config_file: Optional[dict[type[Agent], Any]] = None,
-        llm_semaphore: int = 200,
-        environment: Optional[dict] = None,
     ):
         """
         Represents a group of agents that can be deployed in a Ray distributed environment.
@@ -67,44 +64,25 @@ class AgentGroup:
             PostgreSQL writer, message interceptor, and LLM client. It also sets up an economy client and simulator for
             agent interaction within a simulated environment.
 
-        - **Args**:
-            - `agent_class` (Union[Type[Agent], List[Type[Agent]]]): A single or list of agent classes to instantiate.
-            - `number_of_agents` (Union[int, List[int]]): Number of instances to create for each agent class.
-            - `memory_values_dict` (Dict[Type[Agent], List[Dict]]): Functions to configure memory for each agent type.
-            - `config` (SimConfig): Configuration settings for the agent group.
-            - `mapdata` (MapData): MapData object.
-            - `exp_name` (str): Name of the experiment.
-            - `exp_id` (str | UUID): Identifier for the experiment.
-            - `tenant_id` (str): Identifier for the tenant.
-            - `enable_avro` (bool): Flag to enable AVRO file support.
-            - `avro_path` (Path): Path where AVRO files will be stored.
-            - `enable_pgsql` (bool): Flag to enable PostgreSQL support.
-            - `pgsql_writer` (ray.ObjectRef): Reference to a PostgreSQL writer object.
-            - `message_interceptor` (ray.ObjectRef): Reference to a message interceptor object.
-            - `mlflow_run_id` (str): Run identifier for MLflow tracking.
-            - `embedding_model` (Embeddings): Model used for generating embeddings.
-            - `logging_level` (str): Logging level for the agent group.
-            - `agent_config_file` (Optional[Dict[Type[Agent], Any]], optional): File paths for loading agent configurations. Defaults to None.
-            - `environment` (Optional[Dict[str, str]], optional): Environment variables for the simulator. Defaults to None.
         """
-        get_logger().setLevel(logging_level.upper())
+        # Initialize basic attributes
         self._uuid = str(uuid.uuid4())
-        if not isinstance(agent_class, list):
-            agent_class = [agent_class]
-        if not isinstance(number_of_agents, list):
-            number_of_agents = [number_of_agents]
-        self.agent_class = agent_class
+        self.config = config
+        self.exp_id = exp_id
+        self.tenant_id = tenant_id
+        self.exp_name = exp_name
+
+        # Process agent class and number of agents
+        self.agent_class = agent_classes
         self.number_of_agents = number_of_agents
         self.memory_values_dict = memory_values_dict
         self.agents: list[Agent] = []
         self.id2agent: dict[int, Agent] = {}
-        self.config = config
-        self.exp_id = exp_id
-        self.tenant_id = tenant_id
+        self.agent_config_file = agent_config_file
+
+        # Initialize storage settings
         self.enable_avro = enable_avro
         self.enable_pgsql = enable_pgsql
-        self.embedding_model = embedding_model
-        self.agent_config_file = agent_config_file
         if enable_avro:
             self.avro_path = avro_path / f"{self._uuid}"
             self.avro_path.mkdir(parents=True, exist_ok=True)
@@ -114,65 +92,64 @@ class AgentGroup:
                 "status": self.avro_path / f"status.avro",
                 "survey": self.avro_path / f"survey.avro",
             }
-        # Mlflow
-        metric_config = config.prop_metric_config
+
+        # Initialize MLflow client
+        metric_config = config.metric_config
         if metric_config is not None and metric_config.mlflow is not None:
             get_logger().info(
                 f"-----Creating Mlflow client in AgentGroup {self._uuid} ..."
             )
             self.mlflow_client = MlflowClient(
                 config=metric_config.mlflow,
-                experiment_uuid=self.exp_id,  # type:ignore
+                exp_id=self.exp_id,
                 mlflow_run_name=f"{exp_name}_{1000*int(time.time())}",
-                experiment_name=exp_name,
+                exp_name=exp_name,
                 run_id=mlflow_run_id,
             )
         else:
             self.mlflow_client = None
 
-        # prepare Messager
-        redis_config = config.prop_redis
+        # Initialize Redis Messager
+        redis_config = config.redis
         self.messager = Messager(
             hostname=redis_config.server,
             port=redis_config.port,
             db=redis_config.db,
             password=redis_config.password,
         )
-
         self.message_dispatch_task = None
         self._pgsql_writer = pgsql_writer
         self._message_interceptor = message_interceptor
-        self._last_asyncio_pg_task = (
-            None  # Hide the SQL write IO behind the computation task
-        )
-        self.initialized = False
-        self.id2agent = {}
-        # prepare LLM client
-        get_logger().info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
-        self.llm = LLM(config.prop_llm_config)
-        self.llm.set_semaphore(llm_semaphore)
+        self._last_asyncio_pg_task = None
 
-        # prepare Simulator
+        # Initialize LLM client
+        get_logger().info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
+        self.llm = LLM(config.llm_configs, llm_semaphore)
+
+        # Initialize Simulator
         get_logger().info(f"-----Initializing Simulator in AgentGroup {self._uuid} ...")
-        self.simulator = Simulator(config)
+        self.simulator = Simulator(config, False)
         self.simulator.set_environment(environment if environment else {})
         self.simulator.set_map(mapdata)
         self.projector = pyproj.Proj(self.simulator.map.get_projector())
-        # prepare Economy client
+
+        # Initialize Economy client
         get_logger().info(
             f"-----Creating Economy client in AgentGroup {self._uuid} ..."
         )
-        self.economy_client = EconomyClient(config.prop_simulator_server_address)
+        self.economy_client = EconomyClient(simulator_server_address)
 
-        # set FaissQuery
+        # Initialize FaissQuery for embeddings
+        self.embedding_model = embedding_model
         if self.embedding_model is not None:
-            self.faiss_query = FaissQuery(
-                embeddings=self.embedding_model,
-            )
+            self.faiss_query = FaissQuery(embeddings=self.embedding_model)
         else:
             self.faiss_query = None
+
+        # Initialize agents
+        self.initialized = False
         for i in range(len(number_of_agents)):
-            agent_class_i = agent_class[i]
+            agent_class_i = agent_classes[i]
             number_of_agents_i = number_of_agents[i]
             memory_values_dict_i = memory_values_dict[agent_class_i]
             for j in range(number_of_agents_i):
@@ -182,18 +159,18 @@ class AgentGroup:
                 base = memory_values.get("base", {})
                 memory = Memory(config=extra_attributes, profile=profile, base=base)
                 agent = agent_class_i(
-                    name=f"{agent_class_i.__name__}_{i}",  # type: ignore
+                    name=f"{agent_class_i.__name__}_{i}",
                     memory=memory,
                     llm_client=self.llm,
                     economy_client=self.economy_client,
                     simulator=self.simulator,
                 )
-                agent.set_exp_id(self.exp_id)  # type: ignore
+                agent.set_exp_id(self.exp_id)
                 agent.set_tenant_id(self.tenant_id)
                 if self.mlflow_client is not None:
-                    agent.set_mlflow_client(self.mlflow_client)  # type: ignore
+                    agent.set_mlflow_client(self.mlflow_client)
                 if self.enable_avro:
-                    agent.set_avro_file(self.avro_file)  # type: ignore
+                    agent.set_avro_file(self.avro_file)
                 if self.enable_pgsql:
                     agent.set_pgsql_writer(self._pgsql_writer)
                 if (
@@ -246,13 +223,13 @@ class AgentGroup:
         return self.agent_type
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        self.message_dispatch_task.cancel()  # type: ignore
-        await asyncio.gather(self.message_dispatch_task, return_exceptions=True)  # type: ignore
+        self.message_dispatch_task.cancel()
+        await asyncio.gather(self.message_dispatch_task, return_exceptions=True)
 
     async def insert_agents(self):
         bind_tasks = []
         for agent in self.agents:
-            bind_tasks.append(agent.bind_to_simulator())  # type: ignore
+            bind_tasks.append(agent.bind_to_simulator())
         await asyncio.gather(*bind_tasks)
 
     async def init_agents(self):
@@ -271,7 +248,7 @@ class AgentGroup:
         get_logger().debug(
             f"-----Binding Agents to Messager in AgentGroup {self._uuid} ..."
         )
-        await self.messager.connect()
+        await self.messager.init()
         topics: list[str] = []
         for agent in self.agents:
             agent.set_messager(self.messager)
@@ -284,7 +261,7 @@ class AgentGroup:
                 f"-----Creating Avro files in AgentGroup {self._uuid} ..."
             )
             # profile
-            if not issubclass(type(self.agents[0]), InstitutionAgent):
+            if not issubclass(type(self.agents[0]), InstitutionAgentBase):
                 filename = self.avro_file["profile"]
                 with open(filename, "wb") as f:
                     profiles = []
@@ -304,7 +281,7 @@ class AgentGroup:
             filename = self.avro_file["status"]
             with open(filename, "wb") as f:
                 statuses = []
-                if not issubclass(type(self.agents[0]), InstitutionAgent):
+                if not issubclass(type(self.agents[0]), InstitutionAgentBase):
                     fastavro.writer(f, STATUS_SCHEMA, statuses)
                 else:
                     fastavro.writer(f, INSTITUTION_STATUS_SCHEMA, statuses)
@@ -316,7 +293,7 @@ class AgentGroup:
                 fastavro.writer(f, SURVEY_SCHEMA, surveys)
 
         if self.enable_pgsql:
-            if not issubclass(type(self.agents[0]), InstitutionAgent):
+            if not issubclass(type(self.agents[0]), InstitutionAgentBase):
                 profiles: list[Any] = []
                 for agent in self.agents:
                     profile = await agent.status.profile.export()
@@ -354,7 +331,7 @@ class AgentGroup:
                             ),
                         )
                     )
-            await self._pgsql_writer.async_write_profile.remote(  # type:ignore
+            await self._pgsql_writer.async_write_profile.remote(  
                 profiles
             )
         if self.faiss_query is not None:
@@ -539,7 +516,7 @@ class AgentGroup:
                 _t = simulator_t
             else:
                 _t = await self.simulator.get_simulator_second_from_start_of_day()
-            if not issubclass(type(self.agents[0]), InstitutionAgent):
+            if not issubclass(type(self.agents[0]), InstitutionAgentBase):
                 for agent in self.agents:
                     _date_time = datetime.now(timezone.utc)
                     position = await agent.status.get("position")
@@ -665,7 +642,7 @@ class AgentGroup:
                             _status_dict[key] = []
                     _status_dict["created_at"] = _date_time
             else:
-                if not issubclass(type(self.agents[0]), InstitutionAgent):
+                if not issubclass(type(self.agents[0]), InstitutionAgentBase):
                     for agent in self.agents:
                         _date_time = datetime.now(timezone.utc)
                         position = await agent.status.get("position")
@@ -802,7 +779,7 @@ class AgentGroup:
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
             self._last_asyncio_pg_task = (
-                self._pgsql_writer.async_write_status.remote(  # type:ignore
+                self._pgsql_writer.async_write_status.remote(  
                     to_update_statues
                 )
             )

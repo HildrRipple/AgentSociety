@@ -13,7 +13,7 @@ import ray
 import yaml
 from langchain_core.embeddings import Embeddings
 
-from ..agent import Agent, InstitutionAgent
+from ..agent import Agent, InstitutionAgentBase
 from ..cityagent import BankAgent, FirmAgent, GovernmentAgent, NBSAgent, SocietyAgent
 from ..cityagent.initial import bind_agent_info, initialize_social_network
 from ..cityagent.memory_config import (
@@ -32,6 +32,7 @@ from ..cityagent.message_intercept import (
     PointMessageBlock,
 )
 from ..configs import ExpConfig, MemoryConfig, MetricExtractor, SimConfig
+from ..configs.__exp_config import WorkflowStep
 from ..environment import EconomyClient, Simulator
 from ..llm import SimpleEmbedding
 from ..logger import get_logger
@@ -41,7 +42,7 @@ from ..message import (
     MessageInterceptor,
     Messager,
 )
-from ..metrics import init_mlflow_connection
+from ..metrics import _init_mlflow_connection
 from ..metrics.mlflow_client import MlflowClient
 from ..survey import Survey
 from ..utils import (
@@ -141,8 +142,8 @@ class AgentSimulation:
         self._economy_client = EconomyClient(server_addr)
         self._economy_addr = server_addr
         self.agent_prefix = agent_prefix
-        self._groups: dict[str, AgentGroup] = {}  # type:ignore
-        self._agent_id2group: dict[int, AgentGroup] = {}  # type:ignore
+        self._groups: dict[str, AgentGroup] = {}  
+        self._agent_id2group: dict[int, AgentGroup] = {}  
         self._agent_ids: list[int] = []
         self._type2group: dict[Type[Agent], AgentGroup] = {}
         self._user_chat_topics: dict[int, str] = {}
@@ -166,7 +167,7 @@ class AgentSimulation:
         # avro
         avro_config = config.prop_avro_config
         if avro_config is not None:
-            self._enable_avro: bool = avro_config.enabled  # type:ignore
+            self._enable_avro: bool = avro_config.enabled  
             if not self._enable_avro:
                 self._avro_path = None
                 get_logger().warning("AVRO is not enabled, NO AVRO LOCAL STORAGE")
@@ -182,17 +183,17 @@ class AgentSimulation:
         metric_config = config.prop_metric_config
         if metric_config is not None and metric_config.mlflow is not None:
             get_logger().info(f"-----Creating Mlflow client...")
-            mlflow_run_id, _ = init_mlflow_connection(
+            mlflow_run_id, _ = _init_mlflow_connection(
                 config=metric_config.mlflow,
                 experiment_uuid=self.exp_id,
-                mlflow_run_name=f"EXP_{self.exp_name}_{1000*int(time.time())}",
+                run_name=f"EXP_{self.exp_name}_{1000*int(time.time())}",
                 experiment_name=self.exp_name,
             )
             self.mlflow_client = MlflowClient(
                 config=metric_config.mlflow,
-                experiment_uuid=self.exp_id,
+                exp_id=self.exp_id,
                 mlflow_run_name=f"EXP_{exp_name}_{1000*int(time.time())}",
-                experiment_name=exp_name,
+                exp_name=exp_name,
                 run_id=mlflow_run_id,
             )
             self.metric_extractors = metric_extractors
@@ -204,7 +205,7 @@ class AgentSimulation:
         # pg
         pgsql_config = config.prop_postgre_sql_config
         if pgsql_config is not None:
-            self._enable_pgsql: bool = pgsql_config.enabled  # type:ignore
+            self._enable_pgsql: bool = pgsql_config.enabled  
             if not self._enable_pgsql:
                 get_logger().warning(
                     "PostgreSQL is not enabled, NO POSTGRESQL DATABASE STORAGE"
@@ -265,7 +266,7 @@ class AgentSimulation:
             config=sim_config,
             agent_class_configs=agent_config.agent_class_configs,
             metric_extractors=config.metric_extractors,
-            exp_name=config.exp_name,
+            exp_name=config.name,
             logging_level=config.logging_level,
         )
         environment = config.environment.model_dump()
@@ -358,12 +359,15 @@ class AgentSimulation:
             else:
                 init_func = cast(Callable, init_func)
                 init_func(simulation)
+        await simulation.run_workflow(config.workflow)
+
+    async def run_workflow(self, workflow: list[WorkflowStep]):
         get_logger().info("Starting Simulation...")
         llm_log_lists = []
         redis_log_lists = []
         simulator_log_lists = []
         agent_time_log_lists = []
-        for step in config.workflow:
+        for step in workflow:
             get_logger().info(
                 f"Running step: type: {step.type} - description: {step.description}"
             )
@@ -376,7 +380,7 @@ class AgentSimulation:
                     redis_log_list,
                     simulator_log_list,
                     agent_time_log_list,
-                ) = await simulation.run(_days)
+                ) = await self.run(_days)
                 llm_log_lists.extend(llm_log_list)
                 redis_log_lists.extend(redis_log_list)
                 simulator_log_lists.extend(simulator_log_list)
@@ -389,8 +393,8 @@ class AgentSimulation:
                         redis_log_list,
                         simulator_log_list,
                         agent_time_log_list,
-                    ) = await simulation.step(
-                        simulation.config.prop_simulator_config.steps_per_simulation_step
+                    ) = await self.step(
+                        self.config.prop_simulator_config.steps_per_simulation_step
                     )
                     llm_log_lists.extend(llm_log_list)
                     redis_log_lists.extend(redis_log_list)
@@ -403,7 +407,7 @@ class AgentSimulation:
                     raise ValueError(
                         "target_agent and interview_message are required for INTERVIEW step"
                     )
-                await simulation.send_interview_message(
+                await self.send_interview_message(
                     interview_message, target_agents
                 )
             elif step.type == WorkflowType.SURVEY:
@@ -413,7 +417,7 @@ class AgentSimulation:
                     raise ValueError(
                         "target_agent and survey are required for SURVEY step"
                     )
-                await simulation.send_survey(survey, target_agents)
+                await self.send_survey(survey, target_agents)
             elif step.type == WorkflowType.ENVIRONMENT_INTERVENE:
                 key = step.key
                 value = step.value
@@ -421,7 +425,7 @@ class AgentSimulation:
                     raise ValueError(
                         "key and value are required for ENVIRONMENT_INTERVENE step"
                     )
-                await simulation.update_environment(key, value)
+                await self.update_environment(key, value)
             elif step.type == WorkflowType.UPDATE_STATE_INTERVENE:
                 key = step.key
                 value = step.value
@@ -430,7 +434,7 @@ class AgentSimulation:
                     raise ValueError(
                         "key, value and target_agent are required for UPDATE_STATE_INTERVENE step"
                     )
-                await simulation.update(target_agents, key, value)
+                await self.update(target_agents, key, value)
             elif step.type == WorkflowType.MESSAGE_INTERVENE:
                 get_logger().warning(
                     "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congition of target agents"
@@ -441,19 +445,19 @@ class AgentSimulation:
                     raise ValueError(
                         "target_agent and intervene_message are required for MESSAGE_INTERVENE step"
                     )
-                await simulation.send_intervention_message(
+                await self.send_intervention_message(
                     intervene_message, target_agents
                 )
             else:
                 _func = cast(Callable, step.func)
-                await _func(simulation)
+                await _func(self)
         get_logger().info("Simulation finished")
         # close simulator
-        await simulation.messager.stop()
-        simulation._simulator.close()
+        await self.messager.stop()
+        self._simulator.close()
 
         tasks = []
-        for group in simulation._groups.values():
+        for group in self._groups.values():
             tasks.append(group.get_llm_error_statistics.remote())
         llm_error_statistics_groups = await asyncio.gather(*tasks)
         llm_error_statistics = {}
@@ -487,7 +491,7 @@ class AgentSimulation:
     def avro_path(
         self,
     ) -> Path:
-        return self._avro_path  # type:ignore
+        return self._avro_path  
 
     @property
     def economy_client(self):
@@ -511,7 +515,7 @@ class AgentSimulation:
 
     @property
     def message_interceptor(self) -> ray.ObjectRef:
-        return self._message_interceptors[0]  # type:ignore
+        return self._message_interceptors[0]  
 
     async def _save_exp_info(self) -> None:
         """Async save experiment info to YAML file"""
@@ -523,13 +527,13 @@ class AgentSimulation:
             get_logger().error(f"Avro save experiment info failed: {str(e)}")
         try:
             if self.enable_pgsql:
-                worker: ray.ObjectRef = self._pgsql_writers[0]  # type:ignore
+                worker: ray.ObjectRef = self._pgsql_writers[0]  
                 pg_exp_info = {
                     k: self._exp_info[k] for (k, _) in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
                 }
                 pg_exp_info["created_at"] = self._exp_created_time
                 pg_exp_info["updated_at"] = self._exp_updated_time
-                await worker.async_update_exp_info.remote(  # type:ignore
+                await worker.async_update_exp_info.remote(  
                     pg_exp_info
                 )
         except Exception as e:
@@ -546,14 +550,14 @@ class AgentSimulation:
     async def _save_global_prompt(self, prompt: str, day: int, t: float) -> None:
         """Save global prompt"""
         if self.enable_pgsql:
-            worker: ray.ObjectRef = self._pgsql_writers[0]  # type:ignore
+            worker: ray.ObjectRef = self._pgsql_writers[0]  
             prompt_info = {
                 "day": day,
                 "t": t,
                 "prompt": prompt,
                 "created_at": datetime.now(timezone.utc),
             }
-            await worker.async_save_global_prompt.remote(prompt_info)  # type:ignore
+            await worker.async_save_global_prompt.remote(prompt_info)  
 
     async def _monitor_exp_status(self, stop_event: asyncio.Event):
         """Monitor experiment status and update
@@ -641,7 +645,7 @@ class AgentSimulation:
         memory_distributions = memory_config.memory_distributions
 
         if memory_config_func is None:
-            memory_config_func = self.default_memory_config_func  # type:ignore
+            memory_config_func = self.default_memory_config_func  
 
         # load memory data from file
         memory_data_from_file = {}
@@ -655,7 +659,7 @@ class AgentSimulation:
                 set_distribution(
                     field,
                     distribution_config.dist_type,
-                    **distribution_config.kwargs,  # type:ignore
+                    **distribution_config.kwargs,  
                 )
 
         # use thread pool to create AgentGroup
@@ -673,7 +677,7 @@ class AgentSimulation:
             # prepare memory config data
             assert memory_config_func is not None
             memory_config_func_i = memory_config_func.get(
-                agent_class, self.default_memory_config_func[agent_class]  # type:ignore
+                agent_class, self.default_memory_config_func[agent_class]  
             )
 
             # merge data loaded from file (if any)
@@ -717,7 +721,7 @@ class AgentSimulation:
             else:
                 config_file = None
 
-            if issubclass(agent_class, InstitutionAgent):
+            if issubclass(agent_class, InstitutionAgentBase):
                 institution_params.append(
                     (agent_class, agent_count_i, memory_values, config_file)
                 )
@@ -818,10 +822,10 @@ class AgentSimulation:
         # initialize mlflow connection
         metric_config = self.config.prop_metric_config
         if metric_config is not None and metric_config.mlflow is not None:
-            mlflow_run_id, _ = init_mlflow_connection(
+            mlflow_run_id, _ = _init_mlflow_connection(
                 experiment_uuid=self.exp_id,
                 config=metric_config.mlflow,
-                mlflow_run_name=f"{self.exp_name}_{1000*int(time.time())}",
+                run_name=f"{self.exp_name}_{1000*int(time.time())}",
                 experiment_name=self.exp_name,
             )
         else:
@@ -854,7 +858,7 @@ class AgentSimulation:
             _num_interceptors = min(1, message_interceptors)
             self._message_interceptors = _interceptors = [
                 MessageInterceptor.remote(
-                    _interceptor_blocks,  # type:ignore
+                    _interceptor_blocks,  
                     _black_list,
                     _llm_config,
                     _queue,
@@ -884,7 +888,7 @@ class AgentSimulation:
                 self.enable_avro,
                 self.avro_path,
                 self.enable_pgsql,
-                _workers[i % _num_workers],  # type:ignore
+                _workers[i % _num_workers],  
                 self.message_interceptor,
                 mlflow_run_id,
                 embedding_model,
@@ -900,7 +904,7 @@ class AgentSimulation:
         for group in self._groups.values():
             init_tasks.append(group.init_agents.remote())
         await asyncio.gather(*init_tasks)
-        await self.messager.connect()
+        await self.messager.init()
         await self.messager.subscribe_and_start_listening(
             [f"exps:{self.exp_id}:user_payback"]
         )
@@ -1270,9 +1274,9 @@ class AgentSimulation:
                 t=simulator_time,
             )
             self._total_steps += 1
-            if self.metric_extractors is not None:  # type:ignore
+            if self.metric_extractors is not None:  
                 to_execute_metric = []
-                for metric_extractor in self.metric_extractors:  # type:ignore
+                for metric_extractor in self.metric_extractors:  
                     if self._total_steps % metric_extractor.step_interval == 0:
                         if metric_extractor.type == MetricType.FUNCTION:
                             to_execute_metric.append(metric_extractor)

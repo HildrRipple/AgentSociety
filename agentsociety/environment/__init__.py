@@ -1,11 +1,12 @@
 """Environment"""
 
 from .sim import AoiService, PersonService
-from .simulator import Simulator
+from .environment import Environment, EnvironmentStarter
 from .economy import EconomyClient
 
 __all__ = [
-    "Simulator",
+    "Environment",
+    "EnvironmentStarter",
     "PersonService",
     "AoiService",
     "EconomyClient",

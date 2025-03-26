@@ -1,7 +1,10 @@
 import asyncio
+from typing import cast
 
-from agentsociety.llm import LLM
-from agentsociety.message import MessageBlockBase, MessageBlockListenerBase
+from openai.types.chat import ChatCompletionMessageParam
+
+from ..llm import LLM
+from ..message import MessageBlockBase, MessageBlockListenerBase
 
 
 async def check_message(
@@ -17,11 +20,15 @@ async def check_message(
         
         If the message is emotionally provocative, please return False; if the message is normal, please return True.
         """
+    dialog = [
+        {"role": "user", "content": prompt},
+    ]
+    dialog = cast(list[ChatCompletionMessageParam], dialog)
     for _ in range(10):
         try:
             response: str = await llm_client.atext_request(
-                prompt, timeout=300
-            )  # type:ignore
+                dialog, timeout=300
+            )  
             if "false" in response.lower():
                 is_valid = False
                 break
@@ -41,7 +48,7 @@ class EdgeMessageBlock(MessageBlockBase):
         super().__init__(name)
         self.max_violation_time = max_violation_time
 
-    async def forward(  # type:ignore
+    async def forward(  
         self,
         from_id: int,
         to_id: int,
@@ -60,7 +67,7 @@ class EdgeMessageBlock(MessageBlockBase):
             is_valid = await check_message(
                 from_id=from_id,
                 to_id=to_id,
-                llm_client=self.llm,
+                llm_client=self.llm, # TODO: BUG
                 content=msg,
             )
             if (
@@ -77,7 +84,7 @@ class PointMessageBlock(MessageBlockBase):
         super().__init__(name)
         self.max_violation_time = max_violation_time
 
-    async def forward(  # type:ignore
+    async def forward(  
         self,
         from_id: int,
         to_id: int,
@@ -105,7 +112,7 @@ class PointMessageBlock(MessageBlockBase):
                 and violation_counts[from_id] >= self.max_violation_time - 1
             ):
                 # Can be directly added. The internal asynchronous lock of the framework ensures no conflict.
-                black_list.append((from_id, None))  # type:ignore
+                black_list.append((from_id, None))  
             return is_valid
 
 
@@ -120,7 +127,7 @@ class MessageBlockListener(MessageBlockListenerBase):
     ):
         while True:
             if self.has_queue:
-                value = await self.queue.get_async()  # type: ignore
+                value = await self.queue.get_async()  #
                 if self._save_queue_values:
                     self._values_from_queue.append(value)
                 print(f"get `{value}` from queue")

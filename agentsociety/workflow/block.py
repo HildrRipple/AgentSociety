@@ -4,9 +4,9 @@ import asyncio
 import functools
 import inspect
 from collections.abc import Awaitable, Callable, Coroutine
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
-from ..environment.simulator import Simulator
+from ..environment import Environment
 from ..llm import LLM
 from ..memory import Memory
 from ..utils.decorators import record_call_aio
@@ -53,17 +53,21 @@ def log_and_check_with_memory(
             params = list(sig.parameters.values())
             if len(params) == 1 and params[0].annotation is Memory:
                 if inspect.iscoroutinefunction(condition):
-                    while not await condition(memory):  # type:ignore
+                    condition_func = cast(Callable[[Memory], Coroutine[Any, Any, bool]], condition)
+                    while not await condition_func(memory):  
                         await asyncio.sleep(trigger_interval)
                 else:
-                    while not condition(memory):  # type:ignore
+                    condition_func = cast(Callable[[Memory], bool], condition)
+                    while not condition_func(memory):  
                         await asyncio.sleep(trigger_interval)
             elif len(params) == 0:
                 if inspect.iscoroutinefunction(condition):
-                    while not await condition():  # type:ignore
+                    condition_func = cast(Callable[[], Coroutine[Any, Any, bool]], condition)
+                    while not await condition_func():  
                         await asyncio.sleep(trigger_interval)
                 else:
-                    while not condition():  # type:ignore
+                    condition_func = cast(Callable[[], bool], condition)
+                    while not condition_func():  
                         await asyncio.sleep(trigger_interval)
             else:
                 raise RuntimeError(
@@ -106,10 +110,10 @@ def log_and_check(
             params = list(sig.parameters.values())
             if len(params) == 0:
                 if inspect.iscoroutinefunction(condition):
-                    while not await condition():  # type:ignore
+                    while not await condition():  
                         await asyncio.sleep(trigger_interval)
                 else:
-                    while not condition():  # type:ignore
+                    while not condition():  
                         await asyncio.sleep(trigger_interval)
             else:
                 raise RuntimeError(
@@ -158,9 +162,10 @@ class Block:
         self,
         name: str,
         llm: Optional[LLM] = None,
+        environment: Optional[Environment] = None,
         memory: Optional[Memory] = None,
-        simulator: Optional[Simulator] = None,
         trigger: Optional[EventTrigger] = None,
+        description: str = "",
     ):
         """
         - **Description**:
@@ -169,19 +174,20 @@ class Block:
         - **Args**:
             - `name` (str): The name of the block.
             - `llm` (Optional[LLM], optional): An instance of LLM. Defaults to None.
+            - `environment` (Optional[Environment], optional): An instance of Environment. Defaults to None.
             - `memory` (Optional[Memory], optional): An instance of Memory. Defaults to None.
-            - `simulator` (Optional[Simulator], optional): An instance of Simulator. Defaults to None.
             - `trigger` (Optional[EventTrigger], optional): An event trigger that may be associated with this block. Defaults to None.
         """
         self.name = name
         self._llm = llm
         self._memory = memory
-        self._simulator = simulator
+        self._environment = environment
         # If a trigger is passed in, inject the block into the trigger and initialize it immediately.
         if trigger is not None:
             trigger.block = self
             trigger.initialize()
         self.trigger = trigger
+        self.description = description
 
     def export_config(self) -> dict[str, Optional[str]]:
         """
@@ -228,7 +234,7 @@ class Block:
         - **Returns**:
             - `Block`: An instance of the Block created from the provided configuration.
         """
-        instance = cls(name=config["name"])  # type: ignore
+        instance = cls(name=config["name"]) # type: ignore
         assert isinstance(config["config"], dict)
         for field, value in config["config"].items():
             if field in cls.configurable_fields:
@@ -256,7 +262,7 @@ class Block:
                     setattr(self, field, config["config"][field])
 
         def build_or_update_block(block_data: dict) -> Block:
-            block_name = block_data["name"]  # type:ignore
+            block_name = block_data["name"]  
             existing_block = getattr(self, block_name, None)
 
             if existing_block:
@@ -276,7 +282,7 @@ class Block:
         for block_data in config.get("children", []):
             build_or_update_block(block_data)
 
-    async def forward(self):
+    async def forward(self, step, context):
         """
         - **Description**:
             - Each block performs a specific reasoning task. This method should be overridden by subclasses.
@@ -287,17 +293,13 @@ class Block:
         raise NotImplementedError("Subclasses should implement this method")
 
     @property
-    def llm(
-        self,
-    ) -> LLM:
+    def llm(self) -> LLM:
         if self._llm is None:
             raise RuntimeError(f"LLM access before assignment, please `set_llm` first!")
         return self._llm
 
     @property
-    def memory(
-        self,
-    ) -> Memory:
+    def memory(self) -> Memory:
         if self._memory is None:
             raise RuntimeError(
                 f"Memory access before assignment, please `set_memory` first!"
@@ -305,29 +307,9 @@ class Block:
         return self._memory
 
     @property
-    def simulator(
-        self,
-    ) -> Simulator:
-        if self._simulator is None:
+    def environment(self) -> Environment:
+        if self._environment is None:
             raise RuntimeError(
-                f"Simulator access before assignment, please `set_simulator` first!"
+                f"Environment access before assignment, please `set_environment` first!"
             )
-        return self._simulator
-
-    def set_llm_client(self, llm: LLM):
-        """
-        Set the llm_client of the block.
-        """
-        self._llm = llm
-
-    def set_simulator(self, simulator: Simulator):
-        """
-        Set the simulator of the block.
-        """
-        self._simulator = simulator
-
-    def set_memory(self, memory: Memory):
-        """
-        Set the memory of the block.
-        """
-        self._memory = memory
+        return self._environment

@@ -47,7 +47,7 @@ sim_config = (
     .SetPostgreSql(dsn="postgresql://user:pass@localhost:5432/db", enabled=True)
 )
 exp_config = (
-    ExpConfig(exp_name="hurrican", llm_semaphore=200, logging_level="INFO")
+    ExpConfig(name="hurrican", llm_semaphore=200, logging_level="INFO")
     .SetAgentConfig(
         number_of_citizen=1000,
         group_size=50,
