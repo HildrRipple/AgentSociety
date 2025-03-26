@@ -192,7 +192,7 @@ class NeedsBlock(Block):
             response = await self.llm.atext_request(
                 self.initial_prompt.to_dialog(), response_format={"type": "json_object"}
             )
-            response = clean_json_response(response)  # type:ignore
+            response = clean_json_response(response)  
             retry = 3
             while retry > 0:
                 try:

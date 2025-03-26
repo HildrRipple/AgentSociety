@@ -8,6 +8,8 @@ from ...logger import get_logger
 from ...memory import Memory
 from ...workflow import Block, FormatPrompt
 
+__all__ = ["CognitionBlock"]
+
 
 def extract_json(output_str):
     """Extract JSON substring from a raw string response.
@@ -164,9 +166,11 @@ class CognitionBlock(Block):
                         timeout=300,
                         response_format={"type": "json_object"},
                     )
-                    response = jsonc.loads(extract_json(_response))  # type:ignore
-                    evaluation = False
-                    break
+                    json_str = extract_json(_response)
+                    if json_str:
+                        response = jsonc.loads(json_str)
+                        evaluation = False
+                        break
                 except:
                     pass
             if evaluation:
@@ -257,9 +261,11 @@ class CognitionBlock(Block):
                     timeout=300,
                     response_format={"type": "json_object"},
                 )
-                response = jsonc.loads(extract_json(_response))  # type:ignore
-                evaluation = False
-                break
+                json_str = extract_json(_response)
+                if json_str:
+                    response = jsonc.loads(json_str)
+                    evaluation = False
+                    break
             except:
                 pass
         if evaluation:
@@ -379,9 +385,11 @@ class CognitionBlock(Block):
                     timeout=300,
                     response_format={"type": "json_object"},
                 )
-                response = jsonc.loads(extract_json(_response))  # type:ignore
-                evaluation = False
-                break
+                json_str = extract_json(_response)
+                if json_str:
+                    response = jsonc.loads(json_str)
+                    evaluation = False
+                    break
             except Exception as e:
                 get_logger().warning(f"Request for cognition update failed: {e}")
                 pass

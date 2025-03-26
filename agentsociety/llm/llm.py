@@ -3,7 +3,7 @@ import logging
 import os
 import random
 import time
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, overload
 
 import jsonc
 from openai import NOT_GIVEN, APIConnectionError, AsyncOpenAI, NotGiven, OpenAIError
@@ -198,6 +198,42 @@ class LLM:
         )
         return config, client
 
+    @overload
+    async def atext_request(
+        self,
+        dialog: list[ChatCompletionMessageParam],
+        response_format: Union[
+            completion_create_params.ResponseFormat, NotGiven
+        ] = NOT_GIVEN,
+        temperature: float = 1,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        frequency_penalty: Optional[float] = None,
+        presence_penalty: Optional[float] = None,
+        timeout: int = 300,
+        retries: int = 10,
+        tools: NotGiven = NOT_GIVEN,
+        tool_choice: NotGiven = NOT_GIVEN,
+    ) -> str: ...
+
+    @overload
+    async def atext_request(
+        self,
+        dialog: list[ChatCompletionMessageParam],
+        response_format: Union[
+            completion_create_params.ResponseFormat, NotGiven
+        ] = NOT_GIVEN,
+        temperature: float = 1,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        frequency_penalty: Optional[float] = None,
+        presence_penalty: Optional[float] = None,
+        timeout: int = 300,
+        retries: int = 10,
+        tools: List[ChatCompletionToolParam] = [],
+        tool_choice: ChatCompletionToolChoiceOptionParam = "auto",
+    ) -> Any: ...
+
     async def atext_request(
         self,
         dialog: list[ChatCompletionMessageParam],
@@ -213,7 +249,7 @@ class LLM:
         retries: int = 10,
         tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
         tool_choice: Union[ChatCompletionToolChoiceOptionParam, NotGiven] = NOT_GIVEN,
-    ) -> Any:
+    ):
         """
         Sends an asynchronous text request to the configured LLM API.
 
@@ -280,7 +316,10 @@ class LLM:
                             response.choices[0].message.tool_calls[0].function.arguments
                         )
                     else:
-                        return response.choices[0].message.content
+                        content = response.choices[0].message.content
+                        if content is None:
+                            raise ValueError("No content in response")
+                        return content
                 except APIConnectionError as e:
                     get_logger().warning(
                         f"API connection error: `{e}` for request {dialog} {tools} {tool_choice}. original response: `{response}`. Retry {attempt+1} of {retries}"
@@ -312,6 +351,7 @@ class LLM:
                         await asyncio.sleep(random.random() * 2**attempt)
                     else:
                         raise e
+        raise RuntimeError("Failed to get response from LLM")
 
     def get_error_statistics(self):
         """

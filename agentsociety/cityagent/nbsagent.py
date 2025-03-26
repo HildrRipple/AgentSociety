@@ -4,15 +4,17 @@ from typing import Optional, cast
 
 import numpy as np
 
-from ..agent import InstitutionAgent, AgentToolbox
+from ..agent import NBSAgentBase, AgentToolbox
 from ..environment import EconomyClient
 from ..llm import LLM
 from ..memory import Memory
 from ..message import Messager
 from ..environment import Environment
 
+__all__ = ["NBSAgent"]
 
-class NBSAgent(InstitutionAgent):
+
+class NBSAgent(NBSAgentBase):
     """National Bureau of Statistics Agent simulating economic data collection and analysis.
 
     Inherits from InstitutionAgent to manage economic indicators and interactions with other
@@ -92,7 +94,7 @@ class NBSAgent(InstitutionAgent):
         infos = await super().gather_messages(agent_ids, content)
         return [info["content"] for info in infos]
 
-    async def forward(self, step, context):
+    async def forward(self):
         """Execute monthly economic data collection and update cycle.
 
         Performs:

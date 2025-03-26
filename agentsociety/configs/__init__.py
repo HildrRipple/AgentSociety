@@ -3,6 +3,7 @@ from typing import Any, Callable, Optional
 from pydantic import BaseModel, Field
 
 from .agent import AgentConfig, DistributionConfig
+from .const import AgentClassType
 from .env import (
     AvroConfig,
     EnvConfig,
@@ -49,8 +50,52 @@ class Config(BaseModel):
     env: EnvConfig
     """Environment configuration"""
 
-    agents: list[AgentConfig] = Field(..., min_length=1)
-    """Agent configuration"""
+    citizens: list[AgentConfig] = Field(..., min_length=1)
+    """Citizen Agent configuration"""
+
+    firms: list[AgentConfig] = Field(
+        [
+            AgentConfig(
+                agent_class=AgentClassType.FIRM,
+                number=1,
+            ),
+        ],
+        min_length=1,
+    )
+    """Firm Agent configuration"""
+
+    banks: list[AgentConfig] = Field(
+        [
+            AgentConfig(
+                agent_class=AgentClassType.BANK,
+                number=1,
+            ),
+        ],
+        min_length=1,
+    )
+    """Bank Agent configuration"""
+
+    nbs: list[AgentConfig] = Field(
+        [
+            AgentConfig(
+                agent_class=AgentClassType.NBS,
+                number=1,
+            ),
+        ],
+        min_length=1,
+    )
+    """NBS Agent configuration"""
+
+    governments: list[AgentConfig] = Field(
+        [
+            AgentConfig(
+                agent_class=AgentClassType.GOVERNMENT,
+                number=1,
+            ),
+        ],
+        min_length=1,
+    )
+    """Government Agent configuration"""
 
     exp: ExpConfig
     """Experiment configuration"""

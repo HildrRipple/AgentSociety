@@ -4,15 +4,17 @@ from typing import Optional
 
 import numpy as np
 
-from ..agent import InstitutionAgent, AgentToolbox
+from ..agent import GovernmentAgentBase, AgentToolbox
 from ..environment import EconomyClient
 from ..llm import LLM
 from ..memory import Memory
 from ..message import Messager
 from ..environment import Environment
 
+__all__ = ["GovernmentAgent"]
 
-class GovernmentAgent(InstitutionAgent):
+
+class GovernmentAgent(GovernmentAgentBase):
     """A government institution agent that handles periodic economic operations such as tax collection."""
 
     configurable_fields = ["time_diff"]
@@ -82,7 +84,7 @@ class GovernmentAgent(InstitutionAgent):
         infos = await super().gather_messages(agent_ids, content)
         return [info["content"] for info in infos]
 
-    async def forward(self, step, context):
+    async def forward(self):
         """Execute the government's periodic tax collection and notification cycle."""
         if await self.month_trigger():
             citizen_ids = await self.memory.status.get("citizen_ids")
@@ -90,8 +92,10 @@ class GovernmentAgent(InstitutionAgent):
             if not np.all(np.array(agents_forward) > self.forward_times):
                 return
             incomes = await self.gather_messages(citizen_ids, "income_currency")
-            _, post_tax_incomes = await self.environment.economy_client.calculate_taxes_due(
-                self.id, citizen_ids, incomes, enable_redistribution=False
+            _, post_tax_incomes = (
+                await self.environment.economy_client.calculate_taxes_due(
+                    self.id, citizen_ids, incomes, enable_redistribution=False
+                )
             )
             for citizen_id, income, post_tax_income in zip(
                 citizen_ids, incomes, post_tax_incomes

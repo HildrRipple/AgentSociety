@@ -15,7 +15,7 @@ import ray
 from langchain_core.embeddings import Embeddings
 
 from ..cityagent.memory_config import MemoryConfigGenerator
-from ..agent import Agent, InstitutionAgent
+from ..agent import Agent, InstitutionAgentBase
 from ..configs import Config
 from ..environment import EconomyClient, Simulator
 from ..environment.mapdata import MapData
@@ -261,7 +261,7 @@ class AgentGroup:
                 f"-----Creating Avro files in AgentGroup {self._uuid} ..."
             )
             # profile
-            if not issubclass(type(self.agents[0]), InstitutionAgent):
+            if not issubclass(type(self.agents[0]), InstitutionAgentBase):
                 filename = self.avro_file["profile"]
                 with open(filename, "wb") as f:
                     profiles = []
@@ -281,7 +281,7 @@ class AgentGroup:
             filename = self.avro_file["status"]
             with open(filename, "wb") as f:
                 statuses = []
-                if not issubclass(type(self.agents[0]), InstitutionAgent):
+                if not issubclass(type(self.agents[0]), InstitutionAgentBase):
                     fastavro.writer(f, STATUS_SCHEMA, statuses)
                 else:
                     fastavro.writer(f, INSTITUTION_STATUS_SCHEMA, statuses)
@@ -293,7 +293,7 @@ class AgentGroup:
                 fastavro.writer(f, SURVEY_SCHEMA, surveys)
 
         if self.enable_pgsql:
-            if not issubclass(type(self.agents[0]), InstitutionAgent):
+            if not issubclass(type(self.agents[0]), InstitutionAgentBase):
                 profiles: list[Any] = []
                 for agent in self.agents:
                     profile = await agent.status.profile.export()
@@ -331,7 +331,7 @@ class AgentGroup:
                             ),
                         )
                     )
-            await self._pgsql_writer.async_write_profile.remote(  # type:ignore
+            await self._pgsql_writer.async_write_profile.remote(  
                 profiles
             )
         if self.faiss_query is not None:
@@ -516,7 +516,7 @@ class AgentGroup:
                 _t = simulator_t
             else:
                 _t = await self.simulator.get_simulator_second_from_start_of_day()
-            if not issubclass(type(self.agents[0]), InstitutionAgent):
+            if not issubclass(type(self.agents[0]), InstitutionAgentBase):
                 for agent in self.agents:
                     _date_time = datetime.now(timezone.utc)
                     position = await agent.status.get("position")
@@ -642,7 +642,7 @@ class AgentGroup:
                             _status_dict[key] = []
                     _status_dict["created_at"] = _date_time
             else:
-                if not issubclass(type(self.agents[0]), InstitutionAgent):
+                if not issubclass(type(self.agents[0]), InstitutionAgentBase):
                     for agent in self.agents:
                         _date_time = datetime.now(timezone.utc)
                         position = await agent.status.get("position")
@@ -779,7 +779,7 @@ class AgentGroup:
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
             self._last_asyncio_pg_task = (
-                self._pgsql_writer.async_write_status.remote(  # type:ignore
+                self._pgsql_writer.async_write_status.remote(  
                     to_update_statues
                 )
             )

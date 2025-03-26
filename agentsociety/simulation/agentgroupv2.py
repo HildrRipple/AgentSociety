@@ -5,7 +5,15 @@ from typing import Any, Optional, Union
 import jsonc
 import ray
 
-from ..agent import Agent, AgentToolbox, CitizenAgent, InstitutionAgent
+from ..agent import (
+    Agent,
+    AgentToolbox,
+    CitizenAgentBase,
+    FirmAgentBase,
+    BankAgentBase,
+    NBSAgentBase,
+    GovernmentAgentBase,
+)
 from ..cityagent.memory_config import MemoryConfigGenerator
 from ..configs import Config
 from ..environment import Environment
@@ -32,7 +40,15 @@ class AgentGroupV2:
         agent_inits: list[
             tuple[
                 int,
-                type[Union[CitizenAgent, InstitutionAgent]],
+                type[
+                    Union[
+                        CitizenAgentBase,
+                        FirmAgentBase,
+                        BankAgentBase,
+                        NBSAgentBase,
+                        GovernmentAgentBase,
+                    ]
+                ],
                 MemoryConfigGenerator,
                 int,
             ]
@@ -77,6 +93,7 @@ class AgentGroupV2:
         self._agents: list[Agent] = []
         self._id2agent: dict[int, Agent] = {}
         self._message_dispatch_task: Optional[asyncio.Task] = None
+        self._last_asyncio_pg_task: Optional[asyncio.Task] = None
 
     @property
     def config(self):
@@ -201,7 +218,9 @@ class AgentGroupV2:
         await asyncio.gather(*tasks)
         await self.messager.subscribe_and_start_listening(channels)
         self._message_dispatch_task = asyncio.create_task(self._message_dispatch())
-        get_logger().info(f"-----Initializing by exporting profiles in AgentGroup {self._group_id} ...")
+        get_logger().info(
+            f"-----Initializing by exporting profiles in AgentGroup {self._group_id} ..."
+        )
         profiles = []
         for agent in self._agents:
             profile = await agent.status.profile.export()
@@ -221,7 +240,9 @@ class AgentGroupV2:
             self._avro_saver.append_profiles(profiles)
         if self._pgsql_writer is not None:
             await self._pgsql_writer.write_profiles.remote(profiles)  # type:ignore
-        get_logger().info(f"-----Initializing embeddings in AgentGroup {self._group_id} ...")
+        get_logger().info(
+            f"-----Initializing embeddings in AgentGroup {self._group_id} ..."
+        )
         embedding_tasks = []
         for agent in self._agents:
             embedding_tasks.append(agent.memory.initialize_embeddings())
@@ -399,13 +420,13 @@ class AgentGroupV2:
         if t is None:
             t = await self.environment.get_simulator_second_from_start_of_day()
 
-        created_at = int(datetime.now(timezone.utc).timestamp() * 1000)
+        created_at = datetime.now(timezone.utc)
         # =========================
         # build statuses data
         # =========================
         statuses = []
         for agent in self._agents:
-            if isinstance(agent, CitizenAgent):
+            if isinstance(agent, CitizenAgentBase):
                 position = await agent.status.get("position")
                 x = position["xy_position"]["x"]
                 y = position["xy_position"]["y"]
@@ -470,7 +491,9 @@ class AgentGroupV2:
                     created_at=created_at,
                 )
                 statuses.append(status)
-            elif isinstance(agent, InstitutionAgent):
+            elif isinstance(
+                agent, (FirmAgentBase, BankAgentBase, NBSAgentBase, GovernmentAgentBase)
+            ):
                 nominal_gdp = await agent.status.get("nominal_gdp", [])
                 real_gdp = await agent.status.get("real_gdp", [])
                 unemployment = await agent.status.get("unemployment", [])
@@ -518,7 +541,7 @@ class AgentGroupV2:
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
             self._last_asyncio_pg_task = (
-                self._pgsql_writer.async_write_statuses.remote(  # type:ignore
+                self._pgsql_writer.write_statuses.remote(  # type:ignore
                     statuses
                 )
             )

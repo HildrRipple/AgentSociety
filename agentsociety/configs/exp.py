@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 from ..survey import Survey
 from ..utils import MetricType, WorkflowType
@@ -70,7 +70,7 @@ class MetricExtractorConfig(BaseModel):
     func: Optional[Callable] = None
     """The function that extracts the metric - used for [FUNCTION] type"""
 
-    step_interval: int = 10
+    step_interval: int = Field(10, ge=1)
     """Frequency interval (in simulation steps) for metric extraction"""
 
     target_agent: Optional[list] = None
@@ -87,6 +87,16 @@ class MetricExtractorConfig(BaseModel):
 
     description: str = "None"
     """A descriptive text explaining the metric extractor"""
+
+    # customize validator for target_agent and key
+    @model_validator(mode="after")
+    def validate_target_agent(self):
+        if self.type == MetricType.STATE:
+            if self.target_agent is None:
+                raise ValueError("target_agent is required for STATE type")
+            if self.key is None:
+                raise ValueError("key is required for STATE type")
+        return self
 
 
 class EnvironmentConfig(BaseModel):
@@ -148,7 +158,7 @@ class ExpConfig(BaseModel):
 
     model_config = ConfigDict(use_enum_values=True, use_attribute_docstrings=True)
 
-    exp_name: str = Field("default_experiment")
+    name: str = Field("default_experiment")
     """Name of the experiment"""
 
     workflow: List[WorkflowStepConfig] = Field(..., min_length=1)

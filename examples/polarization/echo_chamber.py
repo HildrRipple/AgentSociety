@@ -70,7 +70,7 @@ sim_config = (
     .SetMapConfig(file_path="map.pb")
 )
 exp_config = (
-    ExpConfig(exp_name="cognition_exp2", llm_semaphore=200, logging_level="INFO")
+    ExpConfig(name="cognition_exp2", llm_semaphore=200, logging_level="INFO")
     .SetAgentConfig(
         number_of_citizen=100,
         group_size=50,

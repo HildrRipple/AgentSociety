@@ -56,7 +56,7 @@ class WorkBlock(Block):
         )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):
         """Process work task and track time expenditure.
 
         Workflow:
@@ -76,7 +76,7 @@ class WorkBlock(Block):
         result = await self.llm.atext_request(
             self.guidance_prompt.to_dialog(), response_format={"type": "json_object"}
         )
-        result = clean_json_response(result)  # type:ignore
+        result = clean_json_response(result)  
         try:
             result = jsonc.loads(result)
             time = result["time"]
@@ -218,7 +218,7 @@ class EconomyNoneBlock(Block):
             "NoneBlock", llm=llm, memory=memory, description="Do anything else"
         )
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):  
         """Log generic activities in economy stream."""
         node_id = await self.memory.stream.add_economy(
             description=f"I {step['intention']}"

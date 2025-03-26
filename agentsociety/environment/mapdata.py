@@ -1,6 +1,6 @@
 import os
 import pickle
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union, overload
 
 import numpy as np
 import pyproj
@@ -136,17 +136,17 @@ class MapData:
 
         self.poi_cate = POI_CATG_DICT
 
-    def get_aoi(self, aoi_id: Optional[int] = None):
-        if aoi_id is None:
-            return self._aoi_list
-        else:
-            return self.aois[aoi_id]
+    def get_all_aois(self):
+        return self._aoi_list
 
-    def get_poi(self, poi_id: Optional[int] = None):
-        if poi_id is None:
-            return self._poi_list
-        else:
-            return self.pois[poi_id]
+    def get_aoi(self, aoi_id: int):
+        return self.aois[aoi_id]
+
+    def get_all_pois(self):
+        return self._poi_list
+
+    def get_poi(self, poi_id: int):
+        return self.pois[poi_id]
 
     def _parse_map(self, m: List[Any]) -> Dict[str, Any]:
         # client = MongoClient(uri)
@@ -228,6 +228,26 @@ class MapData:
             poi_tree,
             poi_list,
         )
+
+    @overload
+    def query_pois(
+        self,
+        center: Union[Tuple[float, float], Point],
+        radius: Optional[float] = None,
+        category_prefix: Optional[str] = None,
+        limit: Optional[int] = None,
+        return_distance: Literal[False] = False,
+    ) -> List[Any]: ...
+
+    @overload
+    def query_pois(
+        self,
+        center: Union[Tuple[float, float], Point],
+        radius: Optional[float] = None,
+        category_prefix: Optional[str] = None,
+        limit: Optional[int] = None,
+        return_distance: Literal[True] = True,
+    ) -> List[Tuple[Any, float]]: ...
 
     def query_pois(
         self,

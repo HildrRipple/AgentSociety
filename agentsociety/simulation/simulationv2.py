@@ -29,16 +29,17 @@ from ..cityagent import (
 )
 from ..cityagent.initial import bind_agent_info, initialize_social_network
 from ..cityagent.memory_config import Distribution, MemoryConfigGenerator
-from ..configs import AgentConfig, Config, MetricExtractorConfig
+from ..configs import AgentConfig, Config, DistributionConfig, MetricExtractorConfig
+from ..configs.const import DistributionType, MetricType
 from ..environment import EnvironmentStarter
 from ..logger import get_logger, set_logger_level
 from ..message import Messager
 from ..metrics import MlflowClient
 from ..storage import AvroSaver
-from ..storage.pgsql import TO_UPDATE_EXP_INFO_KEYS_AND_TYPES, PgWriter
+from ..storage.pgsql import PgWriter
+from ..storage.type import StorageGlobalPrompt, StorageExpInfo
 from ..survey.models import Survey
 from ..utils import NONE_SENDER_ID, AgentClassType
-from ..utils.config_const import MetricType
 from .agentgroupv2 import AgentGroupV2
 
 __all__ = ["AgentSociety"]
@@ -136,14 +137,24 @@ class AgentSociety:
         self._groups: dict[str, ray.ObjectRef] = {}
         self._agent_ids: set[int] = set()
         self._agent_id2group: dict[int, ray.ObjectRef] = {}
-        self._exp_info: dict[str, Any] = {}
-        self._exp_created_time: datetime = datetime.now(timezone.utc)
-        self._exp_updated_time: datetime = datetime.now(timezone.utc)
+        self._exp_info: StorageExpInfo = StorageExpInfo(
+            id=self.exp_id,
+            tenant_id=self.tenant_id,
+            name=self.exp_name,
+            num_day=0,
+            status=0,
+            cur_day=0,
+            cur_t=0.0,
+            config=self._config.model_dump_json(),
+            error="",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
         self._total_steps: int = 0
 
     @property
     def exp_name(self):
-        return self._config.exp.exp_name
+        return self._config.exp.name
 
     @property
     def config(self):
@@ -220,18 +231,114 @@ class AgentSociety:
         agents = []  # (id, agent_class, generator, memory_index)
         next_id = 1
         group_size = self._config.group_size
-        for agent_config in self._config.agents:
-            this_agents = _init_agent_class(agent_config)
-            agents += [(next_id + i, *agent) for i, agent in enumerate(this_agents)]
-            next_id += len(this_agents)
-        get_logger().info(f"agents: len(agents)={len(agents)}")
+        citizen_ids = set()
+        bank_ids = set()
+        nbs_ids = set()
+        government_ids = set()
+        firm_ids = set()
+        for agent_config in self._config.firms:
+            firm_classes = _init_agent_class(agent_config)
+            firms = [
+                (next_id + i, *firm_class) for i, firm_class in enumerate(firm_classes)
+            ]
+            firm_ids.update([firm[0] for firm in firms])
+            agents += firms
+            next_id += len(firms)
+        for agent_config in self._config.banks:
+            bank_classes = _init_agent_class(agent_config)
+            banks = [
+                (next_id + i, *bank_class) for i, bank_class in enumerate(bank_classes)
+            ]
+            bank_ids.update([bank[0] for bank in banks])
+            agents += banks
+            next_id += len(banks)
+        for agent_config in self._config.nbs:
+            nbs_classes = _init_agent_class(agent_config)
+            nbs = [(next_id + i, *nbs_class) for i, nbs_class in enumerate(nbs_classes)]
+            nbs_ids.update([nbs[0] for nbs in nbs])
+            agents += nbs
+            next_id += len(nbs)
+        for agent_config in self._config.governments:
+            government_classes = _init_agent_class(agent_config)
+            governments = [
+                (next_id + i, *government_class)
+                for i, government_class in enumerate(government_classes)
+            ]
+            government_ids.update([government[0] for government in governments])
+            agents += governments
+            next_id += len(governments)
+        aoi_ids = self._environment.get_aoi_ids()
+        for agent_config in self._config.citizens:
+            # append distribution for firm_id, bank_id, nbs_id, government_id, home_aoi_id, work_aoi_id
+            if agent_config.memory_distributions is None:
+                agent_config.memory_distributions = {}
+            assert (
+                "firm_id" not in agent_config.memory_distributions
+            ), "firm_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
+            agent_config.memory_distributions["firm_id"] = DistributionConfig(
+                dist_type=DistributionType.CHOICE,
+                choices=list(firm_ids),
+            )
+            assert (
+                "bank_id" not in agent_config.memory_distributions
+            ), "bank_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
+            agent_config.memory_distributions["bank_id"] = DistributionConfig(
+                dist_type=DistributionType.CHOICE,
+                choices=list(bank_ids),
+            )
+            assert (
+                "nbs_id" not in agent_config.memory_distributions
+            ), "nbs_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
+            agent_config.memory_distributions["nbs_id"] = DistributionConfig(
+                dist_type=DistributionType.CHOICE,
+                choices=list(nbs_ids),
+            )
+            assert (
+                "government_id" not in agent_config.memory_distributions
+            ), "government_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
+            agent_config.memory_distributions["government_id"] = DistributionConfig(
+                dist_type=DistributionType.CHOICE,
+                choices=list(government_ids),
+            )
+            assert (
+                "home_aoi_id" not in agent_config.memory_distributions
+            ), "home_aoi_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
+            agent_config.memory_distributions["home_aoi_id"] = DistributionConfig(
+                dist_type=DistributionType.CHOICE,
+                choices=list(aoi_ids),
+            )
+            assert (
+                "work_aoi_id" not in agent_config.memory_distributions
+            ), "work_aoi_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
+            agent_config.memory_distributions["work_aoi_id"] = DistributionConfig(
+                dist_type=DistributionType.CHOICE,
+                choices=list(aoi_ids),
+            )
+            citizen_classes = _init_agent_class(agent_config)
+            citizens = [
+                (next_id + i, *citizen_class)
+                for i, citizen_class in enumerate(citizen_classes)
+            ]
+            citizen_ids.update([citizen[0] for citizen in citizens])
+            next_id += len(citizens)
+            agents += citizens
+        get_logger().info(
+            f"agents: len(citizens)={len(citizen_ids)}, len(firms)={len(firm_ids)}, len(banks)={len(bank_ids)}, len(nbs)={len(nbs_ids)}, len(governments)={len(government_ids)}"
+        )
         self._agent_ids = set([agent[0] for agent in agents])
+        self._environment.economy_client.set_ids(
+            citizen_ids=citizen_ids,
+            firm_ids=firm_ids,
+            bank_ids=bank_ids,
+            nbs_ids=nbs_ids,
+            government_ids=government_ids,
+        )
         environment_init = self._environment.to_init_args()
         for i in range(0, len(agents), group_size):
             group_agents = agents[i : i + group_size]
             group_id = str(uuid.uuid4())
             self._groups[group_id] = AgentGroupV2.remote(
-                tenant_id=self.tenant_id,
+                tenant_id=self.tenant_id,  # type:ignore
                 exp_name=self.exp_name,
                 exp_id=self.exp_id,
                 group_id=group_id,
@@ -248,62 +355,18 @@ class AgentSociety:
             )
             for agent_id in group_agents:
                 self._agent_id2group[agent_id] = self._groups[group_id]
-        get_logger().info(f"groups: len(self._groups)={len(self._groups)}, waiting for groups to init...")
-        await asyncio.gather(*[group.init.remote() for group in self._groups.values()])
-        get_logger().info(f"groups initialized")
-        # get all groups' agent ids
-        # TODO: 看不懂啥意思
-        agent_ids = set()
-        bank_ids = set()
-        nbs_ids = set()
-        government_ids = set()
-        firm_ids = set()
-        for group in self._groups.values():
-            _agent_ids, _bank_ids, _nbs_ids, _government_ids, _firm_ids = (
-                await group.get_economy_ids.remote()
-            )
-            agent_ids.update(_agent_ids)
-            bank_ids.update(_bank_ids)
-            nbs_ids.update(_nbs_ids)
-            government_ids.update(_government_ids)
-            firm_ids.update(_firm_ids)
-        await self._environment.economy_client.set_ids(
-            agent_ids=agent_ids,
-            firm_ids=firm_ids,
-            bank_ids=bank_ids,
-            nbs_ids=nbs_ids,
-            government_ids=government_ids,
+        get_logger().info(
+            f"groups: len(self._groups)={len(self._groups)}, waiting for groups to init..."
         )
-        for group in self._groups.values():
-            await group.set_economy_ids.remote(
-                agent_ids, firm_ids, bank_ids, nbs_ids, government_ids
-            )
+        await asyncio.gather(
+            *[group.init.remote() for group in self._groups.values()]  # type:ignore
+        )
         get_logger().info(f"Agent groups initialized")
 
         # ===================================
         # save the experiment info
         # ===================================
-        # add experiment info related properties
-        self._exp_created_time = datetime.now(timezone.utc)
-        self._exp_updated_time = datetime.now(timezone.utc)
-        self._exp_info = {
-            "id": self.exp_id,
-            "tenant_id": self.tenant_id,
-            "name": self.exp_name,
-            "num_day": 0,  # will be updated in run method
-            "status": 0,
-            "cur_day": 0,
-            "cur_t": 0.0,
-            "config": str(self._config.model_dump()),
-            "error": "",
-            "created_at": self._exp_created_time.isoformat(),
-            "updated_at": self._exp_updated_time.isoformat(),
-        }
-        if self.enable_avro:
-            assert self._avro_saver is not None
-            self._exp_info_file = self._avro_saver.exp_info_file
-            with open(self._exp_info_file, "w") as f:
-                yaml.dump(self._exp_info, f)
+        await self._save_exp_info()
 
         # ===================================
         # run init functions
@@ -381,7 +444,9 @@ class AgentSociety:
         """
         gather_tasks = []
         for group in self._groups.values():
-            gather_tasks.append(group.gather.remote(content, target_agent_ids))
+            gather_tasks.append(
+                group.gather.remote(content, target_agent_ids)  # type:ignore
+            )
         data = await asyncio.gather(*gather_tasks)
         if flatten:
             data_flatten = []
@@ -419,11 +484,13 @@ class AgentSociety:
             if values is None or len(keys) != len(values):
                 raise ValueError("the length of key and value does not match")
             for group in self._groups.values():
-                filtered_ids.extend(await group.filter.remote(types, keys, values))
+                filtered_ids.extend(
+                    await group.filter.remote(types, keys, values)  # type:ignore
+                )
             return filtered_ids
         else:
             for group in self._groups.values():
-                filtered_ids.extend(await group.filter.remote(types))
+                filtered_ids.extend(await group.filter.remote(types))  # type:ignore
             return filtered_ids
 
     async def update_environment(self, key: str, value: str):
@@ -437,7 +504,7 @@ class AgentSociety:
         self.environment.update_environment(key, value)
         await asyncio.gather(
             *[
-                group.update_environment.remote(key, value)
+                group.update_environment.remote(key, value)  # type:ignore
                 for group in self._groups.values()
             ]
         )
@@ -454,7 +521,7 @@ class AgentSociety:
         tasks = []
         for id in target_agent_ids:
             group = self._agent_id2group[id]
-            tasks.append(group.update.remote(id, target_key, content))
+            tasks.append(group.update.remote(id, target_key, content))  # type:ignore
         await asyncio.gather(*tasks)
 
     async def economy_update(
@@ -587,7 +654,9 @@ class AgentSociety:
         tasks = []
         for group in self._groups.values():
             tasks.append(
-                group.react_to_intervention.remote(intervention_message, agent_ids)
+                group.react_to_intervention.remote(  # type:ignore
+                    intervention_message, agent_ids
+                )
             )
         await asyncio.gather(*tasks)
 
@@ -648,43 +717,33 @@ class AgentSociety:
 
     async def _save_exp_info(self) -> None:
         """Async save experiment info to YAML file"""
-        try:
-            if self.enable_avro:
-                with open(self._exp_info_file, "w") as f:
-                    yaml.dump(self._exp_info, f)
-        except Exception as e:
-            get_logger().error(f"Avro save experiment info failed: {str(e)}")
-        try:
-            if self.enable_pgsql:
-                worker: ray.ObjectRef = self._pgsql_writers[0]
-                pg_exp_info = {
-                    k: self._exp_info[k] for (k, _) in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-                }
-                pg_exp_info["created_at"] = self._exp_created_time
-                pg_exp_info["updated_at"] = self._exp_updated_time
-                await worker.update_exp_info.remote(pg_exp_info)  # type: ignore
-        except Exception as e:
-            get_logger().error(f"PostgreSQL save experiment info failed: {str(e)}")
+        if self.enable_avro:
+            assert self._avro_saver is not None
+            with open(self._avro_saver.exp_info_file, "w") as f:
+                yaml.dump(self._exp_info, f)
+        if self.enable_pgsql:
+            assert self._pgsql_writers is not None
+            worker: ray.ObjectRef = self._pgsql_writers[0]
+            await worker.update_exp_info.remote(self._exp_info)  # type: ignore
 
     async def _update_exp_status(self, status: int, error: str = ""):
-        self._exp_updated_time = datetime.now(timezone.utc)
         """Update experiment status and save"""
-        self._exp_info["status"] = status
-        self._exp_info["error"] = error
-        self._exp_info["updated_at"] = self._exp_updated_time.isoformat()
+        self._exp_info.status = status
+        self._exp_info.error = error
+        self._exp_info.updated_at = datetime.now(timezone.utc)
         await self._save_exp_info()
 
     async def _save_global_prompt(self, prompt: str, day: int, t: float):
         """Save global prompt"""
         if self.enable_pgsql:
             worker: ray.ObjectRef = self._pgsql_writers[0]
-            prompt_info = {
-                "day": day,
-                "t": t,
-                "prompt": prompt,
-                "created_at": datetime.now(timezone.utc),
-            }
-            await worker.save_global_prompt.remote(prompt_info)  # type:ignore
+            prompt_info = StorageGlobalPrompt(
+                day=day,
+                t=t,
+                prompt=prompt,
+                created_at=datetime.now(timezone.utc),
+            )
+            await worker.write_global_prompt.remote(prompt_info)  # type:ignore
 
     async def _monitor_exp_status(self, stop_event: asyncio.Event):
         """Monitor experiment status and update
@@ -697,8 +756,8 @@ class AgentSociety:
                 # update experiment status
                 # assume all groups' cur_day and cur_t are synchronized, take the first one
                 assert self._environment is not None
-                self._exp_info["cur_day"] = await self._environment.get_simulator_day()
-                self._exp_info["cur_t"] = (
+                self._exp_info.cur_day = await self._environment.get_simulator_day()
+                self._exp_info.cur_t = (
                     await self._environment.get_simulator_second_from_start_of_day()
                 )
                 await self._save_exp_info()
@@ -743,7 +802,7 @@ class AgentSociety:
             tasks = []
             # TODO: bug here
             for group in self._groups.values():
-                tasks.append(group.step.remote())
+                tasks.append(group.step.remote())  # type:ignore
             self.environment.step(num_simulator_steps)
             log_messages_groups = await asyncio.gather(*tasks)
             llm_log_list = []
@@ -762,7 +821,9 @@ class AgentSociety:
             )
             save_tasks = []
             for group in self._groups.values():
-                save_tasks.append(group.save.remote(simulator_day, simulator_time))
+                save_tasks.append(
+                    group.save.remote(simulator_day, simulator_time)  # type:ignore
+                )
             await asyncio.gather(*save_tasks)
             # save global prompt
             await self._save_global_prompt(
@@ -771,16 +832,15 @@ class AgentSociety:
                 t=simulator_time,
             )
             self._total_steps += 1
-            if self.metric_extractors is not None:  # type:ignore
+            if self.config.exp.metric_extractors is not None:
                 to_execute_metric = []
-                for metric_extractor in self.metric_extractors:  # type:ignore
+                for metric_extractor in self.config.exp.metric_extractors:
                     if self._total_steps % metric_extractor.step_interval == 0:
                         if metric_extractor.type == MetricType.FUNCTION:
                             to_execute_metric.append(metric_extractor)
                         elif metric_extractor.type == MetricType.STATE:
                             # For STATE type, we need to gather data from target agents
-                            if metric_extractor.target_agent and metric_extractor.key:
-                                to_execute_metric.append(metric_extractor)
+                            to_execute_metric.append(metric_extractor)
 
                 if to_execute_metric:
                     await self.extract_metric(to_execute_metric)

@@ -4,7 +4,7 @@ import asyncio
 import functools
 import inspect
 from collections.abc import Awaitable, Callable, Coroutine
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 from ..environment import Environment
 from ..llm import LLM
@@ -53,17 +53,21 @@ def log_and_check_with_memory(
             params = list(sig.parameters.values())
             if len(params) == 1 and params[0].annotation is Memory:
                 if inspect.iscoroutinefunction(condition):
-                    while not await condition(memory):  # type:ignore
+                    condition_func = cast(Callable[[Memory], Coroutine[Any, Any, bool]], condition)
+                    while not await condition_func(memory):  
                         await asyncio.sleep(trigger_interval)
                 else:
-                    while not condition(memory):  # type:ignore
+                    condition_func = cast(Callable[[Memory], bool], condition)
+                    while not condition_func(memory):  
                         await asyncio.sleep(trigger_interval)
             elif len(params) == 0:
                 if inspect.iscoroutinefunction(condition):
-                    while not await condition():  # type:ignore
+                    condition_func = cast(Callable[[], Coroutine[Any, Any, bool]], condition)
+                    while not await condition_func():  
                         await asyncio.sleep(trigger_interval)
                 else:
-                    while not condition():  # type:ignore
+                    condition_func = cast(Callable[[], bool], condition)
+                    while not condition_func():  
                         await asyncio.sleep(trigger_interval)
             else:
                 raise RuntimeError(
@@ -106,10 +110,10 @@ def log_and_check(
             params = list(sig.parameters.values())
             if len(params) == 0:
                 if inspect.iscoroutinefunction(condition):
-                    while not await condition():  # type:ignore
+                    while not await condition():  
                         await asyncio.sleep(trigger_interval)
                 else:
-                    while not condition():  # type:ignore
+                    while not condition():  
                         await asyncio.sleep(trigger_interval)
             else:
                 raise RuntimeError(
@@ -258,7 +262,7 @@ class Block:
                     setattr(self, field, config["config"][field])
 
         def build_or_update_block(block_data: dict) -> Block:
-            block_name = block_data["name"]  # type:ignore
+            block_name = block_data["name"]  
             existing_block = getattr(self, block_name, None)
 
             if existing_block:

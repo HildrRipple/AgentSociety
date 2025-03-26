@@ -13,7 +13,6 @@ from ..workflow import Block
 __all__ = [
     "Tool",
     "ExportMlflowMetrics",
-    "GetMap",
     "UpdateWithSimulator",
     "ResetAgentPosition",
 ]
@@ -76,7 +75,7 @@ class Tool:
         - **Raises**:
             - `RuntimeError`: If the tool is not bound to an `Agent`.
         """
-        instance = self._instance  # type:ignore
+        instance = self._instance  
         if not isinstance(instance, Agent):
             raise RuntimeError(
                 f"Tool bind to object `{type(instance).__name__}`, not an `Agent` object!"
@@ -94,25 +93,12 @@ class Tool:
         - **Raises**:
             - `RuntimeError`: If the tool is not bound to a `Block`.
         """
-        instance = self._instance  # type:ignore
+        instance = self._instance  
         if not isinstance(instance, Block):
             raise RuntimeError(
                 f"Tool bind to object `{type(instance).__name__}`, not an `Block` object!"
             )
         return instance
-
-
-class GetMap(Tool):
-    """Retrieve the map from the simulator. Can be bound only to an `Agent` instance."""
-
-    def __init__(self) -> None:
-        self.variables = []
-
-    async def __call__(self) -> Union[Any, Callable]:
-        agent = self.agent
-        if agent.simulator is None:
-            raise ValueError("Simulator is not set.")
-        return agent.simulator.map
 
 
 class UpdateWithSimulator(Tool):
@@ -125,12 +111,10 @@ class UpdateWithSimulator(Tool):
         self,
     ):
         agent = self.agent
-        if agent._simulator is None:
-            return
-        simulator = agent.simulator
+        environment = agent.environment
         status = agent.status
         person_id = await status.get("id")
-        resp = await simulator.get_person(person_id)
+        resp = await environment.get_person(person_id)
         resp_dict = resp["person"]
         for k, v in resp_dict.get("motion", {}).items():
             try:
@@ -145,7 +129,6 @@ class UpdateWithSimulator(Tool):
     async def __call__(
         self,
     ):
-        agent = self.agent
         await self._update_motion_with_sim()
 
 
@@ -175,7 +158,7 @@ class ResetAgentPosition(Tool):
         """
         agent = self.agent
         status = agent.status
-        await agent.simulator.reset_person_position(
+        await agent.environment.reset_person_position(
             person_id=await status.get("id"),
             aoi_id=aoi_id,
             poi_id=poi_id,
@@ -240,9 +223,10 @@ class ExportMlflowMetrics(Tool):
                 )
                 metric_key = _metric["key"]
             self.metric_log_cache[metric_key].append(item)
+        client = agent.mlflow_client
+        assert client is not None, "MLflow client is not enabled!"
         for metric_key, _cache in self.metric_log_cache.items():
             if len(_cache) > batch_size:
-                client = agent.mlflow_client
                 await client.log_batch(
                     metrics=_cache[:batch_size],
                 )
@@ -258,6 +242,7 @@ class ExportMlflowMetrics(Tool):
         """
         agent = self.agent
         client = agent.mlflow_client
+        assert client is not None, "MLflow client is not enabled!"
         for metric_key, _cache in self.metric_log_cache.items():
             if len(_cache) > 0:
                 await client.log_batch(

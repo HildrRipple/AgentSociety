@@ -1,5 +1,6 @@
 import copy
 import random
+from abc import abstractmethod
 from collections import deque
 from typing import Any, Callable, List, Optional, Union
 
@@ -9,6 +10,7 @@ from mosstool.map._map_util.const import AOI_START_ID
 from pydantic import BaseModel
 
 from ..configs import DistributionConfig
+from ..configs.const import DistributionType
 from ..environment.economy import EconomyEntityType
 from ..logger import get_logger
 
@@ -52,6 +54,7 @@ class Distribution:
         - None
     """
 
+    @abstractmethod
     def sample(self) -> Any:
         """
         Sample a value from this distribution.
@@ -106,16 +109,52 @@ class Distribution:
         - **Returns**:
             - Distribution: A distribution instance
         """
-        return Distribution.create(
-            dist_type=config.dist_type.value,
-            choices=config.choices,
-            weights=config.weights,
-            min_value=config.min_value,
-            max_value=config.max_value,
-            mean=config.mean,
-            std=config.std,
-            value=config.value,
-        )
+        if config.dist_type == DistributionType.CHOICE:
+            assert (
+                config.choices is not None
+            ), "choices must be provided for choice distribution"
+            return ChoiceDistribution(
+                choices=config.choices,
+                weights=config.weights,
+            )
+        elif config.dist_type == DistributionType.UNIFORM_INT:
+            assert (
+                config.min_value is not None and config.max_value is not None
+            ), "min_value and max_value must be provided for uniform int distribution"
+            assert isinstance(config.min_value, int) and isinstance(
+                config.max_value, int
+            ), "min_value and max_value must be integers for uniform int distribution"
+            return UniformIntDistribution(
+                min_value=config.min_value,
+                max_value=config.max_value,
+            )
+        elif config.dist_type == DistributionType.UNIFORM_FLOAT:
+            assert (
+                config.min_value is not None and config.max_value is not None
+            ), "min_value and max_value must be provided for uniform float distribution"
+            return UniformFloatDistribution(
+                min_value=config.min_value,
+                max_value=config.max_value,
+            )
+        elif config.dist_type == DistributionType.NORMAL:
+            assert (
+                config.mean is not None and config.std is not None
+            ), "mean and std must be provided for normal distribution"
+            return NormalDistribution(
+                mean=config.mean,
+                std=config.std,
+                min_value=config.min_value,
+                max_value=config.max_value,
+            )
+        elif config.dist_type == DistributionType.CONSTANT:
+            assert (
+                config.value is not None
+            ), "value must be provided for constant distribution"
+            return ConstantDistribution(
+                value=config.value,
+            )
+        else:
+            raise ValueError(f"Unknown distribution type: {config.dist_type}")
 
 
 class ChoiceDistribution(Distribution):
@@ -332,26 +371,6 @@ DEFAULT_DISTRIBUTIONS = {
     ),
 }
 
-# # User-configurable distributions
-# CUSTOM_DISTRIBUTIONS = {}
-
-
-# def set_distribution(field: str, dist_type: str, **kwargs):
-#     """
-#     Set a custom distribution for a specific field.
-#     - **Description**:
-#         - Configures a custom distribution for sampling values for a specific field.
-
-#     - **Args**:
-#         - `field` (str): The field name to configure
-#         - `dist_type` (str): Type of distribution (e.g., 'choice', 'uniform_int')
-#         - `**kwargs`: Parameters specific to the distribution type
-
-#     - **Returns**:
-#         - None
-#     """
-#     CUSTOM_DISTRIBUTIONS[field] = Distribution.create(dist_type, **kwargs)
-
 
 def get_distribution(
     distributions: dict[str, Distribution], field: str
@@ -368,12 +387,6 @@ def get_distribution(
     - **Returns**:
         - Distribution: The distribution to use for sampling values
     """
-    # if field in CUSTOM_DISTRIBUTIONS:
-    #     return CUSTOM_DISTRIBUTIONS[field]
-    # elif field in DEFAULT_DISTRIBUTIONS:
-    #     return DEFAULT_DISTRIBUTIONS[field]
-    # else:
-    #     raise ValueError(f"No distribution configured for field: {field}")
 
     if field in distributions:
         return distributions[field]
@@ -452,16 +465,20 @@ def memory_config_societyagent(
         "work_propensity": (float, 0.0, False),
         "consumption_propensity": (float, 0.0, False),
         "to_consumption_currency": (float, 0.0, False),
-        "firm_id": (int, 0, False),
-        "government_id": (int, 0, False),
-        "bank_id": (int, 0, False),
-        "nbs_id": (int, 0, False),
+        "firm_id": (int, sample_field_value(distributions, "firm_id"), False),
+        "government_id": (
+            int,
+            sample_field_value(distributions, "government_id"),
+            False,
+        ),
+        "bank_id": (int, sample_field_value(distributions, "bank_id"), False),
+        "nbs_id": (int, sample_field_value(distributions, "nbs_id"), False),
         "dialog_queue": (deque(maxlen=3), [], False),
-        "firm_forward": (int, 0, False),
-        "bank_forward": (int, 0, False),
-        "nbs_forward": (int, 0, False),
-        "government_forward": (int, 0, False),
-        "forward": (int, 0, False),
+        "firm_forward": (int, 0, False),  # TODO: what is this ??
+        "bank_forward": (int, 0, False),  # TODO: what is this ??
+        "nbs_forward": (int, 0, False),  # TODO: what is this ??
+        "government_forward": (int, 0, False),  # TODO: what is this ??
+        "forward": (int, 0, False),  # TODO: what is this ??
         "depression": (float, 0.0, False),
         "ubi_opinion": (list, [], False),
         "working_experience": (list, [], False),
@@ -508,10 +525,10 @@ def memory_config_societyagent(
     # TODO: fix it in V1.3
     BASE = {
         "home": {
-            "aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}
+            "aoi_position": {"aoi_id": sample_field_value(distributions, "home_aoi_id")}
         },
         "work": {
-            "aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}
+            "aoi_position": {"aoi_id": sample_field_value(distributions, "work_aoi_id")}
         },
     }
 

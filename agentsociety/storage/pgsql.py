@@ -14,6 +14,7 @@ from .type import (
     StorageProfile,
     StorageStatus,
     StorageSurvey,
+    StorageExpInfo,
 )
 
 __all__ = ["PgWriter"]
@@ -113,19 +114,6 @@ PGSQL_DICT: dict[str, list[Any]] = {
         "CREATE INDEX {table_name}_day_t_idx ON {table_name} (day,t)",
     ],
 }
-TO_UPDATE_EXP_INFO_KEYS_AND_TYPES: list[tuple[str, Any]] = [
-    ("tenant_id", str),
-    ("id", None),
-    ("name", str),
-    ("num_day", int),
-    ("status", int),
-    ("cur_day", int),
-    ("cur_t", float),
-    ("config", str),
-    ("error", str),
-    ("created_at", None),
-    ("updated_at", None),
-]
 
 
 def _create_pg_tables(exp_id: str, dsn: str):
@@ -143,7 +131,11 @@ def _create_pg_tables(exp_id: str, dsn: str):
             with conn.cursor() as cur:
                 if not table_type == "experiment":
                     # delete table
-                    cur.execute(f"DROP TABLE IF EXISTS {table_name}")  # type:ignore
+                    cur.execute(
+                        psycopg.sql.SQL("DROP TABLE IF EXISTS {}").format(
+                            psycopg.sql.Identifier(table_name)
+                        )
+                    )
                     get_logger().debug(
                         f"table:{table_name} sql: DROP TABLE IF EXISTS {table_name}"
                     )
@@ -288,63 +280,44 @@ class PgWriter:
                 get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {row}")
 
     @lock_decorator
-    async def update_exp_info(self, exp_info: dict[str, Any]):
+    async def update_exp_info(self, exp_info: StorageExpInfo):
         # timestamp不做类型转换
         table_name = f"{TABLE_PREFIX}experiment"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             async with aconn.cursor(row_factory=dict_row) as cur:
-                exec_str = "SELECT * FROM {table_name} WHERE id=%s".format(
-                    table_name=table_name
-                ), (self.exp_id,)
-                await cur.execute(
-                    "SELECT * FROM {table_name} WHERE id=%s".format(
-                        table_name=table_name
-                    ),
-                    (self.exp_id,),
-                )  # type:ignore
-                get_logger().debug(f"table:{table_name} sql: {exec_str}")
-                record_exists = await cur.fetchall()
-                if record_exists:
-                    # UPDATE
-                    columns = ", ".join(
-                        f"{key} = %s" for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-                    )
-                    update_sql = psycopg.sql.SQL(
-                        f"UPDATE {{}} SET {columns} WHERE id='{self.exp_id}'"  # type:ignore
-                    ).format(psycopg.sql.Identifier(table_name))
-                    params = [
-                        (
-                            _type(exp_info[key])
-                            if _type is not None and exp_info[key] is not None
-                            else exp_info[key]
-                        )
-                        for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-                    ]
-                    get_logger().debug(
-                        f"table:{table_name} sql: {update_sql} values: {params}"
-                    )
-                    await cur.execute(update_sql, params)
-                else:
-                    # INSERT
-                    keys = ", ".join(
-                        key for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-                    )
-                    placeholders = ", ".join(
-                        ["%s"] * len(TO_UPDATE_EXP_INFO_KEYS_AND_TYPES)
-                    )
-                    insert_sql = psycopg.sql.SQL(
-                        f"INSERT INTO {{}} ({keys}) VALUES ({placeholders})"  # type:ignore
-                    ).format(psycopg.sql.Identifier(table_name))
-                    params = [
-                        (
-                            _type(exp_info[key])
-                            if _type is not None and exp_info[key] is not None
-                            else exp_info[key]
-                        )
-                        for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-                    ]
-                    get_logger().debug(
-                        f"table:{table_name} sql: {insert_sql} values: {params}"
-                    )
-                    await cur.execute(insert_sql, params)
+                # 使用固定的SQL语句，避免动态构建列名
+                upsert_sql = psycopg.sql.SQL(
+                    "INSERT INTO {} (tenant_id, id, name, num_day, status, cur_day, cur_t, config, error, created_at, updated_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (tenant_id, id) DO UPDATE SET "
+                    "name = EXCLUDED.name, "
+                    "num_day = EXCLUDED.num_day, "
+                    "status = EXCLUDED.status, "
+                    "cur_day = EXCLUDED.cur_day, "
+                    "cur_t = EXCLUDED.cur_t, "
+                    "config = EXCLUDED.config, "
+                    "error = EXCLUDED.error, "
+                    "updated_at = EXCLUDED.updated_at"
+                ).format(psycopg.sql.Identifier(table_name))
+
+                # 准备参数值
+                params = [
+                    exp_info.tenant_id,
+                    self.exp_id,
+                    exp_info.name,
+                    exp_info.num_day,
+                    exp_info.status,
+                    exp_info.cur_day,
+                    exp_info.cur_t,
+                    exp_info.config,
+                    exp_info.error,
+                    exp_info.created_at,
+                    exp_info.updated_at,
+                ]
+
+                get_logger().debug(
+                    f"table:{table_name} sql: {upsert_sql} values: {params}"
+                )
+
+                await cur.execute(upsert_sql, params)
                 await aconn.commit()

@@ -3,15 +3,17 @@ from typing import Optional, cast
 
 import numpy as np
 
-from ..agent import InstitutionAgent, AgentToolbox
+from ..agent import FirmAgentBase, AgentToolbox
 from ..environment import EconomyClient
 from ..llm import LLM
 from ..memory import Memory
 from ..message import Messager
 from ..environment import Environment
 
+__all__ = ["FirmAgent"]
 
-class FirmAgent(InstitutionAgent):
+
+class FirmAgent(FirmAgentBase):
     """Agent representing a firm in an economic simulation.
 
     Manages economic activities including price adjustments, wage policies,
@@ -90,7 +92,7 @@ class FirmAgent(InstitutionAgent):
         infos = await super().gather_messages(agent_ids, content)
         return [info["content"] for info in infos]
 
-    async def forward(self, step, context):
+    async def forward(self):
         """Execute monthly economic adjustments.
 
         Performs:
@@ -98,7 +100,7 @@ class FirmAgent(InstitutionAgent):
         - Price adjustments based on inventory/demand balance
         - Economic metrics reset (demand/sales tracking)
         """
-        if (await self.month_trigger()):
+        if await self.month_trigger():
             firm_id = self.id
             print("firm forward")
             employees, total_demand, goods_consumption, inventory, skills, price = (

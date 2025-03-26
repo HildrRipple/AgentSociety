@@ -5,12 +5,14 @@ from typing import Optional, cast
 import numpy as np
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
 
-from ..agent import InstitutionAgent, AgentToolbox
+from ..agent import BankAgentBase, AgentToolbox
 from ..environment import EconomyClient
 from ..llm.llm import LLM
 from ..memory import Memory
 from ..message import Messager
 from ..environment import Environment
+
+__all__ = ["BankAgent"]
 
 
 def calculate_inflation(prices):
@@ -52,7 +54,7 @@ def calculate_inflation(prices):
     return inflation_rates
 
 
-class BankAgent(InstitutionAgent):
+class BankAgent(BankAgentBase):
     """
     A central banking agent that manages monetary policy in the simulation.
 
@@ -132,7 +134,7 @@ class BankAgent(InstitutionAgent):
         infos = await super().gather_messages(agent_ids, content)
         return [info["content"] for info in infos]
 
-    async def forward(self, step, context):
+    async def forward(self):
         """
         Execute monthly policy update cycle.
 

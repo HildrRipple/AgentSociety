@@ -56,7 +56,7 @@ sim_config = (
     # .SetAvro(path='./__avro', enabled=True)
 )
 exp_config = (
-    ExpConfig(exp_name="social_node", llm_semaphore=200, logging_level="INFO")
+    ExpConfig(name="social_node", llm_semaphore=200, logging_level="INFO")
     .SetAgentConfig(
         number_of_citizen=100,
         group_size=50,

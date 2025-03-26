@@ -145,8 +145,8 @@ class Agent(ABC):
                 result["blocks"].append(
                     {
                         "name": attr_name,
-                        "config": block_config[0],  # type:ignore
-                        "description": block_config[1],  # type:ignore
+                        "config": block_config[0],  
+                        "description": block_config[1],  
                         "children": cls._export_subblocks(attr_type),
                     }
                 )
@@ -162,8 +162,8 @@ class Agent(ABC):
                 children.append(
                     {
                         "name": attr_name,
-                        "config": block_config[0],  # type:ignore
-                        "description": block_config[1],  # type:ignore
+                        "config": block_config[0],  
+                        "description": block_config[1],  
                         "children": cls._export_subblocks(attr_type),
                     }
                 )
@@ -203,7 +203,7 @@ class Agent(ABC):
             - Dynamically creates Block instances based on the configuration data and assigns them to the agent.
             - If a block is not found in the global namespace or cannot be created, this method may raise errors.
         """
-        agent = cls(name=config["agent_name"])  # type:ignore
+        agent = cls(name=config["agent_name"])  
 
         def build_block(block_data: dict[str, Any]) -> Block:
             block_cls = globals()[block_data["name"]]
@@ -258,7 +258,7 @@ class Agent(ABC):
 
         for block_data in config.get("blocks", []):
             block_name = block_data["name"]
-            existing_block = getattr(self, block_name, None)  # type:ignore
+            existing_block = getattr(self, block_name, None)  
 
             if existing_block:
                 existing_block.load_from_config(block_data)
@@ -315,6 +315,11 @@ class Agent(ABC):
     def pgsql_writer(self):
         """The Agent's PgSQL Writer"""
         return self._toolbox.pgsql_writer
+
+    @property
+    def mlflow_client(self):
+        """The Agent's MLflow Client"""
+        return self._toolbox.mlflow_client
 
     @property
     def memory(self):
@@ -396,9 +401,9 @@ class Agent(ABC):
         dialog.append({"role": "user", "content": survey_prompt})
 
         # Use LLM to generate a response
-        response = await self.llm.atext_request(dialog)  # type:ignore
+        response = await self.llm.atext_request(dialog)  
 
-        return response  # type:ignore
+        return response
 
     async def _process_survey(self, survey: dict):
         """
@@ -415,7 +420,7 @@ class Agent(ABC):
             - Handles asynchronous tasks and ensures thread-safe operations when writing to PostgreSQL.
         """
         survey_response = await self.generate_user_survey_response(survey)
-        _date_time = datetime.now(timezone.utc)
+        date_time = datetime.now(timezone.utc)
         # Avro
         storage_survey = StorageSurvey(
             id=self.id,
@@ -423,7 +428,7 @@ class Agent(ABC):
             t=await self.environment.get_simulator_second_from_start_of_day(),
             survey_id=survey["id"],
             result=survey_response,
-            created_at=int(_date_time.timestamp() * 1000),
+            created_at=date_time,
         )
         if self.avro_saver is not None:
             self.avro_saver.append_surveys([storage_survey])
@@ -479,9 +484,9 @@ class Agent(ABC):
         dialog.append({"role": "user", "content": question})
 
         # Use LLM to generate a response
-        response = await self.llm.atext_request(dialog)  # type:ignore
+        response = await self.llm.atext_request(dialog)  
 
-        return response  # type:ignore
+        return response  
 
     async def _process_interview(self, payload: dict):
         """
@@ -498,7 +503,7 @@ class Agent(ABC):
             - Sends a message through the Messager indicating that user feedback has been processed.
             - Handles asynchronous tasks and ensures thread-safe operations when writing to PostgreSQL.
         """
-        _date_time = datetime.now(timezone.utc)
+        date_time = datetime.now(timezone.utc)
         storage_dialog = StorageDialog(
             id=self.id,
             day=await self.environment.get_simulator_day(),
@@ -506,7 +511,7 @@ class Agent(ABC):
             type=2,
             speaker="user",
             content=payload["content"],
-            created_at=int(_date_time.timestamp() * 1000),
+            created_at=date_time,
         )
         if self.avro_saver is not None:
             self.avro_saver.append_dialogs([storage_dialog])
@@ -520,7 +525,7 @@ class Agent(ABC):
             )
         question = payload["content"]
         response = await self.generate_user_chat_response(question)
-        _date_time = datetime.now(timezone.utc)
+        date_time = datetime.now(timezone.utc)
         storage_dialog = StorageDialog(
             id=self.id,
             day=await self.environment.get_simulator_day(),
@@ -528,7 +533,7 @@ class Agent(ABC):
             type=2,
             speaker="",
             content=response,
-            created_at=int(_date_time.timestamp() * 1000),
+            created_at=date_time,
         )
         # Avro
         if self.avro_saver is not None:
@@ -564,7 +569,7 @@ class Agent(ABC):
             type=0,
             speaker="",
             content=thought,
-            created_at=int(datetime.now(timezone.utc).timestamp() * 1000),
+            created_at=datetime.now(timezone.utc),
         )
         # Avro
         if self.avro_saver is not None:
@@ -618,7 +623,7 @@ class Agent(ABC):
             type=1,
             speaker=payload["from"],
             content=payload["content"],
-            created_at=int(datetime.now(timezone.utc).timestamp() * 1000),
+            created_at=datetime.now(timezone.utc),
         )
         asyncio.create_task(self.process_agent_chat_response(payload))
         # Avro
@@ -760,7 +765,6 @@ class Agent(ABC):
             "t": await self.environment.get_simulator_second_from_start_of_day(),
         }
         await self._send_message(to_agent_id, payload, "agent-chat")
-        _date_time = datetime.now(timezone.utc)
         storage_dialog = StorageDialog(
             id=self.id,
             day=await self.environment.get_simulator_day(),
@@ -768,7 +772,7 @@ class Agent(ABC):
             type=1,
             speaker=str(self.id),
             content=content,
-            created_at=int(datetime.now().timestamp() * 1000),
+            created_at=datetime.now(timezone.utc),
         )
         # Avro
         if self.avro_saver is not None and type == "social":

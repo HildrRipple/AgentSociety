@@ -38,7 +38,17 @@ class Environment:
     """
 
     def __init__(
-        self, map_data: MapData, server_addr: str, environment_config: EnvironmentConfig
+        self,
+        map_data: MapData,
+        server_addr: str,
+        environment_config: EnvironmentConfig,
+        # TEMP
+        # TODO: try to remove this
+        citizen_ids: set[int] = set(),
+        firm_ids: set[int] = set(),
+        bank_ids: set[int] = set(),
+        nbs_ids: set[int] = set(),
+        government_ids: set[int] = set(),
     ):
         """
         Initialize the Environment.
@@ -60,6 +70,13 @@ class Environment:
 
         self._client = CityClient(self._server_addr)
         self._economy_client = EconomyClient(self._server_addr)
+        self._economy_client.set_ids(
+            citizen_ids=citizen_ids,
+            firm_ids=firm_ids,
+            bank_ids=bank_ids,
+            nbs_ids=nbs_ids,
+            government_ids=government_ids,
+        )
 
         self.time: int = 0
         """current time of simulator"""
@@ -76,7 +93,7 @@ class Environment:
 
     def _create_poi_id_2_aoi_id(self):
         assert self._map is not None
-        pois = self._map.get_poi()
+        pois = self._map.get_all_pois()
         self.poi_id_2_aoi_id: dict[int, int] = {
             poi["id"]: poi["aoi_id"] for poi in pois
         }
@@ -102,6 +119,10 @@ class Environment:
 
     def get_poi_cate(self):
         return self.poi_cate
+
+    def get_aoi_ids(self):
+        aois = self._map.get_all_aois()
+        return [aoi["id"] for aoi in aois]
 
     @property
     def environment(self) -> dict[str, str]:
@@ -194,7 +215,9 @@ class Environment:
     @overload
     async def get_time(self, format_time: Literal[False]) -> int: ...
     @overload
-    async def get_time(self, format_time: Literal[True], format: str = "%H:%M:%S") -> str: ...
+    async def get_time(
+        self, format_time: Literal[True], format: str = "%H:%M:%S"
+    ) -> str: ...
 
     @log_execution_time
     async def get_time(
@@ -260,9 +283,9 @@ class Environment:
         - **Returns**:
             - `Dict`: Information about the specified person.
         """
-        person: dict = await self._client.person_service.GetPerson(
+        person = await self._client.person_service.GetPerson(
             req={"person_id": person_id}
-        )  # type:ignore
+        )
         return person
 
     @log_execution_time
@@ -281,7 +304,7 @@ class Environment:
             req = person_service.AddPersonRequest(person=person)
         else:
             req = person
-        resp: dict = await self._client.person_service.AddPerson(req)  # type:ignore
+        resp: dict = await self._client.person_service.AddPerson(req)
         return resp
 
     @log_execution_time
@@ -437,7 +460,7 @@ class Environment:
             center=center,
             radius=radius,
             return_distance=False,
-        )  # type:ignore
+        )
         # Filter out POIs that do not meet the category prefix
         pois = []
         for poi in _pois:
@@ -509,6 +532,11 @@ class EnvironmentStarter(Environment):
             "map_data": self._map,
             "server_addr": self._server_addr,
             "environment_config": self._environment_config,
+            "citizen_ids": self.economy_client._citizen_ids,
+            "firm_ids": self.economy_client._firm_ids,
+            "bank_ids": self.economy_client._bank_ids,
+            "nbs_ids": self.economy_client._nbs_ids,
+            "government_ids": self.economy_client._government_ids,
         }
 
     def close(self):

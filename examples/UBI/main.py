@@ -41,7 +41,7 @@ sim_config = (
 )
 exp_config = (
     ExpConfig(
-        exp_name="allinone_economy", llm_semaphore=200, logging_level="INFO"
+        name="allinone_economy", llm_semaphore=200, logging_level="INFO"
     )
     .SetAgentConfig(
         number_of_citizen=100,

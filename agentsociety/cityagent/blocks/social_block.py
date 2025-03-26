@@ -82,7 +82,7 @@ class SocialNoneBlock(Block):
         )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
-    async def forward(self, step, context):  # type:ignore
+    async def forward(self, step, context):
         """Executes default behavior when no specific block matches the intention.
 
         Args:
@@ -100,7 +100,7 @@ class SocialNoneBlock(Block):
         result = await self.llm.atext_request(
             self.guidance_prompt.to_dialog(), response_format={"type": "json_object"}
         )
-        result = clean_json_response(result)  # type:ignore
+        result = clean_json_response(result)
         try:
             result = jsonc.loads(result)
             node_id = await self.memory.stream.add_social(
@@ -174,7 +174,7 @@ class FindPersonBlock(Block):
         ['offline', 2] - means meet the third friend offline
         """
 
-    async def forward(  # type:ignore
+    async def forward(
         self, step: dict[str, Any], context: Optional[dict] = None
     ) -> dict[str, Any]:
         """Identifies a target agent and interaction mode (online/offline).
@@ -239,7 +239,7 @@ class FindPersonBlock(Block):
 
             try:
                 # Parse the response
-                mode, friend_index = eval(response)  # type:ignore
+                mode, friend_index = eval(response)
 
                 # Validate the response format
                 if not isinstance(mode, str) or mode not in ["online", "offline"]:
@@ -249,7 +249,7 @@ class FindPersonBlock(Block):
 
                 # Convert index to ID
                 target = index_to_id[friend_index]
-                context["target"] = target  # type:ignore
+                context["target"] = target
             except Exception as e:
                 # If parsing fails, select the friend with the strongest relationship as the default option
                 target = (
@@ -401,7 +401,7 @@ class MessageBlock(Block):
 
         except Exception as e:
             node_id = await self.memory.stream.add_social(
-                description=f"I can't send a message to {target}"  # type:ignore
+                description=f"I can't send a message to {target}"
             )
             return {
                 "success": False,
@@ -434,7 +434,7 @@ class SocialBlock(Block):
             [self.find_person_block, self.message_block, self.noneblock]
         )
 
-    async def forward(  # type:ignore
+    async def forward(
         self, step: dict[str, Any], context: Optional[dict] = None
     ) -> dict[str, Any]:
         """Main entry point for social interactions. Dispatches to sub-blocks based on context.
@@ -456,7 +456,7 @@ class SocialBlock(Block):
             selected_block = await self.dispatcher.dispatch(step)
 
             # Execute the selected sub-block and get the result
-            result = await selected_block.forward(step, context)  # type:ignore
+            result = await selected_block.forward(step, context)
 
             return result
 

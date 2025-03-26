@@ -20,12 +20,15 @@ from ..metrics import MlflowClient
 from .agent_base import Agent, AgentToolbox, AgentType
 
 __all__ = [
-    "InstitutionAgent",
-    "CitizenAgent",
+    "CitizenAgentBase",
+    "FirmAgentBase",
+    "BankAgentBase",
+    "NBSAgentBase",
+    "GovernmentAgentBase",
 ]
 
 
-class CitizenAgent(Agent):
+class CitizenAgentBase(Agent):
     """
     Represents a citizen agent within the simulation environment.
 
@@ -151,7 +154,7 @@ class CitizenAgent(Agent):
         await self._send_message(sender_id, payload, "gather")
 
 
-class InstitutionAgent(Agent):
+class InstitutionAgentBase(Agent):
     """
     Represents an institution agent within the simulation environment.
 
@@ -362,3 +365,33 @@ class InstitutionAgent(Agent):
             # Cleanup Futures
             for key in futures:
                 self._gather_responses.pop(key, None)
+
+
+class FirmAgentBase(InstitutionAgentBase):
+    """
+    Represents a firm agent within the simulation environment.
+    """
+
+
+class BankAgentBase(InstitutionAgentBase):
+    """
+    Represents a bank agent within the simulation environment.
+    """
+
+    ...
+
+
+class NBSAgentBase(InstitutionAgentBase):
+    """
+    Represents a National Bureau of Statistics agent within the simulation environment.
+    """
+
+    ...
+
+
+class GovernmentAgentBase(InstitutionAgentBase):
+    """
+    Represents a government agent within the simulation environment.
+    """
+
+    ...

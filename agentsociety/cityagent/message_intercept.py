@@ -28,7 +28,7 @@ async def check_message(
         try:
             response: str = await llm_client.atext_request(
                 dialog, timeout=300
-            )  # type:ignore
+            )  
             if "false" in response.lower():
                 is_valid = False
                 break
@@ -48,7 +48,7 @@ class EdgeMessageBlock(MessageBlockBase):
         super().__init__(name)
         self.max_violation_time = max_violation_time
 
-    async def forward(  # type:ignore
+    async def forward(  
         self,
         from_id: int,
         to_id: int,
@@ -84,7 +84,7 @@ class PointMessageBlock(MessageBlockBase):
         super().__init__(name)
         self.max_violation_time = max_violation_time
 
-    async def forward(  # type:ignore
+    async def forward(  
         self,
         from_id: int,
         to_id: int,
@@ -112,7 +112,7 @@ class PointMessageBlock(MessageBlockBase):
                 and violation_counts[from_id] >= self.max_violation_time - 1
             ):
                 # Can be directly added. The internal asynchronous lock of the framework ensures no conflict.
-                black_list.append((from_id, None))  # type:ignore
+                black_list.append((from_id, None))  
             return is_valid
 
 

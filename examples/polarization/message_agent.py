@@ -3,7 +3,7 @@ import jsonc
 import logging
 from typing import Optional, cast
 
-from agentsociety import CitizenAgent, Simulator
+from agentsociety import CitizenAgentBase, Simulator
 from agentsociety.environment import EconomyClient
 from agentsociety.llm import LLM
 from agentsociety.memory import Memory
@@ -43,7 +43,7 @@ What you would say (One or two sentences):
 """
 
 
-class AgreeAgent(CitizenAgent):
+class AgreeAgent(CitizenAgentBase):
     def __init__(
         self,
         name: str,
@@ -51,7 +51,7 @@ class AgreeAgent(CitizenAgent):
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,  # type:ignore
+        messager: Optional[Messager] = None,  
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
@@ -101,7 +101,7 @@ class AgreeAgent(CitizenAgent):
             await asyncio.gather(*send_tasks)
             print("AgreeAgent forward end")
 
-    async def process_agent_chat_response(self, payload: dict) -> str:  # type:ignore
+    async def process_agent_chat_response(self, payload: dict) -> str:  
         try:
             # Extract basic info
             sender_id = payload.get("from")
@@ -132,14 +132,14 @@ class AgreeAgent(CitizenAgent):
                     ensure_ascii=False,
                 )
                 await self.send_message_to_agent(sender_id, serialized_response)
-            return response  # type:ignore
+            return response  
 
         except Exception as e:
             logger.warning(f"Error in process_agent_chat_response: {str(e)}")
             return ""
 
 
-class DisagreeAgent(CitizenAgent):
+class DisagreeAgent(CitizenAgentBase):
     def __init__(
         self,
         name: str,
@@ -147,7 +147,7 @@ class DisagreeAgent(CitizenAgent):
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,  # type:ignore
+        messager: Optional[Messager] = None,  
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
@@ -197,7 +197,7 @@ class DisagreeAgent(CitizenAgent):
             await asyncio.gather(*send_tasks)
             print("DisagreeAgent forward end")
 
-    async def process_agent_chat_response(self, payload: dict) -> str:  # type:ignore
+    async def process_agent_chat_response(self, payload: dict) -> str:  
         try:
             # Extract basic info
             sender_id = payload.get("from")
@@ -228,7 +228,7 @@ class DisagreeAgent(CitizenAgent):
                     ensure_ascii=False,
                 )
                 await self.send_message_to_agent(sender_id, serialized_response)
-            return response  # type:ignore
+            return response  
 
         except Exception as e:
             logger.warning(f"Error in process_agent_chat_response: {str(e)}")

@@ -1,6 +1,5 @@
 from .tool import (
     ExportMlflowMetrics,
-    GetMap,
     ResetAgentPosition,
     Tool,
     UpdateWithSimulator,
@@ -9,7 +8,6 @@ from .tool import (
 __all__ = [
     "Tool",
     "ExportMlflowMetrics",
-    "GetMap",
     "UpdateWithSimulator",
     "ResetAgentPosition",
 ]
