@@ -1,7 +1,8 @@
+import atexit
 import logging
-from multiprocessing import cpu_count
 import os
 import subprocess
+from multiprocessing import cpu_count
 from subprocess import Popen
 
 import yaml
@@ -112,14 +113,14 @@ class ControlSimEnv:
             env=os.environ,
         )
         logging.info(f"start agentsociety-sim at {sim_addr}, PID={self._sim_proc.pid}")
-        
+        atexit.register(self.close)
         return sim_addr, syncer_addr
 
     def close(self):
         """
         Terminate the simulation process if it's running.
         """
-        if self._sim_proc is not None:
+        if self._sim_proc is not None and self._sim_proc.poll() is None:
             self._sim_proc.terminate()
             try:
                 sim_code = self._sim_proc.wait(10)

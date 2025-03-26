@@ -57,7 +57,7 @@ class BlockDispatcher:
         """
         # create block descriptions
         block_descriptions = {
-            name: block.description  # 
+            name: block.description
             for name, block in self.blocks.items()
         }
 

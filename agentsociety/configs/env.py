@@ -105,6 +105,8 @@ class SimulatorConfig(BaseModel):
     If you want to run the simulation on a distributed machine, you can set it to the IP address of the machine and keep all the ports of the primary node can be accessed from the other nodes (the code will automatically set the ports).
     """
 
+    timeout: float = Field(60, gt=0)
+    """Timeout for the initialization of the simulation"""
 
 class MapConfig(BaseModel):
     """Map configuration class."""

@@ -633,6 +633,8 @@ class EconomyClient:
                                 ),
                                 income_currency=config.get("income_currency", {}),
                                 locus_control=config.get("locus_control", {}),
+                                # TODO: check this one
+                                citizen_agent_ids=config.get("citizen_agent_ids", []),
                                 currency=config.get("currency", 0.0),
                             )
                         )

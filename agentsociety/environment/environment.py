@@ -5,8 +5,9 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
-from typing import Any, Optional, Union, cast
+from typing import Any, Literal, Optional, Union, cast, overload
 
+import grpc._channel
 import ray
 from mosstool.type import TripMode
 from mosstool.util.format_converter import dict2pb
@@ -187,6 +188,13 @@ class Environment:
             catg = poi["category"]
             categories.append(catg.split("|")[-1])
         return list(set(categories))
+
+    @overload
+    async def get_time(self) -> int: ...
+    @overload
+    async def get_time(self, format_time: Literal[False]) -> int: ...
+    @overload
+    async def get_time(self, format_time: Literal[True], format: str = "%H:%M:%S") -> str: ...
 
     @log_execution_time
     async def get_time(
@@ -476,16 +484,16 @@ class EnvironmentStarter(Environment):
 
         super().__init__(mapdata, self._sim_env.sim_addr, environment_config)
 
-        self._syncer = SyncerClient.remote(
-            syncer_address=self._sim_env.syncer_addr,  # type:ignore
+        self._syncer = SyncerClient(
+            syncer_address=self._sim_env.syncer_addr,
             name="within-syncer",
             secure=self._server_addr.startswith("https"),
         )
-        for _ in range(60):
+        for _ in range(int(simulator_config.timeout)):
             try:
-                ray.get(self._syncer.init.remote())
+                self._syncer.init()
                 break
-            except:
+            except Exception as e:
                 get_logger().warning(
                     f"Failed to connect to syncer {self._sim_env.syncer_addr}, retrying..."
                 )
@@ -493,7 +501,7 @@ class EnvironmentStarter(Environment):
                 continue
         else:
             raise ValueError(
-                f"Failed to connect to syncer {self._sim_env.syncer_addr} after 60 retries!"
+                f"Failed to connect to syncer {self._sim_env.syncer_addr} after {simulator_config.timeout} retries!"
             )
 
     def to_init_args(self):
@@ -514,4 +522,4 @@ class EnvironmentStarter(Environment):
         if n <= 0:
             raise ValueError("`n` must >=1!")
         for _ in range(n):
-            ray.get(self._syncer.step.remote())
+            self._syncer.step()

@@ -120,7 +120,7 @@ class AgentSociety:
         # ====================
         # Initialize the logger
         # ====================
-        set_logger_level(self._config.logging_level)
+        set_logger_level(self._config.logging_level.upper())
 
         self.exp_id = str(uuid.uuid4())
         get_logger().info(
@@ -224,6 +224,7 @@ class AgentSociety:
             this_agents = _init_agent_class(agent_config)
             agents += [(next_id + i, *agent) for i, agent in enumerate(this_agents)]
             next_id += len(this_agents)
+        get_logger().info(f"agents: len(agents)={len(agents)}")
         self._agent_ids = set([agent[0] for agent in agents])
         environment_init = self._environment.to_init_args()
         for i in range(0, len(agents), group_size):
@@ -247,7 +248,9 @@ class AgentSociety:
             )
             for agent_id in group_agents:
                 self._agent_id2group[agent_id] = self._groups[group_id]
-        await asyncio.gather(*[group.init() for group in self._groups.values()])
+        get_logger().info(f"groups: len(self._groups)={len(self._groups)}, waiting for groups to init...")
+        await asyncio.gather(*[group.init.remote() for group in self._groups.values()])
+        get_logger().info(f"groups initialized")
         # get all groups' agent ids
         # TODO: 看不懂啥意思
         agent_ids = set()

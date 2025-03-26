@@ -1,9 +1,16 @@
+from typing import Any, Optional
 from pydantic import BaseModel
 
-__all__ = ["Survey", "Dialog"]
+__all__ = [
+    "StorageSurvey",
+    "StorageDialog",
+    "StorageGlobalPrompt",
+    "StorageProfile",
+    "StorageStatus",
+]
 
 
-class Survey(BaseModel):
+class StorageSurvey(BaseModel):
     id: int
     day: int
     t: float
@@ -12,11 +19,37 @@ class Survey(BaseModel):
     created_at: int
 
 
-class Dialog(BaseModel):
+class StorageDialog(BaseModel):
     id: int
     day: int
     t: float
     type: int
     speaker: str
     content: str
+    created_at: int
+
+
+class StorageGlobalPrompt(BaseModel):
+    day: int
+    t: float
+    prompt: str
+    created_at: int
+
+
+class StorageProfile(BaseModel):
+    id: int
+    name: str
+    profile: str
+
+
+class StorageStatus(BaseModel):
+    id: int
+    day: int
+    t: float
+    lng: Optional[float]
+    lat: Optional[float]
+    parent_id: Optional[int]
+    friend_ids: list[int]
+    action: str
+    status: str
     created_at: int

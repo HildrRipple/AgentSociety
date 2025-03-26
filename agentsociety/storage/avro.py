@@ -5,7 +5,7 @@ import fastavro
 
 from ..configs import AvroConfig
 from ..logger import get_logger
-from .type import Dialog, Survey
+from .type import StorageDialog, StorageProfile, StorageStatus, StorageSurvey
 
 __all__ = ["AvroSaver"]
 
@@ -17,20 +17,7 @@ PROFILE_SCHEMA = {
     "fields": [
         {"name": "id", "type": "int"},
         {"name": "name", "type": "string"},
-        {"name": "gender", "type": "string"},
-        {"name": "age", "type": "float"},
-        {"name": "education", "type": "string"},
-        {"name": "skill", "type": "string"},
-        {"name": "occupation", "type": "string"},
-        {"name": "family_consumption", "type": "string"},
-        {"name": "consumption", "type": "string"},
-        {"name": "personality", "type": "string"},
-        {"name": "income", "type": "float"},
-        {"name": "currency", "type": "float"},
-        {"name": "residence", "type": "string"},
-        {"name": "race", "type": "string"},
-        {"name": "religion", "type": "string"},
-        {"name": "marital_status", "type": "string"},
+        {"name": "profile", "type": "string"},
     ],
 }
 
@@ -66,71 +53,12 @@ STATUS_SCHEMA = {
         {"name": "lng", "type": "double"},
         {"name": "lat", "type": "double"},
         {"name": "parent_id", "type": "int"},
-        {"name": "current_need", "type": "string"},
-        {"name": "intention", "type": "string"},
+        {"name": "friend_ids", "type": {"type": "array", "items": "int"}},
         {"name": "action", "type": "string"},
-        {"name": "hungry", "type": "float"},
-        {"name": "tired", "type": "float"},
-        {"name": "safe", "type": "float"},
-        {"name": "social", "type": "float"},
-        {"name": "sadness", "type": "int"},
-        {"name": "joy", "type": "int"},
-        {"name": "fear", "type": "int"},
-        {"name": "disgust", "type": "int"},
-        {"name": "anger", "type": "int"},
-        {"name": "surprise", "type": "int"},
-        {"name": "emotion_types", "type": "string"},
+        {"name": "status", "type": "string"},
         {
             "name": "created_at",
             "type": {"type": "long", "logicalType": "timestamp-millis"},
-        },
-    ],
-}
-
-INSTITUTION_STATUS_SCHEMA = {
-    "doc": "Institution状态",
-    "name": "InstitutionStatus",
-    "namespace": "com.agentsociety",
-    "type": "record",
-    "fields": [
-        {"name": "id", "type": "int"},
-        {"name": "day", "type": "int"},
-        {"name": "t", "type": "float"},
-        {"name": "type", "type": "int"},
-        {
-            "name": "nominal_gdp",
-            "type": {"type": "array", "items": ["float", "int", "string", "null"]},
-        },
-        {
-            "name": "real_gdp",
-            "type": {"type": "array", "items": ["float", "int", "string", "null"]},
-        },
-        {
-            "name": "unemployment",
-            "type": {"type": "array", "items": ["float", "int", "string", "null"]},
-        },
-        {
-            "name": "wages",
-            "type": {"type": "array", "items": ["float", "int", "string", "null"]},
-        },
-        {
-            "name": "prices",
-            "type": {"type": "array", "items": ["float", "int", "string", "null"]},
-        },
-        {"name": "inventory", "type": ["int", "null"]},
-        {"name": "price", "type": ["float", "null"]},
-        {"name": "interest_rate", "type": ["float", "null"]},
-        {
-            "name": "bracket_cutoffs",
-            "type": {"type": "array", "items": ["float", "int", "string", "null"]},
-        },
-        {
-            "name": "bracket_rates",
-            "type": {"type": "array", "items": ["float", "int", "string", "null"]},
-        },
-        {
-            "name": "employees",
-            "type": {"type": "array", "items": ["float", "int", "string", "null"]},
         },
     ],
 }
@@ -151,6 +79,13 @@ SURVEY_SCHEMA = {
             "type": {"type": "long", "logicalType": "timestamp-millis"},
         },
     ],
+}
+
+SCHEMA_MAP = {
+    "profile": PROFILE_SCHEMA,
+    "dialog": DIALOG_SCHEMA,
+    "status": STATUS_SCHEMA,
+    "survey": SURVEY_SCHEMA,
 }
 
 
@@ -183,6 +118,12 @@ class AvroSaver:
                 "status": self._avro_path / f"status.avro",
                 "survey": self._avro_path / f"survey.avro",
             }
+            # initialize avro files
+            for key, file in self._avro_file.items():
+                if not file.exists():
+                    with open(file, "wb") as f:
+                        schema = SCHEMA_MAP[key]
+                        fastavro.writer(f, schema, [], codec="snappy")
 
     @property
     def enabled(self):
@@ -200,7 +141,7 @@ class AvroSaver:
         if self._group_id is None:
             raise RuntimeError("AvroSaver is not initialized")
 
-    def append_surveys(self, surveys: List[Survey]):
+    def append_surveys(self, surveys: List[StorageSurvey]):
         """
         Append a survey to the avro file.
 
@@ -212,11 +153,11 @@ class AvroSaver:
             fastavro.writer(
                 f,
                 SURVEY_SCHEMA,
-                surveys,
+                [survey.model_dump() for survey in surveys],
                 codec="snappy",
             )
 
-    def append_dialogs(self, dialogs: List[Dialog]):
+    def append_dialogs(self, dialogs: List[StorageDialog]):
         """
         Append a dialog to the avro file.
 
@@ -228,6 +169,38 @@ class AvroSaver:
             fastavro.writer(
                 f,
                 DIALOG_SCHEMA,
-                dialogs,
+                [dialog.model_dump() for dialog in dialogs],
+                codec="snappy",
+            )
+
+    def append_profiles(self, profiles: List[StorageProfile]):
+        """
+        Append a profile to the avro file.
+
+        - **Args**:
+            - `profiles` (List[StorageProfile]): The profiles to append.
+        """
+        self._check_is_group_avro_saver()
+        with open(self._avro_file["profile"], "a+b") as f:
+            fastavro.writer(
+                f,
+                PROFILE_SCHEMA,
+                [profile.model_dump() for profile in profiles],
+                codec="snappy",
+            )
+
+    def append_statuses(self, statuses: List[StorageStatus]):
+        """
+        Append a status to the avro file.
+
+        - **Args**:
+            - `statuses` (List[StorageStatus]): The statuses to append.
+        """
+        self._check_is_group_avro_saver()
+        with open(self._avro_file["status"], "a+b") as f:
+            fastavro.writer(
+                f,
+                STATUS_SCHEMA,
+                [status.model_dump() for status in statuses],
                 codec="snappy",
             )

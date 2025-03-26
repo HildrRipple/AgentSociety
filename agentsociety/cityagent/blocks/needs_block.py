@@ -2,7 +2,7 @@ import jsonc
 import logging
 from typing import cast
 
-from ... import Simulator
+from ...environment import Environment
 from ...llm import LLM
 from ...memory import Memory
 from ...workflow import Block, FormatPrompt
@@ -117,14 +117,14 @@ class NeedsBlock(Block):
     - Plan execution evaluation and satisfaction adjustments
     """
 
-    def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
         """
         Initialize needs management system.
 
         Args:
             llm: Language model instance for processing prompts
+            environment: Simulation environment controller
             memory: Agent's memory storage interface
-            simulator: Simulation environment controller
 
         Configuration Parameters:
             alpha_H: Hunger satisfaction decay rate per hour (default: 0.15)
@@ -136,7 +136,7 @@ class NeedsBlock(Block):
             T_P: Safety threshold for triggering need (default: 0.2)
             T_C: Social threshold for triggering need (default: 0.3)
         """
-        super().__init__("NeedsBlock", llm=llm, memory=memory, simulator=simulator)
+        super().__init__("NeedsBlock", llm=llm, environment=environment, memory=memory)
         self.evaluation_prompt = FormatPrompt(EVALUATION_PROMPT)
         self.initial_prompt = FormatPrompt(INITIAL_NEEDS_PROMPT)
         self.reflect_prompt = FormatPrompt(REFLECT_PROMPT)
@@ -169,11 +169,11 @@ class NeedsBlock(Block):
         - Generates initial satisfaction values via LLM
         - Handles JSON parsing and validation
         """
-        day = await self.simulator.get_simulator_day()
-        t = await self.simulator.get_simulator_second_from_start_of_day()
+        day = await self.environment.get_simulator_day()
+        t = await self.environment.get_simulator_second_from_start_of_day()
         if day != self.now_day and t >= 7 * 60 * 60:
             self.now_day = day
-            workday = self.simulator.sense("workday")
+            workday = self.environment.sense("workday")
             if workday:
                 self.need_work = True
             else:
@@ -187,7 +187,7 @@ class NeedsBlock(Block):
                 occupation=await self.memory.status.get("occupation"),
                 age=await self.memory.status.get("age"),
                 income=await self.memory.status.get("income"),
-                now_time=await self.simulator.get_time(format_time=True),
+                now_time=await self.environment.get_time(format_time=True),
             )
             response = await self.llm.atext_request(
                 self.initial_prompt.to_dialog(), response_format={"type": "json_object"}
@@ -284,7 +284,7 @@ class NeedsBlock(Block):
         - Ensures values stay within [0,1] range
         """
         # calculate time diff
-        time_now = await self.simulator.get_time()
+        time_now = await self.environment.get_time()
         time_now = cast(int, time_now)
         if self.last_evaluation_time is None:
             self.last_evaluation_time = time_now

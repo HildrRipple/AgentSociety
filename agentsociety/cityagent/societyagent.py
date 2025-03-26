@@ -6,13 +6,12 @@ from typing import Any, Optional
 
 import jsonc
 
-from agentsociety import CitizenAgent, Simulator
-from agentsociety.agent import Agent
-from agentsociety.environment import EconomyClient
-from agentsociety.llm import LLM
-from agentsociety.memory import Memory
-from agentsociety.tools import UpdateWithSimulator
-from agentsociety.workflow import Block
+from ..agent import Agent, CitizenAgent, AgentToolbox
+from ..environment import Environment
+from ..llm import LLM
+from ..memory import Memory
+from ..tools import UpdateWithSimulator
+from ..workflow import Block
 
 from ..logger import get_logger
 from .blocks import (
@@ -47,9 +46,8 @@ class PlanAndActionBlock(Block):
         self,
         agent: Agent,
         llm: LLM,
+        environment: Environment,
         memory: Memory,
-        simulator: Simulator,
-        economy_client: EconomyClient,
         enable_mobility: bool = True,
         enable_social: bool = True,
         enable_economy: bool = True,
@@ -57,7 +55,7 @@ class PlanAndActionBlock(Block):
     ):
         """Initialize PlanAndActionBlock with configurable behavior switches and sub-modules."""
         super().__init__(
-            name="plan_and_action_block", llm=llm, memory=memory, simulator=simulator
+            name="plan_and_action_block", llm=llm, environment=environment, memory=memory
         )
         self._agent = agent
         # Configuration flags for enabling/disabling behaviors
@@ -66,16 +64,16 @@ class PlanAndActionBlock(Block):
         self.enable_economy = enable_economy
         self.enable_cognition = enable_cognition
         self.monthPlanBlock = MonthPlanBlock(
-            llm=llm, memory=memory, simulator=simulator, economy_client=economy_client
+            llm=llm, environment=environment, memory=memory
         )
-        self.needsBlock = NeedsBlock(llm=llm, memory=memory, simulator=simulator)
-        self.planBlock = PlanBlock(llm=llm, memory=memory, simulator=simulator)
-        self.mobilityBlock = MobilityBlock(llm=llm, memory=memory, simulator=simulator)
+        self.needsBlock = NeedsBlock(llm=llm, environment=environment, memory=memory)
+        self.planBlock = PlanBlock(llm=llm, environment=environment, memory=memory)
+        self.mobilityBlock = MobilityBlock(llm=llm, environment=environment, memory=memory)
         self.socialBlock = SocialBlock(
-            agent=agent, llm=llm, memory=memory, simulator=simulator
+            agent=agent, llm=llm, environment=environment, memory=memory
         )
         self.economyBlock = EconomyBlock(
-            llm=llm, memory=memory, simulator=simulator, economy_client=economy_client
+            llm=llm, environment=environment, memory=memory
         )
         self.otherBlock = OtherBlock(llm=llm, memory=memory)
 
@@ -107,7 +105,7 @@ class PlanAndActionBlock(Block):
             position = await self.memory.status.get("position")
             if "aoi_position" in position:
                 current_step["position"] = position["aoi_position"]["aoi_id"]
-            current_step["start_time"] = int(await self.simulator.get_time())
+            current_step["start_time"] = int(await self.environment.get_time())
             result = None
             if step_type == "mobility":
                 if self.enable_mobility:  # type:ignore
@@ -185,10 +183,15 @@ class MindBlock(Block):
 
     cognitionBlock: CognitionBlock
 
-    def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__(name="mind_block", llm=llm, memory=memory, simulator=simulator)
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+        super().__init__(
+            name="mind_block",
+            llm=llm,
+            environment=environment,
+            memory=memory,
+        )
         self.cognitionBlock = CognitionBlock(
-            llm=self.llm, memory=self.memory, simulator=simulator
+            llm=self.llm, memory=self.memory, environment=self.environment
         )
 
     async def forward(self):
@@ -224,19 +227,17 @@ class SocietyAgent(CitizenAgent):
 
     def __init__(
         self,
+        id: int,
         name: str,
-        llm_client: Optional[LLM] = None,
-        simulator: Optional[Simulator] = None,
-        memory: Optional[Memory] = None,
-        economy_client: Optional[EconomyClient] = None,
+        toolbox: AgentToolbox,
+        memory: Memory,
     ) -> None:
         """Initialize agent with core components and configuration."""
         super().__init__(
+            id=id,
             name=name,
-            llm_client=llm_client,
-            simulator=simulator,
+            toolbox=toolbox,
             memory=memory,
-            economy_client=economy_client,
         )
 
         # config
@@ -246,14 +247,13 @@ class SocietyAgent(CitizenAgent):
         self.enable_economy = True
 
         self.mindBlock = MindBlock(
-            llm=self.llm, memory=self.memory, simulator=self.simulator
+            llm=self.llm, environment=self.environment, memory=self.memory
         )
         self.planAndActionBlock = PlanAndActionBlock(
             agent=self,
             llm=self.llm,
+            environment=self.environment,
             memory=self.memory,
-            simulator=self.simulator,
-            economy_client=self.economy_client,
             enable_mobility=self.enable_mobility,
             enable_social=self.enable_social,
             enable_economy=self.enable_economy,
@@ -263,7 +263,7 @@ class SocietyAgent(CitizenAgent):
         self.cognition_update = -1
 
     # Main workflow
-    async def forward(self):  # type:ignore
+    async def forward(self, step, context):
         """Main agent loop coordinating status updates, plan execution, and cognition."""
         start_time = time.time()
         self.step_count += 1
@@ -297,7 +297,7 @@ class SocietyAgent(CitizenAgent):
             return True
         step_index = current_plan.get("index", 0)
         current_step = current_plan.get("steps", [])[step_index]
-        time_now = int(await self.simulator.get_time())
+        time_now = int(await self.environment.get_time())
         step_start_time = current_step["start_time"]
         step_consumed_time = current_step["evaluation"]["consumed_time"]
         try:
@@ -321,7 +321,7 @@ class SocietyAgent(CitizenAgent):
                 else:
                     # Whole plan is completed
                     current_plan["completed"] = True
-                    current_plan["end_time"] = await self.simulator.get_time(
+                    current_plan["end_time"] = await self.environment.get_time(
                         format_time=True
                     )
                     related_memories = None
@@ -350,7 +350,7 @@ class SocietyAgent(CitizenAgent):
             else:
                 # last step is failed
                 current_plan["failed"] = True
-                current_plan["end_time"] = await self.simulator.get_time(
+                current_plan["end_time"] = await self.environment.get_time(
                     format_time=True
                 )
                 if self.enable_cognition:
@@ -379,7 +379,7 @@ class SocietyAgent(CitizenAgent):
         # The previous step has not been completed
         return False
 
-    async def process_agent_chat_response(self, payload: dict) -> str:  # type:ignore
+    async def process_agent_chat_response(self, payload: dict) -> str:
         """Process incoming social/economic messages and generate responses."""
         if payload["type"] == "social":
             resp = f"Agent {self.id} received agent chat response: {payload}"
@@ -530,6 +530,7 @@ class SocietyAgent(CitizenAgent):
             )
             if self.enable_cognition:
                 await self.mindBlock.cognitionBlock.emotion_update(description)
+            return ""
 
     async def react_to_intervention(self, intervention_message: str):
         """React to an intervention"""

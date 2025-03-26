@@ -1,4 +1,4 @@
-from copy import copy
+import copy
 import random
 from collections import deque
 from typing import Any, Callable, List, Optional, Union

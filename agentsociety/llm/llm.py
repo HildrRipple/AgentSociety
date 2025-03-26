@@ -3,7 +3,7 @@ import logging
 import os
 import random
 import time
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 
 import jsonc
 from openai import NOT_GIVEN, APIConnectionError, AsyncOpenAI, NotGiven, OpenAIError
@@ -201,16 +201,18 @@ class LLM:
     async def atext_request(
         self,
         dialog: list[ChatCompletionMessageParam],
-        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
+        response_format: Union[
+            completion_create_params.ResponseFormat, NotGiven
+        ] = NOT_GIVEN,
         temperature: float = 1,
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         frequency_penalty: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         timeout: int = 300,
-        retries=10,
-        tools: List[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
-        tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN,
+        retries: int = 10,
+        tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
+        tool_choice: Union[ChatCompletionToolChoiceOptionParam, NotGiven] = NOT_GIVEN,
     ) -> Any:
         """
         Sends an asynchronous text request to the configured LLM API.
@@ -336,9 +338,10 @@ class LLM:
 if __name__ == "__main__":
 
     import asyncio
+
     async def main():
         configs = [
-                LLMConfig(
+            LLMConfig(
                 provider=LLMProviderType.DeepSeek,
                 api_key=os.getenv("DEEPSEEK_API_KEY", ""),
                 model="deepseek-chat",

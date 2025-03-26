@@ -6,25 +6,21 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
-from pathlib import Path
 from typing import Any, NamedTuple, Optional, Union, get_type_hints
 
-import fastavro
 import jsonc
 import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
+from ..metrics import MlflowClient
 from ..environment import Environment
-from ..environment.sim.person_service import PersonService
 from ..llm import LLM
 from ..logger import get_logger
 from ..memory import Memory
 from ..message import Messager
-from ..message.message_interceptor import MessageInterceptor
-from ..utils import DIALOG_SCHEMA, SURVEY_SCHEMA, process_survey_for_llm
+from ..utils import process_survey_for_llm
 from ..workflow import Block
-from ..storage import AvroSaver
-from ..storage.avro import AvroSurvey, AvroDialog
+from ..storage import AvroSaver, StorageDialog, StorageSurvey
 
 __all__ = [
     "Agent",
@@ -42,6 +38,7 @@ class AgentToolbox(NamedTuple):
     messager: Messager
     avro_saver: Optional[AvroSaver]
     pgsql_writer: Optional[ray.ObjectRef]
+    mlflow_client: Optional[MlflowClient]
 
 
 class AgentType(Enum):
@@ -72,7 +69,7 @@ class Agent(ABC):
         name: str,
         type: AgentType,
         toolbox: AgentToolbox,
-        memory: Optional[Memory],
+        memory: Memory,
     ) -> None:
         """
         Initialize the `Agent`.
@@ -82,7 +79,7 @@ class Agent(ABC):
             - `name` (`str`): The name of the agent.
             - `type` (`AgentType`): The type of the agent. Defaults to `AgentType.Unspecified`.
             - `toolbox` (`AgentToolbox`): The toolbox of the agent.
-            - `memory` (`Optional[Memory]`): The memory of the agent. Defaults to `None`.
+            - `memory` (`Memory`): The memory of the agent.
         """
         self._id = id
         self._name = name
@@ -91,6 +88,9 @@ class Agent(ABC):
         self._memory = memory
 
         self._last_asyncio_pg_task = None  # Hide SQL writes behind computational tasks
+
+    async def init(self):
+        await self._memory.status.update("id", self._id, protect_llm_read_only_fields=False)
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -417,7 +417,7 @@ class Agent(ABC):
         survey_response = await self.generate_user_survey_response(survey)
         _date_time = datetime.now(timezone.utc)
         # Avro
-        avro_survey = AvroSurvey(
+        storage_survey = StorageSurvey(
             id=self.id,
             day=await self.environment.get_simulator_day(),
             t=await self.environment.get_simulator_second_from_start_of_day(),
@@ -426,48 +426,18 @@ class Agent(ABC):
             created_at=int(_date_time.timestamp() * 1000),
         )
         if self.avro_saver is not None:
-            self.avro_saver.append_surveys([avro_survey])
+            self.avro_saver.append_surveys([storage_survey])
         # Pg
-        response_to_avro = [
-            {
-                "id": self.id,
-                "day": await self.environment.get_simulator_day(),
-                "t": await self.environment.get_simulator_second_from_start_of_day(),
-                "survey_id": survey["id"],
-                "result": survey_response,
-                "created_at": int(_date_time.timestamp() * 1000),
-            }
-        ]
         if self.pgsql_writer is not None:
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
-            _keys = [
-                "id",
-                "day",
-                "t",
-                "survey_id",
-                "result",
-            ]
-            _data_tuples: list[tuple] = []
-            # str to json
-            for _dict in response_to_avro:
-                res = _dict["result"]
-                _dict["result"] = jsonc.dumps(
-                    {
-                        "result": res,
-                    }
-                )
-                _data_list = [_dict[k] for k in _keys]
-                # created_at
-                _data_list.append(_date_time)
-                _data_tuples.append(tuple(_data_list))
             self._last_asyncio_pg_task = (
-                self._pgsql_writer.async_write_survey.remote(  # type:ignore
-                    _data_tuples
+                self.pgsql_writer.write_survey.remote(  # type:ignore
+                    [storage_survey]
                 )
             )
         await self.messager.send_message(
-            f"exps:{self._exp_id}:user_payback", {"count": 1}
+            self.messager.get_user_payback_channel(), {"count": 1}
         )
 
     async def generate_user_chat_response(self, question: str) -> str:
@@ -528,50 +498,48 @@ class Agent(ABC):
             - Sends a message through the Messager indicating that user feedback has been processed.
             - Handles asynchronous tasks and ensures thread-safe operations when writing to PostgreSQL.
         """
-        pg_list: list[tuple[dict, datetime]] = []
-        auros: list[dict] = []
         _date_time = datetime.now(timezone.utc)
-        _interview_dict = {
-            "id": self.id,
-            "day": await self.environment.get_simulator_day(),
-            "t": await self.environment.get_simulator_second_from_start_of_day(),
-            "type": 2,
-            "speaker": "user",
-            "content": payload["content"],
-            "created_at": int(_date_time.timestamp() * 1000),
-        }
-        auros.append(_interview_dict)
-        pg_list.append((_interview_dict, _date_time))
+        storage_dialog = StorageDialog(
+            id=self.id,
+            day=await self.environment.get_simulator_day(),
+            t=await self.environment.get_simulator_second_from_start_of_day(),
+            type=2,
+            speaker="user",
+            content=payload["content"],
+            created_at=int(_date_time.timestamp() * 1000),
+        )
+        if self.avro_saver is not None:
+            self.avro_saver.append_dialogs([storage_dialog])
+        if self.pgsql_writer is not None:
+            if self._last_asyncio_pg_task is not None:
+                await self._last_asyncio_pg_task
+            self._last_asyncio_pg_task = (
+                self.pgsql_writer.write_dialogs.remote(  # type:ignore
+                    [storage_dialog]
+                )
+            )
         question = payload["content"]
         response = await self.generate_user_chat_response(question)
         _date_time = datetime.now(timezone.utc)
-        _interview_dict = {
-            "id": self.id,
-            "day": await self.environment.get_simulator_day(),
-            "t": await self.environment.get_simulator_second_from_start_of_day(),
-            "type": 2,
-            "speaker": "",
-            "content": response,
-            "created_at": int(_date_time.timestamp() * 1000),
-        }
-        auros.append(_interview_dict)
-        pg_list.append((_interview_dict, _date_time))
+        storage_dialog = StorageDialog(
+            id=self.id,
+            day=await self.environment.get_simulator_day(),
+            t=await self.environment.get_simulator_second_from_start_of_day(),
+            type=2,
+            speaker="",
+            content=response,
+            created_at=int(_date_time.timestamp() * 1000),
+        )
         # Avro
         if self.avro_saver is not None:
-            with open(self.avro_saver["dialog"], "a+b") as f:
-                fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+            self.avro_saver.append_dialogs([storage_dialog])
         # Pg
         if self.pgsql_writer is not None:
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
-            _keys = ["id", "day", "t", "type", "speaker", "content", "created_at"]
-            _data = [
-                tuple([_dict[k] if k != "created_at" else _date_time for k in _keys])
-                for _dict, _date_time in pg_list
-            ]
             self._last_asyncio_pg_task = (
-                self._pgsql_writer.async_write_dialog.remote(  # type:ignore
-                    _data
+                self.pgsql_writer.write_dialogs.remote(  # type:ignore
+                    [storage_dialog]
                 )
             )
         await self.messager.send_message(
@@ -589,34 +557,25 @@ class Agent(ABC):
         - **Description**:
             - Saves the thought data to the memory.
         """
-        _date_time = datetime.now(timezone.utc)
-        _thought_dict = {
-            "id": self.id,
-            "day": await self.environment.get_simulator_day(),
-            "t": await self.environment.get_simulator_second_from_start_of_day(),
-            "type": 0,
-            "speaker": "",
-            "content": thought,
-            "created_at": int(_date_time.timestamp() * 1000),
-        }
-        auros = [_thought_dict]
-        pg_list = [(_thought_dict, _date_time)]
+        storage_thought = StorageDialog(
+            id=self.id,
+            day=await self.environment.get_simulator_day(),
+            t=await self.environment.get_simulator_second_from_start_of_day(),
+            type=0,
+            speaker="",
+            content=thought,
+            created_at=int(datetime.now(timezone.utc).timestamp() * 1000),
+        )
         # Avro
         if self.avro_saver is not None:
-            with open(self.avro_saver["dialog"], "a+b") as f:
-                fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+            self.avro_saver.append_dialogs([storage_thought])
         # Pg
         if self.pgsql_writer is not None:
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
-            _keys = ["id", "day", "t", "type", "speaker", "content", "created_at"]
-            _data = [
-                tuple([_dict[k] if k != "created_at" else _date_time for k in _keys])
-                for _dict, _date_time in pg_list
-            ]
             self._last_asyncio_pg_task = (
-                self._pgsql_writer.async_write_dialog.remote(  # type:ignore
-                    _data
+                self.pgsql_writer.write_dialogs.remote(  # type:ignore
+                    [storage_thought]
                 )
             )
 
@@ -652,37 +611,26 @@ class Agent(ABC):
             - Writes the chat message and metadata into an Avro file if `_avro_file` is set.
             - Ensures thread-safe operations when writing to PostgreSQL by waiting for any previous write task to complete before starting a new one.
         """
-        pg_list: list[tuple[dict, datetime]] = []
-        auros: list[dict] = []
-        _date_time = datetime.now(timezone.utc)
-        _chat_dict = {
-            "id": self.id,
-            "day": payload["day"],
-            "t": payload["t"],
-            "type": 1,
-            "speaker": payload["from"],
-            "content": payload["content"],
-            "created_at": int(_date_time.timestamp() * 1000),
-        }
-        auros.append(_chat_dict)
-        pg_list.append((_chat_dict, _date_time))
+        storage_dialog = StorageDialog(
+            id=self.id,
+            day=payload["day"],
+            t=payload["t"],
+            type=1,
+            speaker=payload["from"],
+            content=payload["content"],
+            created_at=int(datetime.now(timezone.utc).timestamp() * 1000),
+        )
         asyncio.create_task(self.process_agent_chat_response(payload))
         # Avro
         if self.avro_saver is not None:
-            with open(self.avro_saver["dialog"], "a+b") as f:
-                fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+            self.avro_saver.append_dialogs([storage_dialog])
         # Pg
         if self.pgsql_writer is not None:
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
-            _keys = ["id", "day", "t", "type", "speaker", "content", "created_at"]
-            _data = [
-                tuple([_dict[k] if k != "created_at" else _date_time for k in _keys])
-                for _dict, _date_time in pg_list
-            ]
             self._last_asyncio_pg_task = (
-                self._pgsql_writer.async_write_dialog.remote(  # type:ignore
-                    _data
+                self.pgsql_writer.write_dialogs.remote(  # type:ignore
+                    [storage_dialog]
                 )
             )
 
@@ -812,36 +760,26 @@ class Agent(ABC):
             "t": await self.environment.get_simulator_second_from_start_of_day(),
         }
         await self._send_message(to_agent_id, payload, "agent-chat")
-        pg_list: list[tuple[dict, datetime]] = []
-        auros: list[dict] = []
         _date_time = datetime.now(timezone.utc)
-        _message_dict = {
-            "id": self.id,
-            "day": await self.environment.get_simulator_day(),
-            "t": await self.environment.get_simulator_second_from_start_of_day(),
-            "type": 1,
-            "speaker": self.id,
-            "content": content,
-            "created_at": int(datetime.now().timestamp() * 1000),
-        }
-        auros.append(_message_dict)
-        pg_list.append((_message_dict, _date_time))
+        storage_dialog = StorageDialog(
+            id=self.id,
+            day=await self.environment.get_simulator_day(),
+            t=await self.environment.get_simulator_second_from_start_of_day(),
+            type=1,
+            speaker=str(self.id),
+            content=content,
+            created_at=int(datetime.now().timestamp() * 1000),
+        )
         # Avro
         if self.avro_saver is not None and type == "social":
-            with open(self.avro_saver["dialog"], "a+b") as f:
-                fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+            self.avro_saver.append_dialogs([storage_dialog])
         # Pg
         if self.pgsql_writer is not None and type == "social":
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
-            _keys = ["id", "day", "t", "type", "speaker", "content", "created_at"]
-            _data = [
-                tuple([_dict[k] if k != "created_at" else _date_time for k in _keys])
-                for _dict, _date_time in pg_list
-            ]
             self._last_asyncio_pg_task = (
-                self._pgsql_writer.async_write_dialog.remote(  # type:ignore
-                    _data
+                self.pgsql_writer.write_dialogs.remote(  # type:ignore
+                    [storage_dialog]
                 )
             )
 

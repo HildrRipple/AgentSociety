@@ -6,7 +6,7 @@ import inspect
 from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any, Optional, Union
 
-from ..environment.environment import Simulator
+from ..environment import Environment
 from ..llm import LLM
 from ..memory import Memory
 from ..utils.decorators import record_call_aio
@@ -158,9 +158,10 @@ class Block:
         self,
         name: str,
         llm: Optional[LLM] = None,
+        environment: Optional[Environment] = None,
         memory: Optional[Memory] = None,
-        simulator: Optional[Simulator] = None,
         trigger: Optional[EventTrigger] = None,
+        description: str = "",
     ):
         """
         - **Description**:
@@ -169,19 +170,20 @@ class Block:
         - **Args**:
             - `name` (str): The name of the block.
             - `llm` (Optional[LLM], optional): An instance of LLM. Defaults to None.
+            - `environment` (Optional[Environment], optional): An instance of Environment. Defaults to None.
             - `memory` (Optional[Memory], optional): An instance of Memory. Defaults to None.
-            - `simulator` (Optional[Simulator], optional): An instance of Simulator. Defaults to None.
             - `trigger` (Optional[EventTrigger], optional): An event trigger that may be associated with this block. Defaults to None.
         """
         self.name = name
         self._llm = llm
         self._memory = memory
-        self._simulator = simulator
+        self._environment = environment
         # If a trigger is passed in, inject the block into the trigger and initialize it immediately.
         if trigger is not None:
             trigger.block = self
             trigger.initialize()
         self.trigger = trigger
+        self.description = description
 
     def export_config(self) -> dict[str, Optional[str]]:
         """
@@ -228,7 +230,7 @@ class Block:
         - **Returns**:
             - `Block`: An instance of the Block created from the provided configuration.
         """
-        instance = cls(name=config["name"])  # 
+        instance = cls(name=config["name"]) # type: ignore
         assert isinstance(config["config"], dict)
         for field, value in config["config"].items():
             if field in cls.configurable_fields:
@@ -236,7 +238,7 @@ class Block:
 
         # Recursively create sub-blocks
         for child_config in config.get("children", []):
-            child_block = Block.import_config(child_config)  # 
+            child_block = Block.import_config(child_config)  # type: ignore
             setattr(instance, child_block.name.lower(), child_block)
 
         return instance
@@ -301,27 +303,9 @@ class Block:
         return self._memory
 
     @property
-    def simulator(self) -> Simulator:
-        if self._simulator is None:
+    def environment(self) -> Environment:
+        if self._environment is None:
             raise RuntimeError(
-                f"Simulator access before assignment, please `set_simulator` first!"
+                f"Environment access before assignment, please `set_environment` first!"
             )
-        return self._simulator
-
-    def set_llm_client(self, llm: LLM):
-        """
-        Set the llm_client of the block.
-        """
-        self._llm = llm
-
-    def set_simulator(self, simulator: Simulator):
-        """
-        Set the simulator of the block.
-        """
-        self._simulator = simulator
-
-    def set_memory(self, memory: Memory):
-        """
-        Set the memory of the block.
-        """
-        self._memory = memory
+        return self._environment

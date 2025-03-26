@@ -3,7 +3,7 @@ import logging
 import random
 from typing import Dict, List, Tuple
 
-from ...environment import Simulator
+from ...environment import Environment
 from ...llm import LLM
 from ...memory import Memory
 from ...workflow import Block, FormatPrompt
@@ -142,15 +142,15 @@ class PlanBlock(Block):
     default_values = {"max_plan_steps": 6}
     fields_description = {"max_plan_steps": "The maximum number of steps in a plan"}
 
-    def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
         """Initialize PlanBlock with required components.
 
         Args:
             llm: Language Model interface for decision making
+            environment: Environment for contextual data
             memory: Agent's memory storage for status tracking
-            simulator: Environment simulator for contextual data
         """
-        super().__init__("PlanBlock", llm=llm, memory=memory, simulator=simulator)
+        super().__init__("PlanBlock", llm=llm, environment=environment, memory=memory)
         self.guidance_prompt = FormatPrompt(template=GUIDANCE_SELECTION_PROMPT)
         self.detail_prompt = FormatPrompt(template=DETAILED_PLAN_PROMPT)
         self.trigger_time = 0
@@ -201,14 +201,14 @@ class PlanBlock(Block):
             and position_now["aoi_position"] in known_locations
         ):
             current_location = id_to_name[position_now["aoi_position"]]
-        current_time = await self.simulator.get_time(format_time=True)
+        current_time = await self.environment.get_time(format_time=True)
         options = self.guidance_options.get(current_need, [])
         if len(options) == 0:
             options = "Do things that can satisfy your needs or actions."
         self.guidance_prompt.format(
-            weather=self.simulator.sense("weather"),
-            temperature=self.simulator.sense("temperature"),
-            other_info=self.simulator.environment.get("other_information", "None"),
+            weather=self.environment.sense("weather"),
+            temperature=self.environment.sense("temperature"),
+            other_info=self.environment.environment.get("other_information", "None"),
             current_need=current_need,
             options=options,
             current_location=current_location,
@@ -270,11 +270,11 @@ class PlanBlock(Block):
             and position_now["aoi_position"] == work_location["aoi_position"]
         ):
             current_location = "At workplace"
-        current_time = await self.simulator.get_time(format_time=True)
+        current_time = await self.environment.get_time(format_time=True)
         self.detail_prompt.format(
-            weather=self.simulator.sense("weather"),
-            temperature=self.simulator.sense("temperature"),
-            other_info=self.simulator.environment.get("other_information", "None"),
+            weather=self.environment.sense("weather"),
+            temperature=self.environment.sense("temperature"),
+            other_info=self.environment.environment.get("other_information", "None"),
             selected_option=selected_option,
             current_location=current_location,
             current_time=current_time,
@@ -350,7 +350,7 @@ class PlanBlock(Block):
 Overall Target: {plan['target']}
 Execution Steps: \n{formated_steps}
         """
-        plan["start_time"] = await self.simulator.get_time(format_time=True)
+        plan["start_time"] = await self.environment.get_time(format_time=True)
         await self.memory.status.update("current_plan", plan)
         await self.memory.status.update("execution_context", {"plan": formated_plan})
         await self.memory.stream.add_cognition(description=cognition)

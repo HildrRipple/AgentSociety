@@ -4,7 +4,7 @@ import jsonc
 import logging
 from typing import Any, Optional
 
-from ...environment import Simulator
+from ...environment import Environment
 from ...llm import LLM
 from ...memory import Memory
 from ...workflow import Block, FormatPrompt
@@ -23,7 +23,7 @@ class MessagePromptManager:
 
     async def get_prompt(
         self, memory, step: dict[str, Any], target: str, template: str
-    ) -> str:
+    ):
         """Generates a formatted prompt for message creation.
 
         Args:
@@ -68,7 +68,7 @@ class MessagePromptManager:
             discussion_constraint=discussion_constraint,
         )
 
-        return format_prompt.to_dialog()  # type:ignore
+        return format_prompt.to_dialog()
 
 
 class SocialNoneBlock(Block):
@@ -77,8 +77,9 @@ class SocialNoneBlock(Block):
     """
 
     def __init__(self, llm: LLM, memory: Memory):
-        super().__init__("NoneBlock", llm=llm, memory=memory)
-        self.description = "Handle all other cases"
+        super().__init__(
+            "NoneBlock", llm=llm, memory=memory, description="Handle all other cases"
+        )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
     async def forward(self, step, context):  # type:ignore
@@ -131,9 +132,14 @@ class FindPersonBlock(Block):
     Block for selecting an appropriate agent to socialize with based on relationship strength and context.
     """
 
-    def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__("FindPersonBlock", llm=llm, memory=memory, simulator=simulator)
-        self.description = "Find a suitable person to socialize with"
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+        super().__init__(
+            "FindPersonBlock",
+            llm=llm,
+            environment=environment,
+            memory=memory,
+            description="Find a suitable person to socialize with",
+        )
 
         self.prompt = """
         Based on the following information, help me select the most suitable friend to interact with:
@@ -280,11 +286,16 @@ class FindPersonBlock(Block):
 class MessageBlock(Block):
     """Generate and send messages"""
 
-    def __init__(self, agent, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__("MessageBlock", llm=llm, memory=memory, simulator=simulator)
+    def __init__(self, agent, llm: LLM, environment: Environment, memory: Memory):
+        super().__init__(
+            "MessageBlock",
+            llm=llm,
+            environment=environment,
+            memory=memory,
+            description="Send a message to someone",
+        )
         self.agent = agent
-        self.description = "Send a message to someone"
-        self.find_person_block = FindPersonBlock(llm, memory, simulator)
+        self.find_person_block = FindPersonBlock(llm, environment, memory)
 
         # configurable fields
         self.default_message_template = """
@@ -325,7 +336,7 @@ class MessageBlock(Block):
             get_logger().warning(f"Error serializing message: {e}")
             return message
 
-    async def forward(  # type:ignore
+    async def forward(
         self, step: dict[str, Any], context: Optional[dict] = None
     ) -> dict[str, Any]:
         """Generates a message, sends it to the target, and updates chat history.
@@ -409,10 +420,10 @@ class SocialBlock(Block):
     message_block: MessageBlock
     noneblock: SocialNoneBlock
 
-    def __init__(self, agent, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__("SocialBlock", llm=llm, memory=memory, simulator=simulator)
-        self.find_person_block = FindPersonBlock(llm, memory, simulator)
-        self.message_block = MessageBlock(agent, llm, memory, simulator)
+    def __init__(self, agent, llm: LLM, environment: Environment, memory: Memory):
+        super().__init__("SocialBlock", llm=llm, environment=environment, memory=memory)
+        self.find_person_block = FindPersonBlock(llm, environment, memory)
+        self.message_block = MessageBlock(agent, llm, environment, memory)
         self.noneblock = SocialNoneBlock(llm, memory)
         self.dispatcher = BlockDispatcher(llm)
 

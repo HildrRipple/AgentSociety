@@ -8,6 +8,13 @@ from psycopg.rows import dict_row
 
 from ..utils.decorators import lock_decorator
 from ..logger import get_logger
+from .type import (
+    StorageDialog,
+    StorageGlobalPrompt,
+    StorageProfile,
+    StorageStatus,
+    StorageSurvey,
+)
 
 __all__ = ["PgWriter"]
 
@@ -169,8 +176,7 @@ class PgWriter:
             _create_pg_tables(exp_id, dsn)
 
     @lock_decorator
-    async def write_dialog(self, rows: list[tuple]):
-        _tuple_types = [int, int, float, int, str, str, str, None]
+    async def write_dialogs(self, rows: list[StorageDialog]):
         table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_agent_dialog"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
@@ -181,16 +187,20 @@ class PgWriter:
                 async with cur.copy(copy_sql) as copy:
                     for row in rows:
                         _row = [
-                            _type(r) if _type is not None and r is not None else r
-                            for (_type, r) in zip(_tuple_types, row)
+                            row.id,
+                            row.day,
+                            row.t,
+                            row.type,
+                            row.speaker,
+                            row.content,
+                            row.created_at,
                         ]
                         await copy.write_row(_row)
                         _rows.append(_row)
             get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
-    async def write_status(self, rows: list[tuple]):
-        _tuple_types = [int, int, float, float, float, int, list, str, str, None]
+    async def write_statuses(self, rows: list[StorageStatus]):
         table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_agent_status"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
@@ -201,16 +211,23 @@ class PgWriter:
                 async with cur.copy(copy_sql) as copy:
                     for row in rows:
                         _row = [
-                            _type(r) if _type is not None and r is not None else r
-                            for (_type, r) in zip(_tuple_types, row)
+                            row.id,
+                            row.day,
+                            row.t,
+                            row.lng,
+                            row.lat,
+                            row.parent_id,
+                            row.friend_ids,
+                            row.action,
+                            row.status,
+                            row.created_at,
                         ]
                         await copy.write_row(_row)
                         _rows.append(_row)
             get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
-    async def write_profile(self, rows: list[tuple]):
-        _tuple_types = [int, str, str]
+    async def write_profiles(self, rows: list[StorageProfile]):
         table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_agent_profile"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL("COPY {} (id, name, profile) FROM STDIN").format(
@@ -221,16 +238,16 @@ class PgWriter:
                 async with cur.copy(copy_sql) as copy:
                     for row in rows:
                         _row = [
-                            _type(r) if _type is not None and r is not None else r
-                            for (_type, r) in zip(_tuple_types, row)
+                            row.id,
+                            row.name,
+                            row.profile,
                         ]
                         await copy.write_row(_row)
                         _rows.append(_row)
             get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
-    async def write_survey(self, rows: list[tuple]):
-        _tuple_types = [str, int, int, float, str, str, None]
+    async def write_surveys(self, rows: list[StorageSurvey]):
         table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_agent_survey"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
@@ -241,15 +258,19 @@ class PgWriter:
                 async with cur.copy(copy_sql) as copy:
                     for row in rows:
                         _row = [
-                            _type(r) if _type is not None and r is not None else r
-                            for (_type, r) in zip(_tuple_types, row)
+                            row.id,
+                            row.day,
+                            row.t,
+                            row.survey_id,
+                            row.result,
+                            row.created_at,
                         ]
                         await copy.write_row(_row)
                         _rows.append(_row)
             get_logger().debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     @lock_decorator
-    async def save_global_prompt(self, prompt_info: dict[str, Any]):
+    async def write_global_prompt(self, prompt_info: StorageGlobalPrompt):
         table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_global_prompt"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             async with aconn.cursor() as cur:
@@ -257,10 +278,10 @@ class PgWriter:
                     "COPY {} (day, t, prompt, created_at) FROM STDIN"
                 ).format(psycopg.sql.Identifier(table_name))
                 row = (
-                    prompt_info["day"],
-                    prompt_info["t"],
-                    prompt_info["prompt"],
-                    prompt_info["created_at"],
+                    prompt_info.day,
+                    prompt_info.t,
+                    prompt_info.prompt,
+                    prompt_info.created_at,
                 )
                 async with cur.copy(copy_sql) as copy:
                     await copy.write_row(row)

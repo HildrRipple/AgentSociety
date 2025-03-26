@@ -1,6 +1,8 @@
 import re
 from typing import Optional, Union
 
+from openai.types.chat import ChatCompletionMessageParam
+
 
 class FormatPrompt:
     """
@@ -60,7 +62,7 @@ class FormatPrompt:
         )  # Store the formatted string
         return self.formatted_string
 
-    def to_dialog(self) -> list[dict[str, str]]:
+    def to_dialog(self) -> list[ChatCompletionMessageParam]:
         """
         - **Description**:
             - Converts the formatted prompt and optional system prompt into a dialog format suitable for chat systems.

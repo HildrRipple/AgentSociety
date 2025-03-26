@@ -2,10 +2,10 @@ import asyncio
 import socket
 from typing import Optional
 
-from ..environment import Simulator
+from ..environment import Environment
 from ..memory import Memory
 
-KEY_TRIGGER_COMPONENTS = [Memory, Simulator]
+KEY_TRIGGER_COMPONENTS = [Memory, Environment]
 
 __all__ = [
     "EventTrigger",
@@ -128,7 +128,7 @@ class TimeTrigger(EventTrigger):
         - `required_components` (List[Type]): Specifies that the Simulator component is required.
     """
 
-    required_components = [Simulator]
+    required_components = [Environment]
 
     def __init__(
         self,
@@ -186,7 +186,7 @@ class TimeTrigger(EventTrigger):
         super().initialize()  # First check for required components
         assert self.block is not None
         self.memory = self.block.memory
-        self.simulator = self.block.simulator
+        self.environment = self.block.environment
         # Start time monitoring task
         self._monitoring_task = asyncio.create_task(self._monitor_time())
         self._initialized = True
@@ -201,7 +201,7 @@ class TimeTrigger(EventTrigger):
 
         while True:
             try:
-                current_time = await self.simulator.get_time()
+                current_time = await self.environment.get_time()
 
                 # If it's the first time or the specified time interval has passed
                 if (

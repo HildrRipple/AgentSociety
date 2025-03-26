@@ -19,8 +19,12 @@ class SleepBlock(Block):
     """
 
     def __init__(self, llm: LLM, memory: Memory):
-        super().__init__("SleepBlock", llm=llm, memory=memory)
-        self.description = "Sleep"
+        super().__init__(
+            "SleepBlock",
+            llm=llm,
+            memory=memory,
+            description="Sleep",
+        )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
     async def forward(self, step, context):  # type:ignore
@@ -72,8 +76,12 @@ class OtherNoneBlock(Block):
     """
 
     def __init__(self, llm: LLM, memory: Memory):
-        super().__init__("OtherNoneBlock", llm=llm, memory=memory)
-        self.description = "Used to handle other cases"
+        super().__init__(
+            "OtherNoneBlock",
+            llm=llm,
+            memory=memory,
+            description="Used to handle other cases",
+        )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
     async def forward(self, step, context):  # type:ignore

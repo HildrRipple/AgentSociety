@@ -2,7 +2,7 @@ import logging
 
 import jsonc
 
-from ...environment.environment import Simulator
+from ...environment import Environment
 from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
@@ -54,15 +54,17 @@ class CognitionBlock(Block):
         "top_k": "Number of most relevant memories to return, defaults to 20"
     }
 
-    def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
         """Initialize CognitionBlock with dependencies.
 
         Args:
             llm: Language Model interface for cognitive processing.
+            environment: Environment for time-based operations.
             memory: Memory system to store/retrieve agent status and experiences.
-            simulator: Environment simulator for time-based operations.
         """
-        super().__init__("CognitionBlock", llm=llm, memory=memory, simulator=simulator)
+        super().__init__(
+            "CognitionBlock", llm=llm, environment=environment, memory=memory
+        )
         self.top_k = 20
         self.last_check_time = 0
 
@@ -275,7 +277,7 @@ class CognitionBlock(Block):
         Returns:
             True if a new day is detected, False otherwise.
         """
-        time = await self.simulator.get_simulator_second_from_start_of_day()
+        time = await self.environment.get_simulator_second_from_start_of_day()
         if self.last_check_time == 0:
             self.last_check_time = time
             return False
