@@ -3,6 +3,7 @@ from typing import Any
 
 import psycopg
 import psycopg.sql
+from pydantic import BaseModel, Field
 import ray
 from psycopg.rows import dict_row
 
@@ -17,7 +18,7 @@ from .type import (
     StorageExpInfo,
 )
 
-__all__ = ["PgWriter"]
+__all__ = ["PgWriter", "PostgreSQLConfig"]
 
 TABLE_PREFIX = "as_"
 
@@ -146,6 +147,19 @@ def _create_pg_tables(exp_id: str, dsn: str):
                     cur.execute(exec_str)
                     get_logger().debug(f"table:{table_name} sql: {exec_str}")
                 conn.commit()
+
+
+class PostgreSQLConfig(BaseModel):
+    """PostgreSQL configuration class."""
+
+    enabled: bool = Field(True)
+    """Whether PostgreSQL storage is enabled"""
+
+    dsn: str = Field(...)
+    """Data source name for PostgreSQL"""
+
+    num_workers: int = Field(4, ge=1)
+    """Number of workers for PostgreSQL"""
 
 
 @ray.remote

@@ -901,8 +901,7 @@ class EconomyClient:
         response: org_service.ListBanksResponse = await self._aio_stub.ListBanks(
             request
         )
-        res: list[economyv2.Bank] = response.banks  
-        return [i.id for i in res]
+        return [i.id for i in response.banks]
 
     @log_execution_time
     @lock_decorator
@@ -916,11 +915,8 @@ class EconomyClient:
             - `List[int]`: A list of NBS IDs.
         """
         request = org_service.ListNBSRequest()
-        response: org_service.ListNBSResponse = await self._aio_stub.ListNBS(
-            request
-        )
-        res: list[economyv2.NBS] = response.nbs_list
-        return [i.id for i in res]
+        response: org_service.ListNBSResponse = await self._aio_stub.ListNBS(request)
+        return [i.id for i in response.nbs_list]
 
     @log_execution_time
     @lock_decorator
@@ -934,11 +930,10 @@ class EconomyClient:
             - `List[int]`: A list of government IDs.
         """
         request = org_service.ListGovernmentsRequest()
-        response: org_service.ListGovernmentsResponse = await self._aio_stub.ListFirms(
-            request
+        response: org_service.ListGovernmentsResponse = (
+            await self._aio_stub.ListGovernments(request)
         )
-        res: list[economyv2.Government] = response.governments  
-        return [i.id for i in res]
+        return [i.id for i in response.governments]
 
     @log_execution_time
     @lock_decorator
@@ -955,8 +950,7 @@ class EconomyClient:
         response: org_service.ListFirmsResponse = await self._aio_stub.ListFirms(
             request
         )
-        res: list[economyv2.Firm] = response.firms  
-        return [i.id for i in res]
+        return [i.id for i in response.firms]
 
     @log_execution_time
     @lock_decorator
@@ -1143,8 +1137,8 @@ class EconomyClient:
                             delta_demand=delta_demand,
                             delta_sales=delta_sales,
                             delta_currency=delta_currency,
-                            add_employees=add_employee_ids,  
-                            remove_employees=remove_employee_ids,  
+                            add_employees=add_employee_ids,
+                            remove_employees=remove_employee_ids,
                         )
                     ]
                 )
@@ -1180,11 +1174,11 @@ class EconomyClient:
                 remove_employee_ids_s = remove_employee_ids
             if (
                 not len(firm_id)
-                == len(delta_prices)  
-                == len(delta_inventories)  
-                == len(delta_demands)  
-                == len(delta_sales_s)  
-                == len(delta_currencies)  
+                == len(delta_prices)
+                == len(delta_inventories)
+                == len(delta_demands)
+                == len(delta_sales_s)
+                == len(delta_currencies)
                 == len(add_employee_ids_s)
                 == len(remove_employee_ids_s)
             ):
@@ -1196,13 +1190,13 @@ class EconomyClient:
                     updates=[
                         org_service.FirmDeltaUpdate(
                             firm_id=firm_id[i],
-                            delta_price=delta_prices[i],  
-                            delta_inventory=delta_inventories[i],  
-                            delta_demand=delta_demands[i],  
-                            delta_sales=delta_sales_s[i],  
-                            delta_currency=delta_currencies[i],  
-                            add_employees=add_employee_ids_s[i],  
-                            remove_employees=remove_employee_ids_s[i],  
+                            delta_price=delta_prices[i],
+                            delta_inventory=delta_inventories[i],
+                            delta_demand=delta_demands[i],
+                            delta_sales=delta_sales_s[i],
+                            delta_currency=delta_currencies[i],
+                            add_employees=add_employee_ids_s[i],
+                            remove_employees=remove_employee_ids_s[i],
                         )
                         for i in range(len(firm_id))
                     ]
@@ -1268,10 +1262,10 @@ class EconomyClient:
                 delta_incomes = delta_income
             if (
                 not len(agent_id)
-                == len(delta_currencies)  
-                == len(delta_skills)  
-                == len(delta_consumptions)  
-                == len(delta_incomes)  
+                == len(delta_currencies)
+                == len(delta_skills)
+                == len(delta_consumptions)
+                == len(delta_incomes)
             ):
                 raise ValueError(
                     f"Invalid input, the length of agent_id, delta_currency, delta_skill, delta_consumption, delta_income must be the same!"
@@ -1281,11 +1275,11 @@ class EconomyClient:
                     updates=[
                         org_service.AgentDeltaUpdate(
                             agent_id=agent_id[i],
-                            new_firm_id=new_firm_ids[i],  
-                            delta_currency=delta_currencies[i],  
-                            delta_skill=delta_skills[i],  
-                            delta_consumption=delta_consumptions[i],  
-                            delta_income=delta_incomes[i],  
+                            new_firm_id=new_firm_ids[i],
+                            delta_currency=delta_currencies[i],
+                            delta_skill=delta_skills[i],
+                            delta_consumption=delta_consumptions[i],
+                            delta_income=delta_incomes[i],
                         )
                         for i in range(len(agent_id))
                     ]

@@ -14,7 +14,7 @@ from ..agent import (
     NBSAgentBase,
     GovernmentAgentBase,
 )
-from ..cityagent.memory_config import MemoryConfigGenerator
+from ..agent.memory_config_generator import MemoryConfigGenerator
 from ..configs import Config
 from ..environment import Environment
 from ..llm import LLM, init_embedding
@@ -545,3 +545,95 @@ class AgentGroupV2:
                     statuses
                 )
             )
+
+    async def update_environment(self, key: str, value: str):
+        """
+        Update the environment variables for the simulation and all agent groups.
+
+        - **Args**:
+            - `key` (str): The environment variable key to update.
+            - `value` (str): The new value for the environment variable.
+        """
+        self.environment.update_environment(key, value)
+
+    async def filter(
+        self,
+        types: Optional[tuple[type[Agent]]] = None,
+        keys: Optional[list[str]] = None,
+        values: Optional[list[Any]] = None,
+    ) -> list[int]:
+        """
+        Filters agents based on type and/or key-value pairs in their status.
+
+        - **Args**:
+            - `types` (Optional[List[Type[Agent]]]): A list of agent types to filter by.
+            - `keys` (Optional[List[str]]): A list of keys to check in the agent's status.
+            - `values` (Optional[List[Any]]): The corresponding values for each key in the `keys` list.
+
+        - **Returns**:
+            - `List[int]`: A list of agent IDs for agents that match the filter criteria.
+        """
+        filtered_ids = []
+        for agent in self._agents:
+            add = True
+            if types:
+                if isinstance(agent, types):
+                    if keys:
+                        for key in keys:
+                            assert values is not None
+                            if agent.status.get(key) != values[keys.index(key)]:
+                                add = False
+                                break
+                    if add:
+                        filtered_ids.append(agent.id)
+            elif keys:
+                for key in keys:
+                    assert values is not None
+                    if agent.status.get(key) != values[keys.index(key)]:
+                        add = False
+                        break
+                if add:
+                    filtered_ids.append(agent.id)
+        return filtered_ids
+
+    async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None):
+        """
+        Gathers specific content from all or targeted agents within the group.
+
+        - **Args**:
+            - `content` (str): The key of the status content to gather from the agents.
+            - `target_agent_ids` (Optional[List[int]]): A list of agent IDs to target. If None, targets all agents.
+
+        - **Returns**:
+            - `Dict[str, Any]`: A dictionary mapping agent IDs to the gathered content.
+        """
+        get_logger().debug(
+            f"-----Gathering {content} from all agents in group {self._group_id}"
+        )
+        results = {}
+        if target_agent_ids is None:
+            target_agent_ids = list(self._id2agent.keys())
+        if content == "stream_memory":
+            for agent in self._agents:
+                if agent.id in target_agent_ids:
+                    results[agent.id] = await agent.stream.get_all()
+        else:
+            for agent in self._agents:
+                if agent.id in target_agent_ids:
+                    results[agent.id] = await agent.status.get(content)
+        return results
+
+    async def update(self, target_agent_id: int, target_key: str, content: Any):
+        """
+        Updates a specific key in the status of a targeted agent.
+
+        - **Args**:
+            - `target_agent_id` (int): The ID of the agent to update.
+            - `target_key` (str): The key in the agent's status to update.
+            - `content` (Any): The new value for the specified key.
+        """
+        get_logger().debug(
+            f"-----Updating {target_key} for agent {target_agent_id} in group {self._group_id}"
+        )
+        agent = self._id2agent[target_agent_id]
+        await agent.status.update(target_key, content)

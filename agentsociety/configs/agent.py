@@ -1,55 +1,42 @@
 from __future__ import annotations
 
+from enum import Enum
 import logging
 from collections.abc import Callable
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, Optional, Union
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-from ..utils import DistributionType, AgentClassType
+from ..agent import Agent
+from ..agent.distribution import Distribution, DistributionConfig
 
 __all__ = [
     "AgentConfig",
-    "DistributionConfig",
 ]
 
 
-class DistributionConfig(BaseModel):
-    """Configuration for different types of distributions used in the simulation."""
+class AgentClassType(str, Enum):
+    """
+    Defines the types of agent class types.
+    """
 
-    model_config = ConfigDict(use_enum_values=True, use_attribute_docstrings=True)
-
-    dist_type: DistributionType = Field(...)
-    """The type of the distribution"""
-
-    choices: Optional[list[Any]] = None
-    """A list of possible discrete values - used for [CHOICE] type"""
-
-    weights: Optional[list[float]] = None
-    """Weights corresponding to each discrete choice - used for [CHOICE] type"""
-
-    min_value: Optional[Union[int, float]] = None
-    """Minimum value for continuous distributions - used for [UNIFORM_INT, UNIFORM_FLOAT, NORMAL] type"""
-
-    max_value: Optional[Union[int, float]] = None
-    """Maximum value for continuous distributions - used for [UNIFORM_INT, UNIFORM_FLOAT, NORMAL] type"""
-
-    mean: Optional[float] = None
-    """Mean value for the distribution if applicable - used for [NORMAL] type"""
-
-    std: Optional[float] = None
-    """Standard deviation for the distribution if applicable - used for [NORMAL] type"""
-
-    value: Optional[Any] = None
-    """A fixed value that can be used instead of a distribution - used for [CONSTANT] type"""
+    CITIZEN = "citizen"
+    FIRM = "firm"
+    GOVERNMENT = "government"
+    BANK = "bank"
+    NBS = "nbs"
 
 
 class AgentConfig(BaseModel):
     """Configuration for different types of agents in the simulation."""
 
-    model_config = ConfigDict(use_enum_values=True, use_attribute_docstrings=True)
+    model_config = ConfigDict(
+        use_enum_values=True,
+        use_attribute_docstrings=True,
+        arbitrary_types_allowed=True,
+    )
 
-    agent_class: Union[type, AgentClassType]
+    agent_class: Union[type[Agent], AgentClassType]
     """The class of the agent"""
 
     number: int = Field(gt=0)
@@ -69,5 +56,34 @@ class AgentConfig(BaseModel):
     memory_from_file: Optional[str] = None
     """Memory configuration file"""
 
-    memory_distributions: Optional[dict[str, DistributionConfig]] = None
+    memory_distributions: Optional[
+        dict[str, Union[Distribution, DistributionConfig]]
+    ] = None
     """Memory distributions"""
+
+    @field_serializer("agent_class")
+    def serialize_agent_class(self, agent_class, info):
+        if isinstance(agent_class, AgentClassType):
+            return agent_class
+        else:
+            return agent_class.__name__
+
+    @field_serializer("memory_config_func")
+    def serialize_memory_config_func(self, memory_config_func, info):
+        if memory_config_func is None:
+            return None
+        else:
+            return memory_config_func.__name__
+
+    @field_serializer("memory_distributions")
+    def serialize_memory_distributions(self, memory_distributions, info):
+        if memory_distributions is None:
+            return None
+        else:
+            result = {}
+            for key, value in memory_distributions.items():
+                if isinstance(value, Distribution):
+                    result[key] = value.__repr__()
+                else:
+                    result[key] = value
+            return result

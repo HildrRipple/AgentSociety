@@ -1,5 +1,6 @@
-from .mlflow_client import MlflowClient
+from .mlflow_client import MlflowClient, MlflowConfig
 
 __all__ = [
     "MlflowClient",
+    "MlflowConfig",
 ]

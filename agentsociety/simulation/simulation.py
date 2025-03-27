@@ -28,7 +28,7 @@ from ..cityagent.memory_config import (
 )
 from ..cityagent.message_intercept import (
     EdgeMessageBlock,
-    MessageBlockListener,
+    DoNothingListener,
     PointMessageBlock,
 )
 from ..configs import ExpConfig, MemoryConfig, MetricExtractor, SimConfig
@@ -311,7 +311,7 @@ class AgentSimulation:
                     )
                 _message_intercept_kwargs = {
                     "message_interceptor_blocks": _interceptor_blocks,
-                    "message_listener": MessageBlockListener(),
+                    "message_listener": DoNothingListener(),
                 }
             elif intercept_config.message_interceptor_blocks is not None:
                 _message_intercept_kwargs = {

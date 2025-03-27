@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from enum import Enum
 from typing import Any, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
+from ..message.message_interceptor import MessageBlockBase, MessageBlockListenerBase
 from ..survey import Survey
-from ..utils import MetricType, WorkflowType
+from ..environment import EnvironmentConfig
 
 __all__ = [
     "WorkflowStepConfig",
@@ -14,7 +16,38 @@ __all__ = [
     "EnvironmentConfig",
     "MessageInterceptConfig",
     "ExpConfig",
+    "WorkflowType",
+    "MetricType",
 ]
+
+
+class WorkflowType(str, Enum):
+    """
+    Defines the types of workflow steps in the simulation.
+    - **Description**:
+        - Enumerates different types of workflow steps that can be executed during simulation.
+
+    - **Types**:
+        - `STEP`: Execute on a step-by-step unit.
+        - `RUN`: Execute on a daily unit (day-based execution).
+        - `INTERVIEW`: Sends an interview message to the specified agent.
+        - `SURVEY`: Sends a questionnaire to the specified agent.
+        - `ENVIRONMENT_INTERVENE`: Changes the environment variables (global prompt).
+        - `UPDATE_STATE_INTERVENE`: Directly updates the state information of the specified agent.
+        - `MESSAGE_INTERVENE`: Influences the agent's behavior and state by sending a message.
+        - `INTERVENE`: Represents other intervention methods driven by code.
+        - `FUNCTION`: Represents function-based intervention methods.
+    """
+
+    STEP = "step"
+    RUN = "run"
+    INTERVIEW = "interview"
+    SURVEY = "survey"
+    ENVIRONMENT_INTERVENE = "environment"
+    UPDATE_STATE_INTERVENE = "update_state"
+    MESSAGE_INTERVENE = "message"
+    INTERVENE = "other"
+    FUNCTION = "function"
 
 
 class WorkflowStepConfig(BaseModel):
@@ -58,6 +91,28 @@ class WorkflowStepConfig(BaseModel):
     description: Optional[str] = None
     """A descriptive text explaining the workflow step"""
 
+    @field_serializer("func")
+    def serialize_func(self, func, info):
+        if func is None:
+            return None
+        else:
+            return func.__name__
+
+
+class MetricType(str, Enum):
+    """
+    Defines the types of metric types.
+    - **Description**:
+        - Enumerates different types of metric types.
+
+    - **Types**:
+        - `FUNCTION`: Function-based metric.
+        - `STATE`: State-based metric.
+    """
+
+    FUNCTION = "function"
+    STATE = "state"
+
 
 class MetricExtractorConfig(BaseModel):
     """Configuration for extracting metrics during simulation."""
@@ -98,59 +153,44 @@ class MetricExtractorConfig(BaseModel):
                 raise ValueError("key is required for STATE type")
         return self
 
-
-class EnvironmentConfig(BaseModel):
-    """Configuration for the simulation environment."""
-
-    model_config = ConfigDict(use_enum_values=True, use_attribute_docstrings=True)
-
-    max_day: int = Field(1000)
-    """Maximum number of days to simulate"""
-
-    start_tick: int = Field(6 * 60 * 60)
-    """Starting tick of one day, in seconds"""
-
-    total_tick: int = Field(18 * 60 * 60)
-    """Total number of ticks in one day"""
-
-    weather: str = Field(default="The weather is sunny")
-    """Current weather condition in the environment"""
-
-    temperature: str = Field(default="The temperature is 23C")
-    """Current temperature in the environment"""
-
-    workday: bool = Field(default=True)
-    """Indicates if it's a working day"""
-
-    other_information: str = Field(default="")
-    """Additional environment information"""
-
-    def to_prompts(self) -> dict[str, Any]:
-        """Convert the environment config to prompts"""
-        return {
-            "weather": self.weather,
-            "temperature": self.temperature,
-            "workday": self.workday,
-            "other_information": self.other_information,
-        }
+    @field_serializer("func")
+    def serialize_func(self, func, info):
+        if func is None:
+            return None
+        else:
+            return func.__name__
 
 
 class MessageInterceptConfig(BaseModel):
     """Configuration for message interception in the simulation."""
 
-    model_config = ConfigDict(use_enum_values=True, use_attribute_docstrings=True)
+    model_config = ConfigDict(
+        use_enum_values=True,
+        use_attribute_docstrings=True,
+        arbitrary_types_allowed=True,
+    )
 
-    mode: Union[Literal["point"], Literal["edge"]]
-    """Mode of message interception"""
+    mode: Optional[Union[Literal["point"], Literal["edge"]]] = None
+    """Mode of message interception, either set this or blocks"""
 
     max_violation_time: int = 3
     """Maximum number of allowed violations"""
 
-    message_interceptor_blocks: Optional[list[Any]] = None
-    """List of message interceptor blocks"""
+    blocks: list[MessageBlockBase] = Field([], ge=0)
+    """List of message blocks, either set this or mode"""
 
-    message_listener: Optional[Any] = None
-    """Message listener configuration"""
+    listener: Optional[type[MessageBlockListenerBase]] = None
+    """Listener for message interception"""
+
+    # When serialize to json, change blocks and listener to their class name
+
+    @field_serializer("blocks")
+    def serialize_blocks(self, blocks, info):
+        return [block.__class__.__name__ for block in blocks]
+
+    @field_serializer("listener")
+    def serialize_listener(self, listener, info):
+        return listener.__class__.__name__ if listener else None
 
 
 class ExpConfig(BaseModel):

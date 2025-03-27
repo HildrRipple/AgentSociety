@@ -12,58 +12,26 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Literal, Optional, Type, cast
 
 import ray
+import ray.util.queue
 import yaml
 
 from ..agent import Agent
-from ..cityagent import (
-    BankAgent,
-    FirmAgent,
-    GovernmentAgent,
-    NBSAgent,
-    SocietyAgent,
-    memory_config_bank,
-    memory_config_firm,
-    memory_config_government,
-    memory_config_nbs,
-    memory_config_societyagent,
-)
-from ..cityagent.initial import bind_agent_info, initialize_social_network
-from ..cityagent.memory_config import Distribution, MemoryConfigGenerator
-from ..configs import AgentConfig, Config, DistributionConfig, MetricExtractorConfig
-from ..configs.const import DistributionType, MetricType
+from ..agent.distribution import Distribution, DistributionConfig, DistributionType
+from ..agent.memory_config_generator import MemoryConfigGenerator
+from ..configs import AgentConfig, Config, MetricType, MetricExtractorConfig
 from ..environment import EnvironmentStarter
 from ..logger import get_logger, set_logger_level
-from ..message import Messager
+from ..message import MessageInterceptor, Messager
+from ..message.message_interceptor import MessageBlockListenerBase
 from ..metrics import MlflowClient
 from ..storage import AvroSaver
 from ..storage.pgsql import PgWriter
-from ..storage.type import StorageGlobalPrompt, StorageExpInfo
+from ..storage.type import StorageExpInfo, StorageGlobalPrompt
 from ..survey.models import Survey
-from ..utils import NONE_SENDER_ID, AgentClassType
+from ..utils import NONE_SENDER_ID
 from .agentgroupv2 import AgentGroupV2
 
 __all__ = ["AgentSociety"]
-
-
-def _map_agent_class(agent_config: AgentConfig) -> type[Agent]:
-    """
-    Map the str of agent class to the actual class
-    """
-    if isinstance(agent_config.agent_class, str):
-        if agent_config.agent_class == AgentClassType.CITIZEN:
-            return SocietyAgent
-        elif agent_config.agent_class == AgentClassType.FIRM:
-            return FirmAgent
-        elif agent_config.agent_class == AgentClassType.GOVERNMENT:
-            return GovernmentAgent
-        elif agent_config.agent_class == AgentClassType.BANK:
-            return BankAgent
-        elif agent_config.agent_class == AgentClassType.NBS:
-            return NBSAgent
-        else:
-            raise ValueError(f"Invalid agent class: {agent_config.agent_class}")
-    else:
-        return agent_config.agent_class
 
 
 def _init_agent_class(agent_config: AgentConfig):
@@ -76,7 +44,7 @@ def _init_agent_class(agent_config: AgentConfig):
     - **Returns**:
         - `agents`: A list of tuples, each containing an agent class, a memory config generator, and an index.
     """
-    agent_class = _map_agent_class(agent_config)
+    agent_class = agent_config.agent_class
     n = agent_config.number
     # memory config function
     memory_config_func = cast(
@@ -86,22 +54,14 @@ def _init_agent_class(agent_config: AgentConfig):
         ],
         agent_config.memory_config_func,
     )
-    if memory_config_func is None:
-        # use default memory config
-        if agent_class == SocietyAgent:
-            memory_config_func = memory_config_societyagent
-        elif agent_class == FirmAgent:
-            memory_config_func = memory_config_firm
-        elif agent_class == BankAgent:
-            memory_config_func = memory_config_bank
-        elif agent_class == NBSAgent:
-            memory_config_func = memory_config_nbs
-        elif agent_class == GovernmentAgent:
-            memory_config_func = memory_config_government
     generator = MemoryConfigGenerator(
         memory_config_func,
         agent_config.memory_from_file,
-        agent_config.memory_distributions,
+        (
+            agent_config.memory_distributions
+            if agent_config.memory_distributions is not None
+            else {}
+        ),
     )
     # lazy generate memory values
     agents = [(agent_class, generator, i) for i in range(n)]
@@ -130,6 +90,8 @@ class AgentSociety:
 
         # typing definition
         self._environment: Optional[EnvironmentStarter] = None
+        self._message_interceptor: Optional[ray.ObjectRef] = None
+        self._message_interceptor_listener: Optional[MessageBlockListenerBase] = None
         self._messager: Optional[Messager] = None
         self._avro_saver: Optional[AvroSaver] = None
         self._mlflow: Optional[MlflowClient] = None
@@ -140,7 +102,7 @@ class AgentSociety:
         self._exp_info: StorageExpInfo = StorageExpInfo(
             id=self.exp_id,
             tenant_id=self.tenant_id,
-            name=self.exp_name,
+            name=self.name,
             num_day=0,
             status=0,
             cur_day=0,
@@ -153,7 +115,7 @@ class AgentSociety:
         self._total_steps: int = 0
 
     @property
-    def exp_name(self):
+    def name(self):
         return self._config.exp.name
 
     @property
@@ -178,6 +140,23 @@ class AgentSociety:
         # Initialize the messager
         # ====================
         get_logger().info(f"Initializing messager...")
+        if self._config.exp.message_intercept is not None:
+            queue = ray.util.queue.Queue()
+            self._message_interceptor = MessageInterceptor.remote(
+                blocks=self._config.exp.message_intercept.blocks,  # type: ignore
+                llm_config=self._config.env.llm,
+                queue=queue,
+                black_set=set(),
+            )
+            assert (
+                self._config.exp.message_intercept.listener is not None
+            ), "listener is not set"
+            self._message_interceptor_listener = (
+                self._config.exp.message_intercept.listener(
+                    queue=queue,
+                )
+            )
+            self._message_interceptor_listener.init()
         self._messager = Messager(
             config=self._config.env.redis,
             exp_id=self.exp_id,
@@ -187,7 +166,6 @@ class AgentSociety:
             [f"exps:{self.exp_id}:user_payback"]
         )
         get_logger().info(f"Messager initialized")
-        # TODO: message_listener and message interceptor
 
         # ====================
         # Initialize the avro saver
@@ -208,7 +186,7 @@ class AgentSociety:
             get_logger().info(f"Initializing mlflow...")
             self._mlflow = MlflowClient(
                 config=self._config.env.mlflow,
-                exp_name=self.exp_name,
+                exp_name=self.name,
                 exp_id=self.exp_id,
             )
             get_logger().info(f"Mlflow initialized")
@@ -236,7 +214,17 @@ class AgentSociety:
         nbs_ids = set()
         government_ids = set()
         firm_ids = set()
+        aoi_ids = self._environment.get_aoi_ids()
         for agent_config in self._config.firms:
+            if agent_config.memory_distributions is None:
+                agent_config.memory_distributions = {}
+            assert (
+                "aoi_id" not in agent_config.memory_distributions
+            ), "aoi_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
+            agent_config.memory_distributions["aoi_id"] = DistributionConfig(
+                dist_type=DistributionType.CHOICE,
+                choices=list(aoi_ids),
+            )
             firm_classes = _init_agent_class(agent_config)
             firms = [
                 (next_id + i, *firm_class) for i, firm_class in enumerate(firm_classes)
@@ -267,7 +255,6 @@ class AgentSociety:
             government_ids.update([government[0] for government in governments])
             agents += governments
             next_id += len(governments)
-        aoi_ids = self._environment.get_aoi_ids()
         for agent_config in self._config.citizens:
             # append distribution for firm_id, bank_id, nbs_id, government_id, home_aoi_id, work_aoi_id
             if agent_config.memory_distributions is None:
@@ -339,7 +326,7 @@ class AgentSociety:
             group_id = str(uuid.uuid4())
             self._groups[group_id] = AgentGroupV2.remote(
                 tenant_id=self.tenant_id,  # type:ignore
-                exp_name=self.exp_name,
+                exp_name=self.name,
                 exp_id=self.exp_id,
                 group_id=group_id,
                 config=self._config,
@@ -353,7 +340,7 @@ class AgentSociety:
                 ),
                 mlflow_run_id=self._mlflow.run_id if self._mlflow is not None else None,
             )
-            for agent_id in group_agents:
+            for agent_id, _, _, _ in group_agents:
                 self._agent_id2group[agent_id] = self._groups[group_id]
         get_logger().info(
             f"groups: len(self._groups)={len(self._groups)}, waiting for groups to init..."
@@ -372,8 +359,6 @@ class AgentSociety:
         # run init functions
         # ===================================
         init_funcs = self._config.init_funcs
-        if init_funcs is None:
-            init_funcs = [bind_agent_info, initialize_social_network]
         for init_func in init_funcs:
             if inspect.iscoroutinefunction(init_func):
                 await init_func(self)
@@ -390,6 +375,10 @@ class AgentSociety:
         if self._avro_saver is not None:
             self._avro_saver.close()
             self._avro_saver = None
+
+        if self._message_interceptor_listener is not None:
+            await self._message_interceptor_listener.close()
+            self._message_interceptor_listener = None
 
         if self._messager is not None:
             await self._messager.close()
@@ -459,7 +448,7 @@ class AgentSociety:
 
     async def filter(
         self,
-        types: Optional[list[Type[Agent]]] = None,
+        types: Optional[tuple[type[Agent]]] = None,
         keys: Optional[list[str]] = None,
         values: Optional[list[Any]] = None,
     ) -> list[int]:
@@ -467,7 +456,7 @@ class AgentSociety:
         Filter out agents of specified types or with matching key-value pairs.
 
         - **Args**:
-            - `types` (Optional[List[Type[Agent]]], optional): Types of agents to filter for. Defaults to None.
+            - `types` (Optional[Tuple[Type[Agent]]], optional): Types of agents to filter for. Defaults to None.
             - `keys` (Optional[List[str]], optional): Keys to match in agent attributes. Defaults to None.
             - `values` (Optional[List[Any]], optional): Values corresponding to keys for matching. Defaults to None.
 

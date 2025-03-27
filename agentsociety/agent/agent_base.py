@@ -203,7 +203,8 @@ class Agent(ABC):
             - Dynamically creates Block instances based on the configuration data and assigns them to the agent.
             - If a block is not found in the global namespace or cannot be created, this method may raise errors.
         """
-        agent = cls(name=config["agent_name"])  
+        raise NotImplementedError("Bad implementation and should be re-implemented!")
+        agent = cls(name=config["agent_name"])
 
         def build_block(block_data: dict[str, Any]) -> Block:
             block_cls = globals()[block_data["name"]]

@@ -1,16 +1,15 @@
 import asyncio
 import inspect
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from copy import deepcopy
 from typing import Any, Optional, Union, TypeVar, Set
 
 import ray
-from ray.util.queue import Queue
+from ray.util.queue import Queue, Empty
 
-from ..configs import LLMConfig
-from ..llm import LLM
+from ..llm import LLM, LLMConfig
 from ..utils.decorators import lock_decorator
 from ..logger import get_logger
 
@@ -45,10 +44,11 @@ class MessageBlockBase(ABC):
     def name(self) -> str:
         return self._name
 
+    @abstractmethod
     @lock_decorator
     async def forward(
         self,
-        llm: Optional[LLM],
+        llm: LLM,
         from_id: int,
         to_id: int,
         msg: str,
@@ -59,6 +59,7 @@ class MessageBlockBase(ABC):
         Forward a message through the block.
 
         - **Args**:
+            - `llm` (LLM): The LLM instance.
             - `from_id` (int): The ID of the sender.
             - `to_id` (int): The ID of the recipient.
             - `msg` (str): The message content to forward.
@@ -68,7 +69,7 @@ class MessageBlockBase(ABC):
         - **Returns**:
             - `tuple[bool, str]`: A tuple containing a boolean indicating whether the message was processed successfully and a string containing the error message if the message was not processed successfully.
         """
-        return True, ""
+        raise NotImplementedError()
 
 
 @ray.remote
@@ -79,27 +80,24 @@ class MessageInterceptor:
 
     def __init__(
         self,
-        blocks: list[MessageBlockBase] = [],
+        blocks: list[MessageBlockBase],
+        llm_config: list[LLMConfig],
+        queue: Queue,
         black_set: BlackSet = set(),
-        llm_config: Optional[LLMConfig] = None,
-        queue: Optional[Queue] = None,
     ) -> None:
         """
         Initialize the MessageInterceptor with optional configuration.
 
         - **Args**:
             - `blocks` (list[MessageBlockBase], optional): Initial list of message interception rules. Defaults to an empty list.
+            - `llm_config` (LLMConfig): Configuration dictionary for initializing the LLM instance. Defaults to None.
+            - `queue` (Queue): Queue for message processing. Defaults to None.
             - `black_set` (BlackSet, optional): Initial blacklist of communication pairs. Defaults to an empty set.
-            - `llm_config` (Optional[LLMConfig], optional): Configuration dictionary for initializing the LLM instance. Defaults to None.
-            - `queue` (Optional[Queue], optional): Queue for message processing. Defaults to None.
         """
         self._blocks = blocks
         self._violation_counts: dict[int, int] = defaultdict(int)
-        self._black_set: BlackSet = black_set
-        if llm_config:
-            self._llm = LLM([llm_config])
-        else:
-            self._llm = None
+        self._black_set = black_set
+        self._llm = LLM(llm_config)
         self._queue = queue
         self._lock = asyncio.Lock()
 
@@ -121,87 +119,6 @@ class MessageInterceptor:
         if self._llm is None:
             raise RuntimeError(f"LLM access before assignment, please `set_llm` first!")
         return self._llm
-
-    @property
-    def has_llm(self) -> bool:
-        """
-        Check if a Large Language Model is configured.
-
-        - **Description**:
-            - Confirms whether a Large Language Model instance has been set.
-
-        - **Returns**:
-            - `bool`: True if an LLM is set, otherwise False.
-        """
-        return self._llm is not None
-
-    @property
-    def has_queue(self) -> bool:
-        """
-        Check if a queue is configured.
-
-        - **Description**:
-            - Confirms whether a queue instance has been set for message processing.
-
-        - **Returns**:
-            - `bool`: True if a queue is set, otherwise False.
-        """
-        return self._queue is not None
-
-    @property
-    def queue(self) -> Queue:
-        """
-        Access the queue used for message processing.
-
-        - **Description**:
-            - Provides access to the internal queue. Raises an error if accessed before assignment.
-
-        - **Raises**:
-            - `RuntimeError`: If accessed before setting the queue.
-
-        - **Returns**:
-            - `Queue`: The queue instance.
-        """
-        if self._queue is None:
-            raise RuntimeError(
-                f"Queue access before assignment, please `set_queue` first!"
-            )
-        return self._queue
-
-    # LLM related methods
-    @lock_decorator
-    async def set_llm(self, llm: LLM):
-        """
-        Set the Large Language Model instance.
-
-        - **Description**:
-            - Updates the internal LLM instance used for message processing.
-
-        - **Args**:
-            - `llm` (LLM): The LLM instance to be set.
-
-        - **Returns**:
-            - `None`
-        """
-        if self._llm is None:
-            self._llm = llm
-
-    # Queue related methods
-    @lock_decorator
-    async def set_queue(self, queue: Queue):
-        """
-        Set the queue of the MessageInterceptor.
-
-        - **Description**:
-            - Assigns a queue to the MessageInterceptor for asynchronous message handling.
-
-        - **Args**:
-            - `queue` (Queue): The queue instance to be set.
-
-        - **Returns**:
-            - `None`
-        """
-        self._queue = queue
 
     # Black set related methods
     @lock_decorator
@@ -397,9 +314,8 @@ class MessageInterceptor:
                 black_set=self._black_set,
             )
             if not is_valid:
-                if self.has_queue:
-                    get_logger().debug(f"put `{err}` into queue")
-                    await self.queue.put_async(err)
+                get_logger().debug(f"put `{err}` into queue")
+                await self._queue.put_async(err)
                 self._violation_counts[from_id] += 1
                 # print(self._black_set)
                 return False
@@ -419,23 +335,15 @@ class MessageBlockListenerBase(ABC):
         - `_get_queue_period` (float): Period in seconds between queue retrieval attempts.
     """
 
-    def __init__(
-        self,
-        save_queue_values: bool = False,
-        get_queue_period: float = 0.1,
-    ) -> None:
+    def __init__(self, queue: Queue):
         """
         Initialize the MessageBlockListenerBase with optional configuration.
 
         - **Args**:
-            - `save_queue_values` (bool, optional): Whether to save values retrieved from the queue. Defaults to False.
-            - `get_queue_period` (float, optional): Time period in seconds between queue retrieval attempts. Defaults to 0.1.
+            - `queue` (Queue): The queue instance to be set.
         """
-        self._queue = None
-        self._lock = asyncio.Lock()
-        self._values_from_queue: list[Any] = []
-        self._save_queue_values = save_queue_values
-        self._get_queue_period = get_queue_period
+        self._queue = queue
+        self._listen_task: Optional[asyncio.Task] = None
 
     @property
     def queue(self) -> Queue:
@@ -457,37 +365,8 @@ class MessageBlockListenerBase(ABC):
             )
         return self._queue
 
-    @property
-    def has_queue(self) -> bool:
-        """
-        Check if a queue is configured.
-
-        - **Description**:
-            - Confirms whether a queue instance has been set for the listener.
-
-        - **Returns**:
-            - `bool`: True if a queue is set, otherwise False.
-        """
-        return self._queue is not None
-
-    @lock_decorator
-    async def set_queue(self, queue: Queue):
-        """
-        Set the queue for the listener.
-
-        - **Description**:
-            - Assigns a queue to the listener for asynchronous item processing.
-
-        - **Args**:
-            - `queue` (Queue): The queue instance to be set.
-
-        - **Returns**:
-            - `None`
-        """
-        self._queue = queue
-
-    @lock_decorator
-    async def forward(self):
+    @abstractmethod
+    async def forward(self, msg: Any):
         """
         Continuously retrieve items from the queue and process them.
 
@@ -498,11 +377,27 @@ class MessageBlockListenerBase(ABC):
         - **Returns**:
             - `None`
         """
+        raise NotImplementedError()
+
+    async def _listen(self):
         while True:
-            if self.has_queue:
-                value = await self.queue.get_async()  #
-                if self._save_queue_values:
-                    self._values_from_queue.append(value)
-                get_logger().debug(f"get `{value}` from queue")
-                # do something with the value
-            await asyncio.sleep(self._get_queue_period)
+            try:
+                value = await self.queue.get_async(timeout=1)
+            except Empty:
+                continue
+            get_logger().debug(f"get `{value}` from queue")
+            await self.forward(value)
+
+    def init(self):
+        self._listen_task = asyncio.create_task(self._listen())
+
+    async def close(self):
+        if self._listen_task is not None:
+            self._listen_task.cancel()
+            try:
+                await self._listen_task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                get_logger().error(f"Error closing listener task: {e}")
+            self._listen_task = None

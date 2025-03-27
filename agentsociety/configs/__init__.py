@@ -1,39 +1,23 @@
-from typing import Any, Callable, Optional
+from typing import Any, Awaitable, Callable, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
-from .agent import AgentConfig, DistributionConfig
-from .const import AgentClassType
-from .env import (
-    AvroConfig,
-    EnvConfig,
-    LLMConfig,
-    MapConfig,
-    MlflowConfig,
-    PostgreSQLConfig,
-    RedisConfig,
-    SimulatorConfig,
-)
+from .agent import AgentClassType, AgentConfig
+from .env import EnvConfig
 from .exp import (
     EnvironmentConfig,
     ExpConfig,
     MessageInterceptConfig,
     MetricExtractorConfig,
+    MetricType,
     WorkflowStepConfig,
+    WorkflowType,
 )
 from .utils import load_config_from_file
 
 __all__ = [
-    "LLMConfig",
-    "RedisConfig",
-    "PostgreSQLConfig",
-    "AvroConfig",
-    "MlflowConfig",
-    "SimulatorConfig",
-    "MapConfig",
     "EnvConfig",
     "AgentConfig",
-    "DistributionConfig",
     "WorkflowStepConfig",
     "ExpConfig",
     "MetricExtractorConfig",
@@ -41,6 +25,9 @@ __all__ = [
     "MessageInterceptConfig",
     "Config",
     "load_config_from_file",
+    "AgentClassType",
+    "MetricType",
+    "WorkflowType",
 ]
 
 
@@ -103,7 +90,7 @@ class Config(BaseModel):
     embedding_model: Optional[str] = Field("BAAI/bge-m3")
     """Embedding model name in Hugging Face, set it None if you want to use the simplest embedding model (TF-IDF)"""
 
-    init_funcs: list[Callable[[Any], None]] = Field([])
+    init_funcs: list[Callable[[Any], Union[None, Awaitable[None]]]] = Field([])
     """Initialization functions for simulation, the only one argument is the AgentSociety object"""
 
     group_size: int = Field(100)
@@ -111,3 +98,7 @@ class Config(BaseModel):
 
     logging_level: str = Field("INFO")
     """Logging level"""
+
+    @field_serializer("init_funcs")
+    def serialize_init_funcs(self, init_funcs, info):
+        return [func.__name__ for func in init_funcs]

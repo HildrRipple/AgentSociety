@@ -2,12 +2,12 @@ from pathlib import Path
 from typing import List, Optional
 
 import fastavro
+from pydantic import BaseModel, Field
 
-from ..configs import AvroConfig
 from ..logger import get_logger
 from .type import StorageDialog, StorageProfile, StorageStatus, StorageSurvey
 
-__all__ = ["AvroSaver"]
+__all__ = ["AvroSaver", "AvroConfig"]
 
 PROFILE_SCHEMA = {
     "doc": "Agent属性",
@@ -87,6 +87,16 @@ SCHEMA_MAP = {
     "status": STATUS_SCHEMA,
     "survey": SURVEY_SCHEMA,
 }
+
+
+class AvroConfig(BaseModel):
+    """Avro configuration class."""
+
+    enabled: bool = Field(False)
+    """Whether Avro storage is enabled"""
+
+    path: str = Field(...)
+    """Avro file storage path"""
 
 
 class AvroSaver:

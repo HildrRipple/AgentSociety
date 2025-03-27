@@ -15,14 +15,31 @@ from typing import Any, Optional, Union
 
 import mlflow
 from mlflow.entities import Metric, Param, Run, RunTag
+from pydantic import BaseModel, Field
 
-from ..configs import MlflowConfig
 from ..utils.decorators import lock_decorator
 from ..logger import get_logger
 
 __all__ = [
     "MlflowClient",
+    "MlflowConfig",
 ]
+
+
+class MlflowConfig(BaseModel):
+    """MLflow configuration class."""
+
+    enabled: bool = Field(False)
+    """Whether MLflow is enabled"""
+
+    username: Optional[str] = Field(None)
+    """Username for MLflow"""
+
+    password: Optional[str] = Field(None)
+    """Password for MLflow"""
+
+    mlflow_uri: str = Field(...)
+    """URI for MLflow server"""
 
 
 class MlflowClient:

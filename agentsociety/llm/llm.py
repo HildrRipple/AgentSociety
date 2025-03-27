@@ -1,4 +1,5 @@
 import asyncio
+from enum import Enum
 import logging
 import os
 import random
@@ -13,17 +14,59 @@ from openai.types.chat import (
     completion_create_params,
     ChatCompletionMessageParam,
 )
+from pydantic import BaseModel, Field
 
-from ..configs import LLMConfig
 from ..logger import get_logger
-from ..utils import LLMProviderType, LLMProviderTypeValues
 from .utils import *
 
 os.environ["GRPC_VERBOSITY"] = "ERROR"
 
 __all__ = [
     "LLM",
+    "LLMConfig",
 ]
+
+
+class LLMProviderType(str, Enum):
+    """
+    Defines the types of LLM providers.
+    - **Description**:
+        - Enumerates different types of LLM providers.
+
+    - **Types**:
+        - `OPENAI`: OpenAI and compatible providers (based on base_url).
+        - `DEEPSEEK`: DeepSeek.
+        - `QWEN`: Qwen.
+        - `ZHIPU`: Zhipu.
+        - `SILICONFLOW`: SiliconFlow.
+        - `VLLM`: VLLM.
+    """
+
+    OpenAI = "openai"
+    DeepSeek = "deepseek"
+    Qwen = "qwen"
+    ZhipuAI = "zhipuai"
+    SiliconFlow = "siliconflow"
+    VLLM = "vllm"
+
+
+class LLMConfig(BaseModel):
+    """LLM configuration class."""
+
+    provider: LLMProviderType = Field(...)
+    """The type of the LLM provider"""
+
+    base_url: Optional[str] = Field(None)
+    """The base URL for the LLM provider"""
+
+    api_key: str = Field(...)
+    """API key for accessing the LLM provider"""
+
+    model: str = Field(...)
+    """The model to use"""
+
+    semaphore: int = Field(200, ge=1)
+    """Semaphore value for LLM operations to avoid rate limit"""
 
 
 class LLM:
@@ -65,9 +108,6 @@ class LLM:
         self._client_usage = []
 
         for config in self.configs:
-            if config.provider not in LLMProviderTypeValues:
-                raise ValueError("Invalid provider for text request")
-
             api_key = config.api_key
             base_url = config.base_url
             if base_url is not None:

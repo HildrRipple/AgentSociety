@@ -7,8 +7,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Any, Literal, Optional, Union, cast, overload
 
-import grpc._channel
-import ray
+from pydantic import BaseModel, ConfigDict, Field
 from mosstool.type import TripMode
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.map.v2 import map_pb2 as map_pb2
@@ -17,11 +16,10 @@ from pycityproto.city.person.v2 import person_service_pb2 as person_service
 from pyproj import Proj
 from shapely.geometry import Point
 
-from ..configs import EnvironmentConfig, MapConfig, SimulatorConfig
 from ..logger import get_logger
 from ..utils.decorators import log_execution_time
 from .economy.econ_client import EconomyClient
-from .mapdata import MapData
+from .mapdata import MapData, MapConfig
 from .sim import CityClient, ControlSimEnv
 from .syncerclient import SyncerClient
 from .utils.const import *
@@ -29,7 +27,61 @@ from .utils.const import *
 __all__ = [
     "Environment",
     "EnvironmentStarter",
+    "SimulatorConfig",
+    "EnvironmentConfig",
 ]
+
+
+class SimulatorConfig(BaseModel):
+    """Simulator configuration class."""
+
+    log_dir: str = Field("./log")
+    """Directory path for saving logs"""
+
+    primary_node_ip: str = Field("localhost")
+    """Primary node IP address for distributed simulation. 
+    If you want to run the simulation on a single machine, you can set it to "localhost".
+    If you want to run the simulation on a distributed machine, you can set it to the IP address of the machine and keep all the ports of the primary node can be accessed from the other nodes (the code will automatically set the ports).
+    """
+
+    timeout: float = Field(60, gt=0)
+    """Timeout for the initialization of the simulation"""
+
+
+class EnvironmentConfig(BaseModel):
+    """Configuration for the simulation environment."""
+
+    model_config = ConfigDict(use_enum_values=True, use_attribute_docstrings=True)
+
+    max_day: int = Field(1000)
+    """Maximum number of days to simulate"""
+
+    start_tick: int = Field(6 * 60 * 60)
+    """Starting tick of one day, in seconds"""
+
+    total_tick: int = Field(18 * 60 * 60)
+    """Total number of ticks in one day"""
+
+    weather: str = Field(default="The weather is sunny")
+    """Current weather condition in the environment"""
+
+    temperature: str = Field(default="The temperature is 23C")
+    """Current temperature in the environment"""
+
+    workday: bool = Field(default=True)
+    """Indicates if it's a working day"""
+
+    other_information: str = Field(default="")
+    """Additional environment information"""
+
+    def to_prompts(self) -> dict[str, Any]:
+        """Convert the environment config to prompts"""
+        return {
+            "weather": self.weather,
+            "temperature": self.temperature,
+            "workday": self.workday,
+            "other_information": self.other_information,
+        }
 
 
 class Environment:

@@ -8,7 +8,7 @@ import ray
 
 from agentsociety import AgentSimulation
 from agentsociety.cityagent.message_intercept import (
-    MessageBlockListener,
+    DoNothingListener,
     PointMessageBlock,
 )
 from agentsociety.cityagent.societyagent import SocietyAgent
@@ -63,7 +63,7 @@ exp_config = (
     )
     .SetMessageIntercept(
         message_interceptor_blocks=[PointMessageBlock()],
-        message_listener=MessageBlockListener(),
+        message_listener=DoNothingListener(),
     )
     .SetWorkFlow(
         [

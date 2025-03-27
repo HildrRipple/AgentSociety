@@ -3,17 +3,27 @@ import pickle
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union, overload
 
 import numpy as np
+from pydantic import BaseModel, Field
 import pyproj
 import shapely
 from google.protobuf.json_format import MessageToDict
 from pycityproto.city.map.v2 import map_pb2
 from shapely.geometry import Point, Polygon
 
-from ..configs import MapConfig
 from ..logger import get_logger
 from .utils.const import POI_CATG_DICT
 
-__all__ = ["MapData"]
+__all__ = ["MapData", "MapConfig"]
+
+
+class MapConfig(BaseModel):
+    """Map configuration class."""
+
+    file_path: str = Field(...)
+    """Path to the map file"""
+
+    cache_path: Optional[str] = Field(None)
+    """Cache for the processed map"""
 
 
 class MapData:

@@ -4,17 +4,37 @@ import time
 from typing import List, Optional
 
 import jsonc
+from pydantic import BaseModel, Field
 import ray
 import redis.asyncio as aioredis
 from redis.asyncio.client import PubSub
 
-from ..configs.env import RedisConfig
 from ..logger import get_logger
 from ..utils.decorators import lock_decorator
 
 __all__ = [
     "Messager",
+    "RedisConfig",
 ]
+
+
+class RedisConfig(BaseModel):
+    """Redis configuration class."""
+
+    server: str = Field(...)
+    """Redis server address"""
+
+    port: int = Field(...)
+    """Port number for Redis connection"""
+
+    password: Optional[str] = Field(None)
+    """Password for Redis connection"""
+
+    db: str = Field("0")
+    """Database number for Redis connection"""
+
+    timeout: float = Field(60, ge=0)
+    """Timeout for Redis connection"""
 
 
 class Messager:
@@ -253,7 +273,7 @@ class Messager:
             await pubsub.unsubscribe()
             await pubsub.aclose()
             raise e
-        
+
     # utility
 
     def get_subtopic_channel(self, agent_id: int, subtopic: str):
@@ -264,9 +284,9 @@ class Messager:
 
     def get_user_chat_channel(self, agent_id: int):
         return self.get_subtopic_channel(agent_id, "user-chat")
-    
+
     def get_agent_chat_channel(self, agent_id: int):
         return self.get_subtopic_channel(agent_id, "agent-chat")
-    
+
     def get_user_payback_channel(self):
         return f"exps:{self.exp_id}:user-payback"
