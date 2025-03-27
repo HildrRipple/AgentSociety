@@ -1,11 +1,12 @@
-import jsonc
 import logging
 import random
 
+import jsonc
+
+from ...agent import Block, FormatPrompt
 from ...llm import LLM
-from ...memory import Memory
-from ...workflow import Block, FormatPrompt
 from ...logger import get_logger
+from ...memory import Memory
 from .dispatcher import BlockDispatcher
 from .utils import TIME_ESTIMATE_PROMPT, clean_json_response
 

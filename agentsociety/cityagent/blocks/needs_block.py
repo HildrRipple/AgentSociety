@@ -1,14 +1,14 @@
-import jsonc
 import logging
 from typing import cast
 
+import jsonc
+
+from ...agent import Block, FormatPrompt
 from ...environment import Environment
 from ...llm import LLM
-from ...memory import Memory
-from ...workflow import Block, FormatPrompt
 from ...logger import get_logger
+from ...memory import Memory
 from .utils import clean_json_response
-
 
 INITIAL_NEEDS_PROMPT = """You are an intelligent agent satisfaction initialization system. Based on the profile information below, please help initialize the agent's satisfaction levels and related parameters.
 

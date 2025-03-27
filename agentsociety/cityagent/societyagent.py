@@ -6,12 +6,11 @@ from typing import Any, Optional
 
 import jsonc
 
-from ..agent import Agent, CitizenAgentBase, AgentToolbox
+from ..agent import Agent, CitizenAgentBase, AgentToolbox, Block
 from ..environment import Environment
 from ..llm import LLM
 from ..memory import Memory
 from ..tools import UpdateWithSimulator
-from ..workflow import Block
 
 from ..logger import get_logger
 from .blocks import (

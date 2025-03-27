@@ -10,9 +10,16 @@ from ..environment import Environment
 from ..llm import LLM
 from ..memory import Memory
 from ..utils.decorators import record_call_aio
-from ..workflow.trigger import EventTrigger
+from .trigger import EventTrigger
 
 TRIGGER_INTERVAL = 1
+
+__all__ = [
+    "Block",
+    "log_and_check",
+    "log_and_check_with_memory",
+    "trigger_class",
+]
 
 
 def log_and_check_with_memory(
@@ -53,21 +60,25 @@ def log_and_check_with_memory(
             params = list(sig.parameters.values())
             if len(params) == 1 and params[0].annotation is Memory:
                 if inspect.iscoroutinefunction(condition):
-                    condition_func = cast(Callable[[Memory], Coroutine[Any, Any, bool]], condition)
-                    while not await condition_func(memory):  
+                    condition_func = cast(
+                        Callable[[Memory], Coroutine[Any, Any, bool]], condition
+                    )
+                    while not await condition_func(memory):
                         await asyncio.sleep(trigger_interval)
                 else:
                     condition_func = cast(Callable[[Memory], bool], condition)
-                    while not condition_func(memory):  
+                    while not condition_func(memory):
                         await asyncio.sleep(trigger_interval)
             elif len(params) == 0:
                 if inspect.iscoroutinefunction(condition):
-                    condition_func = cast(Callable[[], Coroutine[Any, Any, bool]], condition)
-                    while not await condition_func():  
+                    condition_func = cast(
+                        Callable[[], Coroutine[Any, Any, bool]], condition
+                    )
+                    while not await condition_func():
                         await asyncio.sleep(trigger_interval)
                 else:
                     condition_func = cast(Callable[[], bool], condition)
-                    while not condition_func():  
+                    while not condition_func():
                         await asyncio.sleep(trigger_interval)
             else:
                 raise RuntimeError(
@@ -110,10 +121,10 @@ def log_and_check(
             params = list(sig.parameters.values())
             if len(params) == 0:
                 if inspect.iscoroutinefunction(condition):
-                    while not await condition():  
+                    while not await condition():
                         await asyncio.sleep(trigger_interval)
                 else:
-                    while not condition():  
+                    while not condition():
                         await asyncio.sleep(trigger_interval)
             else:
                 raise RuntimeError(
@@ -234,7 +245,7 @@ class Block:
         - **Returns**:
             - `Block`: An instance of the Block created from the provided configuration.
         """
-        instance = cls(name=config["name"]) # type: ignore
+        instance = cls(name=config["name"])  # type: ignore
         assert isinstance(config["config"], dict)
         for field, value in config["config"].items():
             if field in cls.configurable_fields:
@@ -262,7 +273,7 @@ class Block:
                     setattr(self, field, config["config"][field])
 
         def build_or_update_block(block_data: dict) -> Block:
-            block_name = block_data["name"]  
+            block_name = block_data["name"]
             existing_block = getattr(self, block_name, None)
 
             if existing_block:

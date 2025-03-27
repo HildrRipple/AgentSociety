@@ -6,11 +6,11 @@ import random
 import jsonc
 import numpy as np
 
+from ...agent import Block, FormatPrompt
 from ...environment import EconomyClient, Environment
 from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
-from ...workflow import Block, FormatPrompt
 from .dispatcher import BlockDispatcher
 from .utils import *
 
@@ -76,7 +76,7 @@ class WorkBlock(Block):
         result = await self.llm.atext_request(
             self.guidance_prompt.to_dialog(), response_format={"type": "json_object"}
         )
-        result = clean_json_response(result)  
+        result = clean_json_response(result)
         try:
             result = jsonc.loads(result)
             time = result["time"]
@@ -218,7 +218,7 @@ class EconomyNoneBlock(Block):
             "NoneBlock", llm=llm, memory=memory, description="Do anything else"
         )
 
-    async def forward(self, step, context):  
+    async def forward(self, step, context):
         """Log generic activities in economy stream."""
         node_id = await self.memory.stream.add_economy(
             description=f"I {step['intention']}"

@@ -12,15 +12,15 @@ import jsonc
 import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
-from ..metrics import MlflowClient
 from ..environment import Environment
 from ..llm import LLM
 from ..logger import get_logger
 from ..memory import Memory
 from ..message import Messager
-from ..utils import process_survey_for_llm
-from ..workflow import Block
+from ..metrics import MlflowClient
 from ..storage import AvroSaver, StorageDialog, StorageSurvey
+from ..utils import process_survey_for_llm
+from .block import Block
 
 __all__ = [
     "Agent",

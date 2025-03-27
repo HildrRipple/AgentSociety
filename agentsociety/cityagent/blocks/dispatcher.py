@@ -3,9 +3,9 @@ import random
 
 from openai.types.chat import ChatCompletionToolParam
 
+from ...agent import Block, FormatPrompt
 from ...llm import LLM
 from ...logger import get_logger
-from ...workflow import Block, FormatPrompt
 
 DISPATCHER_PROMPT = """
 Based on the task information (which describes the needs of the user), select the most appropriate block to handle the task.
@@ -57,8 +57,7 @@ class BlockDispatcher:
         """
         # create block descriptions
         block_descriptions = {
-            name: block.description
-            for name, block in self.blocks.items()
+            name: block.description for name, block in self.blocks.items()
         }
 
         return {
@@ -108,7 +107,7 @@ class BlockDispatcher:
                 tool_choice={"type": "function", "function": {"name": "select_block"}},
             )
 
-            selected_block = function_args.get("block_name")  # 
+            selected_block = function_args.get("block_name")  #
 
             if selected_block not in self.blocks:
                 raise ValueError(

@@ -1,15 +1,15 @@
-import jsonc
 import logging
 import random
 from typing import Dict, List, Optional, Tuple
 
+import jsonc
+
+from ...agent import Block, FormatPrompt
 from ...environment import Environment
 from ...llm import LLM
-from ...memory import Memory
-from ...workflow import Block, FormatPrompt
 from ...logger import get_logger
+from ...memory import Memory
 from .utils import clean_json_response
-
 
 GUIDANCE_SELECTION_PROMPT = """As an intelligent agent's decision system, please help me determine a suitable option to satisfy my current need.
 The Environment will influence the choice of steps.

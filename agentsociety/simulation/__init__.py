@@ -2,8 +2,7 @@
 Simulation Module
 """
 
-# from .simulation import AgentSimulation
-from .simulationv2 import AgentSociety
+from .agentsociety import AgentSociety
 
 __all__ = [
     "AgentSociety",

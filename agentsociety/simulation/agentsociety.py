@@ -2,8 +2,6 @@
 A clear version of the simulation.
 """
 
-__all__ = ["AgentSociety"]
-
 import asyncio
 import inspect
 import time
@@ -29,7 +27,7 @@ from ..storage.pgsql import PgWriter
 from ..storage.type import StorageExpInfo, StorageGlobalPrompt
 from ..survey.models import Survey
 from ..utils import NONE_SENDER_ID
-from .agentgroupv2 import AgentGroupV2
+from .agentgroup import AgentGroup
 
 __all__ = ["AgentSociety"]
 
@@ -113,14 +111,6 @@ class AgentSociety:
             updated_at=datetime.now(timezone.utc),
         )
         self._total_steps: int = 0
-
-    @property
-    def name(self):
-        return self._config.exp.name
-
-    @property
-    def config(self):
-        return self._config
 
     async def init(self):
         """Initialize all the components"""
@@ -324,7 +314,7 @@ class AgentSociety:
         for i in range(0, len(agents), group_size):
             group_agents = agents[i : i + group_size]
             group_id = str(uuid.uuid4())
-            self._groups[group_id] = AgentGroupV2.remote(
+            self._groups[group_id] = AgentGroup.remote(
                 tenant_id=self.tenant_id,  # type:ignore
                 exp_name=self.name,
                 exp_id=self.exp_id,
@@ -389,6 +379,14 @@ class AgentSociety:
             self._environment = None
 
     @property
+    def name(self):
+        return self._config.exp.name
+
+    @property
+    def config(self):
+        return self._config
+
+    @property
     def enable_avro(self):
         return self._config.env.avro.enabled
 
@@ -410,6 +408,87 @@ class AgentSociety:
     def mlflow_client(self):
         assert self._mlflow is not None, "mlflow is not initialized"
         return self._mlflow
+
+    async def step(self, num_simulator_steps: int = 1):
+        """
+        Execute one step of the simulation where each agent performs its forward action.
+
+        - **Description**:
+            - Checks if new agents need to be inserted based on the current day of the simulation. If so, it inserts them.
+            - Executes the forward method for each agent group to advance the simulation by one step.
+            - Saves the state of all agent groups after the step has been completed.
+            - Optionally extracts metrics if the current step matches the interval specified for any metric extractors.
+
+        - **Args**:
+            - `num_simulator_steps` (int): The number of steps for the simulator to step forward.
+
+        - **Raises**:
+            - `RuntimeError`: If there is an error during the execution of the step, it logs the error and rethrows it as a RuntimeError.
+
+        - **Returns**:
+            - None
+        """
+        try:
+            # step
+            simulator_day = await self.environment.get_simulator_day()
+            simulator_time = int(
+                await self.environment.get_simulator_second_from_start_of_day()
+            )
+            get_logger().info(
+                f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}"
+            )
+            tasks = []
+            # TODO: bug here
+            for group in self._groups.values():
+                tasks.append(group.step.remote())  # type:ignore
+            self.environment.step(num_simulator_steps)
+            log_messages_groups = await asyncio.gather(*tasks)
+            llm_log_list = []
+            redis_log_list = []
+            simulator_log_list = []
+            agent_time_log_list = []
+            for log_messages_group in log_messages_groups:
+                llm_log_list.extend(log_messages_group["llm_log"])
+                redis_log_list.extend(log_messages_group["redis_log"])
+                simulator_log_list.extend(log_messages_group["simulator_log"])
+                agent_time_log_list.extend(log_messages_group["agent_time_log"])
+            # save
+            simulator_day = await self.environment.get_simulator_day()
+            simulator_time = int(
+                await self.environment.get_simulator_second_from_start_of_day()
+            )
+            save_tasks = []
+            for group in self._groups.values():
+                save_tasks.append(
+                    group.save.remote(simulator_day, simulator_time)  # type:ignore
+                )
+            await asyncio.gather(*save_tasks)
+            # save global prompt
+            await self._save_global_prompt(
+                prompt=self.environment.get_environment(),
+                day=simulator_day,
+                t=simulator_time,
+            )
+            self._total_steps += 1
+            if self.config.exp.metric_extractors is not None:
+                to_execute_metric = []
+                for metric_extractor in self.config.exp.metric_extractors:
+                    if self._total_steps % metric_extractor.step_interval == 0:
+                        if metric_extractor.type == MetricType.FUNCTION:
+                            to_execute_metric.append(metric_extractor)
+                        elif metric_extractor.type == MetricType.STATE:
+                            # For STATE type, we need to gather data from target agents
+                            to_execute_metric.append(metric_extractor)
+
+                if to_execute_metric:
+                    await self.extract_metric(to_execute_metric)
+
+            return llm_log_list, redis_log_list, simulator_log_list, agent_time_log_list
+        except Exception as e:
+            import traceback
+
+            get_logger().error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
+            raise RuntimeError(str(e)) from e
 
     async def gather(
         self,
@@ -533,7 +612,6 @@ class AgentSociety:
             id=target_agent_id, key=target_key, value=content, mode=mode
         )
 
-    # TODO: bug when send_interview_message and send_survey at the same time
     async def send_survey(
         self,
         survey: Survey,
@@ -581,7 +659,6 @@ class AgentSociety:
                     get_logger().warning(f"Survey timeout after {timeout} seconds")
                     break
 
-    # TODO: bug when send_interview_message and send_survey at the same time
     async def send_interview_message(
         self,
         content: str,
@@ -759,89 +836,6 @@ class AgentSociety:
             get_logger().error(f"Error monitoring experiment status: {str(e)}")
             raise
 
-    # TODO: check it
-    async def step(self, num_simulator_steps: int = 1):
-        """
-        Execute one step of the simulation where each agent performs its forward action.
-
-        - **Description**:
-            - Checks if new agents need to be inserted based on the current day of the simulation. If so, it inserts them.
-            - Executes the forward method for each agent group to advance the simulation by one step.
-            - Saves the state of all agent groups after the step has been completed.
-            - Optionally extracts metrics if the current step matches the interval specified for any metric extractors.
-
-        - **Args**:
-            - `num_simulator_steps` (int): The number of steps for the simulator to step forward.
-
-        - **Raises**:
-            - `RuntimeError`: If there is an error during the execution of the step, it logs the error and rethrows it as a RuntimeError.
-
-        - **Returns**:
-            - None
-        """
-        try:
-            # step
-            simulator_day = await self.environment.get_simulator_day()
-            simulator_time = int(
-                await self.environment.get_simulator_second_from_start_of_day()
-            )
-            get_logger().info(
-                f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}"
-            )
-            tasks = []
-            # TODO: bug here
-            for group in self._groups.values():
-                tasks.append(group.step.remote())  # type:ignore
-            self.environment.step(num_simulator_steps)
-            log_messages_groups = await asyncio.gather(*tasks)
-            llm_log_list = []
-            redis_log_list = []
-            simulator_log_list = []
-            agent_time_log_list = []
-            for log_messages_group in log_messages_groups:
-                llm_log_list.extend(log_messages_group["llm_log"])
-                redis_log_list.extend(log_messages_group["redis_log"])
-                simulator_log_list.extend(log_messages_group["simulator_log"])
-                agent_time_log_list.extend(log_messages_group["agent_time_log"])
-            # save
-            simulator_day = await self.environment.get_simulator_day()
-            simulator_time = int(
-                await self.environment.get_simulator_second_from_start_of_day()
-            )
-            save_tasks = []
-            for group in self._groups.values():
-                save_tasks.append(
-                    group.save.remote(simulator_day, simulator_time)  # type:ignore
-                )
-            await asyncio.gather(*save_tasks)
-            # save global prompt
-            await self._save_global_prompt(
-                prompt=self.environment.get_environment(),
-                day=simulator_day,
-                t=simulator_time,
-            )
-            self._total_steps += 1
-            if self.config.exp.metric_extractors is not None:
-                to_execute_metric = []
-                for metric_extractor in self.config.exp.metric_extractors:
-                    if self._total_steps % metric_extractor.step_interval == 0:
-                        if metric_extractor.type == MetricType.FUNCTION:
-                            to_execute_metric.append(metric_extractor)
-                        elif metric_extractor.type == MetricType.STATE:
-                            # For STATE type, we need to gather data from target agents
-                            to_execute_metric.append(metric_extractor)
-
-                if to_execute_metric:
-                    await self.extract_metric(to_execute_metric)
-
-            return llm_log_list, redis_log_list, simulator_log_list, agent_time_log_list
-        except Exception as e:
-            import traceback
-
-            get_logger().error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
-            raise RuntimeError(str(e)) from e
-
-    # TODO: check it and fix the day bug
     async def run(
         self,
         day: float = 1,
@@ -868,7 +862,7 @@ class AgentSociety:
         simulator_log_lists = []
         agent_time_log_lists = []
         try:
-            self._exp_info["num_day"] += day
+            self._exp_info.num_day += day
             await self._update_exp_status(1)  # Update status to running
 
             # Create stop event
@@ -881,7 +875,7 @@ class AgentSociety:
                 current_step = 0
                 while True:
                     current_step += (
-                        self.config.prop_simulator_config.steps_per_simulation_day
+                        self.config.env.simulator.steps_per_simulation_day
                     )
                     if current_step >= total_steps:
                         break
@@ -891,7 +885,7 @@ class AgentSociety:
                         simulator_log_list,
                         agent_time_log_list,
                     ) = await self.step(
-                        self.config.prop_simulator_config.steps_per_simulation_day
+                        self.config.env.simulator.steps_per_simulation_day
                     )
                     llm_log_lists.extend(llm_log_list)
                     redis_log_lists.extend(redis_log_list)

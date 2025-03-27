@@ -6,9 +6,8 @@ from typing import Any, Optional, Union
 
 from mlflow.entities import Metric
 
-from ..agent import Agent
+from ..agent import Agent, Block
 from ..utils.decorators import lock_decorator
-from ..workflow import Block
 
 __all__ = [
     "Tool",
@@ -75,7 +74,7 @@ class Tool:
         - **Raises**:
             - `RuntimeError`: If the tool is not bound to an `Agent`.
         """
-        instance = self._instance  
+        instance = self._instance
         if not isinstance(instance, Agent):
             raise RuntimeError(
                 f"Tool bind to object `{type(instance).__name__}`, not an `Agent` object!"
@@ -93,7 +92,7 @@ class Tool:
         - **Raises**:
             - `RuntimeError`: If the tool is not bound to a `Block`.
         """
-        instance = self._instance  
+        instance = self._instance
         if not isinstance(instance, Block):
             raise RuntimeError(
                 f"Tool bind to object `{type(instance).__name__}`, not an `Block` object!"

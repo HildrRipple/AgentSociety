@@ -1,14 +1,15 @@
 # Due to the current limitations of the simulator's support, only NoneBlock, MessageBlock, and FindPersonBlock are available in the Dispatcher.
 
-import jsonc
 import logging
 from typing import Any, Optional
 
+import jsonc
+
+from ...agent import Block, FormatPrompt
 from ...environment import Environment
 from ...llm import LLM
-from ...memory import Memory
-from ...workflow import Block, FormatPrompt
 from ...logger import get_logger
+from ...memory import Memory
 from .dispatcher import BlockDispatcher
 from .utils import TIME_ESTIMATE_PROMPT, clean_json_response
 

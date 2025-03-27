@@ -1,36 +1,29 @@
 import asyncio
-import logging
-import time
-import uuid
-from collections.abc import Callable
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Optional, Type, Union
-from uuid import UUID
+from typing import Any, Optional, Union
 
-import fastavro
 import jsonc
-import pyproj
 import ray
-from langchain_core.embeddings import Embeddings
 
-from ..cityagent.memory_config import MemoryConfigGenerator
-from ..agent import Agent, InstitutionAgentBase
+from ..agent import (
+    Agent,
+    AgentToolbox,
+    CitizenAgentBase,
+    FirmAgentBase,
+    BankAgentBase,
+    NBSAgentBase,
+    GovernmentAgentBase,
+)
+from ..agent.memory_config_generator import MemoryConfigGenerator
 from ..configs import Config
-from ..environment import EconomyClient, Simulator
-from ..environment.mapdata import MapData
-from ..llm.llm import LLM
-from ..logger import get_logger
+from ..environment import Environment
+from ..llm import LLM, init_embedding
+from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
 from ..message import Messager
 from ..metrics import MlflowClient
-from ..utils import (
-    DIALOG_SCHEMA,
-    INSTITUTION_STATUS_SCHEMA,
-    PROFILE_SCHEMA,
-    STATUS_SCHEMA,
-    SURVEY_SCHEMA,
-)
+from ..storage import AvroSaver
+from ..storage.type import StorageProfile, StorageStatus
 
 __all__ = ["AgentGroup"]
 
@@ -44,7 +37,22 @@ class AgentGroup:
         exp_id: str,
         group_id: str,
         config: Config,
-        agent_inits: list[tuple[int, type[Agent], MemoryConfigGenerator, int]],
+        agent_inits: list[
+            tuple[
+                int,
+                type[
+                    Union[
+                        CitizenAgentBase,
+                        FirmAgentBase,
+                        BankAgentBase,
+                        NBSAgentBase,
+                        GovernmentAgentBase,
+                    ]
+                ],
+                MemoryConfigGenerator,
+                int,
+            ]
+        ],
         environment_init: dict,
         # PostgreSQL
         pgsql_writer: Optional[ray.ObjectRef],
@@ -56,396 +64,287 @@ class AgentGroup:
         agent_config_file: Optional[dict[type[Agent], Any]] = None,
     ):
         """
-        Represents a group of agents that can be deployed in a Ray distributed environment.
-
-        - **Description**:
-            - Manages the creation and initialization of multiple agents, each potentially of different types,
-            with associated memory configurations, and connects them to various services such as MLflow, Redis messager,
-            PostgreSQL writer, message interceptor, and LLM client. It also sets up an economy client and simulator for
-            agent interaction within a simulated environment.
+        Initialize the AgentGroupV2.
 
         """
-        # Initialize basic attributes
-        self._uuid = str(uuid.uuid4())
-        self.config = config
-        self.exp_id = exp_id
-        self.tenant_id = tenant_id
-        self.exp_name = exp_name
+        set_logger_level(config.logging_level.upper())
 
-        # Process agent class and number of agents
-        self.agent_class = agent_classes
-        self.number_of_agents = number_of_agents
-        self.memory_values_dict = memory_values_dict
-        self.agents: list[Agent] = []
-        self.id2agent: dict[int, Agent] = {}
-        self.agent_config_file = agent_config_file
-
-        # Initialize storage settings
-        self.enable_avro = enable_avro
-        self.enable_pgsql = enable_pgsql
-        if enable_avro:
-            self.avro_path = avro_path / f"{self._uuid}"
-            self.avro_path.mkdir(parents=True, exist_ok=True)
-            self.avro_file = {
-                "profile": self.avro_path / f"profile.avro",
-                "dialog": self.avro_path / f"dialog.avro",
-                "status": self.avro_path / f"status.avro",
-                "survey": self.avro_path / f"survey.avro",
-            }
-
-        # Initialize MLflow client
-        metric_config = config.metric_config
-        if metric_config is not None and metric_config.mlflow is not None:
-            get_logger().info(
-                f"-----Creating Mlflow client in AgentGroup {self._uuid} ..."
-            )
-            self.mlflow_client = MlflowClient(
-                config=metric_config.mlflow,
-                exp_id=self.exp_id,
-                mlflow_run_name=f"{exp_name}_{1000*int(time.time())}",
-                exp_name=exp_name,
-                run_id=mlflow_run_id,
-            )
-        else:
-            self.mlflow_client = None
-
-        # Initialize Redis Messager
-        redis_config = config.redis
-        self.messager = Messager(
-            hostname=redis_config.server,
-            port=redis_config.port,
-            db=redis_config.db,
-            password=redis_config.password,
-        )
-        self.message_dispatch_task = None
+        self._tenant_id = tenant_id
+        self._exp_name = exp_name
+        self._exp_id = exp_id
+        self._group_id = group_id
+        self._config = config
+        self._agent_inits = agent_inits
+        self._environment_init = environment_init
         self._pgsql_writer = pgsql_writer
         self._message_interceptor = message_interceptor
-        self._last_asyncio_pg_task = None
+        self._mlflow_run_id = mlflow_run_id
+        self._agent_config_file = agent_config_file
+        self._embedding_model = init_embedding(config.embedding_model)
+        self._faiss_query = FaissQuery(self._embedding_model)
 
-        # Initialize LLM client
-        get_logger().info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
-        self.llm = LLM(config.llm_configs, llm_semaphore)
+        # typing definition
+        self._llm: Optional[LLM] = None
+        self._environment: Optional[Environment] = None
+        self._messager: Optional[Messager] = None
+        self._avro_saver: Optional[AvroSaver] = None
+        self._mlflow_client: Optional[MlflowClient] = None
 
-        # Initialize Simulator
-        get_logger().info(f"-----Initializing Simulator in AgentGroup {self._uuid} ...")
-        self.simulator = Simulator(config, False)
-        self.simulator.set_environment(environment if environment else {})
-        self.simulator.set_map(mapdata)
-        self.projector = pyproj.Proj(self.simulator.map.get_projector())
+        self._agents: list[Agent] = []
+        self._id2agent: dict[int, Agent] = {}
+        self._message_dispatch_task: Optional[asyncio.Task] = None
+        self._last_asyncio_pg_task: Optional[asyncio.Task] = None
 
-        # Initialize Economy client
-        get_logger().info(
-            f"-----Creating Economy client in AgentGroup {self._uuid} ..."
-        )
-        self.economy_client = EconomyClient(simulator_server_address)
+    # ====================
+    # Property Accessors
+    # ====================
+    @property
+    def config(self):
+        return self._config
 
-        # Initialize FaissQuery for embeddings
-        self.embedding_model = embedding_model
-        if self.embedding_model is not None:
-            self.faiss_query = FaissQuery(embeddings=self.embedding_model)
-        else:
-            self.faiss_query = None
+    @property
+    def embedding_model(self):
+        return self._embedding_model
 
-        # Initialize agents
-        self.initialized = False
-        for i in range(len(number_of_agents)):
-            agent_class_i = agent_classes[i]
-            number_of_agents_i = number_of_agents[i]
-            memory_values_dict_i = memory_values_dict[agent_class_i]
-            for j in range(number_of_agents_i):
-                memory_values = memory_values_dict_i[j]
-                extra_attributes = memory_values.get("extra_attributes", {})
-                profile = memory_values.get("profile", {})
-                base = memory_values.get("base", {})
-                memory = Memory(config=extra_attributes, profile=profile, base=base)
-                agent = agent_class_i(
-                    name=f"{agent_class_i.__name__}_{i}",
-                    memory=memory,
-                    llm_client=self.llm,
-                    economy_client=self.economy_client,
-                    simulator=self.simulator,
-                )
-                agent.set_exp_id(self.exp_id)
-                agent.set_tenant_id(self.tenant_id)
-                if self.mlflow_client is not None:
-                    agent.set_mlflow_client(self.mlflow_client)
-                if self.enable_avro:
-                    agent.set_avro_file(self.avro_file)
-                if self.enable_pgsql:
-                    agent.set_pgsql_writer(self._pgsql_writer)
-                if (
-                    self.agent_config_file is not None
-                    and self.agent_config_file[agent_class_i]
-                ):
-                    agent.load_from_config(self.agent_config_file[agent_class_i])
-                if self._message_interceptor is not None:
-                    agent.set_message_interceptor(self._message_interceptor)
-                self.agents.append(agent)
+    @property
+    def faiss_query(self):
+        return self._faiss_query
+
+    @property
+    def llm(self):
+        assert self._llm is not None, "llm is not initialized"
+        return self._llm
+
+    @property
+    def environment(self):
+        assert self._environment is not None, "environment is not initialized"
+        return self._environment
+
+    @property
+    def messager(self):
+        assert self._messager is not None, "messager is not initialized"
+        return self._messager
 
     @property
     def agent_count(self):
-        return self.number_of_agents
+        return len(self._agents)
 
     @property
     def agent_ids(self):
-        return list(self.id2agent.keys())
+        return list(self._id2agent.keys())
 
-    @property
-    def agent_type(self):
-        return self.agent_class
+    # ====================
+    # Initialization Methods
+    # ====================
+    async def init(self):
+        """Initialize the AgentGroupV2."""
 
-    async def get_economy_ids(self):
-        return await self.economy_client.get_ids()
+        # ====================
+        # Initialize LLM client
+        # ====================
+        get_logger().info(f"Initializing LLM client...")
+        self._llm = LLM(self._config.env.llm)
+        get_logger().info(f"LLM client initialized")
 
-    async def set_economy_ids(
-        self,
-        agent_ids: set[int],
-        firm_ids: set[int],
-        bank_ids: set[int],
-        nbs_ids: set[int],
-        government_ids: set[int],
-    ):
-        await self.economy_client.set_ids(
-            agent_ids=agent_ids,
-            firm_ids=firm_ids,
-            bank_ids=bank_ids,
-            nbs_ids=nbs_ids,
-            government_ids=government_ids,
-        )
+        # ====================
+        # Initialize environment
+        # ====================
+        get_logger().info(f"Initializing environment...")
+        self._environment = Environment(**self._environment_init)
+        get_logger().info(f"Environment initialized")
 
-    def get_agent_count(self):
-        return self.agent_count
+        # ====================
+        # Initialize messager
+        # ====================
+        get_logger().info(f"Initializing messager...")
+        self._messager = Messager(self._config.env.redis, self._exp_id)
+        await self._messager.init()
+        # TODO: message interceptor
+        get_logger().info(f"Messager initialized")
 
-    def get_agent_ids(self):
-        return self.agent_ids
-
-    def get_agent_type(self):
-        return self.agent_type
-
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        self.message_dispatch_task.cancel()
-        await asyncio.gather(self.message_dispatch_task, return_exceptions=True)
-
-    async def insert_agents(self):
-        bind_tasks = []
-        for agent in self.agents:
-            bind_tasks.append(agent.bind_to_simulator())
-        await asyncio.gather(*bind_tasks)
-
-    async def init_agents(self):
-        get_logger().debug(f"-----Initializing Agents in AgentGroup {self._uuid} ...")
-        get_logger().debug(
-            f"-----Binding Agents to Simulator in AgentGroup {self._uuid} ..."
-        )
-        while True:
-            day = await self.simulator.get_simulator_day()
-            if day == 0:
-                break
-            await asyncio.sleep(1)
-        await self.insert_agents()
-        get_logger().debug(f"-----Agents in AgentGroup {self._uuid} initialized")
-        self.id2agent = {agent.id: agent for agent in self.agents}
-        get_logger().debug(
-            f"-----Binding Agents to Messager in AgentGroup {self._uuid} ..."
-        )
-        await self.messager.init()
-        topics: list[str] = []
-        for agent in self.agents:
-            agent.set_messager(self.messager)
-            topic = f"exps:{self.exp_id}:agents:{agent.id}:*"
-            topics.append(topic)
-        await self.messager.subscribe_and_start_listening(topics)
-        self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
-        if self.enable_avro:
-            get_logger().debug(
-                f"-----Creating Avro files in AgentGroup {self._uuid} ..."
+        # ====================
+        # Initialize the avro saver
+        # ====================
+        if self._config.env.avro.enabled:
+            get_logger().info(f"Initializing the avro saver...")
+            self._avro_saver = AvroSaver(
+                self._config.env.avro, self._exp_id, self._group_id
             )
-            # profile
-            if not issubclass(type(self.agents[0]), InstitutionAgentBase):
-                filename = self.avro_file["profile"]
-                with open(filename, "wb") as f:
-                    profiles = []
-                    for agent in self.agents:
-                        profile = (await agent.status.profile.export())[0]
-                        profile["id"] = agent.id
-                        profiles.append(profile)
-                    fastavro.writer(f, PROFILE_SCHEMA, profiles)
+            get_logger().info(f"Avro saver initialized")
 
-            # dialog
-            filename = self.avro_file["dialog"]
-            with open(filename, "wb") as f:
-                dialogs = []
-                fastavro.writer(f, DIALOG_SCHEMA, dialogs)
-
-            # status
-            filename = self.avro_file["status"]
-            with open(filename, "wb") as f:
-                statuses = []
-                if not issubclass(type(self.agents[0]), InstitutionAgentBase):
-                    fastavro.writer(f, STATUS_SCHEMA, statuses)
-                else:
-                    fastavro.writer(f, INSTITUTION_STATUS_SCHEMA, statuses)
-
-            # survey
-            filename = self.avro_file["survey"]
-            with open(filename, "wb") as f:
-                surveys = []
-                fastavro.writer(f, SURVEY_SCHEMA, surveys)
-
-        if self.enable_pgsql:
-            if not issubclass(type(self.agents[0]), InstitutionAgentBase):
-                profiles: list[Any] = []
-                for agent in self.agents:
-                    profile = await agent.status.profile.export()
-                    profile = profile[0]
-                    profile["id"] = agent.id
-                    profiles.append(
-                        (
-                            agent.id,
-                            profile.get("name", ""),
-                            jsonc.dumps(
-                                {
-                                    k: v
-                                    for k, v in profile.items()
-                                    if k not in {"id", "name"}
-                                }
-                            ),
-                        )
-                    )
-            else:
-                profiles: list[Any] = []
-                for agent in self.agents:
-                    profile = await agent.status.profile.export()
-                    profile = profile[0]
-                    profile["id"] = agent.id
-                    profiles.append(
-                        (
-                            agent.id,
-                            profile.get("name", ""),
-                            jsonc.dumps(
-                                {
-                                    k: v
-                                    for k, v in profile.items()
-                                    if k not in {"id", "name"}
-                                }
-                            ),
-                        )
-                    )
-            await self._pgsql_writer.async_write_profile.remote(  
-                profiles
+        # ====================
+        # Initialize the mlflow
+        # ====================
+        if self._config.env.mlflow.enabled:
+            get_logger().info(f"Initializing the mlflow...")
+            self._mlflow_client = MlflowClient(
+                config=self._config.env.mlflow,
+                exp_name=self._exp_name,
+                exp_id=self._exp_id,
+                current_run_id=self._mlflow_run_id,
             )
-        if self.faiss_query is not None:
-            get_logger().debug(
-                f"-----Initializing embeddings in AgentGroup {self._uuid} ..."
+            get_logger().info(f"Mlflow initialized")
+
+        # ====================================
+        # Initialize the agents
+        # ====================================
+        get_logger().info(f"Initializing the agents...")
+        agent_toolbox = AgentToolbox(
+            self.llm,
+            self.environment,
+            self.messager,
+            self._avro_saver,
+            self._pgsql_writer,
+            self._mlflow_client,
+        )
+        for agent_init in self._agent_inits:
+            id, agent_class, memory_config_generator, index_for_generator = agent_init
+            memory_dict = memory_config_generator.generate(index_for_generator)
+            extra_attributes = memory_dict.get("extra_attributes", {})
+            profile = memory_dict.get("profile", {})
+            base = memory_dict.get("base", {})
+            memory_init = Memory(
+                agent_id=id,
+                environment=self.environment,
+                faiss_query=self.faiss_query,
+                embedding_model=self.embedding_model,
+                config=extra_attributes,
+                profile=profile,
+                base=base,
             )
-            embedding_tasks = []
-            for agent in self.agents:
-                embedding_tasks.append(agent.memory.initialize_embeddings())
-                agent.memory.set_search_components(
-                    self.faiss_query, self.embedding_model
+            agent = agent_class(
+                id=id,
+                name=f"{agent_class.__name__}_{id}",
+                toolbox=agent_toolbox,
+                memory=memory_init,
+            )
+            # TODO: load_from_config
+            self._agents.append(agent)
+            self._id2agent[id] = agent
+        get_logger().info(
+            f"-----Initializing by running agent.init() in AgentGroup {self._group_id} ..."
+        )
+        tasks = []
+        channels = []
+        for agent in self._agents:
+            tasks.append(agent.init())
+            channels.append(f"exps:{self._exp_id}:agents:{agent.id}:*")
+        await asyncio.gather(*tasks)
+        await self.messager.subscribe_and_start_listening(channels)
+        self._message_dispatch_task = asyncio.create_task(self._message_dispatch())
+        get_logger().info(
+            f"-----Initializing by exporting profiles in AgentGroup {self._group_id} ..."
+        )
+        profiles = []
+        for agent in self._agents:
+            profile = await agent.status.profile.export()
+            profile = profile[0]
+            profile["id"] = agent.id
+            profiles.append(
+                StorageProfile(
+                    id=agent.id,
+                    name=profile.get("name", ""),
+                    profile=jsonc.dumps(
+                        {k: v for k, v in profile.items() if k not in {"id", "name"}},
+                        ensure_ascii=False,
+                    ),
                 )
-                agent.memory.set_simulator(self.simulator)
-            await asyncio.gather(*embedding_tasks)
-            get_logger().debug(
-                f"-----Embedding initialized in AgentGroup {self._uuid} ..."
             )
-
-        self.initialized = True
-        get_logger().debug(f"-----AgentGroup {self._uuid} initialized")
-
-    async def update_environment(self, key: str, value: str):
-        """
-        Update the environment variables for the simulation and all agent groups.
-
-        - **Args**:
-            - `key` (str): The environment variable key to update.
-            - `value` (str): The new value for the environment variable.
-        """
-        self.simulator.update_environment(key, value)
-
-    async def filter(
-        self,
-        types: Optional[list[Type[Agent]]] = None,
-        keys: Optional[list[str]] = None,
-        values: Optional[list[Any]] = None,
-    ) -> list[str]:
-        """
-        Filters agents based on type and/or key-value pairs in their status.
-
-        - **Args**:
-            - `types` (Optional[List[Type[Agent]]]): A list of agent types to filter by.
-            - `keys` (Optional[List[str]]): A list of keys to check in the agent's status.
-            - `values` (Optional[List[Any]]): The corresponding values for each key in the `keys` list.
-
-        - **Returns**:
-            - `List[str]`: A list of UUIDs for agents that match the filter criteria.
-        """
-        filtered_ids = []
-        for agent in self.agents:
-            add = True
-            if types:
-                if agent.__class__ in types:
-                    if keys:
-                        for key in keys:
-                            assert values is not None
-                            if not agent.status.get(key) == values[keys.index(key)]:
-                                add = False
-                                break
-                    if add:
-                        filtered_ids.append(agent.id)
-            elif keys:
-                for key in keys:
-                    assert values is not None
-                    if not agent.status.get(key) == values[keys.index(key)]:
-                        add = False
-                        break
-                if add:
-                    filtered_ids.append(agent.id)
-        return filtered_ids
-
-    async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None):
-        """
-        Gathers specific content from all or targeted agents within the group.
-
-        - **Args**:
-            - `content` (str): The key of the status content to gather from the agents.
-            - `target_agent_ids` (Optional[List[int]]): A list of agent IDs to target. If None, targets all agents.
-
-        - **Returns**:
-            - `Dict[str, Any]`: A dictionary mapping agent IDs to the gathered content.
-        """
-        get_logger().debug(
-            f"-----Gathering {content} from all agents in group {self._uuid}"
+        if self._avro_saver is not None:
+            self._avro_saver.append_profiles(profiles)
+        if self._pgsql_writer is not None:
+            await self._pgsql_writer.write_profiles.remote(profiles)  # type:ignore
+        get_logger().info(
+            f"-----Initializing embeddings in AgentGroup {self._group_id} ..."
         )
-        results = {}
-        if target_agent_ids is None:
-            target_agent_ids = self.agent_ids
-        if content == "stream_memory":
-            for agent in self.agents:
-                if agent.id in target_agent_ids:
-                    results[agent.id] = await agent.stream.get_all()
-        else:
-            for agent in self.agents:
-                if agent.id in target_agent_ids:
-                    results[agent.id] = await agent.status.get(content)
-        return results
+        embedding_tasks = []
+        for agent in self._agents:
+            embedding_tasks.append(agent.memory.initialize_embeddings())
+        await asyncio.gather(*embedding_tasks)
 
-    async def update(self, target_agent_id: int, target_key: str, content: Any):
+        get_logger().info(f"Agents initialized")
+
+    async def close(self):
+        """Close the AgentGroupV2."""
+
+        if self._message_dispatch_task is not None:
+            self._message_dispatch_task.cancel()
+            self._message_dispatch_task = None
+
+        if self._mlflow_client is not None:
+            self._mlflow_client.close()
+            self._mlflow_client = None
+
+        if self._avro_saver is not None:
+            self._avro_saver.close()
+            self._avro_saver = None
+
+        if self._messager is not None:
+            await self._messager.close()
+            self._messager = None
+
+        if self._environment is not None:
+            self._environment.close()
+            self._environment = None
+
+        if self._llm is not None:
+            await self._llm.close()
+            self._llm = None
+
+    # ====================
+    # Core Functionality Methods
+    # ====================
+    async def step(self):
         """
-        Updates a specific key in the status of a targeted agent.
+        Executes a single simulation step by running all agents concurrently.
 
-        - **Args**:
-            - `target_agent_id` (int): The ID of the agent to update.
-            - `target_key` (str): The key in the agent's status to update.
-            - `content` (Any): The new value for the specified key.
+        - **Description**:
+            - This method initiates the `run` coroutine for each agent in parallel using asyncio.gather.
+            - Any exceptions raised during the execution are caught, logged, and re-raised as a RuntimeError.
+
+        - **Raises**:
+            - `RuntimeError`: If an exception occurs during the execution of any agent's `run` method.
         """
-        get_logger().debug(
-            f"-----Updating {target_key} for agent {target_agent_id} in group {self._uuid}"
-        )
-        agent = self.id2agent[target_agent_id]
-        await agent.status.update(target_key, content)
+        try:
+            tasks = [agent.run() for agent in self._agents]
+            agent_time_log = await asyncio.gather(*tasks)
+            simulator_log = (
+                self.environment.get_log_list()
+                + self.environment.economy_client.get_log_list()
+            )
+            group_logs = {
+                "llm_log": self.llm.get_log_list(),
+                "redis_log": self.messager.get_log_list(),
+                "simulator_log": simulator_log,
+                "agent_time_log": agent_time_log,
+            }
+            self.llm.clear_log_list()
+            self.messager.clear_log_list()
+            self.environment.clear_log_list()
+            self.environment.economy_client.clear_log_list()
+            return group_logs
+        except Exception as e:
+            import traceback
 
-    async def message_dispatch(self):
+            get_logger().error(f"Simulator Error: {str(e)}\n{traceback.format_exc()}")
+            raise RuntimeError(str(e)) from e
+
+    async def react_to_intervention(
+        self, intervention_message: str, agent_ids: list[int]
+    ):
+        """
+        React to an intervention.
+        """
+        react_tasks = []
+        for agent in self._agents:
+            if agent.id in agent_ids:
+                react_tasks.append(agent.react_to_intervention(intervention_message))
+        await asyncio.gather(*react_tasks)
+
+    # ====================
+    # Message Handling Methods
+    # ====================
+    async def _message_dispatch(self):
         """
         Dispatches messages received via Redis to the appropriate agents.
 
@@ -455,18 +354,13 @@ class AgentGroup:
             - The payload is decoded from bytes to string and then parsed as JSON.
             - Depending on the `topic_type`, different handler methods on the agent are called to process the message.
         """
-        get_logger().debug(f"-----Starting message dispatch for group {self._uuid}")
+        get_logger().debug(f"-----Starting message dispatch for group {self._group_id}")
         while True:
-            assert self.messager is not None
-            if not self.messager.is_connected():
-                get_logger().warning(
-                    "Messager is not connected. Skipping message processing."
-                )
-                break
-
             # Step 1: Fetch messages
             messages = await self.messager.fetch_messages()
-            get_logger().info(f"Group {self._uuid} received {len(messages)} messages")
+            get_logger().info(
+                f"Group {self._group_id} received {len(messages)} messages"
+            )
 
             # Step 2: Distribute messages to corresponding Agents
             for message in messages:
@@ -480,9 +374,9 @@ class AgentGroup:
 
                 # Extract agent_id (topic format is "exps:{exp_id}:agents:{agent_id}:{topic_type}")
                 _, _, _, agent_id, topic_type = topic.strip(":").split(":")
-
-                if agent_id in self.id2agent:
-                    agent = self.id2agent[agent_id]
+                agent_id = int(agent_id)
+                if agent_id in self._id2agent:
+                    agent = self._id2agent[agent_id]
                     # topic_type: agent-chat, user-chat, user-survey, gather
                     if topic_type == "agent-chat":
                         await agent.handle_agent_chat_message(payload)
@@ -494,357 +388,9 @@ class AgentGroup:
                         await agent.handle_gather_message(payload)
             await asyncio.sleep(3)
 
-    async def save_status(
-        self, simulator_day: Optional[int] = None, simulator_t: Optional[int] = None
-    ):
-        """
-        Saves the current status of the agents at a given point in the simulation.
-
-        - **Args**:
-            - `simulator_day` (Optional[int]): The day number in the simulation time.
-            - `simulator_t` (Optional[int]): The tick or time unit in the simulation day.
-        """
-        _statuses_time_list: list[tuple[dict, datetime]] = []
-        if self.enable_avro:
-            get_logger().debug(f"-----Saving status for group {self._uuid} with Avro")
-            avros = []
-            if simulator_day is not None:
-                _day = simulator_day
-            else:
-                _day = await self.simulator.get_simulator_day()
-            if simulator_t is not None:
-                _t = simulator_t
-            else:
-                _t = await self.simulator.get_simulator_second_from_start_of_day()
-            if not issubclass(type(self.agents[0]), InstitutionAgentBase):
-                for agent in self.agents:
-                    _date_time = datetime.now(timezone.utc)
-                    position = await agent.status.get("position")
-                    x = position["xy_position"]["x"]
-                    y = position["xy_position"]["y"]
-                    lng, lat = self.projector(x, y, inverse=True)
-                    if "aoi_position" in position:
-                        parent_id = position["aoi_position"]["aoi_id"]
-                    elif "lane_position" in position:
-                        parent_id = position["lane_position"]["lane_id"]
-                    else:
-                        parent_id = None
-                    hunger_satisfaction = await agent.status.get("hunger_satisfaction")
-                    energy_satisfaction = await agent.status.get("energy_satisfaction")
-                    safety_satisfaction = await agent.status.get("safety_satisfaction")
-                    social_satisfaction = await agent.status.get("social_satisfaction")
-                    current_need = await agent.status.get("current_need", "None")
-                    current_plan = await agent.status.get("current_plan")
-                    if current_plan is not None and current_plan:
-                        intention = current_plan.get("target", "Other")
-                        step_index = current_plan.get("index", 0)
-                        action = current_plan.get("steps", [])[step_index].get(
-                            "intention", "Planning"
-                        )
-                    else:
-                        intention = "Other"
-                        action = "Planning"
-                    emotion = await agent.status.get("emotion", {})
-                    emotion_types = await agent.status.get("emotion_types", "")
-                    sadness = emotion.get("sadness", 0)
-                    joy = emotion.get("joy", 0)
-                    fear = emotion.get("fear", 0)
-                    disgust = emotion.get("disgust", 0)
-                    anger = emotion.get("anger", 0)
-                    surprise = emotion.get("surprise", 0)
-                    avro = {
-                        "id": agent.id,
-                        "day": _day,
-                        "t": _t,
-                        "lng": lng,
-                        "lat": lat,
-                        "parent_id": parent_id,
-                        "current_need": current_need,
-                        "intention": intention,
-                        "action": action,
-                        "hungry": hunger_satisfaction,
-                        "tired": energy_satisfaction,
-                        "safe": safety_satisfaction,
-                        "social": social_satisfaction,
-                        "sadness": sadness,
-                        "joy": joy,
-                        "fear": fear,
-                        "disgust": disgust,
-                        "anger": anger,
-                        "surprise": surprise,
-                        "emotion_types": emotion_types,
-                        "created_at": int(_date_time.timestamp() * 1000),
-                    }
-                    avros.append(avro)
-                    _statuses_time_list.append((avro, _date_time))
-                with open(self.avro_file["status"], "a+b") as f:
-                    fastavro.writer(f, STATUS_SCHEMA, avros, codec="snappy")
-            else:
-                for agent in self.agents:
-                    _date_time = datetime.now(timezone.utc)
-                    nominal_gdp = await agent.status.get("nominal_gdp", [])
-                    real_gdp = await agent.status.get("real_gdp", [])
-                    unemployment = await agent.status.get("unemployment", [])
-                    wages = await agent.status.get("wages", [])
-                    prices = await agent.status.get("prices", [])
-                    inventory = await agent.status.get("inventory", 0)
-                    price = await agent.status.get("price", 0.0)
-                    interest_rate = await agent.status.get("interest_rate", 0.0)
-                    bracket_cutoffs = await agent.status.get("bracket_cutoffs", [])
-                    bracket_rates = await agent.status.get("bracket_rates", [])
-                    employees = await agent.status.get("employees", [])
-                    avro = {
-                        "id": agent.id,
-                        "day": _day,
-                        "t": _t,
-                        "type": await agent.status.get("type"),
-                        "nominal_gdp": nominal_gdp,
-                        "real_gdp": real_gdp,
-                        "unemployment": unemployment,
-                        "wages": wages,
-                        "prices": prices,
-                        "inventory": inventory,
-                        "price": price,
-                        "interest_rate": interest_rate,
-                        "bracket_cutoffs": bracket_cutoffs,
-                        "bracket_rates": bracket_rates,
-                        "employees": employees,
-                    }
-                    avros.append(avro)
-                    _statuses_time_list.append((avro, _date_time))
-                with open(self.avro_file["status"], "a+b") as f:
-                    fastavro.writer(f, INSTITUTION_STATUS_SCHEMA, avros, codec="snappy")
-        if self.enable_pgsql:
-            get_logger().debug(f"-----Saving status for group {self._uuid} with PgSQL")
-            if simulator_day is not None:
-                _day = simulator_day
-            else:
-                _day = await self.simulator.get_simulator_day()
-            if simulator_t is not None:
-                _t = simulator_t
-            else:
-                _t = await self.simulator.get_simulator_second_from_start_of_day()
-            # data already acquired from Avro part
-            if len(_statuses_time_list) > 0:
-                for _status_dict, _date_time in _statuses_time_list:
-                    for key in ["lng", "lat", "parent_id"]:
-                        if key not in _status_dict:
-                            _status_dict[key] = -1
-                    for key in [
-                        "action",
-                    ]:
-                        if key not in _status_dict:
-                            _status_dict[key] = ""
-                    for key in [
-                        "friend_ids",
-                    ]:
-                        if key not in _status_dict:
-                            _status_dict[key] = []
-                    _status_dict["created_at"] = _date_time
-            else:
-                if not issubclass(type(self.agents[0]), InstitutionAgentBase):
-                    for agent in self.agents:
-                        _date_time = datetime.now(timezone.utc)
-                        position = await agent.status.get("position")
-                        x = position["xy_position"]["x"]
-                        y = position["xy_position"]["y"]
-                        lng, lat = self.projector(x, y, inverse=True)
-                        if "aoi_position" in position:
-                            parent_id = position["aoi_position"]["aoi_id"]
-                        elif "lane_position" in position:
-                            parent_id = position["lane_position"]["lane_id"]
-                        else:
-                            parent_id = -1
-                        hunger_satisfaction = await agent.status.get(
-                            "hunger_satisfaction"
-                        )
-                        energy_satisfaction = await agent.status.get(
-                            "energy_satisfaction"
-                        )
-                        safety_satisfaction = await agent.status.get(
-                            "safety_satisfaction"
-                        )
-                        social_satisfaction = await agent.status.get(
-                            "social_satisfaction"
-                        )
-                        friend_ids = await agent.status.get("friends")
-                        current_plan = await agent.status.get("current_plan")
-                        if current_plan is not None:
-                            step_index = current_plan.get("index", 0)
-                            action = current_plan.get("steps", [])[step_index].get(
-                                "intention", "None"
-                            )
-                        else:
-                            action = "None"
-                        emotion = await agent.status.get("emotion", {})
-                        emotion_types = await agent.status.get("emotion_types", "")
-                        sadness = emotion.get("sadness", 0)
-                        joy = emotion.get("joy", 0)
-                        fear = emotion.get("fear", 0)
-                        disgust = emotion.get("disgust", 0)
-                        anger = emotion.get("anger", 0)
-                        _status_dict = {
-                            "id": agent.id,
-                            "day": _day,
-                            "t": _t,
-                            "lng": lng,
-                            "lat": lat,
-                            "parent_id": parent_id,
-                            "friend_ids": [
-                                str(_friend_id) for _friend_id in friend_ids
-                            ],
-                            "action": action,
-                            "hungry": hunger_satisfaction,
-                            "tired": energy_satisfaction,
-                            "safe": safety_satisfaction,
-                            "social": social_satisfaction,
-                            "sadness": sadness,
-                            "joy": joy,
-                            "fear": fear,
-                            "disgust": disgust,
-                            "anger": anger,
-                            "emotion_types": emotion_types,
-                            "created_at": _date_time,
-                        }
-                        _statuses_time_list.append((_status_dict, _date_time))
-                else:
-                    # institution
-                    for agent in self.agents:
-                        _date_time = datetime.now(timezone.utc)
-                        position = await agent.status.get("position")
-                        x = position["xy_position"]["x"]
-                        y = position["xy_position"]["y"]
-                        # no valid position for an institution
-                        # lng, lat = self.projector(x, y, inverse=True)
-                        lng, lat = None, None
-                        parent_id = None
-                        nominal_gdp = await agent.status.get("nominal_gdp", [])
-                        real_gdp = await agent.status.get("real_gdp", [])
-                        unemployment = await agent.status.get("unemployment", [])
-                        wages = await agent.status.get("wages", [])
-                        prices = await agent.status.get("prices", [])
-                        inventory = await agent.status.get("inventory", 0)
-                        price = await agent.status.get("price", 0.0)
-                        interest_rate = await agent.status.get("interest_rate", 0.0)
-                        bracket_cutoffs = await agent.status.get("bracket_cutoffs", [])
-                        bracket_rates = await agent.status.get("bracket_rates", [])
-                        employees = await agent.status.get("employees", [])
-                        friend_ids = await agent.status.get("friends", [])
-                        _status_dict = {
-                            "id": agent.id,
-                            "day": _day,
-                            "t": _t,
-                            "lng": lng,
-                            "lat": lat,
-                            "parent_id": parent_id,
-                            "friend_ids": [
-                                str(_friend_id) for _friend_id in friend_ids
-                            ],
-                            "action": "",
-                            "type": await agent.status.get("type"),
-                            "nominal_gdp": nominal_gdp,
-                            "real_gdp": real_gdp,
-                            "unemployment": unemployment,
-                            "wages": wages,
-                            "prices": prices,
-                            "inventory": inventory,
-                            "price": price,
-                            "interest_rate": interest_rate,
-                            "bracket_cutoffs": bracket_cutoffs,
-                            "bracket_rates": bracket_rates,
-                            "employees": employees,
-                            "created_at": _date_time,
-                        }
-                        _statuses_time_list.append((_status_dict, _date_time))
-            to_update_statues: list[tuple] = []
-            for _status_dict, _ in _statuses_time_list:
-                BASIC_KEYS = [
-                    "id",
-                    "day",
-                    "t",
-                    "lng",
-                    "lat",
-                    "parent_id",
-                    "friend_ids",
-                    "action",
-                    "created_at",
-                ]
-                _data = [_status_dict[k] for k in BASIC_KEYS if k != "created_at"]
-                _other_dict = jsonc.dumps(
-                    {k: v for k, v in _status_dict.items() if k not in BASIC_KEYS}
-                )
-                _data.append(_other_dict)
-                _data.append(_status_dict["created_at"])
-                to_update_statues.append(tuple(_data))
-            if self._last_asyncio_pg_task is not None:
-                await self._last_asyncio_pg_task
-            self._last_asyncio_pg_task = (
-                self._pgsql_writer.async_write_status.remote(  
-                    to_update_statues
-                )
-            )
-
-    def get_llm_consumption(self):
-        """
-        Retrieves the consumption statistics from the LLM client.
-
-        - **Returns**:
-            - The consumption data provided by the LLM client.
-        """
-        return self.llm.get_consumption()
-
-    async def get_llm_error_statistics(self):
-        """
-        Retrieves the error statistics from the LLM client.
-        """
-        return self.llm.get_error_statistics()
-
-    async def react_to_intervention(
-        self, intervention_message: str, agent_ids: list[int]
-    ):
-        """
-        React to an intervention.
-        """
-        react_tasks = []
-        for agent in self.agents:
-            if agent.id in agent_ids:
-                react_tasks.append(agent.react_to_intervention(intervention_message))
-        await asyncio.gather(*react_tasks)
-
-    async def step(self):
-        """
-        Executes a single simulation step by running all agents concurrently.
-
-        - **Description**:
-            - This method initiates the `run` coroutine for each agent in parallel using asyncio.gather.
-            - Any exceptions raised during the execution are caught, logged, and re-raised as a RuntimeError.
-
-        - **Raises**:
-            - `RuntimeError`: If an exception occurs during the execution of any agent's `run` method.
-        """
-        try:
-            tasks = [agent.run() for agent in self.agents]
-            agent_time_log = await asyncio.gather(*tasks)
-            simulator_log = (
-                self.simulator.get_log_list() + self.economy_client.get_log_list()
-            )
-            group_logs = {
-                "llm_log": self.llm.get_log_list(),
-                "redis_log": self.messager.get_log_list(),
-                "simulator_log": simulator_log,
-                "agent_time_log": agent_time_log,
-            }
-            self.llm.clear_log_list()
-            self.messager.clear_log_list()
-            self.simulator.clear_log_list()
-            self.economy_client.clear_log_list()
-            return group_logs
-        except Exception as e:
-            import traceback
-
-            get_logger().error(f"Simulator Error: {str(e)}\n{traceback.format_exc()}")
-            raise RuntimeError(str(e)) from e
-
+    # ====================
+    # Status Management Methods
+    # ====================
     async def save(self, day: int, t: int):
         """
         Saves the current status of the agents at a given point in the simulation.
@@ -866,9 +412,254 @@ class AgentGroup:
                 str(e) + f" input arg day:({day}, {type(day)}), t:({t}, {type(t)})"
             ) from e
 
-    async def close(self):
+    async def save_status(self, day: Optional[int] = None, t: Optional[int] = None):
         """
-        Closes the agent group by stopping the message dispatch task and disconnecting the messager.
+        Saves the current status of the agents at a given point in the simulation.
+
+        - **Args**:
+            - `day` (Optional[int]): The day number in the simulation time.
+            - `t` (Optional[int]): The tick or time unit in the simulation day.
         """
-        get_logger().debug(f"-----Closing AgentGroup {self._uuid} ...")
-        await self.messager.stop()
+        if self._avro_saver is None and self._pgsql_writer is None:
+            return
+
+        if day is None:
+            day = await self.environment.get_simulator_day()
+        if t is None:
+            t = await self.environment.get_simulator_second_from_start_of_day()
+
+        created_at = datetime.now(timezone.utc)
+        # =========================
+        # build statuses data
+        # =========================
+        statuses = []
+        for agent in self._agents:
+            if isinstance(agent, CitizenAgentBase):
+                position = await agent.status.get("position")
+                x = position["xy_position"]["x"]
+                y = position["xy_position"]["y"]
+                lng, lat = self.environment.projector(x, y, inverse=True)
+                if "aoi_position" in position:
+                    parent_id = position["aoi_position"]["aoi_id"]
+                elif "lane_position" in position:
+                    parent_id = position["lane_position"]["lane_id"]
+                else:
+                    parent_id = None
+                hunger_satisfaction = await agent.status.get("hunger_satisfaction")
+                energy_satisfaction = await agent.status.get("energy_satisfaction")
+                safety_satisfaction = await agent.status.get("safety_satisfaction")
+                social_satisfaction = await agent.status.get("social_satisfaction")
+                current_need = await agent.status.get("current_need", "None")
+                current_plan = await agent.status.get("current_plan")
+                if current_plan is not None and current_plan:
+                    intention = current_plan.get("target", "Other")
+                    step_index = current_plan.get("index", 0)
+                    action = current_plan.get("steps", [])[step_index].get(
+                        "intention", "Planning"
+                    )
+                else:
+                    intention = "Other"
+                    action = "Planning"
+                emotion = await agent.status.get("emotion", {})
+                emotion_types = await agent.status.get("emotion_types", "")
+                sadness = emotion.get("sadness", 0)
+                joy = emotion.get("joy", 0)
+                fear = emotion.get("fear", 0)
+                disgust = emotion.get("disgust", 0)
+                anger = emotion.get("anger", 0)
+                surprise = emotion.get("surprise", 0)
+                friend_ids = await agent.status.get("friends", [])
+                status = StorageStatus(
+                    id=agent.id,
+                    day=day,
+                    t=t,
+                    lng=lng,
+                    lat=lat,
+                    parent_id=parent_id,
+                    friend_ids=friend_ids,
+                    action=action,
+                    status=jsonc.dumps(
+                        {
+                            "hungry": hunger_satisfaction,
+                            "tired": energy_satisfaction,
+                            "safe": safety_satisfaction,
+                            "social": social_satisfaction,
+                            "sadness": sadness,
+                            "joy": joy,
+                            "fear": fear,
+                            "disgust": disgust,
+                            "anger": anger,
+                            "surprise": surprise,
+                            "emotion_types": emotion_types,
+                            "current_need": current_need,
+                            "intention": intention,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    created_at=created_at,
+                )
+                statuses.append(status)
+            elif isinstance(
+                agent, (FirmAgentBase, BankAgentBase, NBSAgentBase, GovernmentAgentBase)
+            ):
+                nominal_gdp = await agent.status.get("nominal_gdp", [])
+                real_gdp = await agent.status.get("real_gdp", [])
+                unemployment = await agent.status.get("unemployment", [])
+                wages = await agent.status.get("wages", [])
+                prices = await agent.status.get("prices", [])
+                inventory = await agent.status.get("inventory", 0)
+                price = await agent.status.get("price", 0.0)
+                interest_rate = await agent.status.get("interest_rate", 0.0)
+                bracket_cutoffs = await agent.status.get("bracket_cutoffs", [])
+                bracket_rates = await agent.status.get("bracket_rates", [])
+                employees = await agent.status.get("employees", [])
+                status = StorageStatus(
+                    id=agent.id,
+                    day=day,
+                    t=t,
+                    lng=None,
+                    lat=None,
+                    parent_id=None,
+                    friend_ids=[],
+                    action="",
+                    status=jsonc.dumps(
+                        {
+                            "nominal_gdp": nominal_gdp,
+                            "real_gdp": real_gdp,
+                            "unemployment": unemployment,
+                            "wages": wages,
+                            "prices": prices,
+                            "inventory": inventory,
+                            "price": price,
+                            "interest_rate": interest_rate,
+                            "bracket_cutoffs": bracket_cutoffs,
+                            "bracket_rates": bracket_rates,
+                            "employees": employees,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    created_at=created_at,
+                )
+                statuses.append(status)
+            else:
+                raise ValueError(f"Unknown agent type: {type(agent)}")
+        if self._avro_saver is not None:
+            self._avro_saver.append_statuses(statuses)
+        if self._pgsql_writer is not None:
+            if self._last_asyncio_pg_task is not None:
+                await self._last_asyncio_pg_task
+            self._last_asyncio_pg_task = (
+                self._pgsql_writer.write_statuses.remote(  # type:ignore
+                    statuses
+                )
+            )
+
+    async def update_environment(self, key: str, value: str):
+        """
+        Update the environment variables for the simulation and all agent groups.
+
+        - **Args**:
+            - `key` (str): The environment variable key to update.
+            - `value` (str): The new value for the environment variable.
+        """
+        self.environment.update_environment(key, value)
+
+    async def update(self, target_agent_id: int, target_key: str, content: Any):
+        """
+        Updates a specific key in the status of a targeted agent.
+
+        - **Args**:
+            - `target_agent_id` (int): The ID of the agent to update.
+            - `target_key` (str): The key in the agent's status to update.
+            - `content` (Any): The new value for the specified key.
+        """
+        get_logger().debug(
+            f"-----Updating {target_key} for agent {target_agent_id} in group {self._group_id}"
+        )
+        agent = self._id2agent[target_agent_id]
+        await agent.status.update(target_key, content)
+
+    # ====================
+    # Utility Methods
+    # ====================
+    def get_llm_consumption(self):
+        """
+        Retrieves the consumption statistics from the LLM client.
+
+        - **Returns**:
+            - The consumption data provided by the LLM client.
+        """
+        return self.llm.get_consumption()
+
+    async def get_llm_error_statistics(self):
+        """
+        Retrieves the error statistics from the LLM client.
+        """
+        return self.llm.get_error_statistics()
+
+    async def filter(
+        self,
+        types: Optional[tuple[type[Agent]]] = None,
+        keys: Optional[list[str]] = None,
+        values: Optional[list[Any]] = None,
+    ) -> list[int]:
+        """
+        Filters agents based on type and/or key-value pairs in their status.
+
+        - **Args**:
+            - `types` (Optional[List[Type[Agent]]]): A list of agent types to filter by.
+            - `keys` (Optional[List[str]]): A list of keys to check in the agent's status.
+            - `values` (Optional[List[Any]]): The corresponding values for each key in the `keys` list.
+
+        - **Returns**:
+            - `List[int]`: A list of agent IDs for agents that match the filter criteria.
+        """
+        filtered_ids = []
+        for agent in self._agents:
+            add = True
+            if types:
+                if isinstance(agent, types):
+                    if keys:
+                        for key in keys:
+                            assert values is not None
+                            if agent.status.get(key) != values[keys.index(key)]:
+                                add = False
+                                break
+                    if add:
+                        filtered_ids.append(agent.id)
+            elif keys:
+                for key in keys:
+                    assert values is not None
+                    if agent.status.get(key) != values[keys.index(key)]:
+                        add = False
+                        break
+                if add:
+                    filtered_ids.append(agent.id)
+        return filtered_ids
+
+    async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None):
+        """
+        Gathers specific content from all or targeted agents within the group.
+
+        - **Args**:
+            - `content` (str): The key of the status content to gather from the agents.
+            - `target_agent_ids` (Optional[List[int]]): A list of agent IDs to target. If None, targets all agents.
+
+        - **Returns**:
+            - `Dict[str, Any]`: A dictionary mapping agent IDs to the gathered content.
+        """
+        get_logger().debug(
+            f"-----Gathering {content} from all agents in group {self._group_id}"
+        )
+        results = {}
+        if target_agent_ids is None:
+            target_agent_ids = list(self._id2agent.keys())
+        if content == "stream_memory":
+            for agent in self._agents:
+                if agent.id in target_agent_ids:
+                    results[agent.id] = await agent.stream.get_all()
+        else:
+            for agent in self._agents:
+                if agent.id in target_agent_ids:
+                    results[agent.id] = await agent.status.get(content)
+        return results
