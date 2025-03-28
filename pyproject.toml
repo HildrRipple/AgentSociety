@@ -18,7 +18,7 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "aiodocker>=0.24.0",
     "asyncpg>=0.30.0",

@@ -157,9 +157,9 @@ async def bind_agent_info(simulation: AgentSociety):
     employee_sizes = zipf_distribution(len(citizen_ids), len(firm_ids))
 
     orig_citizen_ids = deepcopy(citizen_ids)
-    get_logger().info(f"citizen_ids: {citizen_ids}")
-    get_logger().info(f"firm_ids: {firm_ids}")
-    get_logger().info(f"employee_sizes: {employee_sizes}")
+    get_logger().debug(f"citizen_ids: {citizen_ids}")
+    get_logger().debug(f"firm_ids: {firm_ids}")
+    get_logger().debug(f"employee_sizes: {employee_sizes}")
     for firm_id, size in zip(firm_ids, employee_sizes):
         await simulation.economy_update(firm_id, "employees", citizen_ids[:size])
         await simulation.update(citizen_ids[:size], "firm_id", firm_id)
@@ -169,7 +169,7 @@ async def bind_agent_info(simulation: AgentSociety):
         "firm_id",
         orig_citizen_ids,
     )
-    get_logger().info(f"Gathered firm_ids: {gathered_firm_ids}")
+    get_logger().debug(f"Gathered firm_ids: {gathered_firm_ids}")
     for government_id in government_ids:
         await simulation.economy_update(government_id, "citizen_ids", citizen_ids)
     for bank_id in bank_ids:

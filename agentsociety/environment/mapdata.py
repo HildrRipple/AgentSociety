@@ -37,16 +37,16 @@ class MapData:
         Args:
         - config (MapConfig): Map config, Defaults to None. Map config.
         """
-        get_logger().info("Map init")
+        get_logger().info("MapData init")
         map_data = None
         # 1. try to load from cache
         if config.cache_path is not None and os.path.exists(config.cache_path):
-            get_logger().info("Start load cache file")
+            get_logger().info("Start load cache file in MapData")
             with open(config.cache_path, "rb") as f:
                 map_data = pickle.load(f)
-            get_logger().info("Finish load cache file")
+            get_logger().info("Finish load cache file in MapData")
         else:
-            get_logger().info("No cache file found, start parse pb file")
+            get_logger().info("No cache file found, start parse pb file in MapData")
             with open(config.file_path, "rb") as f:
                 pb = map_pb2.Map().FromString(f.read())
 
@@ -198,9 +198,9 @@ class MapData:
                 aoi["shapely_lnglat"] = Point(lnglat_positions[0])
             else:
                 aoi["shapely_lnglat"] = Polygon(lnglat_positions)
-        get_logger().info("Finish process aoi geos")
+        get_logger().info("Finish process aoi geos in MapData")
         # 处理Poi的Geos
-        get_logger().info("Start process poi geos")
+        get_logger().info("Start process poi geos in MapData")
         for poi in pois.values():
             point = Point(poi["position"]["x"], poi["position"]["y"])
             poi["shapely_xy"] = point
@@ -226,12 +226,12 @@ class MapData:
         #     },
         #     "aoi_id": 500018954,
         # }
-        get_logger().info("Start build geo index")
+        get_logger().info("Start build geo index in MapData")
         aoi_list = list(self.aois.values())
         aoi_tree = shapely.STRtree([aoi["shapely_xy"] for aoi in aoi_list])
         poi_list = list(self.pois.values())
         poi_tree = shapely.STRtree([poi["shapely_xy"] for poi in poi_list])
-        get_logger().info("Finish build geo index")
+        get_logger().info("Finish build geo index in MapData")
         return (
             aoi_tree,
             aoi_list,

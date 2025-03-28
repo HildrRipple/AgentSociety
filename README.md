@@ -70,7 +70,7 @@ You can set up AgentSociety easily via pip:
 
 Linux AMD64 or macOs
 
-Python >= 3.9
+Python >= 3.11
 
 ```bash
 pip install agentsociety

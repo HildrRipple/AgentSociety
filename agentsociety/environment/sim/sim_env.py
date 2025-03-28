@@ -1,12 +1,15 @@
-import atexit
 import logging
 import os
+import signal
 import subprocess
 from multiprocessing import cpu_count
 from subprocess import Popen
+from typing import Optional
 
 import yaml
 
+from ...logger import get_logger
+from ..syncer import Server as Syncer
 from ..utils import encode_to_base64, find_free_ports
 
 __all__ = ["ControlSimEnv"]
@@ -45,6 +48,7 @@ class ControlSimEnv:
         log_dir: str,
         primary_node_ip: str,
         max_process: int = cpu_count(),
+        logging_level: str = "info",
     ):
         """
         A control environment for managing a agentsociety-sim process.
@@ -60,18 +64,17 @@ class ControlSimEnv:
         self._log_dir = log_dir
         self._primary_node_ip = primary_node_ip
         self._max_procs = max_process
-
+        self._logging_level = logging_level
         self._sim_config = _generate_yaml_config(
             map_file, max_day, start_step, total_step
         )
         # sim
-        self.sim_port = None
         self._sim_proc = None
         os.makedirs(log_dir, exist_ok=True)
+        self._syncer: Optional[Syncer] = None
+        self.sim_addr: Optional[str] = None
 
-        self.sim_addr, self.syncer_addr = self.init()
-
-    def init(self):
+    async def init(self):
         """
         Initialize the simulation environment by either starting a new simulation process.
 
@@ -81,17 +84,16 @@ class ControlSimEnv:
         - **Raises**:
             - `AssertionError`: If trying to start a new simulation when one is already running.
         """
-        syncer_addr = ""
-        # 启动agentsociety-sim
-        # agentsociety-sim -config-data configbase64 -job test -listen :51102
-        assert self.sim_port is None, "Simulation already running"
-        assert self._sim_proc is None, "Simulation already running"
-        _ports = find_free_ports(2)
-        self.sim_port, self.syncer_port = _ports
+        sim_port, syncer_port = find_free_ports(2)
+        # start syncer
+        syncer_addr = f"localhost:{syncer_port}"
+        self._syncer = Syncer(syncer_addr)
+        await self._syncer.init()
+
+        # start agentsociety-sim
         config_base64 = encode_to_base64(self._sim_config)
         os.environ["GOMAXPROCS"] = str(self._max_procs)
-        sim_addr = self._primary_node_ip.rstrip("/") + f":{self.sim_port}"
-        syncer_addr = f"http://localhost:{self.syncer_port}"
+        self.sim_addr = self._primary_node_ip.rstrip("/") + f":{sim_port}"
         self._sim_proc = Popen(
             [
                 "agentsociety-sim",
@@ -100,35 +102,39 @@ class ControlSimEnv:
                 "-job",
                 JOB_NAME,
                 "-listen",
-                sim_addr,
+                self.sim_addr,
                 "-syncer",
-                syncer_addr,
+                "http://" + syncer_addr,
                 "-output",
                 self._log_dir,
                 "-cache",
                 "",
                 "-log.level",
-                "info",
+                self._logging_level,
             ],
             env=os.environ,
         )
-        logging.info(f"start agentsociety-sim at {sim_addr}, PID={self._sim_proc.pid}")
-        atexit.register(self.close)
-        return sim_addr, syncer_addr
 
-    def close(self):
+        # step 1 tick as the syncer init
+        await self.syncer.step()
+
+        get_logger().info(f"start agentsociety-sim at {self.sim_addr}, PID={self._sim_proc.pid}")
+
+    async def close(self):
         """
         Terminate the simulation process if it's running.
         """
+        if self._syncer is not None:
+            await self._syncer.close()
+            self._syncer = None
         if self._sim_proc is not None and self._sim_proc.poll() is None:
-            self._sim_proc.terminate()
-            try:
-                sim_code = self._sim_proc.wait(10)
-                logging.info(f"agentsociety-sim exit with code {sim_code}")
-            except subprocess.TimeoutExpired as te:
-                self._sim_proc.kill()
-                logging.warning(f"agentsociety-sim killed: {te}")
-
-        # sim
-        self.sim_port = None
+            get_logger().info(f"Terminating agentsociety-sim at {self.sim_addr}, PID={self._sim_proc.pid}, please ignore the PANIC message")
+            self._sim_proc.kill()
+            # wait for the process to terminate
+            self._sim_proc.wait()
         self._sim_proc = None
+
+    @property
+    def syncer(self):
+        assert self._syncer is not None, "Syncer not initialized"
+        return self._syncer

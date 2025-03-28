@@ -124,6 +124,7 @@ class AgentSociety:
             self._config.env.simulator,
             self._config.exp.environment,
         )
+        await self._environment.init()
         get_logger().info(f"Environment initialized")
 
         # ====================
@@ -339,11 +340,15 @@ class AgentSociety:
             *[group.init.remote() for group in self._groups.values()]  # type:ignore
         )
         get_logger().info(f"Agent groups initialized")
+        # step 1 tick to make the initialization complete
+        await self.environment.step(1)
+        get_logger().info(f"run 1 tick to make the initialization complete")
 
         # ===================================
         # save the experiment info
         # ===================================
         await self._save_exp_info()
+        get_logger().info(f"Experiment info saved")
 
         # ===================================
         # run init functions
@@ -354,29 +359,52 @@ class AgentSociety:
                 await init_func(self)
             else:
                 init_func(self)
+        get_logger().info(f"Init functions run")
+        get_logger().info(f"Simulation initialized")
 
     async def close(self):
         """Close all the components"""
 
+        # ===================================
+        # close groups
+        # ===================================
+
+        get_logger().info(f"Closing agent groups...")
+        close_tasks = []
+        for group in self._groups.values():
+            close_tasks.append(group.close.remote())  # type:ignore
+        await asyncio.gather(*close_tasks)
+        get_logger().info(f"Agent groups closed")
+
         if self._mlflow is not None:
+            get_logger().info(f"Closing mlflow...")
             self._mlflow.close()
             self._mlflow = None
+            get_logger().info(f"Mlflow closed")
 
         if self._avro_saver is not None:
+            get_logger().info(f"Closing avro saver...")
             self._avro_saver.close()
             self._avro_saver = None
+            get_logger().info(f"Avro saver closed")
 
         if self._message_interceptor_listener is not None:
+            get_logger().info(f"Closing message interceptor listener...")
             await self._message_interceptor_listener.close()
             self._message_interceptor_listener = None
+            get_logger().info(f"Message interceptor listener closed")
 
         if self._messager is not None:
+            get_logger().info(f"Closing messager...")
             await self._messager.close()
             self._messager = None
+            get_logger().info(f"Messager closed")
 
         if self._environment is not None:
-            self._environment.close()
+            get_logger().info(f"Closing environment...")
+            await self._environment.close()
             self._environment = None
+            get_logger().info(f"Environment closed")
 
     @property
     def name(self):
@@ -409,7 +437,7 @@ class AgentSociety:
         assert self._mlflow is not None, "mlflow is not initialized"
         return self._mlflow
 
-    async def step(self, num_simulator_steps: int = 1):
+    async def step(self, num_environment_ticks: int = 1):
         """
         Execute one step of the simulation where each agent performs its forward action.
 
@@ -441,7 +469,7 @@ class AgentSociety:
             # TODO: bug here
             for group in self._groups.values():
                 tasks.append(group.step.remote())  # type:ignore
-            self.environment.step(num_simulator_steps)
+            await self.environment.step(num_environment_ticks)
             log_messages_groups = await asyncio.gather(*tasks)
             llm_log_list = []
             redis_log_list = []

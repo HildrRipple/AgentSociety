@@ -1,9 +1,6 @@
 """Simulator: Urban Simulator"""
 
 import asyncio
-import logging
-import os
-import time
 from datetime import datetime, timedelta
 from typing import Any, Literal, Optional, Union, cast, overload
 
@@ -21,7 +18,6 @@ from ..utils.decorators import log_execution_time
 from .economy.econ_client import EconomyClient
 from .mapdata import MapData, MapConfig
 from .sim import CityClient, ControlSimEnv
-from .syncerclient import SyncerClient
 from .utils.const import *
 
 __all__ = [
@@ -46,6 +42,9 @@ class SimulatorConfig(BaseModel):
 
     timeout: float = Field(60, gt=0)
     """Timeout for the initialization of the simulation"""
+
+    logging_level: str = Field("info")
+    """Logging level for the simulator"""
 
 
 class EnvironmentConfig(BaseModel):
@@ -92,7 +91,7 @@ class Environment:
     def __init__(
         self,
         map_data: MapData,
-        server_addr: str,
+        server_addr: Optional[str],
         environment_config: EnvironmentConfig,
         # TEMP
         # TODO: try to remove this
@@ -120,16 +119,6 @@ class Environment:
 
         self._environment_prompt = environment_config.to_prompts()
 
-        self._client = CityClient(self._server_addr)
-        self._economy_client = EconomyClient(self._server_addr)
-        self._economy_client.set_ids(
-            citizen_ids=citizen_ids,
-            firm_ids=firm_ids,
-            bank_ids=bank_ids,
-            nbs_ids=nbs_ids,
-            government_ids=government_ids,
-        )
-
         self.time: int = 0
         """current time of simulator"""
 
@@ -138,6 +127,29 @@ class Environment:
 
         self._lock = asyncio.Lock()
         """lock for simulator"""
+
+        self._init_citizen_ids = citizen_ids
+        self._init_firm_ids = firm_ids
+        self._init_bank_ids = bank_ids
+        self._init_nbs_ids = nbs_ids
+        self._init_government_ids = government_ids
+
+        # type annotation
+        self._server_addr = server_addr
+        self._city_client: Optional[CityClient] = None
+        self._economy_client: Optional[EconomyClient] = None
+
+    def init(self):
+        assert self._server_addr is not None, "Server address not initialized"
+        self._city_client = CityClient(self._server_addr)
+        self._economy_client = EconomyClient(self._server_addr)
+        self._economy_client.set_ids(
+            citizen_ids=self._init_citizen_ids,
+            firm_ids=self._init_firm_ids,
+            bank_ids=self._init_bank_ids,
+            nbs_ids=self._init_nbs_ids,
+            government_ids=self._init_government_ids,
+        )
 
     def close(self):
         """Close the Environment."""
@@ -156,7 +168,13 @@ class Environment:
         return self._map
 
     @property
+    def city_client(self):
+        assert self._city_client is not None, "Client not initialized"
+        return self._city_client
+
+    @property
     def economy_client(self):
+        assert self._economy_client is not None, "Economy client not initialized"
         return self._economy_client
 
     @property
@@ -287,7 +305,7 @@ class Environment:
         - **Returns**:
             - `Union[int, str]`: The current simulation time either as an integer representing seconds since midnight or as a formatted string.
         """
-        now = await self._client.clock_service.Now({})
+        now = await self.city_client.clock_service.Now({})
         now = cast(dict[str, int], now)
         self.time = now["t"]
         if format_time:
@@ -307,7 +325,7 @@ class Environment:
         - **Returns**:
             - `int`: The day number since the start of the simulation.
         """
-        now = await self._client.clock_service.Now({})
+        now = await self.city_client.clock_service.Now({})
         now = cast(dict[str, int], now)
         day = int(now["t"] // (24 * 60 * 60))
         return day
@@ -320,7 +338,7 @@ class Environment:
         - **Returns**:
             - `int`: The number of seconds from 00:00:00 of the current day.
         """
-        now = await self._client.clock_service.Now({})
+        now = await self.city_client.clock_service.Now({})
         now = cast(dict[str, int], now)
         return now["t"] % (24 * 60 * 60)
 
@@ -335,7 +353,7 @@ class Environment:
         - **Returns**:
             - `Dict`: Information about the specified person.
         """
-        person = await self._client.person_service.GetPerson(
+        person = await self.city_client.person_service.GetPerson(
             req={"person_id": person_id}
         )
         return person
@@ -356,7 +374,7 @@ class Environment:
             req = person_service.AddPersonRequest(person=person)
         else:
             req = person
-        resp: dict = await self._client.person_service.AddPerson(req)
+        resp: dict = await self.city_client.person_service.AddPerson(req)
         return resp
 
     @log_execution_time
@@ -429,7 +447,7 @@ class Environment:
                 {"trips": trips, "loop_count": 1, "departure_time": _time}
             )
         req = {"person_id": person_id, "schedules": _schedules}
-        await self._client.person_service.SetSchedule(req)
+        await self.city_client.person_service.SetSchedule(req)
 
     @log_execution_time
     async def reset_person_position(
@@ -458,7 +476,7 @@ class Environment:
             get_logger().debug(
                 f"Setting person {person_id} pos to AoiPosition {reset_position}"
             )
-            await self._client.person_service.ResetPersonPosition(
+            await self.city_client.person_service.ResetPersonPosition(
                 {"person_id": person_id, "position": reset_position}
             )
         elif lane_id is not None:
@@ -471,7 +489,7 @@ class Environment:
             get_logger().debug(
                 f"Setting person {person_id} pos to LanePosition {reset_position}"
             )
-            await self._client.person_service.ResetPersonPosition(
+            await self.city_client.person_service.ResetPersonPosition(
                 {"person_id": person_id, "position": reset_position}
             )
         else:
@@ -554,30 +572,11 @@ class EnvironmentStarter(Environment):
             total_step=environment_config.total_tick,
             log_dir=simulator_config.log_dir,
             primary_node_ip=simulator_config.primary_node_ip,
+            logging_level=simulator_config.logging_level,
         )
         self._environment_config = environment_config
 
-        super().__init__(mapdata, self._sim_env.sim_addr, environment_config)
-
-        self._syncer = SyncerClient(
-            syncer_address=self._sim_env.syncer_addr,
-            name="within-syncer",
-            secure=self._server_addr.startswith("https"),
-        )
-        for _ in range(int(simulator_config.timeout)):
-            try:
-                self._syncer.init()
-                break
-            except Exception as e:
-                get_logger().warning(
-                    f"Failed to connect to syncer {self._sim_env.syncer_addr}, retrying..."
-                )
-                time.sleep(1)
-                continue
-        else:
-            raise ValueError(
-                f"Failed to connect to syncer {self._sim_env.syncer_addr} after {simulator_config.timeout} retries!"
-            )
+        super().__init__(mapdata, None, environment_config)
 
     def to_init_args(self):
         return {
@@ -591,15 +590,25 @@ class EnvironmentStarter(Environment):
             "government_ids": self.economy_client._government_ids,
         }
 
-    def close(self):
+    async def init(self):
+        assert self._sim_env is not None, "Simulator environment not initialized"
+        await self._sim_env.init()
+        self._server_addr = self._sim_env.sim_addr
+        assert self._server_addr is not None, "Server address not initialized"
+        super().init()
+
+    async def close(self):
+        await self.syncer.step(True)
         if self._sim_env is not None:
-            self._sim_env.close()
+            await self._sim_env.close()
             self._sim_env = None
 
-    def step(self, n: int):
-        if self._syncer is None:
-            raise ValueError("Step can only be called in primary node!")
-        if n <= 0:
-            raise ValueError("`n` must >=1!")
+    @property
+    def syncer(self):
+        assert self._sim_env is not None, "Simulator environment not initialized"
+        return self._sim_env.syncer
+
+    async def step(self, n: int):
+        assert n > 0, "`n` must >=1!"
         for _ in range(n):
-            self._syncer.step()
+            await self.syncer.step()

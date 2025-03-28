@@ -151,6 +151,7 @@ class AgentGroup:
         # ====================
         get_logger().info(f"Initializing environment...")
         self._environment = Environment(**self._environment_init)
+        self._environment.init()
         get_logger().info(f"Environment initialized")
 
         # ====================
@@ -358,9 +359,14 @@ class AgentGroup:
         while True:
             # Step 1: Fetch messages
             messages = await self.messager.fetch_messages()
-            get_logger().info(
-                f"Group {self._group_id} received {len(messages)} messages"
-            )
+            if len(messages) > 0:
+                get_logger().info(
+                    f"Group {self._group_id} received {len(messages)} messages"
+                )
+            else:
+                get_logger().debug(
+                    f"Group {self._group_id} received no messages, waiting..."
+                )
 
             # Step 2: Distribute messages to corresponding Agents
             for message in messages:
