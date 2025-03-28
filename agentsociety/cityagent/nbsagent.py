@@ -71,13 +71,12 @@ class NBSAgent(NBSAgentBase):
         Returns:
             True if monthly interval has passed since last trigger, False otherwise
         """
-        now_time = await self.environment.get_time()
-        now_time = cast(int, now_time)
+        now_tick = self.environment.get_tick()
         if self.last_time_trigger is None:
-            self.last_time_trigger = now_time
+            self.last_time_trigger = now_tick
             return False
-        if now_time - self.last_time_trigger >= self.time_diff:
-            self.last_time_trigger = now_time
+        if now_tick - self.last_time_trigger >= self.time_diff:
+            self.last_time_trigger = now_tick
             return True
         return False
 
@@ -105,8 +104,9 @@ class NBSAgent(NBSAgentBase):
         5. Economic indicator updates
         """
         if await self.month_trigger():
+            # TODO: fix bug here, what is the t_now ??
             print("nbs forward")
-            t_now = str(await self.environment.get_time())
+            t_now = str(self.environment.get_tick())
             nbs_id = self.id
             await self.environment.economy_client.calculate_real_gdp(nbs_id)
             citizens_ids = await self.memory.status.get("citizen_ids")

@@ -1,7 +1,6 @@
 import asyncio
-import logging
 from concurrent import futures
-from typing import Any, Dict, Generic, List, Optional, Set, TypeVar
+from typing import Dict, Optional, TypeVar
 
 import grpc
 from grpc.aio import Server as AioServer
@@ -11,11 +10,9 @@ from pycityproto.city.sync.v2 import sync_service_pb2_grpc as sync_grpc
 
 from ...logger import get_logger
 
-__all__ = ["Server"]
+__all__ = ["Syncer"]
 
-T = TypeVar("T")
-
-class Server(sync_grpc.SyncServiceServicer):
+class Syncer(sync_grpc.SyncServiceServicer):
     def __init__(self, addr: str):
         """
         - **Args**:
@@ -72,7 +69,6 @@ class Server(sync_grpc.SyncServiceServicer):
         await self._exit_barrier.wait()
         return sync_service.ExitStepSyncResponse()
 
-
     async def step(self, close: bool = False) -> bool:
         """
         Directly execute sync step without gRPC call
@@ -90,4 +86,5 @@ class Server(sync_grpc.SyncServiceServicer):
         # Exit sync state
         get_logger().debug(f"Virtual SyncerClient: Exit sync state")
         await self._exit_barrier.wait()
+
         return close

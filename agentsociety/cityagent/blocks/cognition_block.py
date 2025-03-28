@@ -68,7 +68,7 @@ class CognitionBlock(Block):
             "CognitionBlock", llm=llm, environment=environment, memory=memory
         )
         self.top_k = 20
-        self.last_check_time = 0
+        self.last_check_day = 0
 
     async def set_status(self, status):
         """Update multiple status fields in memory.
@@ -283,14 +283,13 @@ class CognitionBlock(Block):
         Returns:
             True if a new day is detected, False otherwise.
         """
-        time = await self.environment.get_simulator_second_from_start_of_day()
-        if self.last_check_time == 0:
-            self.last_check_time = time
+        day, _ = self.environment.get_datetime()
+        if self.last_check_day == 0:
+            self.last_check_day = day
             return False
-        if time < self.last_check_time:
-            self.last_check_time = time
+        if day > self.last_check_day:
+            self.last_check_day = day
             return True
-        self.last_check_time = time
         return False
 
     async def forward(self):

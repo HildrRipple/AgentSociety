@@ -141,12 +141,7 @@ class StreamMemory:
         - **Returns**:
             - `int`: The unique ID of the newly added memory node.
         """
-        if self._environment is not None:
-            day = int(await self._environment.get_simulator_day())
-            t = int(await self._environment.get_time())
-        else:
-            day = 1
-            t = 1
+        day, t = self._environment.get_datetime()
         position = await self.status_memory.get("position")
         if "aoi_position" in position:
             location = position["aoi_position"]["aoi_id"]
@@ -422,8 +417,7 @@ class StreamMemory:
         - **Returns**:
             str: Formatted text of today's memories
         """
-        current_day = int(await self._environment.get_simulator_day())
-
+        current_day, _ = self._environment.get_datetime()
         # Use the search method, setting day_range to today
         return await self.search(
             query=query, tag=tag, top_k=top_k, day_range=(current_day, current_day)

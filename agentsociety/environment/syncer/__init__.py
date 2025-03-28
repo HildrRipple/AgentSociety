@@ -1,3 +1,3 @@
-from .syncer import Server
+from .syncer import Syncer
 
-__all__ = ["Server"]
+__all__ = ["Syncer"]

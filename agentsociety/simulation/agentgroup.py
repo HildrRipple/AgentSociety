@@ -295,7 +295,7 @@ class AgentGroup:
     # ====================
     # Core Functionality Methods
     # ====================
-    async def step(self):
+    async def step(self, tick: int):
         """
         Executes a single simulation step by running all agents concurrently.
 
@@ -306,6 +306,7 @@ class AgentGroup:
         - **Raises**:
             - `RuntimeError`: If an exception occurs during the execution of any agent's `run` method.
         """
+        self.environment.set_tick(tick)
         try:
             tasks = [agent.run() for agent in self._agents]
             agent_time_log = await asyncio.gather(*tasks)
@@ -418,22 +419,16 @@ class AgentGroup:
                 str(e) + f" input arg day:({day}, {type(day)}), t:({t}, {type(t)})"
             ) from e
 
-    async def save_status(self, day: Optional[int] = None, t: Optional[int] = None):
+    async def save_status(self, day: int, t: int):
         """
         Saves the current status of the agents at a given point in the simulation.
 
         - **Args**:
-            - `day` (Optional[int]): The day number in the simulation time.
-            - `t` (Optional[int]): The tick or time unit in the simulation day.
+            - `day` (int): The day number in the simulation time.
+            - `t` (int): The tick or time unit in the simulation day.
         """
         if self._avro_saver is None and self._pgsql_writer is None:
             return
-
-        if day is None:
-            day = await self.environment.get_simulator_day()
-        if t is None:
-            t = await self.environment.get_simulator_second_from_start_of_day()
-
         created_at = datetime.now(timezone.utc)
         # =========================
         # build statuses data

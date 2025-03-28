@@ -26,7 +26,9 @@ class EnvConfig(BaseModel):
     llm: List[LLMConfig] = Field(..., min_length=1)
     """List of LLM configurations"""
 
-    simulator: SimulatorConfig
+    simulator: SimulatorConfig = Field(
+        default_factory=lambda: SimulatorConfig.model_validate({})
+    )
     """Simulator configuration"""
 
     redis: RedisConfig

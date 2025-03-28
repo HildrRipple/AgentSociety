@@ -1,23 +1,31 @@
 """Simulator: Urban Simulator"""
 
 import asyncio
-from datetime import datetime, timedelta
-from typing import Any, Literal, Optional, Union, cast, overload
+import os
+from datetime import datetime
+from multiprocessing import cpu_count
+from subprocess import Popen
+from typing import Any, Literal, Optional, Union, overload
 
-from pydantic import BaseModel, ConfigDict, Field
+import ray
+import yaml
 from mosstool.type import TripMode
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.map.v2 import map_pb2 as map_pb2
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pycityproto.city.person.v2 import person_service_pb2 as person_service
+from pydantic import BaseModel, ConfigDict, Field
 from pyproj import Proj
 from shapely.geometry import Point
 
 from ..logger import get_logger
 from ..utils.decorators import log_execution_time
 from .economy.econ_client import EconomyClient
-from .mapdata import MapData, MapConfig
-from .sim import CityClient, ControlSimEnv
+from .mapdata import MapConfig, MapData
+from .sim import CityClient
+from .syncer import Syncer
+from .utils import find_free_ports
+from .utils.base64 import encode_to_base64
 from .utils.const import *
 
 __all__ = [
@@ -29,7 +37,7 @@ __all__ = [
 
 
 class SimulatorConfig(BaseModel):
-    """Simulator configuration class."""
+    """Advanced Simulator configuration class."""
 
     log_dir: str = Field("./log")
     """Directory path for saving logs"""
@@ -40,9 +48,8 @@ class SimulatorConfig(BaseModel):
     If you want to run the simulation on a distributed machine, you can set it to the IP address of the machine and keep all the ports of the primary node can be accessed from the other nodes (the code will automatically set the ports).
     """
 
-    timeout: float = Field(60, gt=0)
-    """Timeout for the initialization of the simulation"""
-
+    max_process: int = Field(cpu_count())
+    """Maximum number of processes for the simulator"""
     logging_level: str = Field("info")
     """Logging level for the simulator"""
 
@@ -51,9 +58,6 @@ class EnvironmentConfig(BaseModel):
     """Configuration for the simulation environment."""
 
     model_config = ConfigDict(use_enum_values=True, use_attribute_docstrings=True)
-
-    max_day: int = Field(1000)
-    """Maximum number of days to simulate"""
 
     start_tick: int = Field(6 * 60 * 60)
     """Starting tick of one day, in seconds"""
@@ -108,6 +112,12 @@ class Environment:
             - `map_data`: `MapData`, map data
             - `server_addr`: `str`, server address
             - `environment_config`: `EnvironmentConfig`, environment config
+            - `citizen_ids`: `set[int]`, citizen ids
+            - `firm_ids`: `set[int]`, firm ids
+            - `bank_ids`: `set[int]`, bank ids
+            - `nbs_ids`: `set[int]`, nbs ids
+            - `government_ids`: `set[int]`, government ids
+            - `syncer`: `ray.ObjectRef`, syncer for get_tick
         """
         self._map = map_data
         self._create_poi_id_2_aoi_id()
@@ -116,17 +126,16 @@ class Environment:
         """poi categories"""
 
         self._projector = Proj(self._map.get_projector())
-
+        self._environment_config = environment_config
         self._environment_prompt = environment_config.to_prompts()
-
-        self.time: int = 0
-        """current time of simulator"""
 
         self._log_list = []
         """log list"""
 
         self._lock = asyncio.Lock()
         """lock for simulator"""
+
+        self._tick = 0
 
         self._init_citizen_ids = citizen_ids
         self._init_firm_ids = firm_ids
@@ -280,19 +289,24 @@ class Environment:
             categories.append(catg.split("|")[-1])
         return list(set(categories))
 
-    @overload
-    async def get_time(self) -> int: ...
-    @overload
-    async def get_time(self, format_time: Literal[False]) -> int: ...
-    @overload
-    async def get_time(
-        self, format_time: Literal[True], format: str = "%H:%M:%S"
-    ) -> str: ...
+    def set_tick(self, tick: int):
+        self._tick = tick
 
-    @log_execution_time
-    async def get_time(
+    def get_tick(self) -> int:
+        return self._tick
+
+    @overload
+    def get_datetime(self) -> tuple[int, int]: ...
+    @overload
+    def get_datetime(self, format_time: Literal[False]) -> tuple[int, int]: ...
+    @overload
+    def get_datetime(
+        self, format_time: Literal[True], format: str = "%H:%M:%S"
+    ) -> tuple[int, str]: ...
+
+    def get_datetime(
         self, format_time: bool = False, format: str = "%H:%M:%S"
-    ) -> Union[int, str]:
+    ) -> Union[tuple[int, int], tuple[int, str]]:
         """
         Get the current time of the simulator.
 
@@ -303,44 +317,27 @@ class Environment:
             - `format` (`str`): The format string for formatting the time. Defaults to "%H:%M:%S".
 
         - **Returns**:
-            - `Union[int, str]`: The current simulation time either as an integer representing seconds since midnight or as a formatted string.
+            - `Union[tuple[int, int], tuple[int, str]]`: The current simulation (day, time) either as an integer representing seconds since midnight or as a formatted string.
         """
-        now = await self.city_client.clock_service.Now({})
-        now = cast(dict[str, int], now)
-        self.time = now["t"]
+
+        tick = self._tick
+        day = tick // (self._environment_config.total_tick)
+        time = (
+            tick % (self._environment_config.total_tick)
+            + self._environment_config.start_tick
+        )
         if format_time:
-            current_date = datetime.now().date()
-            start_of_day = datetime.combine(current_date, datetime.min.time())
-            current_time = start_of_day + timedelta(seconds=now["t"])
-            formatted_time = current_time.strftime(format)
-            return formatted_time
+            hours = time // 3600
+            minutes = (time % 3600) // 60
+            seconds = time % 60
+            formatted_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            if format != "%H:%M:%S":
+                # 如果需要其他格式，可以先创建时间对象再格式化
+                temp_time = datetime.strptime(formatted_time, "%H:%M:%S")
+                formatted_time = temp_time.strftime(format)
+            return (day, formatted_time)
         else:
-            return int(now["t"])
-
-    @log_execution_time
-    async def get_simulator_day(self) -> int:
-        """
-        Get the current day of the simulation.
-
-        - **Returns**:
-            - `int`: The day number since the start of the simulation.
-        """
-        now = await self.city_client.clock_service.Now({})
-        now = cast(dict[str, int], now)
-        day = int(now["t"] // (24 * 60 * 60))
-        return day
-
-    @log_execution_time
-    async def get_simulator_second_from_start_of_day(self) -> int:
-        """
-        Get the number of seconds elapsed from the start of the current day in the simulation.
-
-        - **Returns**:
-            - `int`: The number of seconds from 00:00:00 of the current day.
-        """
-        now = await self.city_client.clock_service.Now({})
-        now = cast(dict[str, int], now)
-        return now["t"] % (24 * 60 * 60)
+            return (day, time)
 
     @log_execution_time
     async def get_person(self, person_id: int) -> dict:
@@ -399,7 +396,7 @@ class Environment:
             - `modes` (`Optional[List[int]]`): Travel modes for each trip.
               Defaults to `TRIP_MODE_DRIVE_ONLY` if not specified.
         """
-        cur_time = float(await self.get_time())
+        cur_time = float(self.get_tick())
         if not isinstance(target_positions, list):
             target_positions = [target_positions]
         if departure_times is None:
@@ -564,19 +561,15 @@ class EnvironmentStarter(Environment):
             - `simulator_config` (SimulatorConfig): Simulator config
             - `environment_config` (EnvironmentConfig): Environment config
         """
-        mapdata = MapData(map_config)
-        self._sim_env = ControlSimEnv(
-            map_file=map_config.file_path,
-            max_day=environment_config.max_day,
-            start_step=environment_config.start_tick,
-            total_step=environment_config.total_tick,
-            log_dir=simulator_config.log_dir,
-            primary_node_ip=simulator_config.primary_node_ip,
-            logging_level=simulator_config.logging_level,
-        )
+        self._map_config = map_config
         self._environment_config = environment_config
+        self._sim_config = simulator_config
+        mapdata = MapData(map_config)
 
         super().__init__(mapdata, None, environment_config)
+
+        # type annotation
+        self._sim_proc: Optional[Popen] = None
 
     def to_init_args(self):
         return {
@@ -590,25 +583,97 @@ class EnvironmentStarter(Environment):
             "government_ids": self.economy_client._government_ids,
         }
 
+    @property
+    def syncer(self):
+        assert self._syncer is not None, "Syncer not initialized"
+        return self._syncer
+
     async def init(self):
-        assert self._sim_env is not None, "Simulator environment not initialized"
-        await self._sim_env.init()
-        self._server_addr = self._sim_env.sim_addr
-        assert self._server_addr is not None, "Server address not initialized"
+        """
+        Initialize the environment including the syncer and the simulator.
+        """
+        # =========================
+        # init syncer
+        # =========================
+        sim_port, syncer_port = find_free_ports(2)
+        syncer_addr = f"localhost:{syncer_port}"
+        self._syncer = Syncer(syncer_addr)
+        await self._syncer.init()
+
+        # =========================
+        # init simulator
+        # =========================
+        config_base64 = encode_to_base64(
+            _generate_yaml_config(self._map_config.file_path)
+        )
+        os.environ["GOMAXPROCS"] = str(self._sim_config.max_process)
+        self._server_addr = self._sim_config.primary_node_ip.rstrip("/") + f":{sim_port}"
+        self._sim_proc = Popen(
+            [
+                "agentsociety-sim",
+                "-config-data",
+                config_base64,
+                "-job",
+                "agentsociety",
+                "-listen",
+                self._server_addr,
+                "-syncer",
+                "http://" + syncer_addr,
+                "-output",
+                self._sim_config.log_dir,
+                "-cache",
+                "",
+                "-log.level",
+                self._sim_config.logging_level,
+            ],
+            env=os.environ,
+        )
+
+        # step 1 tick as the syncer init
+        await self.syncer.step()
+
+        get_logger().info(
+            f"start agentsociety-sim at {self._server_addr}, PID={self._sim_proc.pid}"
+        )
+
         super().init()
 
     async def close(self):
-        await self.syncer.step(True)
-        if self._sim_env is not None:
-            await self._sim_env.close()
-            self._sim_env = None
-
-    @property
-    def syncer(self):
-        assert self._sim_env is not None, "Simulator environment not initialized"
-        return self._sim_env.syncer
+        """
+        Terminate the simulation process if it's running.
+        """
+        if self._syncer is not None:
+            await self._syncer.close()
+            self._syncer = None
+        if self._sim_proc is not None and self._sim_proc.poll() is None:
+            get_logger().info(
+                f"Terminating agentsociety-sim at {self._server_addr}, PID={self._sim_proc.pid}, please ignore the PANIC message"
+            )
+            self._sim_proc.kill()
+            # wait for the process to terminate
+            self._sim_proc.wait()
+        self._sim_proc = None
 
     async def step(self, n: int):
         assert n > 0, "`n` must >=1!"
         for _ in range(n):
             await self.syncer.step()
+            self._tick += 1
+
+
+def _generate_yaml_config(map_file) -> str:
+    config_dict = {
+        "input": {"map": {"file": os.path.abspath(map_file)}},
+        "control": {
+            "step": {"start": 0, "total": int(2**31 - 1), "interval": 1},
+            "skip_overtime_trip_when_init": True,
+            "enable_platoon": False,
+            "enable_indoor": False,
+            "prefer_fixed_light": True,
+            "enable_collision_avoidance": False,
+            "enable_go_astray": True,
+            "lane_change_model": "earliest",
+        },
+        "output": None,
+    }
+    return yaml.dump(config_dict, allow_unicode=True)

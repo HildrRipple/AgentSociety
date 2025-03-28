@@ -169,8 +169,7 @@ class NeedsBlock(Block):
         - Generates initial satisfaction values via LLM
         - Handles JSON parsing and validation
         """
-        day = await self.environment.get_simulator_day()
-        t = await self.environment.get_simulator_second_from_start_of_day()
+        day, t = self.environment.get_datetime()
         if day != self.now_day and t >= 7 * 60 * 60:
             self.now_day = day
             workday = self.environment.sense("workday")
@@ -180,6 +179,7 @@ class NeedsBlock(Block):
                 self.need_work = False
 
         if not self.initialized:
+            _, t_format = self.environment.get_datetime(format_time=True)
             self.initial_prompt.format(
                 gender=await self.memory.status.get("gender"),
                 education=await self.memory.status.get("education"),
@@ -187,7 +187,7 @@ class NeedsBlock(Block):
                 occupation=await self.memory.status.get("occupation"),
                 age=await self.memory.status.get("age"),
                 income=await self.memory.status.get("income"),
-                now_time=await self.environment.get_time(format_time=True),
+                now_time=t_format,
             )
             response = await self.llm.atext_request(
                 self.initial_prompt.to_dialog(), response_format={"type": "json_object"}
@@ -284,14 +284,13 @@ class NeedsBlock(Block):
         - Ensures values stay within [0,1] range
         """
         # calculate time diff
-        time_now = await self.environment.get_time()
-        time_now = cast(int, time_now)
+        tick_now = self.environment.get_tick()
         if self.last_evaluation_time is None:
-            self.last_evaluation_time = time_now
+            self.last_evaluation_time = tick_now
             return
         else:
-            time_diff = (time_now - self.last_evaluation_time) / 3600
-            self.last_evaluation_time = time_now
+            time_diff = (tick_now - self.last_evaluation_time) / 3600
+            self.last_evaluation_time = tick_now
 
         # acquire current satisfaction
         hunger_satisfaction = await self.memory.status.get("hunger_satisfaction")

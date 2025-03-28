@@ -70,13 +70,12 @@ class FirmAgent(FirmAgentBase):
         Returns:
             True if time_diff has passed since last trigger, False otherwise
         """
-        now_time = await self.environment.get_time()
-        now_time = cast(int, now_time)
+        now_tick = self.environment.get_tick()
         if self.last_time_trigger is None:
-            self.last_time_trigger = now_time
+            self.last_time_trigger = now_tick
             return False
-        if now_time - self.last_time_trigger >= self.time_diff:
-            self.last_time_trigger = now_time
+        if now_tick - self.last_time_trigger >= self.time_diff:
+            self.last_time_trigger = now_tick
             return True
         return False
 

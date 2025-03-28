@@ -1,16 +1,9 @@
-import asyncio
-import logging
-from typing import Optional, cast
+from typing import cast
 
 import numpy as np
-import pycityproto.city.economy.v2.economy_pb2 as economyv2
 
 from ..agent import BankAgentBase, AgentToolbox
-from ..environment import EconomyClient
-from ..llm.llm import LLM
 from ..memory import Memory
-from ..message import Messager
-from ..environment import Environment
 
 __all__ = ["BankAgent"]
 
@@ -114,13 +107,12 @@ class BankAgent(BankAgentBase):
         Note:
             Uses simulation time rather than real-world time
         """
-        now_time = await self.environment.get_time()
-        now_time = cast(int, now_time)
+        now_tick = self.environment.get_tick()
         if self.last_time_trigger is None:
-            self.last_time_trigger = now_time
+            self.last_time_trigger = now_tick
             return False
-        if now_time - self.last_time_trigger >= self.time_diff:
-            self.last_time_trigger = now_time
+        if now_tick - self.last_time_trigger >= self.time_diff:
+            self.last_time_trigger = now_tick
             return True
         return False
 

@@ -201,7 +201,7 @@ class PlanBlock(Block):
             and position_now["aoi_position"] in known_locations
         ):
             current_location = id_to_name[position_now["aoi_position"]]
-        current_time = await self.environment.get_time(format_time=True)
+        day, current_time = self.environment.get_datetime(format_time=True)
         options = self.guidance_options.get(current_need, [])
         if len(options) == 0:
             options = "Do things that can satisfy your needs or actions."
@@ -270,7 +270,7 @@ class PlanBlock(Block):
             and position_now["aoi_position"] == work_location["aoi_position"]
         ):
             current_location = "At workplace"
-        current_time = await self.environment.get_time(format_time=True)
+        day, current_time = self.environment.get_datetime(format_time=True)
         self.detail_prompt.format(
             weather=self.environment.sense("weather"),
             temperature=self.environment.sense("temperature"),
@@ -351,7 +351,7 @@ class PlanBlock(Block):
 Overall Target: {plan['target']}
 Execution Steps: \n{formated_steps}
         """
-        plan["start_time"] = await self.environment.get_time(format_time=True)
+        _, plan["start_time"] = self.environment.get_datetime(format_time=True)
         await self.memory.status.update("current_plan", plan)
         await self.memory.status.update("execution_context", {"plan": formated_plan})
         await self.memory.stream.add_cognition(description=cognition)

@@ -423,10 +423,11 @@ class Agent(ABC):
         survey_response = await self.generate_user_survey_response(survey)
         date_time = datetime.now(timezone.utc)
         # Avro
+        day, t = self.environment.get_datetime()
         storage_survey = StorageSurvey(
             id=self.id,
-            day=await self.environment.get_simulator_day(),
-            t=await self.environment.get_simulator_second_from_start_of_day(),
+            day=day,
+            t=t,
             survey_id=survey["id"],
             result=survey_response,
             created_at=date_time,
@@ -505,10 +506,11 @@ class Agent(ABC):
             - Handles asynchronous tasks and ensures thread-safe operations when writing to PostgreSQL.
         """
         date_time = datetime.now(timezone.utc)
+        day, t = self.environment.get_datetime()
         storage_dialog = StorageDialog(
             id=self.id,
-            day=await self.environment.get_simulator_day(),
-            t=await self.environment.get_simulator_second_from_start_of_day(),
+            day=day,
+            t=t,
             type=2,
             speaker="user",
             content=payload["content"],
@@ -529,8 +531,8 @@ class Agent(ABC):
         date_time = datetime.now(timezone.utc)
         storage_dialog = StorageDialog(
             id=self.id,
-            day=await self.environment.get_simulator_day(),
-            t=await self.environment.get_simulator_second_from_start_of_day(),
+            day=day,
+            t=t,
             type=2,
             speaker="",
             content=response,
@@ -563,10 +565,11 @@ class Agent(ABC):
         - **Description**:
             - Saves the thought data to the memory.
         """
+        day, t = self.environment.get_datetime()
         storage_thought = StorageDialog(
             id=self.id,
-            day=await self.environment.get_simulator_day(),
-            t=await self.environment.get_simulator_second_from_start_of_day(),
+            day=day,
+            t=t,
             type=0,
             speaker="",
             content=thought,
@@ -754,6 +757,7 @@ class Agent(ABC):
             - Optionally records the message in Avro format and PostgreSQL if it's a "social" type message.
             - Ensures thread-safe operations when writing to PostgreSQL by waiting for any previous write task to complete before starting a new one.
         """
+        day, t = self.environment.get_datetime()
         # send message with `Messager`
         if type not in ["social", "economy"]:
             get_logger().warning(f"Invalid message type: {type}, sent from {self.id}")
@@ -762,14 +766,14 @@ class Agent(ABC):
             "content": content,
             "type": type,
             "timestamp": int(datetime.now().timestamp() * 1000),
-            "day": await self.environment.get_simulator_day(),
-            "t": await self.environment.get_simulator_second_from_start_of_day(),
+            "day": day,
+            "t": t,
         }
         await self._send_message(to_agent_id, payload, "agent-chat")
         storage_dialog = StorageDialog(
             id=self.id,
-            day=await self.environment.get_simulator_day(),
-            t=await self.environment.get_simulator_second_from_start_of_day(),
+            day=day,
+            t=t,
             type=1,
             speaker=str(self.id),
             content=content,

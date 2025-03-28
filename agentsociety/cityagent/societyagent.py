@@ -109,7 +109,7 @@ class PlanAndActionBlock(Block):
             position = await self.memory.status.get("position")
             if "aoi_position" in position:
                 current_step["position"] = position["aoi_position"]["aoi_id"]
-            current_step["start_time"] = int(await self.environment.get_time())
+            current_step["start_time"] = self.environment.get_tick()
             result = None
             if step_type == "mobility":
                 if self.enable_mobility:
@@ -301,7 +301,7 @@ class SocietyAgent(CitizenAgentBase):
             return True
         step_index = current_plan.get("index", 0)
         current_step = current_plan.get("steps", [])[step_index]
-        time_now = int(await self.environment.get_time())
+        time_now = self.environment.get_tick()
         step_start_time = current_step["start_time"]
         step_consumed_time = current_step["evaluation"]["consumed_time"]
         try:
@@ -325,7 +325,7 @@ class SocietyAgent(CitizenAgentBase):
                 else:
                     # Whole plan is completed
                     current_plan["completed"] = True
-                    current_plan["end_time"] = await self.environment.get_time(
+                    _, current_plan["end_time"] = self.environment.get_datetime(
                         format_time=True
                     )
                     related_memories = None
@@ -354,7 +354,7 @@ class SocietyAgent(CitizenAgentBase):
             else:
                 # last step is failed
                 current_plan["failed"] = True
-                current_plan["end_time"] = await self.environment.get_time(
+                _, current_plan["end_time"] = self.environment.get_datetime(
                     format_time=True
                 )
                 if self.enable_cognition:

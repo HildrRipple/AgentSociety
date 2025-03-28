@@ -458,17 +458,14 @@ class AgentSociety:
         """
         try:
             # step
-            simulator_day = await self.environment.get_simulator_day()
-            simulator_time = int(
-                await self.environment.get_simulator_second_from_start_of_day()
-            )
+            day, t = self.environment.get_datetime()
             get_logger().info(
-                f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}"
+                f"Start simulation day {day} at {t}, step {self._total_steps}"
             )
+            tick = self.environment.get_tick()
             tasks = []
-            # TODO: bug here
             for group in self._groups.values():
-                tasks.append(group.step.remote())  # type:ignore
+                tasks.append(group.step.remote(tick))  # type:ignore
             await self.environment.step(num_environment_ticks)
             log_messages_groups = await asyncio.gather(*tasks)
             llm_log_list = []
@@ -481,21 +478,16 @@ class AgentSociety:
                 simulator_log_list.extend(log_messages_group["simulator_log"])
                 agent_time_log_list.extend(log_messages_group["agent_time_log"])
             # save
-            simulator_day = await self.environment.get_simulator_day()
-            simulator_time = int(
-                await self.environment.get_simulator_second_from_start_of_day()
-            )
+            day, t = self.environment.get_datetime()
             save_tasks = []
             for group in self._groups.values():
-                save_tasks.append(
-                    group.save.remote(simulator_day, simulator_time)  # type:ignore
-                )
+                save_tasks.append(group.save.remote(day, t))  # type:ignore
             await asyncio.gather(*save_tasks)
             # save global prompt
             await self._save_global_prompt(
                 prompt=self.environment.get_environment(),
-                day=simulator_day,
-                t=simulator_time,
+                day=day,
+                t=t,
             )
             self._total_steps += 1
             if self.config.exp.metric_extractors is not None:
@@ -850,10 +842,9 @@ class AgentSociety:
                 # update experiment status
                 # assume all groups' cur_day and cur_t are synchronized, take the first one
                 assert self._environment is not None
-                self._exp_info.cur_day = await self._environment.get_simulator_day()
-                self._exp_info.cur_t = (
-                    await self._environment.get_simulator_second_from_start_of_day()
-                )
+                day, t = self._environment.get_datetime()
+                self._exp_info.cur_day = day
+                self._exp_info.cur_t = t
                 await self._save_exp_info()
 
                 await asyncio.sleep(1)  # avoid too frequent updates
@@ -866,13 +857,13 @@ class AgentSociety:
 
     async def run(
         self,
-        day: float = 1,
+        day: int = 1,
     ):
         """
         Run the simulation for a specified number of days.
 
         - **Args**:
-            - `day` (float, optional): The number of days to run the simulation. Defaults to 1.
+            - `day` (int, optional): The number of days to run the simulation. Defaults to 1.
 
         - **Description**:
             - Updates the experiment status to running and sets up monitoring for the experiment's status.

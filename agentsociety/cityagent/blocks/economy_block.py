@@ -80,7 +80,7 @@ class WorkBlock(Block):
         try:
             result = jsonc.loads(result)
             time = result["time"]
-            start_time = await self.environment.get_time(format_time=True)
+            day, start_time = self.environment.get_datetime(format_time=True)
             await self.memory.status.update(
                 "working_experience",
                 [
@@ -105,7 +105,7 @@ class WorkBlock(Block):
                 f"解析时间评估响应时发生错误: {str(e)}, 原始结果: {result}"
             )
             time = random.randint(1, 3) * 60
-            start_time = await self.environment.get_time(format_time=True)
+            day, start_time = self.environment.get_datetime(format_time=True)
             await self.memory.status.update(
                 "working_experience",
                 [
@@ -326,12 +326,12 @@ class MonthPlanBlock(Block):
 
     async def month_trigger(self):
         """Check if monthly planning cycle should activate."""
-        now_time = await self.environment.get_time()
+        now_tick = self.environment.get_tick()
         if (
             self.last_time_trigger is None
-            or now_time - self.last_time_trigger >= self.time_diff
+            or now_tick - self.last_time_trigger >= self.time_diff
         ):
-            self.last_time_trigger = now_time
+            self.last_time_trigger = now_tick
             return True
         return False
 
