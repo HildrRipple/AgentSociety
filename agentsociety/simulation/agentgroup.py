@@ -8,11 +8,11 @@ import ray
 from ..agent import (
     Agent,
     AgentToolbox,
+    BankAgentBase,
     CitizenAgentBase,
     FirmAgentBase,
-    BankAgentBase,
-    NBSAgentBase,
     GovernmentAgentBase,
+    NBSAgentBase,
 )
 from ..agent.memory_config_generator import MemoryConfigGenerator
 from ..configs import Config
@@ -24,6 +24,7 @@ from ..message import Messager
 from ..metrics import MlflowClient
 from ..storage import AvroSaver
 from ..storage.type import StorageProfile, StorageStatus
+from .type import Logs
 
 __all__ = ["AgentGroup"]
 
@@ -314,12 +315,12 @@ class AgentGroup:
                 self.environment.get_log_list()
                 + self.environment.economy_client.get_log_list()
             )
-            group_logs = {
-                "llm_log": self.llm.get_log_list(),
-                "redis_log": self.messager.get_log_list(),
-                "simulator_log": simulator_log,
-                "agent_time_log": agent_time_log,
-            }
+            group_logs = Logs(
+                llm_log=self.llm.get_log_list(),
+                redis_log=self.messager.get_log_list(),
+                simulator_log=simulator_log,
+                agent_time_log=agent_time_log,
+            )
             self.llm.clear_log_list()
             self.messager.clear_log_list()
             self.environment.clear_log_list()

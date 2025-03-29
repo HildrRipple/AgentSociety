@@ -15,6 +15,12 @@ pip install agentsociety
 Please ensure your environment matches the supported platforms shown in the [Prerequisites](../01-prerequisites.md) section.
 ```
 
+```{admonition} Hint
+:class: hint
+If you look the error like `ERROR: Could not find a version that satisfies the requirement agentsociety`, it means your OS, architecture or python version is not supported.
+Please refer to the [Prerequisites](../01-prerequisites.md) section for more details.
+```
+
 ## Step 1: Download City Scene Data
 
 Before the simulation starts, it is necessary to download the city scene data file of [Beijing](https://cloud.tsinghua.edu.cn/f/f5c777485d2748fa8535/?dl=1), and save it as `./data/beijing_map.pb`.
