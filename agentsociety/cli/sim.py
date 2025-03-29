@@ -2,6 +2,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent_dir = os.path.dirname(_script_dir)
@@ -35,7 +36,7 @@ def _wrapper(bin: str):
         signal.signal(sig, signal_handler)
     # wait for the child process to exit
     while p.poll() is None:
-        pass
+        time.sleep(0.1)
     # exit with the same code as the child process
     sys.exit(p.poll())
 

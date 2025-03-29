@@ -4,7 +4,7 @@ Before starting your first simulation, please ensure your environment meets the 
 
 ## Hardware Requirements
 
-- Memory: At least 16GB available memory, 32GB is recommended.
+- Memory: At least 12GB **available** memory, 32GB is recommended.
 - CPU: >= 4 cores
 
 ## Supported Platforms
