@@ -2,6 +2,11 @@
 
 Before starting your first simulation, please ensure your environment meets the following prerequisites.
 
+## Hardware Requirements
+
+- Memory: At least 16GB available memory, 32GB is recommended.
+- CPU: >= 4 cores
+
 ## Supported Platforms
 
 - Windows Subsystem for Linux (WSL) 2 x86

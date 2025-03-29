@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any
+from typing import Any, Literal, Union
 
 import psycopg
 import psycopg.sql
@@ -158,7 +158,7 @@ class PostgreSQLConfig(BaseModel):
     dsn: str = Field(...)
     """Data source name for PostgreSQL"""
 
-    num_workers: int = Field(4, ge=1)
+    num_workers: Union[int, Literal["auto"]] = Field("auto")
     """Number of workers for PostgreSQL"""
 
 

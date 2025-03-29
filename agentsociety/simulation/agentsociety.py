@@ -73,6 +73,7 @@ class AgentSociety:
         config: Config,
         tenant_id: str = "",
     ) -> None:
+        config.set_auto_workers()
         self._config = config
         self.tenant_id = tenant_id
 
@@ -186,20 +187,26 @@ class AgentSociety:
         # Initialize the pgsql writer
         # ====================
         if self._config.env.pgsql.enabled:
+            assert self._config.env.pgsql.num_workers != "auto"
+            get_logger().info(
+                f"Initializing {self._config.env.pgsql.num_workers} pgsql writers..."
+            )
             self._pgsql_writers = [
                 PgWriter.remote(
                     self.tenant_id, self.exp_id, self._config.env.pgsql.dsn, (i == 0)
                 )
                 for i in range(self._config.env.pgsql.num_workers)
             ]
-
+            get_logger().info(
+                f"{self._config.env.pgsql.num_workers} pgsql writers initialized"
+            )
         # ======================================
         # Initialize agent groups
         # ======================================
-        get_logger().info(f"Initializing agent groups...")
         agents = []  # (id, agent_class, generator, memory_index)
         next_id = 1
         group_size = self._config.advanced.group_size
+        get_logger().info(f"Initializing agent groups (size={group_size})...")
         citizen_ids = set()
         bank_ids = set()
         nbs_ids = set()
@@ -312,6 +319,7 @@ class AgentSociety:
             government_ids=government_ids,
         )
         environment_init = self._environment.to_init_args()
+        assert group_size != "auto"
         for i in range(0, len(agents), group_size):
             group_agents = agents[i : i + group_size]
             group_id = str(uuid.uuid4())
@@ -896,9 +904,7 @@ class AgentSociety:
                 total_steps = int(day * 24 * 60 * 60)
                 current_step = 0
                 while True:
-                    current_step += (
-                        self.config.env.simulator.steps_per_simulation_day
-                    )
+                    current_step += self.config.env.simulator.steps_per_simulation_day
                     if current_step >= total_steps:
                         break
                     (
