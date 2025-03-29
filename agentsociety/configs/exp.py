@@ -218,3 +218,7 @@ class ExpConfig(BaseModel):
 
     metric_extractors: Optional[list[MetricExtractorConfig]] = None
     """List of metric extractors"""
+
+    @field_serializer("id")
+    def serialize_id(self, id, info):
+        return str(id)

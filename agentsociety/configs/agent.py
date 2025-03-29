@@ -63,7 +63,7 @@ class AgentConfig(BaseModel):
 
     @field_serializer("agent_class")
     def serialize_agent_class(self, agent_class, info):
-        if isinstance(agent_class, AgentClassType):
+        if isinstance(agent_class, (AgentClassType, str)):
             return agent_class
         else:
             return agent_class.__name__
