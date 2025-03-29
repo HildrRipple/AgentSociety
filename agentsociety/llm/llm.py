@@ -14,7 +14,7 @@ from openai.types.chat import (
     completion_create_params,
     ChatCompletionMessageParam,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from ..logger import get_logger
 from .utils import *
@@ -67,6 +67,10 @@ class LLMConfig(BaseModel):
 
     semaphore: int = Field(200, ge=1)
     """Semaphore value for LLM operations to avoid rate limit"""
+
+    @field_serializer("provider")
+    def serialize_provider(self, provider: LLMProviderType, info):
+        return provider.value
 
 
 class LLM:
