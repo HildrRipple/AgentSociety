@@ -67,7 +67,7 @@ class AgentGroup:
         Initialize the AgentGroupV2.
 
         """
-        set_logger_level(config.logging_level.upper())
+        set_logger_level(config.advanced.logging_level.upper())
 
         self._tenant_id = tenant_id
         self._exp_name = exp_name
@@ -80,7 +80,7 @@ class AgentGroup:
         self._message_interceptor = message_interceptor
         self._mlflow_run_id = mlflow_run_id
         self._agent_config_file = agent_config_file
-        self._embedding_model = init_embedding(config.embedding_model)
+        self._embedding_model = init_embedding(config.advanced.embedding_model)
         self._faiss_query = FaissQuery(self._embedding_model)
 
         # typing definition
@@ -143,7 +143,7 @@ class AgentGroup:
         # Initialize LLM client
         # ====================
         get_logger().info(f"Initializing LLM client...")
-        self._llm = LLM(self._config.env.llm)
+        self._llm = LLM(self._config.llm)
         get_logger().info(f"LLM client initialized")
 
         # ====================

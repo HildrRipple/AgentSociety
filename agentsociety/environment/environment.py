@@ -7,7 +7,6 @@ from multiprocessing import cpu_count
 from subprocess import Popen
 from typing import Any, Literal, Optional, Union, overload
 
-import ray
 import yaml
 from mosstool.type import TripMode
 from mosstool.util.format_converter import dict2pb
@@ -50,6 +49,7 @@ class SimulatorConfig(BaseModel):
 
     max_process: int = Field(cpu_count())
     """Maximum number of processes for the simulator"""
+
     logging_level: str = Field("info")
     """Logging level for the simulator"""
 

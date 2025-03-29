@@ -79,9 +79,9 @@ class AgentSociety:
         # ====================
         # Initialize the logger
         # ====================
-        set_logger_level(self._config.logging_level.upper())
+        set_logger_level(self._config.advanced.logging_level.upper())
 
-        self.exp_id = str(uuid.uuid4())
+        self.exp_id = str(config.exp.id)
         get_logger().info(
             f"Creating AgentSociety with config: {self._config.model_dump()} as exp_id={self.exp_id}"
         )
@@ -120,8 +120,8 @@ class AgentSociety:
         # ====================
         get_logger().info(f"Initializing environment...")
         self._environment = EnvironmentStarter(
-            self._config.env.map,
-            self._config.env.simulator,
+            self._config.map,
+            self._config.advanced.simulator,
             self._config.exp.environment,
         )
         await self._environment.init()
@@ -135,7 +135,7 @@ class AgentSociety:
             queue = ray.util.queue.Queue()
             self._message_interceptor = MessageInterceptor.remote(
                 blocks=self._config.exp.message_intercept.blocks,  # type: ignore
-                llm_config=self._config.env.llm,
+                llm_config=self._config.llm,
                 queue=queue,
                 black_set=set(),
             )
@@ -199,14 +199,14 @@ class AgentSociety:
         get_logger().info(f"Initializing agent groups...")
         agents = []  # (id, agent_class, generator, memory_index)
         next_id = 1
-        group_size = self._config.group_size
+        group_size = self._config.advanced.group_size
         citizen_ids = set()
         bank_ids = set()
         nbs_ids = set()
         government_ids = set()
         firm_ids = set()
         aoi_ids = self._environment.get_aoi_ids()
-        for agent_config in self._config.firms:
+        for agent_config in self._config.agents.firms:
             if agent_config.memory_distributions is None:
                 agent_config.memory_distributions = {}
             assert (
@@ -223,7 +223,7 @@ class AgentSociety:
             firm_ids.update([firm[0] for firm in firms])
             agents += firms
             next_id += len(firms)
-        for agent_config in self._config.banks:
+        for agent_config in self._config.agents.banks:
             bank_classes = _init_agent_class(agent_config)
             banks = [
                 (next_id + i, *bank_class) for i, bank_class in enumerate(bank_classes)
@@ -231,13 +231,13 @@ class AgentSociety:
             bank_ids.update([bank[0] for bank in banks])
             agents += banks
             next_id += len(banks)
-        for agent_config in self._config.nbs:
+        for agent_config in self._config.agents.nbs:
             nbs_classes = _init_agent_class(agent_config)
             nbs = [(next_id + i, *nbs_class) for i, nbs_class in enumerate(nbs_classes)]
             nbs_ids.update([nbs[0] for nbs in nbs])
             agents += nbs
             next_id += len(nbs)
-        for agent_config in self._config.governments:
+        for agent_config in self._config.agents.governments:
             government_classes = _init_agent_class(agent_config)
             governments = [
                 (next_id + i, *government_class)
@@ -246,7 +246,7 @@ class AgentSociety:
             government_ids.update([government[0] for government in governments])
             agents += governments
             next_id += len(governments)
-        for agent_config in self._config.citizens:
+        for agent_config in self._config.agents.citizens:
             # append distribution for firm_id, bank_id, nbs_id, government_id, home_aoi_id, work_aoi_id
             if agent_config.memory_distributions is None:
                 agent_config.memory_distributions = {}
@@ -353,7 +353,7 @@ class AgentSociety:
         # ===================================
         # run init functions
         # ===================================
-        init_funcs = self._config.init_funcs
+        init_funcs = self._config.agents.init_funcs
         for init_func in init_funcs:
             if inspect.iscoroutinefunction(init_func):
                 await init_func(self)
@@ -857,13 +857,15 @@ class AgentSociety:
 
     async def run(
         self,
-        day: int = 1,
+        days: int,
+        ticks_per_day: int,
     ):
         """
         Run the simulation for a specified number of days.
 
         - **Args**:
-            - `day` (int, optional): The number of days to run the simulation. Defaults to 1.
+            - `days` (int): The number of days to run the simulation.
+            - `ticks_per_day` (int): The number of ticks per day.
 
         - **Description**:
             - Updates the experiment status to running and sets up monitoring for the experiment's status.
@@ -889,6 +891,7 @@ class AgentSociety:
             # Create monitor task
             monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
 
+            # self.config.exp.environment
             try:
                 total_steps = int(day * 24 * 60 * 60)
                 current_step = 0

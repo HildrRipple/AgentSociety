@@ -109,25 +109,25 @@ def default(config: Config) -> Config:
     # =====================
     # agent config
     # =====================
-    config.citizens = [
+    config.agents.citizens = [
         _fill_in_agent_class_and_memory_config(agent_config)
-        for agent_config in config.citizens
+        for agent_config in config.agents.citizens
     ]
-    config.firms = [
+    config.agents.firms = [
         _fill_in_agent_class_and_memory_config(agent_config)
-        for agent_config in config.firms
+        for agent_config in config.agents.firms
     ]
-    config.governments = [
+    config.agents.governments = [
         _fill_in_agent_class_and_memory_config(agent_config)
-        for agent_config in config.governments
+        for agent_config in config.agents.governments
     ]
-    config.banks = [
+    config.agents.banks = [
         _fill_in_agent_class_and_memory_config(agent_config)
-        for agent_config in config.banks
+        for agent_config in config.agents.banks
     ]
-    config.nbs = [
+    config.agents.nbs = [
         _fill_in_agent_class_and_memory_config(agent_config)
-        for agent_config in config.nbs
+        for agent_config in config.agents.nbs
     ]
     # =====================
     # exp config
@@ -139,8 +139,8 @@ def default(config: Config) -> Config:
     # =====================
     # init functions
     # =====================
-    if len(config.init_funcs) == 0:
-        config.init_funcs = [
+    if len(config.agents.init_funcs) == 0:
+        config.agents.init_funcs = [
             bind_agent_info,
             initialize_social_network,
         ]

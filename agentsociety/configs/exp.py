@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import uuid
 from collections.abc import Callable
 from enum import Enum
 from typing import Any, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
+from pydantic import (BaseModel, ConfigDict, Field, field_serializer,
+                      model_validator)
 
-from ..message.message_interceptor import MessageBlockBase, MessageBlockListenerBase
-from ..survey import Survey
 from ..environment import EnvironmentConfig
+from ..message.message_interceptor import (MessageBlockBase,
+                                           MessageBlockListenerBase)
+from ..survey import Survey
 
 __all__ = [
     "WorkflowStepConfig",
@@ -200,6 +203,9 @@ class ExpConfig(BaseModel):
 
     name: str = Field("default_experiment")
     """Name of the experiment"""
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    """Unique identifier for the experiment"""
 
     workflow: List[WorkflowStepConfig] = Field(..., min_length=1)
     """List of workflow steps"""
