@@ -260,9 +260,9 @@ class Messager:
                 message = await pubsub.get_message(
                     ignore_subscribe_messages=True, timeout=1
                 )
+                get_logger().debug(f"Received message: {message}")
                 if message and message["type"] in ("pmessage",):
                     await self.message_queue.put(message)
-                    get_logger().debug(f"Received message: {message}")
 
         except asyncio.CancelledError:
             await pubsub.punsubscribe()

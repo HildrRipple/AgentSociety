@@ -7,7 +7,7 @@ import inspect
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Literal, Optional, Type, cast
+from typing import Any, Callable, Literal, Optional, cast
 
 import ray
 import ray.util.queue
@@ -16,7 +16,13 @@ import yaml
 from ..agent import Agent
 from ..agent.distribution import Distribution, DistributionConfig, DistributionType
 from ..agent.memory_config_generator import MemoryConfigGenerator
-from ..configs import AgentConfig, Config, MetricExtractorConfig, MetricType
+from ..configs import (
+    AgentConfig,
+    Config,
+    MetricExtractorConfig,
+    MetricType,
+    WorkflowType,
+)
 from ..environment import EnvironmentStarter
 from ..logger import get_logger, set_logger_level
 from ..message import MessageInterceptor, Messager
@@ -99,6 +105,10 @@ class AgentSociety:
         self._groups: dict[str, ray.ObjectRef] = {}
         self._agent_ids: set[int] = set()
         self._agent_id2group: dict[int, ray.ObjectRef] = {}
+        yaml_config = yaml.dump(
+            self._config.model_dump(exclude_defaults=True, exclude_none=True),
+            allow_unicode=True,
+        )
         self._exp_info: StorageExpInfo = StorageExpInfo(
             id=self.exp_id,
             tenant_id=self.tenant_id,
@@ -107,7 +117,7 @@ class AgentSociety:
             status=0,
             cur_day=0,
             cur_t=0.0,
-            config=self._config.model_dump_json(),
+            config=yaml_config,
             error="",
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
@@ -156,7 +166,7 @@ class AgentSociety:
         )
         await self._messager.init()
         await self._messager.subscribe_and_start_listening(
-            [f"exps:{self.exp_id}:user_payback"]
+            [self._messager.get_user_payback_channel()]
         )
         get_logger().info(f"Messager initialized")
 
@@ -599,7 +609,7 @@ class AgentSociety:
         tasks = []
         for id in agent_ids:
             channel = self.messager.get_user_survey_channel(id)
-            tasks.append(self.messager.send_message.remote(channel, payload))
+            tasks.append(self.messager.send_message(channel, payload))
         await asyncio.gather(*tasks)
         remain_payback = len(agent_ids)
         start_t = time.time()
@@ -644,7 +654,7 @@ class AgentSociety:
         tasks = []
         for id in agent_ids:
             channel = self.messager.get_user_chat_channel(id)
-            tasks.append(self.messager.send_message.remote(channel, payload))
+            tasks.append(self.messager.send_message(channel, payload))
         await asyncio.gather(*tasks)
         remain_payback = len(agent_ids)
         start_t = time.time()
@@ -743,7 +753,13 @@ class AgentSociety:
         if self.enable_avro:
             assert self._avro_saver is not None
             with open(self._avro_saver.exp_info_file, "w") as f:
-                yaml.dump(self._exp_info, f)
+                yaml.dump(
+                    self._exp_info.model_dump(
+                        exclude_defaults=True, exclude_none=True
+                    ),
+                    f,
+                    allow_unicode=True,
+                )
         if self.enable_pgsql:
             assert self._pgsql_writers is not None
             worker: ray.ObjectRef = self._pgsql_writers[0]
@@ -887,4 +903,79 @@ class AgentSociety:
             day, _ = self.environment.get_datetime()
             if day != start_day:
                 break
+        return logs
+
+    async def run(self):
+        """
+        Run the simulation following the workflow in the config.
+        """
+        logs = Logs(
+            llm_log=[],
+            redis_log=[],
+            simulator_log=[],
+            agent_time_log=[],
+        )
+        try:
+            for step in self.config.exp.workflow:
+                get_logger().info(
+                    f"Running workflow: type: {step.type} - description: {step.description}"
+                )
+                if step.type == WorkflowType.STEP:
+                    for _ in range(step.steps):
+                        log = await self.step(step.ticks_per_step)
+                        logs.append(log)
+                elif step.type == WorkflowType.RUN:
+                    for _ in range(step.days):
+                        log = await self.run_one_day(step.ticks_per_step)
+                        logs.append(log)
+                elif step.type == WorkflowType.INTERVIEW:
+                    target_agents = step.target_agent
+                    interview_message = step.interview_message
+                    assert interview_message is not None
+                    assert target_agents is not None
+                    await self.send_interview_message(interview_message, target_agents)
+                elif step.type == WorkflowType.SURVEY:
+                    assert step.target_agent is not None
+                    assert step.survey is not None
+                    await self.send_survey(step.survey, step.target_agent)
+                elif step.type == WorkflowType.ENVIRONMENT_INTERVENE:
+                    assert step.key is not None
+                    assert step.value is not None
+                    await self.update_environment(step.key, step.value)
+                elif step.type == WorkflowType.UPDATE_STATE_INTERVENE:
+                    assert step.key is not None
+                    assert step.value is not None
+                    assert step.target_agent is not None
+                    await self.update(step.target_agent, step.key, step.value)
+                elif step.type == WorkflowType.MESSAGE_INTERVENE:
+                    assert step.intervene_message is not None
+                    assert step.target_agent is not None
+                    await self.send_intervention_message(
+                        step.intervene_message, step.target_agent
+                    )
+                elif step.type == WorkflowType.INTERVENE:
+                    get_logger().warning(
+                        "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congition of target agents"
+                    )
+                    assert step.target_agent is not None
+                    assert step.intervene_message is not None
+                    await self.send_intervention_message(
+                        step.intervene_message, step.target_agent
+                    )
+                elif step.type == WorkflowType.FUNCTION:
+                    assert step.func is not None
+                    await step.func(self)
+                else:
+                    raise ValueError(f"Unknown workflow type: {step.type}")
+        except Exception as e:
+            import traceback
+
+            get_logger().error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
+            self._exp_info.status = ExperimentStatus.ERROR
+            self._exp_info.error = str(e)
+            await self._save_exp_info()
+
+            raise RuntimeError(str(e)) from e
+        self._exp_info.status = ExperimentStatus.FINISHED
+        await self._save_exp_info()
         return logs

@@ -5,12 +5,10 @@ from collections.abc import Callable
 from enum import Enum
 from typing import Any, List, Literal, Optional, Union
 
-from pydantic import (BaseModel, ConfigDict, Field, field_serializer,
-                      model_validator)
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from ..environment import EnvironmentConfig
-from ..message.message_interceptor import (MessageBlockBase,
-                                           MessageBlockListenerBase)
+from ..message.message_interceptor import MessageBlockBase, MessageBlockListenerBase
 from ..survey import Survey
 
 __all__ = [
@@ -64,11 +62,11 @@ class WorkflowStepConfig(BaseModel):
     func: Optional[Callable] = None
     """Optional function to be executed during this step - used for [FUNCTION, INTERVENE] type"""
 
-    days: float = 1.0
+    days: int = 1
     """Duration (in days) for which this step lasts - used for [RUN] type"""
 
-    times: int = 1
-    """Number of repetitions for this step - used for [RUN] type"""
+    steps: int = 1
+    """Number of steps for which this step lasts - used for [STEP] type"""
 
     ticks_per_step: int = 300
     """Number of ticks per step - used for [RUN, STEP] type. For example, if it is 300, then the step will run 300 ticks in the environment."""
@@ -100,6 +98,56 @@ class WorkflowStepConfig(BaseModel):
             return None
         else:
             return func.__name__
+
+    @field_serializer("survey")
+    def serialize_survey(self, survey: Optional[Survey], info):
+        if survey is None:
+            return None
+        else:
+            return survey.to_dict()
+
+    @model_validator(mode="after")
+    def validate_func(self):
+        if self.type == WorkflowType.STEP:
+            if self.steps <= 0:
+                raise ValueError("steps must be greater than 0 for STEP type")
+        elif self.type == WorkflowType.RUN:
+            if self.days <= 0:
+                raise ValueError("days must be greater than 0 for RUN type")
+        elif self.type == WorkflowType.INTERVIEW:
+            if self.target_agent is None or self.interview_message is None:
+                raise ValueError(
+                    "target_agent and interview_message are required for INTERVIEW step"
+                )
+        elif self.type == WorkflowType.SURVEY:
+            if self.target_agent is None or self.survey is None:
+                raise ValueError("target_agent and survey are required for SURVEY step")
+        elif self.type == WorkflowType.ENVIRONMENT_INTERVENE:
+            if self.key is None or self.value is None:
+                raise ValueError(
+                    "key and value are required for ENVIRONMENT_INTERVENE step"
+                )
+        elif self.type == WorkflowType.UPDATE_STATE_INTERVENE:
+            if self.key is None or self.value is None or self.target_agent is None:
+                raise ValueError(
+                    "key, value and target_agent are required for UPDATE_STATE_INTERVENE step"
+                )
+        elif self.type == WorkflowType.MESSAGE_INTERVENE:
+            if self.intervene_message is None or self.target_agent is None:
+                raise ValueError(
+                    "intervene_message and target_agent are required for MESSAGE_INTERVENE step"
+                )
+        elif self.type == WorkflowType.INTERVENE:
+            if self.target_agent is None or self.intervene_message is None:
+                raise ValueError(
+                    "target_agent and intervene_message are required for INTERVENE step"
+                )
+        elif self.type == WorkflowType.FUNCTION:
+            if self.func is None:
+                raise ValueError("func is required for FUNCTION step")
+        else:
+            raise ValueError(f"Unknown workflow type: {self.type} in custom validator")
+        return self
 
 
 class MetricType(str, Enum):

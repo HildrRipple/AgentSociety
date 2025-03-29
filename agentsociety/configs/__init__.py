@@ -168,7 +168,8 @@ class Config(BaseModel):
         max_groups_by_memory = int(available_memory_gb / mem_per_group)
         max_groups = min(cpu_count, max_groups_by_memory)
         self.advanced.group_size = max(100, math.ceil(num_agents / max_groups))
+        num_groups = math.ceil(num_agents / self.advanced.group_size)
         if self.env.pgsql.enabled:
             if self.env.pgsql.num_workers == "auto":
                 # between 1 and 4
-                self.env.pgsql.num_workers = max(1, min(4, math.ceil(max_groups / 4)))
+                self.env.pgsql.num_workers = max(1, min(4, math.ceil(num_groups / 4)))

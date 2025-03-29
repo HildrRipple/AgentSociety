@@ -439,13 +439,14 @@ class Agent(ABC):
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
             self._last_asyncio_pg_task = (
-                self.pgsql_writer.write_survey.remote(  # type:ignore
+                self.pgsql_writer.write_surveys.remote(  # type:ignore
                     [storage_survey]
                 )
             )
         await self.messager.send_message(
             self.messager.get_user_payback_channel(), {"count": 1}
         )
+        get_logger().info(f"Sent payback message for survey {survey['id']}")
 
     async def generate_user_chat_response(self, question: str) -> str:
         """
@@ -553,7 +554,7 @@ class Agent(ABC):
         await self.messager.send_message(
             self.messager.get_user_payback_channel(), {"count": 1}
         )
-        print(f"Sent payback message")
+        get_logger().info(f"Sent payback message for interview {question}")
 
     async def save_agent_thought(self, thought: str):
         """
@@ -616,7 +617,6 @@ class Agent(ABC):
         - **Description**:
             - Logs the incoming chat message from another agent.
             - Prepares the chat message for storage in Avro format and PostgreSQL.
-            - Asynchronously logs the processing of the chat response using `process_agent_chat_response`.
             - Writes the chat message and metadata into an Avro file if `_avro_file` is set.
             - Ensures thread-safe operations when writing to PostgreSQL by waiting for any previous write task to complete before starting a new one.
         """
@@ -625,11 +625,11 @@ class Agent(ABC):
             day=payload["day"],
             t=payload["t"],
             type=1,
-            speaker=payload["from"],
+            speaker=str(payload["from"]),
             content=payload["content"],
             created_at=datetime.now(timezone.utc),
         )
-        asyncio.create_task(self.process_agent_chat_response(payload))
+        await self.process_agent_chat_response(payload)
         # Avro
         if self.avro_saver is not None:
             self.avro_saver.append_dialogs([storage_dialog])
@@ -659,7 +659,7 @@ class Agent(ABC):
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
         get_logger().info(f"Agent {self.id} received agent chat message: {payload}")
-        asyncio.create_task(self._process_agent_chat(payload))
+        await self._process_agent_chat(payload)
 
     async def handle_user_chat_message(self, payload: dict):
         """
@@ -676,7 +676,7 @@ class Agent(ABC):
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
         get_logger().info(f"Agent {self.id} received user chat message: {payload}")
-        asyncio.create_task(self._process_interview(payload))
+        await self._process_interview(payload)
 
     async def handle_user_survey_message(self, payload: dict):
         """
@@ -693,7 +693,7 @@ class Agent(ABC):
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
         get_logger().info(f"Agent {self.id} received user survey message: {payload}")
-        asyncio.create_task(self._process_survey(payload["data"]))
+        await self._process_survey(payload["data"])
 
     async def handle_gather_message(self, payload: Any):
         """

@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 import jsonc
 import ray
@@ -161,7 +161,6 @@ class AgentGroup:
         get_logger().info(f"Initializing messager...")
         self._messager = Messager(self._config.env.redis, self._exp_id)
         await self._messager.init()
-        # TODO: message interceptor
         get_logger().info(f"Messager initialized")
 
         # ====================
@@ -271,6 +270,10 @@ class AgentGroup:
 
         if self._message_dispatch_task is not None:
             self._message_dispatch_task.cancel()
+            try:
+                await self._message_dispatch_task
+            except asyncio.CancelledError:
+                pass
             self._message_dispatch_task = None
 
         if self._mlflow_client is not None:
@@ -357,7 +360,7 @@ class AgentGroup:
             - The payload is decoded from bytes to string and then parsed as JSON.
             - Depending on the `topic_type`, different handler methods on the agent are called to process the message.
         """
-        get_logger().debug(f"-----Starting message dispatch for group {self._group_id}")
+        get_logger().info(f"-----Starting message dispatch for group {self._group_id}")
         while True:
             # Step 1: Fetch messages
             messages = await self.messager.fetch_messages()
@@ -370,30 +373,32 @@ class AgentGroup:
                     f"Group {self._group_id} received no messages, waiting..."
                 )
 
-            # Step 2: Distribute messages to corresponding Agents
-            for message in messages:
-                topic: str = message.topic.value
-                payload = message.payload
+            try:
+                # Step 2: Distribute messages to corresponding Agents
+                for message in messages:
+                    channel = cast(bytes, message["channel"]).decode("utf-8")
+                    payload = cast(bytes, message["data"])
+                    payload = jsonc.loads(payload.decode("utf-8"))
 
-                # Add a decoding step to convert bytes to str
-                if isinstance(payload, bytes):
-                    payload = payload.decode("utf-8")
-                    payload = jsonc.loads(payload)
+                    # Extract agent_id (channel format is "exps:{exp_id}:agents:{agent_id}:{topic_type}")
+                    _, _, _, agent_id, topic_type = channel.strip(":").split(":")
+                    agent_id = int(agent_id)
+                    if agent_id in self._id2agent:
+                        agent = self._id2agent[agent_id]
+                        # topic_type: agent-chat, user-chat, user-survey, gather
+                        if topic_type == "agent-chat":
+                            await agent.handle_agent_chat_message(payload)
+                        elif topic_type == "user-chat":
+                            await agent.handle_user_chat_message(payload)
+                        elif topic_type == "user-survey":
+                            await agent.handle_user_survey_message(payload)
+                        elif topic_type == "gather":
+                            await agent.handle_gather_message(payload)
+            except Exception as e:
+                get_logger().error(f"Error dispatching message: {e}")
+                import traceback
 
-                # Extract agent_id (topic format is "exps:{exp_id}:agents:{agent_id}:{topic_type}")
-                _, _, _, agent_id, topic_type = topic.strip(":").split(":")
-                agent_id = int(agent_id)
-                if agent_id in self._id2agent:
-                    agent = self._id2agent[agent_id]
-                    # topic_type: agent-chat, user-chat, user-survey, gather
-                    if topic_type == "agent-chat":
-                        await agent.handle_agent_chat_message(payload)
-                    elif topic_type == "user-chat":
-                        await agent.handle_user_chat_message(payload)
-                    elif topic_type == "user-survey":
-                        await agent.handle_user_survey_message(payload)
-                    elif topic_type == "gather":
-                        await agent.handle_gather_message(payload)
+                get_logger().error(f"Error dispatching message: {traceback.format_exc()}")
             await asyncio.sleep(3)
 
     # ====================
