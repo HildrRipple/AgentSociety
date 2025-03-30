@@ -118,42 +118,48 @@ async def delete_experiment_by_id(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        tenant_id = request.app.state.get_tenant_id(request)
-        stmt = select(Experiment).where(
-            Experiment.tenant_id == tenant_id, Experiment.id == exp_id
-        )
-        result = await db.execute(stmt)
-        row = result.first()
-        if not row or len(row) == 0:
+        try:
+            # Start transaction
+            async with db.begin():
+                tenant_id = request.app.state.get_tenant_id(request)
+                stmt = select(Experiment).where(
+                    Experiment.tenant_id == tenant_id, Experiment.id == exp_id
+                )
+                result = await db.execute(stmt)
+                row = result.first()
+                if not row or len(row) == 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
+                    )
+                experiment: Experiment = row[0]
+
+                # Get all table names that need to be deleted
+                table_names = [
+                    experiment.agent_profile_tablename,
+                    experiment.agent_status_tablename,
+                    experiment.agent_dialog_tablename,
+                    experiment.agent_survey_tablename
+                ]
+
+                # Delete related tables
+                for table_name in table_names:
+                    try:
+                        query = text(f"DROP TABLE IF EXISTS {table_name}")
+                        await db.execute(query)
+                    except Exception as e:
+                        logging.error(f"Error dropping table {table_name}: {str(e)}")
+                        # Continue execution without interruption
+
+                # Delete experiment record
+                await db.delete(experiment)
+
+            # Transaction will be committed automatically
+
+            return ApiResponseWrapper(data={"message": "Experiment deleted successfully"})
+
+        except Exception as e:
+            logging.error(f"Error deleting experiment: {str(e)}")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete experiment: {str(e)}"
             )
-        experiment: Experiment = row[0]
-
-        # Delete agent profile table
-        table_name = experiment.agent_profile_tablename
-        query = text(f"DROP TABLE IF EXISTS {table_name}")
-        await db.execute(query)
-        await db.commit()
-
-        # Delete agent status table
-        table_name = experiment.agent_status_tablename
-        query = text(f"DROP TABLE IF EXISTS {table_name}")
-        await db.execute(query)
-        await db.commit()
-
-        # Delete agent dialog table
-        table_name = experiment.agent_dialog_tablename
-        query = text(f"DROP TABLE IF EXISTS {table_name}")
-        await db.execute(query)
-        await db.commit()
-
-        # Delete agent survey table
-        table_name = experiment.agent_survey_tablename
-        query = text(f"DROP TABLE IF EXISTS {table_name}")
-        await db.execute(query)
-        await db.commit()
-
-        # Delete experiment
-        await db.delete(experiment)
-        await db.commit()
