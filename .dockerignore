@@ -5,11 +5,12 @@
 .gitmodules
 .venv/
 *.egg-info/
+agentsociety/_dist
 build/
 cache/
 dist/
 examples/
-log/
-test/
 frontend/dist/
 frontend/node_modules/
+log/
+test/
