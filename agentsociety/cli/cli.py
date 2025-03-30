@@ -183,7 +183,6 @@ def check(config: str, config_base64: str):
         conn.execute("SELECT 1")
         click.echo(f"Pgsql connection check. {click.style('Passed.', fg='green')}")
     except OperationalError as e:
-        print(type(e))
         click.echo(f"Pgsql connection check. {click.style('Failed:', fg='red')} {e}")
         click.echo(
             f"Explanation: Please check the `dsn` (value={c.env.pgsql.dsn}) of the pgsql server. The format of `dsn` is `postgresql://<username>:<password>@<host>:<port>/<database_name>`. The item wrapped in `<>` should be replaced with the actual values."
@@ -202,7 +201,6 @@ def check(config: str, config_base64: str):
                 f"Explanation: The host or port of the pgsql server is incorrect."
             )
     except Exception as e:
-        print(type(e))
         click.echo(f"Pgsql connection check. {click.style('Failed:', fg='red')} {e}")
 
     # =================
@@ -250,7 +248,6 @@ def check(config: str, config_base64: str):
                         f"Explanation: Please check the `mlflow_uri` (value={c.env.mlflow.mlflow_uri}) of the mlflow server."
                     )
         except Exception as e:
-            print(type(e))
             click.echo(
                 f"Mlflow connection check. {click.style('Failed:', fg='red')} {e}"
             )

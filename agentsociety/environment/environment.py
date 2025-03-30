@@ -335,7 +335,6 @@ class Environment:
             seconds = time % 60
             formatted_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
             if format != "%H:%M:%S":
-                # 如果需要其他格式，可以先创建时间对象再格式化
                 temp_time = datetime.strptime(formatted_time, "%H:%M:%S")
                 formatted_time = temp_time.strftime(format)
             return (day, formatted_time)

@@ -229,7 +229,6 @@ def memory_config_societyagent(
         ),
     }
 
-    # TODO: fix it in V1.3
     BASE = {
         "home": {
             "aoi_position": {"aoi_id": sample_field_value(distributions, "home_aoi_id")}

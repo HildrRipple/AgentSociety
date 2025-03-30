@@ -1,6 +1,6 @@
 import asyncio
 from concurrent import futures
-from typing import Dict, Optional, TypeVar
+from typing import Dict, Optional
 
 import grpc
 from grpc.aio import Server as AioServer
