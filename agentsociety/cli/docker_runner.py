@@ -63,8 +63,8 @@ async def run_experiment_in_container(
         raise ValueError("No configuration provided")
     
     # Get map paths from configuration
-    map_path = config_dict.get("env", {}).get("map", {}).get("file_path")
-    map_cache_path = config_dict.get("env", {}).get("map", {}).get("cache_path")
+    map_path = config_dict.get("map", {}).get("file_path")
+    map_cache_path = config_dict.get("map", {}).get("cache_path")
     
     # Check if either map file or cache file exists
     map_dir = None
@@ -94,8 +94,8 @@ async def run_experiment_in_container(
         raise ValueError("No map file or cache file specified in configuration")
     
     # Check avro configuration
-    avro_enabled = config_dict.get("env", {}).get("avro", {}).get("enabled", False)
-    avro_path = config_dict.get("env", {}).get("avro", {}).get("path", "avro")
+    avro_enabled = config_dict.get("avro", {}).get("enabled", False)
+    avro_path = config_dict.get("avro", {}).get("path", "avro")
     
     # If avro is enabled, ensure directory exists
     if avro_enabled:
@@ -108,11 +108,11 @@ async def run_experiment_in_container(
     # Update map file paths for container
     if map_path:
         map_filename = os.path.basename(map_path)
-        container_config_dict["env"]["map"]["file_path"] = f"/maps/{map_filename}"
+        container_config_dict["map"]["file_path"] = f"/maps/{map_filename}"
     
     if map_cache_path:
         cache_filename = os.path.basename(map_cache_path)
-        container_config_dict["env"]["map"]["cache_path"] = f"/maps/{cache_filename}"
+        container_config_dict["map"]["cache_path"] = f"/maps/{cache_filename}"
     
     # Configure container
     binds = []
@@ -130,11 +130,11 @@ async def run_experiment_in_container(
         
         # Update cache path in container config
         cache_filename = os.path.basename(map_cache_path)
-        container_config_dict["env"]["map"]["cache_path"] = f"/cache/{cache_filename}"
+        container_config_dict["map"]["cache_path"] = f"/cache/{cache_filename}"
     elif map_cache_path:
         # Cache is in the same directory as map, update path
         cache_filename = os.path.basename(map_cache_path)
-        container_config_dict["env"]["map"]["cache_path"] = f"/maps/{cache_filename}"
+        container_config_dict["map"]["cache_path"] = f"/maps/{cache_filename}"
     
     # If avro is enabled, add mount
     if avro_enabled:

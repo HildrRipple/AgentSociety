@@ -68,15 +68,7 @@ async def run_from_config(
     print("Initializing AgentSociety...")
     society = AgentSociety(config)
     await society.init()
-    
-    # Get the number of steps to run from the configuration or use a default
-    steps = config_dict.get("steps", 10)
-    print(f"Running simulation for {steps} steps...")
-    
-    for i in range(steps):
-        print(f"Step {i+1}/{steps}")
-        await society.step()
-    
+    await society.run()
     print("Simulation completed successfully")
     await society.close()
     print("AgentSociety closed successfully")

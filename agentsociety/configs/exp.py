@@ -227,7 +227,7 @@ class MessageInterceptConfig(BaseModel):
     max_violation_time: int = 3
     """Maximum number of allowed violations"""
 
-    blocks: list[MessageBlockBase] = Field([], ge=0)
+    blocks: list[MessageBlockBase] = Field([])
     """List of message blocks, either set this or mode"""
 
     listener: Optional[type[MessageBlockListenerBase]] = None
