@@ -7,18 +7,16 @@ Mapping Rule:
 """
 
 import asyncio
-import logging
 import os
-import uuid
 from collections.abc import Sequence
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import mlflow
-from mlflow.entities import Metric, Param, Run, RunTag
+from mlflow.entities import Metric, Param, RunTag
 from pydantic import BaseModel, Field
 
-from ..utils.decorators import lock_decorator
 from ..logger import get_logger
+from ..utils.decorators import lock_decorator
 
 __all__ = [
     "MlflowClient",
@@ -65,6 +63,7 @@ class MlflowClient:
             - **exp_tags** (dict, optional): Tags to associate with the experiment. Defaults to None.
             - **current_run_id** (str, optional): Existing MLflow run ID to attach to. Defaults to None.
         """
+
         self._config = config
         if not self.enabled:
             get_logger().warning("Mlflow is not enabled")
@@ -120,7 +119,7 @@ class MlflowClient:
     def close(self): ...
 
     @property
-    def client(self) -> mlflow.MlflowClient:
+    def client(self):
         """Return the underlying MLflow client."""
         return self._client
 

@@ -24,13 +24,13 @@ class RedisConfig(BaseModel):
     server: str = Field(...)
     """Redis server address"""
 
-    port: int = Field(...)
+    port: int = Field(6379, ge=0, le=65535)
     """Port number for Redis connection"""
 
     password: Optional[str] = Field(None)
     """Password for Redis connection"""
 
-    db: str = Field("0")
+    db: int = Field(0)
     """Database number for Redis connection"""
 
     timeout: float = Field(60, ge=0)

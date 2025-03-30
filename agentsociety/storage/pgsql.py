@@ -3,19 +3,19 @@ from typing import Any, Literal, Union
 
 import psycopg
 import psycopg.sql
-from pydantic import BaseModel, Field
 import ray
 from psycopg.rows import dict_row
+from pydantic import BaseModel, Field, model_validator
 
-from ..utils.decorators import lock_decorator
 from ..logger import get_logger
+from ..utils.decorators import lock_decorator
 from .type import (
     StorageDialog,
+    StorageExpInfo,
     StorageGlobalPrompt,
     StorageProfile,
     StorageStatus,
     StorageSurvey,
-    StorageExpInfo,
 )
 
 __all__ = ["PgWriter", "PostgreSQLConfig"]
@@ -160,6 +160,14 @@ class PostgreSQLConfig(BaseModel):
 
     num_workers: Union[int, Literal["auto"]] = Field("auto")
     """Number of workers for PostgreSQL"""
+
+    @model_validator(mode="after")
+    def validate_dsn(self):
+        if not self.enabled:
+            return self
+        if not self.dsn.startswith("postgresql://"):
+            raise ValueError("dsn must start with postgresql://")
+        return self
 
 
 @ray.remote

@@ -1,5 +1,3 @@
-from mosstool.map._map_util.const import AOI_START_ID, POI_START_ID
-
 POI_CATG_DICT = {
     "outdoor activity": [
         "bandstand",

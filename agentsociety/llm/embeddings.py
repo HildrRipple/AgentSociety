@@ -3,9 +3,7 @@ import os
 from typing import Optional, Union
 
 import numpy as np
-import torch
 from langchain_core.embeddings import Embeddings
-from transformers import AutoModel, AutoTokenizer
 
 __all__ = [
     "SentenceEmbedding",
@@ -43,6 +41,9 @@ class SentenceEmbedding(Embeddings):
             - `cache_dir`: Directory to cache models. Default is "./cache".
             - `proxies`: Proxy settings for HTTP/HTTPS. Default is None.
         """
+        import torch
+        from transformers import AutoModel, AutoTokenizer
+
         os.makedirs(cache_dir, exist_ok=True)
         self.tokenizer = AutoTokenizer.from_pretrained(
             pretrained_model_name_or_path,
@@ -74,6 +75,8 @@ class SentenceEmbedding(Embeddings):
         - **Returns**:
             - A list of lists containing floating-point numbers representing the embeddings.
         """
+        import torch
+
         # Tokenize sentences
         encoded_input = self.tokenizer(
             texts, padding=True, truncation=True, return_tensors="pt"

@@ -8,11 +8,10 @@ from subprocess import Popen
 from typing import Any, Literal, Optional, Union, overload
 
 import yaml
-from mosstool.type import TripMode
-from mosstool.util.format_converter import dict2pb
 from pycityproto.city.map.v2 import map_pb2 as map_pb2
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pycityproto.city.person.v2 import person_service_pb2 as person_service
+from pycityproto.city.trip.v2.trip_pb2 import TripMode
 from pydantic import BaseModel, ConfigDict, Field
 from pyproj import Proj
 from shapely.geometry import Point
@@ -26,6 +25,7 @@ from .syncer import Syncer
 from .utils import find_free_ports
 from .utils.base64 import encode_to_base64
 from .utils.const import *
+from .utils.protobuf import dict2pb
 
 __all__ = [
     "Environment",
@@ -52,6 +52,9 @@ class SimulatorConfig(BaseModel):
 
     logging_level: str = Field("info")
     """Logging level for the simulator"""
+
+
+POI_START_ID = 7_0000_0000
 
 
 class EnvironmentConfig(BaseModel):
@@ -607,7 +610,9 @@ class EnvironmentStarter(Environment):
             _generate_yaml_config(self._map_config.file_path)
         )
         os.environ["GOMAXPROCS"] = str(self._sim_config.max_process)
-        self._server_addr = self._sim_config.primary_node_ip.rstrip("/") + f":{sim_port}"
+        self._server_addr = (
+            self._sim_config.primary_node_ip.rstrip("/") + f":{sim_port}"
+        )
         self._sim_proc = Popen(
             [
                 "agentsociety-sim",

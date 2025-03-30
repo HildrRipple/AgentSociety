@@ -1,22 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import random
-from copy import deepcopy
-from typing import Any, Optional
 
-import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
 from ..environment.sim.person_service import PersonService
-
-from ..environment import EconomyClient, Environment
-from ..llm import LLM
-from ..logger import get_logger
 from ..memory import Memory
-from ..message import MessageInterceptor, Messager
-from ..metrics import MlflowClient
 from .agent_base import Agent, AgentToolbox, AgentType
 
 __all__ = [
@@ -100,7 +90,7 @@ class CitizenAgentBase(Agent):
         }
         simulator = self.environment
         status = self.status
-        dict_person = PersonService.default_dict_person()
+        dict_person = PersonService.default_person(return_dict=True)
         dict_person["id"] = self.id
         for _key in FROM_MEMORY_KEYS:
             try:

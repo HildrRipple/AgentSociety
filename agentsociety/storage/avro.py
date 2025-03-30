@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import fastavro
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ..logger import get_logger
 from .type import StorageDialog, StorageProfile, StorageStatus, StorageSurvey
@@ -97,6 +97,16 @@ class AvroConfig(BaseModel):
 
     path: str = Field(...)
     """Avro file storage path"""
+
+    @model_validator(mode="after")
+    def validate_path(self):
+        if not self.enabled:
+            return self
+        # check path is valid and is a directory
+        path = Path(self.path)
+        if path.exists() and not path.is_dir():
+            raise ValueError(f"Path {self.path} is not a directory")
+        return self
 
 
 class AvroSaver:
