@@ -1,7 +1,7 @@
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, status
 from fastapi.exceptions import RequestValidationError
@@ -23,6 +23,7 @@ def create_app(
     pg_dsn: str,
     mlflow_url: str,
     read_only: bool,
+    env: Dict[str, Any],
     get_tenant_id: Callable[[Request], str] = lambda _: "",
     more_router: Optional[APIRouter] = None,
     session_secret_key: str = "agentsociety-session",
@@ -49,6 +50,8 @@ def create_app(
         app.state.read_only = read_only
         # save mlflow_url to app state
         app.state.mlflow_url = mlflow_url
+        # save env to app state
+        app.state.env = env
 
         # Hook to get tenant_id
         app.state.get_tenant_id = get_tenant_id

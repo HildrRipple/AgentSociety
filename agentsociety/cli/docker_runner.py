@@ -150,7 +150,8 @@ async def run_experiment_in_container(
     container_config_base64 = base64.b64encode(json.dumps(container_config_dict).encode()).decode()
     
     # Initialize Docker client
-    docker = aiodocker.Docker(url="unix:///var/run/docker.sock")
+    docker_host = os.environ.get("DOCKER_HOST", "unix:///var/run/docker.sock")
+    docker = aiodocker.Docker(url=docker_host)
 
     try:
         container_config = {
@@ -158,7 +159,8 @@ async def run_experiment_in_container(
             "Cmd": [
                 "python",
                 "-m",
-                "agentsociety.cli.run_from_config",
+                "agentsociety.cli.cli",
+                "run",
                 "--config-base64",
                 container_config_base64,
             ],

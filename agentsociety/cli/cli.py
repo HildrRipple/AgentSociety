@@ -107,6 +107,7 @@ def ui(config: str, config_base64: str):
         pg_dsn=pg_dsn,
         mlflow_url=c.env.mlflow.mlflow_uri if c.env.mlflow.enabled else "/",
         read_only=c.read_only,
+        env=c.env,
     )
 
     # Start server
