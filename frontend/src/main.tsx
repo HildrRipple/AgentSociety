@@ -7,11 +7,11 @@ import RootLayout from './Layout'
 import Console from './pages/Console/index'
 import Replay from './pages/Replay/index'
 import Survey from './pages/Survey/index'
-import EnvironmentList from './pages/Console/EnvironmentList'
-import AgentList from './pages/Console/AgentList'
-import WorkflowList from './pages/Console/WorkflowList'
-import MapList from './pages/Console/MapList'
-import CreateExperiment from './pages/Console/CreateExperiment'
+import LLMList from './pages/Experiment/LLMList'
+import AgentList from './pages/Experiment/AgentList'
+import WorkflowList from './pages/Experiment/WorkflowList'
+import MapList from './pages/Experiment/MapList'
+import CreateExperiment from './pages/Experiment/CreateExperiment'
 import Home from './pages/Home'
 import storageService from './services/storageService'
 import enUS from 'antd/locale/en_US'
@@ -38,8 +38,8 @@ const router = createBrowserRouter([
         element: <RootLayout selectedKey='/create-experiment'><CreateExperiment /></RootLayout>,
     },
     {
-        path: "/environments",
-        element: <RootLayout selectedKey='/environments'><EnvironmentList /></RootLayout>,
+        path: "/llms",
+        element: <RootLayout selectedKey='/llms'><LLMList /></RootLayout>,
     },
     {
         path: "/agents",

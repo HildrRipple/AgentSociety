@@ -1,4 +1,4 @@
-import { ExportOutlined, GithubOutlined, PlusOutlined, ExperimentOutlined, EnvironmentOutlined, TeamOutlined, GlobalOutlined, NodeIndexOutlined } from "@ant-design/icons";
+import { ExportOutlined, GithubOutlined, PlusOutlined, ExperimentOutlined, ApiOutlined, TeamOutlined, GlobalOutlined, NodeIndexOutlined } from "@ant-design/icons";
 import { Menu, MenuProps, Space, Dropdown } from "antd";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -22,9 +22,9 @@ const RootMenu = ({ selectedKey, style }: {
     // Experiment submenu items - horizontal layout
     const experimentItems: MenuProps['items'] = [
         {
-            key: '/environments',
-            label: <Link to="/environments">Environments</Link>,
-            icon: <EnvironmentOutlined />,
+            key: '/llms',
+            label: <Link to="/llms">LLM Configs</Link>,
+            icon: <ApiOutlined />,
         },
         {
             key: '/maps',

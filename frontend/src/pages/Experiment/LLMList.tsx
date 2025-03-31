@@ -1,28 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
-import EnvironmentForm from './EnvironmentForm';
+import LLMForm from './LLMForm';
 import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
 import configService from '../../services/configService';
-import { SimConfig } from '../../types/config';
+import { Config } from '../../types/config';
 
-const EnvironmentList: React.FC = () => {
-  const [environments, setEnvironments] = useState<ConfigItem[]>([]);
+const LLMList: React.FC = () => {
+  const [llms, setLLMs] = useState<ConfigItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [currentEnvironment, setCurrentEnvironment] = useState<ConfigItem | null>(null);
-  const [formValues, setFormValues] = useState<Partial<SimConfig>>({});
+  const [currentLLM, setCurrentLLM] = useState<ConfigItem | null>(null);
+  const [formValues, setFormValues] = useState<Partial<Config>>({});
   const [metaForm] = Form.useForm();
 
-  // Load environment configurations
-  const loadEnvironments = async () => {
+  // Load LLM configurations
+  const loadLLMs = async () => {
     setLoading(true);
     try {
-      const data = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.ENVIRONMENTS);
-      setEnvironments(data);
+      const data = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.LLMS);
+      setLLMs(data);
     } catch (error) {
-      message.error('Failed to load environments');
+      message.error('Failed to load LLMs');
       console.error(error);
     } finally {
       setLoading(false);
@@ -33,7 +33,7 @@ const EnvironmentList: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       await storageService.initializeExampleData();
-      await loadEnvironments();
+      await loadLLMs();
     };
     init();
   }, []);
@@ -43,63 +43,62 @@ const EnvironmentList: React.FC = () => {
     setSearchText(e.target.value);
   };
 
-  // Filter environments based on search text
-  const filteredEnvironments = environments.filter(env => 
-    env.name.toLowerCase().includes(searchText.toLowerCase()) || 
-    (env.description && env.description.toLowerCase().includes(searchText.toLowerCase()))
+  // Filter LLMs based on search text
+  const filteredLLMs = llms.filter(llm => 
+    llm.name.toLowerCase().includes(searchText.toLowerCase()) || 
+    (llm.description && llm.description.toLowerCase().includes(searchText.toLowerCase()))
   );
 
-  // Handle create new environment
+  // Handle create new LLM
   const handleCreate = () => {
-    setCurrentEnvironment(null);
-    setFormValues(configService.getDefaultConfigs().environment);
+    setCurrentLLM(null);
     metaForm.setFieldsValue({
-      name: `Environment ${environments.length + 1}`,
+      name: `LLM ${llms.length + 1}`,
       description: ''
     });
     setIsModalVisible(true);
   };
 
-  // Handle edit environment
-  const handleEdit = (environment: ConfigItem) => {
-    setCurrentEnvironment(environment);
-    setFormValues(environment.config);
+  // Handle edit LLM
+  const handleEdit = (llm: ConfigItem) => {
+    setCurrentLLM(llm);
+    setFormValues(llm.config);
     metaForm.setFieldsValue({
-      name: environment.name,
-      description: environment.description
+      name: llm.name,
+      description: llm.description
     });
     setIsModalVisible(true);
   };
 
-  // Handle duplicate environment
-  const handleDuplicate = (environment: ConfigItem) => {
-    setCurrentEnvironment(null);
-    setFormValues(environment.config);
+  // Handle duplicate LLM
+  const handleDuplicate = (llm: ConfigItem) => {
+    setCurrentLLM(null);
+    setFormValues(llm.config);
     metaForm.setFieldsValue({
-      name: `${environment.name} (Copy)`,
-      description: environment.description
+      name: `${llm.name} (Copy)`,
+      description: llm.description
     });
     setIsModalVisible(true);
   };
 
-  // Handle delete environment
+  // Handle delete LLM
   const handleDelete = async (id: string) => {
     try {
-      await storageService.deleteConfig(STORAGE_KEYS.ENVIRONMENTS, id);
-      message.success('Environment deleted successfully');
-      loadEnvironments();
+      await storageService.deleteConfig(STORAGE_KEYS.LLMS, id);
+      message.success('LLM config deleted successfully');
+      loadLLMs();
     } catch (error) {
-      message.error('Failed to delete environment');
+      message.error('Failed to delete LLM config');
       console.error(error);
     }
   };
 
-  // Handle export environment
-  const handleExport = (environment: ConfigItem) => {
-    const dataStr = JSON.stringify(environment, null, 2);
+  // Handle export LLM
+  const handleExport = (llm: ConfigItem) => {
+    const dataStr = JSON.stringify(llm, null, 2);
     const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
     
-    const exportFileDefaultName = `${environment.name.replace(/\s+/g, '_')}_environment.json`;
+    const exportFileDefaultName = `${llm.name.replace(/\s+/g, '_')}_llm.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -114,19 +113,19 @@ const EnvironmentList: React.FC = () => {
       const metaValues = await metaForm.validateFields();
       
       const configData: ConfigItem = {
-        id: currentEnvironment?.id || `env_${Date.now()}`,
+        id: currentLLM?.id || `llm_${Date.now()}`,
         name: metaValues.name,
         description: metaValues.description || '',
         config: formValues,
-        createdAt: currentEnvironment?.createdAt || new Date().toISOString(),
+        createdAt: currentLLM?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
       
-      await storageService.saveConfig(STORAGE_KEYS.ENVIRONMENTS, configData);
+      await storageService.saveConfig(STORAGE_KEYS.LLMS, configData);
       
-      message.success(`Environment ${currentEnvironment ? 'updated' : 'created'} successfully`);
+      message.success(`LLM config ${currentLLM ? 'updated' : 'created'} successfully`);
       setIsModalVisible(false);
-      loadEnvironments();
+      loadLLMs();
     } catch (error) {
       console.error('Validation failed:', error);
     }
@@ -174,7 +173,7 @@ const EnvironmentList: React.FC = () => {
           </Tooltip>
           <Tooltip title="Delete">
             <Popconfirm
-              title="Are you sure you want to delete this environment?"
+              title="Are you sure you want to delete this LLM config?"
               onConfirm={() => handleDelete(record.id)}
               okText="Yes"
               cancelText="No"
@@ -189,25 +188,25 @@ const EnvironmentList: React.FC = () => {
 
   return (
     <Card 
-      title="Environment Configurations" 
+      title="LLM Configurations" 
       extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>Create New</Button>}
     >
       <Input.Search
-        placeholder="Search environments"
+        placeholder="Search LLM configs"
         onChange={handleSearch}
         style={{ marginBottom: 16 }}
       />
       
       <Table
         columns={columns}
-        dataSource={filteredEnvironments}
+        dataSource={filteredLLMs}
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10 }}
       />
       
       <Modal
-        title={currentEnvironment ? "Edit Environment" : "Create Environment"}
+        title={currentLLM ? "Edit LLM Config" : "Create LLM Config"}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
@@ -238,8 +237,8 @@ const EnvironmentList: React.FC = () => {
           </Form>
         </Card>
         
-        <Card title="Environment Settings">
-          <EnvironmentForm 
+        <Card title="LLM Config Settings">
+          <LLMForm 
             value={formValues} 
             onChange={setFormValues}
           />
@@ -249,4 +248,4 @@ const EnvironmentList: React.FC = () => {
   );
 };
 
-export default EnvironmentList; 
+export default LLMList;

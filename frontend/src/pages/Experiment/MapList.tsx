@@ -52,7 +52,11 @@ const MapList: React.FC = () => {
   // Handle create new map
   const handleCreate = () => {
     setCurrentMap(null);
-    setFormValues(configService.getDefaultConfigs().map);
+    // Create a basic map config based on config.json structure
+    setFormValues({
+      file_path: "maps/default_map.pb",
+      cache_path: "maps/default_map.cache"
+    });
     metaForm.setFieldsValue({
       name: `Map ${maps.length + 1}`,
       description: ''

@@ -1,28 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
-import AgentForm from './AgentForm';
+import WorkflowForm from './WorkflowForm';
 import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
 import configService from '../../services/configService';
-import { AgentConfig } from '../../types/config';
+import { ExpConfig } from '../../types/config';
 
-const AgentList: React.FC = () => {
-  const [agents, setAgents] = useState<ConfigItem[]>([]);
+const WorkflowList: React.FC = () => {
+  const [workflows, setWorkflows] = useState<ConfigItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [currentAgent, setCurrentAgent] = useState<ConfigItem | null>(null);
-  const [formValues, setFormValues] = useState<Partial<AgentConfig>>({});
+  const [currentWorkflow, setCurrentWorkflow] = useState<ConfigItem | null>(null);
+  const [formValues, setFormValues] = useState<Partial<ExpConfig>>({});
   const [metaForm] = Form.useForm();
 
-  // Load agent configurations
-  const loadAgents = async () => {
+  // Load workflow configurations
+  const loadWorkflows = async () => {
     setLoading(true);
     try {
-      const data = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.AGENTS);
-      setAgents(data);
+      const data = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.WORKFLOWS);
+      setWorkflows(data);
     } catch (error) {
-      message.error('Failed to load agents');
+      message.error('Failed to load workflows');
       console.error(error);
     } finally {
       setLoading(false);
@@ -33,7 +33,7 @@ const AgentList: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       await storageService.initializeExampleData();
-      await loadAgents();
+      await loadWorkflows();
     };
     init();
   }, []);
@@ -43,63 +43,63 @@ const AgentList: React.FC = () => {
     setSearchText(e.target.value);
   };
 
-  // Filter agents based on search text
-  const filteredAgents = agents.filter(agent => 
-    agent.name.toLowerCase().includes(searchText.toLowerCase()) || 
-    (agent.description && agent.description.toLowerCase().includes(searchText.toLowerCase()))
+  // Filter workflows based on search text
+  const filteredWorkflows = workflows.filter(workflow => 
+    workflow.name.toLowerCase().includes(searchText.toLowerCase()) || 
+    (workflow.description && workflow.description.toLowerCase().includes(searchText.toLowerCase()))
   );
 
-  // Handle create new agent
+  // Handle create new workflow
   const handleCreate = () => {
-    setCurrentAgent(null);
-    setFormValues(configService.getDefaultConfigs().agent);
+    setCurrentWorkflow(null);
+    // setFormValues(configService.getDefaultConfigs().workflow);
     metaForm.setFieldsValue({
-      name: `Agent ${agents.length + 1}`,
+      name: `Workflow ${workflows.length + 1}`,
       description: ''
     });
     setIsModalVisible(true);
   };
 
-  // Handle edit agent
-  const handleEdit = (agent: ConfigItem) => {
-    setCurrentAgent(agent);
-    setFormValues(agent.config);
+  // Handle edit workflow
+  const handleEdit = (workflow: ConfigItem) => {
+    setCurrentWorkflow(workflow);
+    setFormValues(workflow.config);
     metaForm.setFieldsValue({
-      name: agent.name,
-      description: agent.description
+      name: workflow.name,
+      description: workflow.description
     });
     setIsModalVisible(true);
   };
 
-  // Handle duplicate agent
-  const handleDuplicate = (agent: ConfigItem) => {
-    setCurrentAgent(null);
-    setFormValues(agent.config);
+  // Handle duplicate workflow
+  const handleDuplicate = (workflow: ConfigItem) => {
+    setCurrentWorkflow(null);
+    setFormValues(workflow.config);
     metaForm.setFieldsValue({
-      name: `${agent.name} (Copy)`,
-      description: agent.description
+      name: `${workflow.name} (Copy)`,
+      description: workflow.description
     });
     setIsModalVisible(true);
   };
 
-  // Handle delete agent
+  // Handle delete workflow
   const handleDelete = async (id: string) => {
     try {
-      await storageService.deleteConfig(STORAGE_KEYS.AGENTS, id);
-      message.success('Agent deleted successfully');
-      loadAgents();
+      await storageService.deleteConfig(STORAGE_KEYS.WORKFLOWS, id);
+      message.success('Workflow deleted successfully');
+      loadWorkflows();
     } catch (error) {
-      message.error('Failed to delete agent');
+      message.error('Failed to delete workflow');
       console.error(error);
     }
   };
 
-  // Handle export agent
-  const handleExport = (agent: ConfigItem) => {
-    const dataStr = JSON.stringify(agent, null, 2);
+  // Handle export workflow
+  const handleExport = (workflow: ConfigItem) => {
+    const dataStr = JSON.stringify(workflow, null, 2);
     const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
     
-    const exportFileDefaultName = `${agent.name.replace(/\s+/g, '_')}_agent.json`;
+    const exportFileDefaultName = `${workflow.name.replace(/\s+/g, '_')}_workflow.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -114,19 +114,19 @@ const AgentList: React.FC = () => {
       const metaValues = await metaForm.validateFields();
       
       const configData: ConfigItem = {
-        id: currentAgent?.id || `agent_${Date.now()}`,
+        id: currentWorkflow?.id || `workflow_${Date.now()}`,
         name: metaValues.name,
         description: metaValues.description || '',
         config: formValues,
-        createdAt: currentAgent?.createdAt || new Date().toISOString(),
+        createdAt: currentWorkflow?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
       
-      await storageService.saveConfig(STORAGE_KEYS.AGENTS, configData);
+      await storageService.saveConfig(STORAGE_KEYS.WORKFLOWS, configData);
       
-      message.success(`Agent ${currentAgent ? 'updated' : 'created'} successfully`);
+      message.success(`Workflow ${currentWorkflow ? 'updated' : 'created'} successfully`);
       setIsModalVisible(false);
-      loadAgents();
+      loadWorkflows();
     } catch (error) {
       console.error('Validation failed:', error);
     }
@@ -174,7 +174,7 @@ const AgentList: React.FC = () => {
           </Tooltip>
           <Tooltip title="Delete">
             <Popconfirm
-              title="Are you sure you want to delete this agent?"
+              title="Are you sure you want to delete this workflow?"
               onConfirm={() => handleDelete(record.id)}
               okText="Yes"
               cancelText="No"
@@ -189,25 +189,25 @@ const AgentList: React.FC = () => {
 
   return (
     <Card 
-      title="Agent Configurations" 
+      title="Workflow Configurations" 
       extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>Create New</Button>}
     >
       <Input.Search
-        placeholder="Search agents"
+        placeholder="Search workflows"
         onChange={handleSearch}
         style={{ marginBottom: 16 }}
       />
       
       <Table
         columns={columns}
-        dataSource={filteredAgents}
+        dataSource={filteredWorkflows}
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10 }}
       />
       
       <Modal
-        title={currentAgent ? "Edit Agent" : "Create Agent"}
+        title={currentWorkflow ? "Edit Workflow" : "Create Workflow"}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
@@ -238,8 +238,8 @@ const AgentList: React.FC = () => {
           </Form>
         </Card>
         
-        <Card title="Agent Settings">
-          <AgentForm 
+        <Card title="Workflow Settings">
+          <WorkflowForm 
             value={formValues} 
             onChange={setFormValues}
           />
@@ -249,4 +249,4 @@ const AgentList: React.FC = () => {
   );
 };
 
-export default AgentList; 
+export default WorkflowList; 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Form, Input, InputNumber, Select, Card, Tabs, Button, Space, Switch } from 'antd';
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
-import { ExpConfig, WorkflowStep, MetricExtractor } from '../../types/config';
+import { ExpConfig, WorkflowStepConfig, MetricExtractorConfig } from '../../types/config';
 import { WorkflowType, MetricType } from '../../utils/enums';
 
 const { TabPane } = Tabs;
@@ -32,36 +32,19 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
       initialValues={value}
     >
       <Tabs defaultActiveKey="1">
-        <TabPane tab="Basic Settings" key="1">
+        {/* <TabPane tab="Basic Settings" key="1">
           <Card bordered={false}>
             <Form.Item
-              name="llm_semaphore"
-              label="LLM Semaphore"
-              tooltip="Maximum number of concurrent LLM requests"
-              initialValue={200}
+              name="name"
+              label="Experiment Name"
+              rules={[{ required: true, message: 'Please enter experiment name' }]}
             >
-              <InputNumber min={1} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              name="logging_level"
-              label="Logging Level"
-              initialValue={20}
-            >
-              <Select
-                options={[
-                  { value: 10, label: 'DEBUG' },
-                  { value: 20, label: 'INFO' },
-                  { value: 30, label: 'WARNING' },
-                  { value: 40, label: 'ERROR' },
-                  { value: 50, label: 'CRITICAL' },
-                ]}
-              />
+              <Input placeholder="Enter experiment name" />
             </Form.Item>
           </Card>
-        </TabPane>
+        </TabPane> */}
 
-        <TabPane tab="Environment Settings" key="2">
+        {/* <TabPane tab="Environment Settings" key="2">
           <Card bordered={false}>
             <Form.Item
               name={['environment', 'weather']}
@@ -93,51 +76,49 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
               label="Other Information"
               initialValue=""
             >
-              <Input.TextArea rows={3} placeholder="Enter additional environment information" />
+              <Input.TextArea rows={4} placeholder="Enter other environment information" />
+            </Form.Item>
+            
+            <Form.Item
+              name={['environment', 'start_tick']}
+              label="Start Tick"
+              initialValue={28800}
+            >
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+            
+            <Form.Item
+              name={['environment', 'total_tick']}
+              label="Total Tick"
+              initialValue={7200}
+            >
+              <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
           </Card>
-        </TabPane>
+        </TabPane> */}
 
-        <TabPane tab="Message Intercept" key="3">
+        <TabPane tab="Workflow Steps" key="3">
           <Card bordered={false}>
-            <Form.Item
-              name={['message_intercept', 'mode']}
-              label="Intercept Mode"
+            <Form.List
+              name="workflow"
+              // initialValue={[{
+              //   type: WorkflowType.RUN,
+              //   days: 1,
+              //   description: "Run simulation for 1 day"
+              // }]}
             >
-              <Select
-                placeholder="Select intercept mode"
-                options={[
-                  { value: 'point', label: 'Point' },
-                  { value: 'edge', label: 'Edge' },
-                ]}
-              />
-            </Form.Item>
-
-            <Form.Item
-              name={['message_intercept', 'max_violation_time']}
-              label="Max Violation Time"
-              initialValue={3}
-            >
-              <InputNumber min={1} style={{ width: '100%' }} />
-            </Form.Item>
-          </Card>
-        </TabPane>
-
-        <TabPane tab="Workflow Steps" key="4">
-          <Card bordered={false}>
-            <Form.List name="workflow">
               {(fields, { add, remove }) => (
                 <>
                   {fields.map(({ key, name, ...restField }) => (
-                    <Card 
-                      key={key} 
-                      title={`Step ${name + 1}`} 
+                    <Card
+                      key={key}
+                      title={`Step ${name + 1}`}
                       style={{ marginBottom: 16 }}
                       extra={
-                        <Button 
-                          type="text" 
-                          danger 
-                          icon={<MinusCircleOutlined />} 
+                        <Button
+                          type="text"
+                          danger
+                          icon={<MinusCircleOutlined />}
                           onClick={() => remove(name)}
                         />
                       }
@@ -151,36 +132,64 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                         <Select
                           placeholder="Select step type"
                           options={[
-                            { value: WorkflowType.RUN, label: 'Run Simulation' },
-                            { value: WorkflowType.FUNCTION, label: 'Execute Function' },
-                            { value: WorkflowType.INTERVIEW, label: 'Interview Agents' },
-                            { value: WorkflowType.SURVEY, label: 'Survey Agents' },
-                            { value: WorkflowType.ENVIRONMENT_INTERVENE, label: 'Environment Intervention' },
-                            { value: WorkflowType.UPDATE_STATE_INTERVENE, label: 'Update State Intervention' },
-                            { value: WorkflowType.MESSAGE_INTERVENE, label: 'Message Intervention' },
-                            { value: WorkflowType.INTERVENE, label: 'General Intervention' },
+                            { value: WorkflowType.STEP, label: 'Step' },
+                            { value: WorkflowType.RUN, label: 'Run' }
                           ]}
                         />
                       </Form.Item>
 
                       <Form.Item
                         {...restField}
-                        name={[name, 'days']}
-                        label="Days"
-                        tooltip="Duration in days (for RUN type)"
-                        initialValue={1.0}
+                        name={[name, 'times']}
+                        label="Times"
+                        rules={[{ required: true, message: 'Please enter number of times' }]}
                       >
-                        <InputNumber min={0.1} step={0.1} style={{ width: '100%' }} />
+                        <InputNumber min={1} style={{ width: '100%' }} />
+                      </Form.Item>
+
+                      {/* <Form.Item
+                        {...restField}
+                        name={[name, 'func']}
+                        label="Function Name"
+                        tooltip="Name of the function to call (for Function type)"
+                      >
+                        <Input placeholder="Enter function name" />
+                      </Form.Item> */}
+
+                      {/* <Form.Item
+                        {...restField}
+                        name={[name, 'interview_message']}
+                        label="Interview Message"
+                        tooltip="Message to send to agents (for Interview type)"
+                      >
+                        <Input.TextArea rows={3} placeholder="Enter interview message" />
                       </Form.Item>
 
                       <Form.Item
                         {...restField}
-                        name={[name, 'times']}
-                        label="Times"
-                        tooltip="Number of repetitions (for RUN type)"
-                        initialValue={1}
+                        name={[name, 'key']}
+                        label="State Key"
+                        tooltip="Key to update in agent state (for Update State type)"
                       >
-                        <InputNumber min={1} style={{ width: '100%' }} />
+                        <Input placeholder="Enter state key" />
+                      </Form.Item>
+
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'value']}
+                        label="State Value"
+                        tooltip="Value to set for the key (for Update State type)"
+                      >
+                        <Input placeholder="Enter state value" />
+                      </Form.Item>
+
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'intervene_message']}
+                        label="Intervention Message"
+                        tooltip="Message to send to agents (for Message Intervention type)"
+                      >
+                        <Input.TextArea rows={3} placeholder="Enter intervention message" />
                       </Form.Item>
 
                       <Form.Item
@@ -189,7 +198,7 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                         label="Description"
                       >
                         <Input placeholder="Enter step description" />
-                      </Form.Item>
+                      </Form.Item> */}
                     </Card>
                   ))}
                   <Form.Item>
@@ -203,21 +212,59 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
           </Card>
         </TabPane>
 
+        {/* <TabPane tab="Message Interception" key="4">
+          <Card bordered={false}>
+            <Form.Item
+              name={['message_intercept', 'mode']}
+              label="Interception Mode"
+              initialValue="point"
+            >
+              <Select
+                placeholder="Select interception mode"
+                options={[
+                  { value: 'point', label: 'Point' },
+                  { value: 'edge', label: 'Edge' }
+                ]}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name={['message_intercept', 'max_violation_time']}
+              label="Max Violation Time"
+              initialValue={3}
+              tooltip="Maximum number of allowed violations"
+            >
+              <InputNumber min={1} style={{ width: '100%' }} />
+            </Form.Item>
+
+            <Form.Item
+              name={['message_intercept', 'listener']}
+              label="Message Listener"
+              tooltip="Name of the message listener class"
+            >
+              <Input placeholder="Enter message listener class name" />
+            </Form.Item>
+          </Card>
+        </TabPane>
+
         <TabPane tab="Metrics" key="5">
           <Card bordered={false}>
-            <Form.List name="metric_extractors">
+            <Form.List
+              name="metric_extractors"
+              initialValue={[]}
+            >
               {(fields, { add, remove }) => (
                 <>
                   {fields.map(({ key, name, ...restField }) => (
-                    <Card 
-                      key={key} 
-                      title={`Metric ${name + 1}`} 
+                    <Card
+                      key={key}
+                      title={`Metric ${name + 1}`}
                       style={{ marginBottom: 16 }}
                       extra={
-                        <Button 
-                          type="text" 
-                          danger 
-                          icon={<MinusCircleOutlined />} 
+                        <Button
+                          type="text"
+                          danger
+                          icon={<MinusCircleOutlined />}
                           onClick={() => remove(name)}
                         />
                       }
@@ -300,7 +347,7 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
               )}
             </Form.List>
           </Card>
-        </TabPane>
+        </TabPane> */}
       </Tabs>
     </Form>
   );

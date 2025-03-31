@@ -7,18 +7,20 @@ export enum LLMProviderType {
   DEEPSEEK = 'deepseek',
   QWEN = 'qwen',
   ZHIPUAI = 'zhipuai',
-  SILICONFLOW = 'siliconflow'
+  SILICONFLOW = 'siliconflow',
+  VLLM = 'vllm'
 }
 
 export enum WorkflowType {
-  RUN = 'run',
-  FUNCTION = 'function',
-  INTERVIEW = 'interview',
-  SURVEY = 'survey',
-  ENVIRONMENT_INTERVENE = 'environment_intervene',
-  UPDATE_STATE_INTERVENE = 'update_state_intervene',
-  MESSAGE_INTERVENE = 'message_intervene',
-  INTERVENE = 'intervene'
+  STEP = "step",
+  RUN = "run",
+  INTERVIEW = "interview",
+  SURVEY = "survey",
+  ENVIRONMENT_INTERVENE = "environment",
+  UPDATE_STATE_INTERVENE = "update_state",
+  MESSAGE_INTERVENE = "message",
+  // INTERVENE = "other",
+  // FUNCTION = "function"
 }
 
 export enum MetricType {

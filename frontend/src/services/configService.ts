@@ -2,107 +2,170 @@
  * Service for handling configuration operations
  */
 
-import { SimConfig, ExpConfig, ExperimentRequestConfig, LLMConfig, AgentConfig, MapConfig, SimulatorConfig, RedisConfig, PostgreSQLConfig, AvroConfig, EnvironmentConfig, MessageInterceptConfig } from '../types/config';
-import { LLMProviderType, WorkflowType } from '../utils/enums';
+import { LLMConfig, AgentConfig, AgentsConfig, MapConfig, ExpConfig, Config } from '../types/config';
 import storageService, { STORAGE_KEYS, ConfigItem } from './storageService';
 
 class ConfigService {
   /**
    * Builds a complete experiment configuration from selected components
+   * following the format in config.json
    */
   async buildExperimentConfig(
-    environmentId: string,
+    llmId: string,
     agentId: string,
     workflowId: string,
     mapId: string,
     experimentName: string
-  ): Promise<ExperimentRequestConfig | null> {
+  ): Promise<Config | null> {
     try {
       // Load all required configurations
-      const environments = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.ENVIRONMENTS);
+      const llms = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.LLMS);
       const agents = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.AGENTS);
       const workflows = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.WORKFLOWS);
       const maps = await storageService.getConfigs<ConfigItem>(STORAGE_KEYS.MAPS);
       
       // Find selected configurations
-      const environment = environments.find(env => env.id === environmentId);
+      const llm = llms.find(l => l.id === llmId);
       const agent = agents.find(a => a.id === agentId);
       const workflow = workflows.find(w => w.id === workflowId);
       const map = maps.find(m => m.id === mapId);
       
-      if (!environment || !agent || !workflow || !map) {
+      if (!llm || !agent || !workflow || !map) {
         console.error('One or more required configurations not found');
         return null;
       }
       
-      // Build simulator configuration
-      const simConfig: SimConfig = {
-        llm_configs: (environment.config.llm_configs || []) as LLMConfig[],
-        simulator_config: (environment.config.simulator_config || {
-          task_name: "citysim",
-          max_day: 1000,
-          start_step: 28800,
-          total_step: 86400,
-          log_dir: "./logs",
-          steps_per_simulation_step: 1,
-          steps_per_simulation_day: 86400,
-          primary_node_ip: "localhost"
-        }) as SimulatorConfig,
-        redis: (environment.config.redis || {
-          server: "localhost",
-          port: 6379,
-          db: "0"
-        }) as RedisConfig,
-        map_config: {
-          file_path: map.config.file_path as string,
-          cache_path: map.config.cache_path as string
+      // Process agent configuration
+      let config: Config = {
+        llm: [],
+        map: {
+          file_path: typeof map.config.file_path === 'string' ? map.config.file_path : "maps/default.pb",
+          cache_path: typeof map.config.cache_path === 'string' ? map.config.cache_path : null
         },
-        metric_config: environment.config.metric_config || {
-          mlflow: {
-            mlflow_uri: "http://localhost:5000"
-          }
+        agents: {
+          citizens: [],
+          firms: [],
+          governments: [],
+          banks: [],
+          nbs: [],
+          init_funcs: []
         },
-        pgsql: (environment.config.pgsql || {
-          enabled: true,
-          dsn: "postgresql://postgres:postgres@localhost:5432/agentsociety"
-        }) as PostgreSQLConfig,
-        avro: (environment.config.avro || {
-          enabled: false,
-          path: "./output/avro"
-        }) as AvroConfig,
-        simulator_server_address: environment.config.simulator_server_address as string || "localhost:50051"
+        exp: {
+          name: experimentName || workflow.name,
+          workflow: Array.isArray(workflow.config.workflow) ? workflow.config.workflow : [
+            {
+              func: null,
+              type: "step",
+              times: 10
+            }
+          ],
+          environment: workflow.config.environment || {
+            start_tick: 28800,
+            total_tick: 7200
+          },
+          message_intercept: workflow.config.message_intercept && 
+            typeof workflow.config.message_intercept === 'object' ? 
+              {
+                listener: null,
+                mode: "point",
+                max_violation_time: 100,
+                ...(workflow.config.message_intercept as Record<string, any>)
+              } : 
+              {
+                listener: null,
+                mode: "point",
+                max_violation_time: 100
+              }
+        }
       };
       
-      // Build experiment configuration
-      const expConfig: ExpConfig = {
-        exp_name: experimentName || workflow.name,
-        llm_semaphore: (workflow.config.llm_semaphore as number) || 200,
-        logging_level: (workflow.config.logging_level as number) || 20,
-        agent_config: agent.config.agent_config as AgentConfig || {
-          number_of_citizen: 10,
-          number_of_firm: 5,
-          number_of_government: 1,
-          number_of_bank: 1,
-          number_of_nbs: 0,
-          group_size: 100
-        },
-        environment: (workflow.config.environment || {
-          weather: "The weather is normal",
-          temperature: "The temperature is normal",
-          workday: true,
-          other_information: ""
-        }) as EnvironmentConfig,
-        message_intercept: (workflow.config.message_intercept || {
-          max_violation_time: 3
-        }) as MessageInterceptConfig,
-        metric_extractors: (workflow.config.metric_extractors || []) as any[],
-        workflow: (workflow.config.workflow || []) as any[]
-      };
+      try {
+        // Extract agent configuration from the form data
+        const agentConfig = agent.config;
+        
+        // Use the agent config directly if it matches the expected structure
+        if (agentConfig.citizens && Array.isArray(agentConfig.citizens)) {
+          config.agents = {
+            citizens: Array.isArray(agentConfig.citizens) ? agentConfig.citizens : [],
+            firms: Array.isArray(agentConfig.firms) ? agentConfig.firms : [],
+            governments: Array.isArray(agentConfig.governments) ? agentConfig.governments : [],
+            banks: Array.isArray(agentConfig.banks) ? agentConfig.banks : [],
+            nbs: Array.isArray(agentConfig.nbs) ? agentConfig.nbs : [],
+            init_funcs: Array.isArray(agentConfig.init_funcs) ? agentConfig.init_funcs : []
+          };
+        } else {
+          // Fallback to default structure if needed
+          config.agents = {
+            citizens: [
+              {
+                agent_class: 'citizen',
+                number: 10,
+                memory_config_func: null,
+                memory_distributions: null
+              }
+            ],
+            firms: [
+              {
+                agent_class: 'firm',
+                number: 5,
+                memory_config_func: null,
+                memory_distributions: null
+              }
+            ],
+            governments: [
+              {
+                agent_class: 'government',
+                number: 1,
+                memory_config_func: null,
+                memory_distributions: null
+              }
+            ],
+            banks: [
+              {
+                agent_class: 'bank',
+                number: 1,
+                memory_config_func: null,
+                memory_distributions: null
+              }
+            ],
+            nbs: [],
+            init_funcs: []
+          };
+        }
+      } catch (error) {
+        console.warn('Error parsing agent config:', error);
+        throw new Error('Invalid agent configuration');
+      }
       
-      return {
-        sim_config: simConfig,
-        exp_config: expConfig
-      };
+      // Process LLM configuration
+      let llmConfigs = [];
+      try {
+        // Check if llm.config is already an array of LLM configs
+        if (Array.isArray(llm.config)) {
+          llmConfigs = llm.config;
+        } 
+        // Check if llm.config has llm_configs array
+        else if (llm.config.llm_configs && Array.isArray(llm.config.llm_configs)) {
+          llmConfigs = llm.config.llm_configs;
+        }
+        // Check if llm.config is a single LLM config object
+        else if (llm.config.provider && llm.config.model) {
+          llmConfigs = [llm.config];
+        }
+        // If none of the above, throw an error
+        else {
+          console.warn('LLM config format not recognized');
+          throw new Error('Invalid LLM configuration: No valid provider or model found');
+        }
+      } catch (error) {
+        console.warn('Error parsing LLM config:', error);
+        throw new Error('Invalid LLM configuration');
+      }
+      
+      // Build config object following config.json format
+      config.llm = llmConfigs;
+      
+      return config;
     } catch (error) {
       console.error('Error building experiment configuration:', error);
       return null;
@@ -119,81 +182,6 @@ class ConfigService {
       }
     }
     return true;
-  }
-  
-  /**
-   * Returns default configurations for new items
-   */
-  getDefaultConfigs() {
-    return {
-      environment: {
-        llm_configs: [{
-          provider: LLMProviderType.OPENAI,
-          api_key: "",
-          model: "gpt-4o"
-        }],
-        simulator_config: {
-          task_name: "citysim",
-          max_day: 1000,
-          start_step: 28800,
-          total_step: 86400,
-          log_dir: "./logs",
-          steps_per_simulation_step: 1,
-          steps_per_simulation_day: 86400,
-          primary_node_ip: "localhost"
-        },
-        redis: {
-          server: "localhost",
-          port: 6379,
-          db: "0"
-        },
-        metric_config: {
-          mlflow: {
-            mlflow_uri: "http://localhost:5000"
-          }
-        },
-        pgsql: {
-          enabled: true,
-          dsn: "postgresql://postgres:postgres@localhost:5432/agentsociety"
-        },
-        avro: {
-          enabled: false,
-          path: "./output/avro"
-        },
-        simulator_server_address: "localhost:50051"
-      },
-      agent: {
-        number_of_citizen: 10,
-        number_of_firm: 5,
-        number_of_government: 1,
-        number_of_bank: 1,
-        number_of_nbs: 0,
-        group_size: 100
-      },
-      workflow: {
-        llm_semaphore: 200,
-        logging_level: 20,
-        environment: {
-          weather: "The weather is normal",
-          temperature: "The temperature is normal",
-          workday: true,
-          other_information: ""
-        },
-        message_intercept: {
-          max_violation_time: 3
-        },
-        workflow: [{
-          type: WorkflowType.RUN,
-          days: 1.0,
-          times: 1,
-          description: "Run simulation for 1 day"
-        }]
-      },
-      map: {
-        file_path: './maps/default_map.pb',
-        cache_path: './maps/cache/default_map.cache'
-      }
-    };
   }
 }
 
