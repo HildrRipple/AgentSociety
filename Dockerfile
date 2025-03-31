@@ -29,6 +29,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 4. copy the whole project code
 COPY agentsociety /app/agentsociety
+COPY setup.py /app/setup.py
 COPY --from=builder /app/dist /app/agentsociety/_dist
 RUN pip install . --no-cache-dir \
     && rm -rf /app
