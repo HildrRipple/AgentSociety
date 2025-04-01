@@ -19,18 +19,20 @@ The first step involves initializing agents with initial attitudes towards gun c
 The basic initialization function for control group.
 
 ```python
-async def update_attitude(simulation: AgentSimulation):
-    citizen_uuids = await simulation.filter(types=[SocietyAgent])
-    for agent in citizen_uuids:
+async def update_attitude(simulation: AgentSociety):
+    citizen_ids = await simulation.filter(types=(SocietyAgent,))
+    for agent_id in citizen_ids:
         if random.random() < 0.5:
             await simulation.update(
-                agent, "attitude", {"Whether to support stronger gun control?": 3}
+                [agent_id], "attitude", {"Whether to support stronger gun control?": 3}
             )
         else:
             await simulation.update(
-                agent, "attitude", {"Whether to support stronger gun control?": 7}
+                [agent_id], "attitude", {"Whether to support stronger gun control?": 7}
             )
-    attitudes = await simulation.gather("attitude", citizen_uuids)
+    attitudes = await simulation.gather("attitude", citizen_ids)
+    with open(f"exp1/attitudes_initial.json", "w", encoding="utf-8") as f:
+        json.dump(attitudes, f, ensure_ascii=False, indent=2)
 ```
 
 #### Experiment Group: Echo Chamber
@@ -40,30 +42,31 @@ For the Echo Chamber experiment, during the attitude initialization phase, we en
 In this context, being "friends" means that these agents can engage in conversations to influence each other's viewpoints.
 
 ```diff
-async def update_attitude(simulation: AgentSimulation):
-+   citizen_uuids = await simulation.filter(types=[SocietyAgent])
-+   agree_agent_uuid = await simulation.filter(types=[AgreeAgent])
-+   agree_agent_uuid = agree_agent_uuid[0]
-+   disagree_agent_uuid = await simulation.filter(types=[DisagreeAgent])
-+   disagree_agent_uuid = disagree_agent_uuid[0]
+async def update_attitude(simulation: AgentSociety):
++   agree_agent_id = await simulation.filter(types=(AgreeAgent,))
++   agree_agent_id = agree_agent_id[0]
++   disagree_agent_id = await simulation.filter(types=(DisagreeAgent,))
++   disagree_agent_id = disagree_agent_id[0]
 +   agree_friends = []
 +   disagree_friends = []
-    for agent in citizen_uuids:
+    for agent_id in citizen_ids:
         if random.random() < 0.5:
             await simulation.update(
-                agent, "attitude", {"Whether to support stronger gun control?": 3}
+                [agent_id], "attitude", {"Whether to support stronger gun control?": 3}
             )
-+            disagree_friends.append(agent)
++           disagree_friends.append(agent_id)
         else:
             await simulation.update(
-                agent, "attitude", {"Whether to support stronger gun control?": 7}
+                [agent_id], "attitude", {"Whether to support stronger gun control?": 7}
             )
-+           agree_friends.append(agent)
-+       # remove original social network
-+       await simulation.update(agent, "friends", [])
-+   await simulation.update(agree_agent_uuid, "friends", agree_friends)
-+   await simulation.update(disagree_agent_uuid, "friends", disagree_friends)
-    attitudes = await simulation.gather("attitude", citizen_uuids)
++           agree_friends.append(agent_id)
+        # remove original social network
+        await simulation.update([agent_id], "friends", [])
++       await simulation.update([agree_agent_id], "friends", agree_friends)
++       await simulation.update([disagree_agent_id], "friends", disagree_friends)
+    attitudes = await simulation.gather("attitude", citizen_ids)
+    with open(f"exp2/attitudes_initial.json", "w", encoding="utf-8") as f:
+        json.dump(attitudes, f, ensure_ascii=False, indent=2)
 ```
 
 #### Experiment Group: Back Firing
@@ -71,90 +74,70 @@ async def update_attitude(simulation: AgentSimulation):
 For the Back Firing experiment, during the attitude initialization phase, we connect agents who are inclined to persuade their friends to support a positive stance (such as stronger gun control) as friends with agents who hold a negative stance. Similarly, agents who aim to persuade their friends towards a negative stance (opposing stronger gun control) are connected as friends with agents who hold a positive stance.
 
 ```diff
-async def update_attitude(simulation: AgentSimulation):
-+   citizen_uuids = await simulation.filter(types=[SocietyAgent])
-+   agree_agent_uuid = await simulation.filter(types=[AgreeAgent])
-+   agree_agent_uuid = agree_agent_uuid[0]
-+   disagree_agent_uuid = await simulation.filter(types=[DisagreeAgent])
-+   disagree_agent_uuid = disagree_agent_uuid[0]
+async def update_attitude(simulation: AgentSociety):
++   agree_agent_id = await simulation.filter(types=(AgreeAgent,))
++   agree_agent_id = agree_agent_id[0]
++   disagree_agent_id = await simulation.filter(types=(DisagreeAgent,))
++   disagree_agent_id = disagree_agent_id[0]
 +   agree_friends = []
 +   disagree_friends = []
-    for agent in citizen_uuids:
+    for agent_id in citizen_ids:
         if random.random() < 0.5:
             await simulation.update(
-                agent, "attitude", {"Whether to support stronger gun control?": 3}
+                [agent_id], "attitude", {"Whether to support stronger gun control?": 3}
             )
-+            agree_friends.append(agent)
++           agree_friends.append(agent_id)
         else:
             await simulation.update(
-                agent, "attitude", {"Whether to support stronger gun control?": 7}
+                [agent_id], "attitude", {"Whether to support stronger gun control?": 7}
             )
-+           disagree_friends.append(agent)
-+       # remove original social network
-+       await simulation.update(agent, "friends", [])
-+   await simulation.update(agree_agent_uuid, "friends", agree_friends)
-+   await simulation.update(disagree_agent_uuid, "friends", disagree_friends)
-    attitudes = await simulation.gather("attitude", citizen_uuids)
++           disagree_friends.append(agent_id)
+        # remove original social network
+        await simulation.update([agent_id], "friends", [])
++       await simulation.update([agree_agent_id], "friends", agree_friends)
++       await simulation.update([disagree_agent_id], "friends", disagree_friends)
+    attitudes = await simulation.gather("attitude", citizen_ids)
+    with open(f"exp2/attitudes_initial.json", "w", encoding="utf-8") as f:
+        json.dump(attitudes, f, ensure_ascii=False, indent=2)
 ```
 
 #### Add Init-Functions to Your Workflow
 
-To use these functions, you need to add them with `ExpConfig.SetWorkFlow`.
+To use these functions, you need to add them with `ExpConfig.SetWorkFlow`. Here's an example from the control group experiment:
 
 ```python
-WorkflowStep(
-    type=WorkflowType.INTERVENE,
+WorkflowStepConfig(
+    type=WorkflowType.FUNCTION,
     func=update_attitude,
     description="update attitude",
-)
+),
 ```
-
-### Simulating Interactions
-
-After setting up the initial conditions, we let the simulation run for several days to allow interactions among agents. In the control group, interactions happen naturally without any external persuasion:
-
-```python
-WorkflowStep(type=WorkflowType.RUN, days=3)
-```
-
-For the experimental groups,which are echo chambers and backfiring effects, we introduce `AgreeAgent` and `DisagreeAgent` classes. These agents actively participate in discussions with their friends, trying to influence others' opinions.
-
-#### Experiment Group: Echo Chamber & Back Firing
-
-```diff
-.SetAgentConfig(
-        number_of_citizen=100,
-        group_size=50,
-        extra_agent_class={DisagreeAgent: 1, AgreeAgent: 1},
-+       memory_config_func={
-+          DisagreeAgent: memory_config_societyagent,
-+          AgreeAgent: memory_config_societyagent,
-+       },
-    )
-```
-
-`AgreeAgent` and `DisagreeAgent` classes inherit the `CitizenAgent` and overwrite its `forward` method, to implement the workflow logic we want.
-
 ### Collecting Data
 
 After allowing time for opinions to evolve, we collect data on agents' final attitudes. This involves gathering updated attitudes and recording any shifts from their original positions:
 
 ```python
-async def gather_attitude(simulation: AgentSimulation):
-    citizen_uuids = await simulation.filter(types=[SocietyAgent])
-    attitudes = await simulation.gather("attitude", citizen_uuids)
+async def gather_attitude(simulation: AgentSociety):
+    print("gather attitude")
+    citizen_ids = await simulation.filter(types=(SocietyAgent,))
+    attitudes = await simulation.gather("attitude", citizen_ids)
+
     with open(f"exp1/attitudes_final.json", "w", encoding="utf-8") as f:
         json.dump(attitudes, f, ensure_ascii=False, indent=2)
+
+    chat_histories = await simulation.gather("chat_histories", citizen_ids)
+    with open(f"exp1/chat_histories.json", "w", encoding="utf-8") as f:
+        json.dump(chat_histories, f, ensure_ascii=False, indent=2)
 ```
 
 Similar to initializing the attitudes, you need to add the collecting function with `ExpConfig.SetWorkFlow`. 
 
 ```python
-WorkflowStep(
+WorkflowStepConfig(
     type=WorkflowType.FUNCTION,
     func=gather_attitude,
     description="gather attitude",
-)
+),
 ```
 
 ### Run the Codes

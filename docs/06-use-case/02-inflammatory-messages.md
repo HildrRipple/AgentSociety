@@ -29,7 +29,7 @@ async def update_chat_histories(simulation: AgentSimulation):
     selected_citizen_uuids = random.sample(citizen_uuids, k=3)
     chat_histories = await simulation.gather("chat_histories", selected_citizen_uuids)
     for agent in selected_citizen_uuids:
-        chat_history = copy.deepcopy(chat_histories[1][agent])
+        chat_history = copy.deepcopy(chat_histories[0][agent])
         for chat in chat_history.keys():
             chat_history[
                 chat
