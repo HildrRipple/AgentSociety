@@ -129,8 +129,8 @@ python control.py
 python emotional.py
 # interception: edge mode
 python edge_intercept.py
-# interception: node mode
-python node_intercept.py
+# interception: point mode
+python point_intercept.py
 ```
 
 ## Experiment Result

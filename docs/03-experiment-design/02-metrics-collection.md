@@ -2,6 +2,12 @@
 
 The metrics management system, encapsulated within the `MlflowClient` class is designed to streamline the process of connecting to, logging data with, and managing experiments in [MLflow](https://mlflow.org/).
 
+```{admonition} Caution
+:class: caution
+To integrate with `MLflow`, you have to deploy it first.
+Check [prerequisites](./01-quick-start/01-prerequisites.md) for details.
+```
+
 ## Metric Extractor
 
 We provide a flexible way to collect metrics during experiments, just need to specify your metric extractor in the experiment config.
@@ -38,12 +44,6 @@ config = Config(
 ```
 
 ## Agent and MLflow Integration
-
-```{admonition} Caution
-:class: caution
-To use `MlflowClient`, you have to deploy MLflow first.
-Check [prerequisites](../01-quick-start.md/#prerequisites) for details.
-```
 
 The `MlflowClient` is the main class to manage experiment tracking.
 

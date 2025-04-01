@@ -87,7 +87,13 @@ Check our online document for detailed usage tutorial: [AgentSociety Document](h
 
 <a id="contributing"></a>
 ## 🤝 Contributing
-We welcome contributions from the community!.
+We welcome contributions from the community!
+
+Thank you to everyone who has contributed to this project:
+
+<a href=" ">
+  <img src="https://contrib.rocks/image?repo=tsinghua-fib-lab/agentsociety" />
+</a>
 
 <a id="license"></a>
 ## 📄 License

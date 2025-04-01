@@ -91,7 +91,7 @@ config = Config(
         ]
     ),  # type: ignore
     exp=ExpConfig(
-        name="social_node_intercept",
+        name="social_point_intercept",
         workflow=[
             WorkflowStepConfig(
                 type=WorkflowType.FUNCTION,
