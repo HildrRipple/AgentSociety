@@ -15,13 +15,30 @@ Universal Basic Income (UBI) has emerged as a prominent policy tool for alleviat
 #### Workflow Design  
 
 ```python
-exp_config.SetWorkFlow([
-    # 10 days with UBI
-    WorkflowStep(
-        type=WorkflowType.RUN, 
-        days=10, 
-    ),  
-])
+config = Config(
+    ...
+    exp=ExpConfig(
+        name="ubi_experiment",
+        workflow=[
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=10,
+            )
+        ],
+        environment=EnvironmentConfig(
+            start_tick=6 * 60 * 60,
+            total_tick=18 * 60 * 60,
+        ),
+        metric_extractors=[
+            MetricExtractorConfig(
+                type=MetricType.FUNCTION, func=economy_metric, step_interval=1
+            ),
+            MetricExtractorConfig(
+                type=MetricType.FUNCTION, func=gather_ubi_opinions, step_interval=12
+            ),
+        ],
+    ),
+)
 ```
 
 ### Data Collection and Metrics
@@ -31,7 +48,7 @@ exp_config.SetWorkFlow([
 The `gather_ubi_opinions` method collects qualitative sentiment data about UBI and store it locally with `pickle`.
 
 ```python
-async def gather_ubi_opinions(simulation: AgentSimulation):
+async def gather_ubi_opinions(simulation: AgentSociety):
     citizen_agents = await simulation.filter(types=[SocietyAgent])
     opinions = await simulation.gather("ubi_opinion", citizen_agents)
     with open("opinions.pkl", "wb") as f:
@@ -44,12 +61,18 @@ The `economy_metric` monitors macroeconomic indicators  through `'prices', 'work
 
 ```python
 # Metric extraction configuration
-exp_config.SetMetricExtractors(
-    metric_extractors=[
-        (1, economy_metric),          
-        (12, gather_ubi_opinions)     
-    ]
-)
+config = Config(
+    ...
+    exp=ExpConfig(
+        metric_extractors=[
+            MetricExtractorConfig(
+                type=MetricType.FUNCTION, func=economy_metric, step_interval=1
+            ),
+            MetricExtractorConfig(
+                type=MetricType.FUNCTION, func=gather_ubi_opinions, step_interval=12
+            ),
+        ],
+    ),
 ```
 
 ### Run the Codes

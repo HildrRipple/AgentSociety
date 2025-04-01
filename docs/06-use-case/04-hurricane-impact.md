@@ -19,30 +19,43 @@ This experiment simulates societal dynamics during a hurricane event to analyze 
 The experiment employs a phased approach to model temporal disaster impacts:  
 
 ```python
-exp_config.SetWorkFlow([
-    # Pre-disaster baseline (3 days)
-    WorkflowStep(type=WorkflowType.RUN, days=3),  
-    
-    # Hurricane landfall intervention
-    WorkflowStep(
-        type=WorkflowType.INTERVENE,
-        func=partial(update_weather_and_temperature, "wind"),
-        description="Activate hurricane conditions"
+config = Config(
+    ...
+    exp=ExpConfig(
+        name="hurricane_impact",
+        workflow=[
+            # Pre-disaster baseline (3 days)
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=3,
+            ),
+            # Hurricane impact
+            WorkflowStepConfig(
+                type=WorkflowType.FUNCTION,
+                func=partial(update_weather_and_temperature, "wind"),
+            ),  
+            # Post-disaster recovery (3 days)
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=3,
+            ),
+            # No-wind scenario
+            WorkflowStepConfig(
+                type=WorkflowType.FUNCTION,
+                func=partial(update_weather_and_temperature, "no-wind"),
+            ),
+            # Post-disaster recovery (3 days)
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=3,
+            ),
+        ],
+        environment=EnvironmentConfig(
+            start_tick=6 * 60 * 60,
+            total_tick=18 * 60 * 60,
+        ),
     ),
-    
-    # Disaster phase (3 days)
-    WorkflowStep(type=WorkflowType.RUN, days=3),  
-    
-    # Post-disaster recovery intervention
-    WorkflowStep(
-        type=WorkflowType.INTERVENE,
-        func=partial(update_weather_and_temperature, "no-wind"),
-        description="Restore normal weather"
-    ),
-    
-    # Recovery phase (3 days)
-    WorkflowStep(type=WorkflowType.RUN, days=3),  
-])
+)
 ```
 
 The `update_weather_and_temperature` function modifies agents' perception of risk by broadcasting hurricane warnings (e.g., disrupted travel, high winds) or recovery signals.   
