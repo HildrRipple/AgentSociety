@@ -47,6 +47,14 @@ We welcome collaborative opportunities to advance social science research throug
 
 <img src="_static/wechat.jpg" alt="WeChat" style="zoom=20%;" />
 
+## Contributors
+
+Thank you to everyone who has contributed to this project:
+
+<a href=" ">
+  <img src="https://contrib.rocks/image?repo=tsinghua-fib-lab/agentsociety" />
+</a>
+
 ## Table of Contents
 
 ```{toctree}
