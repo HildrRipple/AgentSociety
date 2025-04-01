@@ -2,7 +2,20 @@
 
 ## Usage
 
-Assign SimConfig with `SimConfig.SetPostgreSql`, e.g. `SimConfig().SetPostgreSql(path="postgresql://user:pass@localhost:5432/db", enabled=True)`.
+To enable PostgreSQL storage for recording experiment data, assign PostgreSQL configuration in the environment config:
+
+```python
+config = Config(
+    ...
+    env=EnvConfig(
+        pgsql=PostgreSQLConfig(
+            enabled=True,
+            dsn="<PGSQL-DSN>",
+            num_workers="auto",
+        ),
+    )
+)
+```
 
 ## Pg Table Definition
 

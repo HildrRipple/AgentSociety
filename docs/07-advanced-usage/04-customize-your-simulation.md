@@ -1,40 +1,12 @@
 # Customize Your Own Simulation
 
-## Agent Configuration
+## Agent Number and Profile Configuration
 
-Customize your citizens and institutions for simulation.
-
-## # of Agents
-Configure the number of citizen agents using `ExpConfig.SetAgentConfig`.
-
-```python
-from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
-                                 load_config_from_file)
-
-exp_config = (
-    ExpConfig(exp_name="test")
-    .SetAgentConfig(
-        number_of_citizen=50,    # Specify number of citizen agents
-        number_of_firm=5,        # Number of firms
-        number_of_bank=2,        # Number of banks 
-        number_of_government=1,  # Number of government entities
-        number_of_nbs=3          # Number of neighborhood services
-    )
-    .SetWorkFlow([WorkflowStep(type="run", days=1)])
-    .SetEnvironment(
-        weather="The weather is normal",
-        crime="The crime rate is low",
-        pollution="The pollution level is low",
-        temperature="The temperature is normal",
-        day="Workday",
-    )
-    .SetMessageIntercept(mode="point", max_violation_time=3)
-)
-```
+Check the [Agent Configuration](../02-configurations/03-agent-config.md) for more details.
 
 ## Custom Agent Logics
 
-To implement custom agent behaviors and logic, refer to the [Custom Agents Guide](04-custom-agents.md#customizing-the-agent-logic).
+To implement custom agent behaviors and logic, refer to the [Custom Agents Guide](../04-custom-agents/04-agent-customization.md).
 
 ## City Environment Configuration
 
@@ -49,46 +21,86 @@ To use a different city map:
 2. Configure the map in your simulation:
 
 ```python
-from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
-                                 load_config_from_file)
-sim_config = SimConfig(
-    .SetMapConfig(file_path="path/to_your_city_map.pb")
-)
-```
-
-### Simulation Time Configuration
-
-```python
-from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
-                                 load_config_from_file)
-sim_config = (
-    SimConfig()
-    .SetSimulatorConfig(
-        task_name="citysim",           # Simulation task name
-        start_step=8 * 3600,           # Start time (8:00 AM)
-        total_step=24 * 3600,          # Simulation Steps for One day
-        max_day=2,                     # Run for 2 days
-        min_step_time=1               # Minimum time (seconds) between steps
-    ) 
+config = Config(
+    ...
+    map=MapConfig(
+        file_path="path/to_your_city_map.pb"
+    )
 )
 ```
 
 ## Global Environment Configuration
 
-Set environment parameters with `ExpConfig.SetEnvironment`.
+Set environment parameters with `EnvironmentConfig`.
 
 ```python
-from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
-                                 load_config_from_file)
-
-exp_config = (
-    ExpConfig(exp_name="environment_test")
-    .SetEnvironment(
-        weather="The weather is normal",
-        crime="The crime rate is low",
-        pollution="The pollution level is low",
-        temperature="The temperature is normal",
-        day="Workday",
+config = Config(
+    ...
+    exp=ExpConfig(
+        environment=EnvironmentConfig(
+            weather="The weather is normal",
+        )
     )
 )
 ```
+
+## Advanced Configuration
+
+### Distributed Simulation
+
+To run simulation in a distributed manner, refer to the [Distributed Simulation Guide](03-distributed-simulation.md).
+
+### Agent Group Modification
+
+You can modify the number of agent in each group for simulation.
+
+```python
+config = Config(
+    ...
+    advanced=AdvancedConfig(
+        group_size=10,
+    )
+)
+```
+```{admonition} Note
+:class: note
+The default configuration is auto-set based on the number of available cores.
+```
+
+### Logging Level
+
+You can modify the logging level for the simulation.
+
+```python
+config = Config(
+    ...
+    advanced=AdvancedConfig(
+        logging_level="INFO"
+    )
+)
+```
+
+### Simulator Configuration
+
+You can modify the simulator configuration.
+
+```python
+config = Config(
+    ...
+    advanced=AdvancedConfig(
+        simulator=SimulatorConfig(
+            primary_node_ip="127.0.0.1",
+            log_dir="./log",
+            max_process=1,
+            logging_level="INFO",
+        ), 
+    )
+)
+```
+
+Each configuration item is optional, and the default value will be used if not specified.
+The meaning of each configuration item is as follows:
+- `primary_node_ip`: The IP address of the primary node. Only used in distributed simulation.
+- `log_dir`: The directory to save the log file of the simulator, not our framework.
+- `max_process`: The maximum number of processes to run in parallel, only controls the simulator (urban space).
+- `logging_level`: The logging level for the simulator.

@@ -1,74 +1,54 @@
 # Distributed Simulation
 
 Here is a simple example to run simulation in the same LAN.
-
 ```python
 import asyncio
-import logging
+from typing import Any, Literal, Union, cast
 
 import ray
+from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,AdvancedConfig,
+                                  LLMConfig, MapConfig)
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
+from agentsociety.environment import EnvironmentConfig, SimulatorConfig
+from agentsociety.metrics import MlflowConfig
+from agentsociety.simulation import AgentSociety
 
-from agentsociety import AgentSimulation
-from agentsociety.cityagent import (BankAgent, FirmAgent, GovernmentAgent,
-                                   NBSAgent, SocietyAgent)
-from agentsociety.cityagent.initial import (bind_agent_info,
-                                           initialize_social_network)
-from agentsociety.configs import SimConfig
-from agentsociety.simulation import AgentSimulation
+ray.init(address="auto")
 
-sim_config = (
-    SimConfig()
-    .SetLLMRequest(request_type="zhipuai", api_key="", model="GLM-4-Flash")
-    .SetSimulatorConfig(min_step_time=1, primary_node_ip="<YOUR-PRIMARY-IP>")
-    .SetRedis(server="redis.example.com", port=6379, password="pass")
-    .SetMapConfig(file_path="./ignore/map.pb")
-    .SetMetricExtractor(
-        username="mlflow_user", password="mlflow_pass", mlflow_uri="http://mlflow:5000"
-    )
+
+config = Config(
+    ...
+    advanced=AdvancedConfig(
+        simulator=SimulatorConfig(
+            primary_node_ip="127.0.0.1",
+            log_dir="./log",
+            max_process=1,
+            logging_level="INFO",
+        ), 
+        group_size=1,
+        logging_level="INFO",
+    ), # type: ignore
 )
 
 
-async def run_simulation():
-    simulation = AgentSimulation(
-        config=sim_config,
-        exp_name="system_log",
-        logging_level=logging.INFO,
-    )
-    await simulation.init_agents(
-        agent_count={
-            SocietyAgent: 50,
-            FirmAgent: 1,
-            GovernmentAgent: 1,
-            BankAgent: 1,
-            NBSAgent: 1,
-        },
-    )
-    await bind_agent_info(simulation)
-    await initialize_social_network(simulation)
-
-
-async def run_experiments():
-    ray.init(address="auto")
-    await run_simulation()
+async def main():
+    agentsociety = AgentSociety(config)
+    await agentsociety.init()
+    await agentsociety.run()
+    await agentsociety.close()
+    ray.shutdown()
 
 
 if __name__ == "__main__":
-    asyncio.run(run_experiments())
+    asyncio.run(main())
 
 ```
 
 ```{admonition} Caution
 :class: caution
-- `SetRedis`: `server` should be accessible for all nodes.
-- `SetMetricExtractor`: `mlflow_uri` should be accessible for all nodes. 
-- `SetSimulatorConfig`: `primary_node_ip` should be accessible for all nodes. 
-- `SetMapConfig`: the `file_path` is for the primary node.
+- redis server should be accessible for all nodes.
+- mlflow server should be accessible for all nodes. 
+- primary node ip should be accessible for all nodes. 
+- map file path should be accessible for main node.
 ```
-
-## AgentGroup Configuration
-
-In our framework, agents are grouped into several `AgentGroup`s, and each `AgentGroup` works as a `Ray` actor.
-
-## `ExpConfig.AgentConfig`
-
-- `group_size`: controls the agent num for each `AgentGroup`, directly affect the computing pressure for a `Ray` actor.

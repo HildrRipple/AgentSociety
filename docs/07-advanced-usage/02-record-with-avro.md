@@ -2,11 +2,22 @@
 
 ## Usage
 
-Assign SimConfig with `SimConfig.SetAvro`, e.g. `SimConfig().SetAvro(path="cache/avro", enabled=True)`.
+To enable Avro storage for recording experiment data, assign Avro configuration in the environment config:
+
+```python
+config = Config(
+    ...
+    env=EnvConfig(
+        avro=AvroConfig(
+            path="<SAVE-PATH>",
+            enabled=True,
+        ),
+    ),
+)
+```
 
 ## Schema Definition
 
-## Experiment Meta Info
 ```json
 {
     "type": "record",
