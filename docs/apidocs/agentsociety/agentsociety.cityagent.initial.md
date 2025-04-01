@@ -29,9 +29,31 @@
     ```
 ````
 
+### Data
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`__all__ <agentsociety.cityagent.initial.__all__>`
+  - ```{autodoc2-docstring} agentsociety.cityagent.initial.__all__
+    :summary:
+    ```
+````
+
 ### API
 
-````{py:function} initialize_social_network(simulation)
+````{py:data} __all__
+:canonical: agentsociety.cityagent.initial.__all__
+:value: >
+   ['initialize_social_network', 'bind_agent_info']
+
+```{autodoc2-docstring} agentsociety.cityagent.initial.__all__
+```
+
+````
+
+````{py:function} initialize_social_network(simulation: agentsociety.simulation.AgentSociety)
 :canonical: agentsociety.cityagent.initial.initialize_social_network
 :async:
 
@@ -46,7 +68,7 @@
 ```
 ````
 
-````{py:function} bind_agent_info(simulation)
+````{py:function} bind_agent_info(simulation: agentsociety.simulation.AgentSociety)
 :canonical: agentsociety.cityagent.initial.bind_agent_info
 :async:
 

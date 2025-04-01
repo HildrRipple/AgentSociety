@@ -15,6 +15,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`RedisConfig <agentsociety.message.messager.RedisConfig>`
+  - ```{autodoc2-docstring} agentsociety.message.messager.RedisConfig
+    :summary:
+    ```
 * - {py:obj}`Messager <agentsociety.message.messager.Messager>`
   - ```{autodoc2-docstring} agentsociety.message.messager.Messager
     :summary:
@@ -38,14 +42,85 @@
 ````{py:data} __all__
 :canonical: agentsociety.message.messager.__all__
 :value: >
-   ['Messager']
+   ['Messager', 'RedisConfig']
 
 ```{autodoc2-docstring} agentsociety.message.messager.__all__
 ```
 
 ````
 
-`````{py:class} Messager(hostname: str, port: int = 6379, db=0, password: typing.Optional[str] = None, timeout: float = 60, message_interceptor: typing.Optional[ray.ObjectRef] = None)
+`````{py:class} RedisConfig(/, **data: typing.Any)
+:canonical: agentsociety.message.messager.RedisConfig
+
+Bases: {py:obj}`pydantic.BaseModel`
+
+```{autodoc2-docstring} agentsociety.message.messager.RedisConfig
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} agentsociety.message.messager.RedisConfig.__init__
+```
+
+````{py:attribute} server
+:canonical: agentsociety.message.messager.RedisConfig.server
+:type: str
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} agentsociety.message.messager.RedisConfig.server
+```
+
+````
+
+````{py:attribute} port
+:canonical: agentsociety.message.messager.RedisConfig.port
+:type: int
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} agentsociety.message.messager.RedisConfig.port
+```
+
+````
+
+````{py:attribute} password
+:canonical: agentsociety.message.messager.RedisConfig.password
+:type: typing.Optional[str]
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} agentsociety.message.messager.RedisConfig.password
+```
+
+````
+
+````{py:attribute} db
+:canonical: agentsociety.message.messager.RedisConfig.db
+:type: int
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} agentsociety.message.messager.RedisConfig.db
+```
+
+````
+
+````{py:attribute} timeout
+:canonical: agentsociety.message.messager.RedisConfig.timeout
+:type: float
+:value: >
+   'Field(...)'
+
+```{autodoc2-docstring} agentsociety.message.messager.RedisConfig.timeout
+```
+
+````
+
+`````
+
+`````{py:class} Messager(config: agentsociety.message.messager.RedisConfig, exp_id: str, message_interceptor: typing.Optional[ray.ObjectRef] = None)
 :canonical: agentsociety.message.messager.Messager
 
 ```{autodoc2-docstring} agentsociety.message.messager.Messager
@@ -59,7 +134,7 @@
 
 ````{py:property} message_interceptor
 :canonical: agentsociety.message.messager.Messager.message_interceptor
-:type: typing.Union[None, ray.ObjectRef]
+:type: typing.Optional[ray.ObjectRef]
 
 ```{autodoc2-docstring} agentsociety.message.messager.Messager.message_interceptor
 ```
@@ -90,56 +165,29 @@
 
 ````
 
-````{py:method} __aexit__(exc_type, exc_value, traceback)
-:canonical: agentsociety.message.messager.Messager.__aexit__
+````{py:method} init()
+:canonical: agentsociety.message.messager.Messager.init
 :async:
 
-```{autodoc2-docstring} agentsociety.message.messager.Messager.__aexit__
+```{autodoc2-docstring} agentsociety.message.messager.Messager.init
 ```
 
 ````
 
-````{py:method} ping()
-:canonical: agentsociety.message.messager.Messager.ping
+````{py:method} close()
+:canonical: agentsociety.message.messager.Messager.close
 :async:
 
-```{autodoc2-docstring} agentsociety.message.messager.Messager.ping
+```{autodoc2-docstring} agentsociety.message.messager.Messager.close
 ```
 
 ````
 
-````{py:method} connect()
-:canonical: agentsociety.message.messager.Messager.connect
+````{py:method} subscribe_and_start_listening(channels: typing.List[str])
+:canonical: agentsociety.message.messager.Messager.subscribe_and_start_listening
 :async:
 
-```{autodoc2-docstring} agentsociety.message.messager.Messager.connect
-```
-
-````
-
-````{py:method} disconnect()
-:canonical: agentsociety.message.messager.Messager.disconnect
-:async:
-
-```{autodoc2-docstring} agentsociety.message.messager.Messager.disconnect
-```
-
-````
-
-````{py:method} is_connected()
-:canonical: agentsociety.message.messager.Messager.is_connected
-:async:
-
-```{autodoc2-docstring} agentsociety.message.messager.Messager.is_connected
-```
-
-````
-
-````{py:method} subscribe(channels: typing.Union[str, list[str]], agents: typing.Union[typing.Any, list[typing.Any]])
-:canonical: agentsociety.message.messager.Messager.subscribe
-:async:
-
-```{autodoc2-docstring} agentsociety.message.messager.Messager.subscribe
+```{autodoc2-docstring} agentsociety.message.messager.Messager.subscribe_and_start_listening
 ```
 
 ````
@@ -162,25 +210,7 @@
 
 ````
 
-````{py:method} stop()
-:canonical: agentsociety.message.messager.Messager.stop
-:async:
-
-```{autodoc2-docstring} agentsociety.message.messager.Messager.stop
-```
-
-````
-
-````{py:method} start_listening()
-:canonical: agentsociety.message.messager.Messager.start_listening
-:async:
-
-```{autodoc2-docstring} agentsociety.message.messager.Messager.start_listening
-```
-
-````
-
-````{py:method} _listen_for_messages(pubsub: redis.asyncio.client.PubSub)
+````{py:method} _listen_for_messages(pubsub: redis.asyncio.client.PubSub, channels: typing.List[str])
 :canonical: agentsociety.message.messager.Messager._listen_for_messages
 :async:
 
@@ -189,11 +219,42 @@
 
 ````
 
-````{py:method} _update_psubscribe(pubsub: redis.asyncio.client.PubSub, new_topics: set[str])
-:canonical: agentsociety.message.messager.Messager._update_psubscribe
-:async:
+````{py:method} get_subtopic_channel(agent_id: int, subtopic: str)
+:canonical: agentsociety.message.messager.Messager.get_subtopic_channel
 
-```{autodoc2-docstring} agentsociety.message.messager.Messager._update_psubscribe
+```{autodoc2-docstring} agentsociety.message.messager.Messager.get_subtopic_channel
+```
+
+````
+
+````{py:method} get_user_survey_channel(agent_id: int)
+:canonical: agentsociety.message.messager.Messager.get_user_survey_channel
+
+```{autodoc2-docstring} agentsociety.message.messager.Messager.get_user_survey_channel
+```
+
+````
+
+````{py:method} get_user_chat_channel(agent_id: int)
+:canonical: agentsociety.message.messager.Messager.get_user_chat_channel
+
+```{autodoc2-docstring} agentsociety.message.messager.Messager.get_user_chat_channel
+```
+
+````
+
+````{py:method} get_agent_chat_channel(agent_id: int)
+:canonical: agentsociety.message.messager.Messager.get_agent_chat_channel
+
+```{autodoc2-docstring} agentsociety.message.messager.Messager.get_agent_chat_channel
+```
+
+````
+
+````{py:method} get_user_payback_channel()
+:canonical: agentsociety.message.messager.Messager.get_user_payback_channel
+
+```{autodoc2-docstring} agentsociety.message.messager.Messager.get_user_payback_channel
 ```
 
 ````

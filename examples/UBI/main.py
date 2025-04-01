@@ -1,26 +1,28 @@
 import asyncio
 import json
 import logging
+import pickle as pkl
 
 import ray
 
-from agentsociety.simulation import AgentSociety
 from agentsociety.cityagent import SocietyAgent
-from agentsociety.configs import Config, LLMConfig, EnvConfig, MapConfig, AgentsConfig, ExpConfig
-from agentsociety.llm import LLMProviderType
-from agentsociety.storage import PostgreSQLConfig, AvroConfig
-from agentsociety.message import RedisConfig
-from agentsociety.configs.agent import AgentConfig, AgentClassType
-from agentsociety.configs.exp import WorkflowType, WorkflowStepConfig, MetricType, MetricExtractorConfig
-from agentsociety.environment import EnvironmentConfig
-from agentsociety.metrics import MlflowConfig
 from agentsociety.cityagent.metrics import economy_metric
+from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
+                                  LLMConfig, MapConfig)
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import (MetricExtractorConfig, MetricType,
+                                      WorkflowStepConfig, WorkflowType)
+from agentsociety.environment import EnvironmentConfig
+from agentsociety.llm import LLMProviderType
+from agentsociety.message import RedisConfig
+from agentsociety.metrics import MlflowConfig
+from agentsociety.simulation import AgentSociety
+from agentsociety.storage import AvroConfig, PostgreSQLConfig
 
 ray.init(logging_level=logging.WARNING, log_to_driver=True)
 
 
 async def gather_ubi_opinions(simulation: AgentSociety):
-    import pickle as pkl
     citizen_ids = await simulation.filter(types=(SocietyAgent,))
     opinions = await simulation.gather("ubi_opinion", citizen_ids)
     with open("opinions.pkl", "wb") as f:
@@ -42,7 +44,7 @@ config = Config(
             server="<SERVER-ADDRESS>",
             port=6379,
             password="<PASSWORD>",
-        ), # type: ignore
+        ),  # type: ignore
         pgsql=PostgreSQLConfig(
             enabled=True,
             dsn="<PGSQL-DSN>",
@@ -68,7 +70,7 @@ config = Config(
             AgentConfig(
                 agent_class=AgentClassType.CITIZEN,
                 number=1,
-                param_config=json.load(open("society_agent_config.json"))
+                param_config=json.load(open("society_agent_config.json")),
             )
         ],
         firms=[
@@ -76,8 +78,8 @@ config = Config(
                 agent_class=AgentClassType.FIRM,
                 number=1,
             )
-        ]
-    ), # type: ignore
+        ],
+    ),  # type: ignore
     exp=ExpConfig(
         name="ubi_experiment",
         workflow=[
@@ -97,9 +99,10 @@ config = Config(
             MetricExtractorConfig(
                 type=MetricType.FUNCTION, func=gather_ubi_opinions, step_interval=12
             ),
-        ]
+        ],
     ),
 )
+
 
 async def main():
     agentsociety = AgentSociety(config)
@@ -107,6 +110,7 @@ async def main():
     await agentsociety.run()
     await agentsociety.close()
     ray.shutdown()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

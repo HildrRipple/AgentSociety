@@ -34,7 +34,7 @@
 `````{py:class} SleepBlock(llm: agentsociety.llm.LLM, memory: agentsociety.memory.Memory)
 :canonical: agentsociety.cityagent.blocks.other_block.SleepBlock
 
-Bases: {py:obj}`agentsociety.workflow.Block`
+Bases: {py:obj}`agentsociety.agent.Block`
 
 ```{autodoc2-docstring} agentsociety.cityagent.blocks.other_block.SleepBlock
 ```
@@ -59,7 +59,7 @@ Bases: {py:obj}`agentsociety.workflow.Block`
 `````{py:class} OtherNoneBlock(llm: agentsociety.llm.LLM, memory: agentsociety.memory.Memory)
 :canonical: agentsociety.cityagent.blocks.other_block.OtherNoneBlock
 
-Bases: {py:obj}`agentsociety.workflow.Block`
+Bases: {py:obj}`agentsociety.agent.Block`
 
 ```{autodoc2-docstring} agentsociety.cityagent.blocks.other_block.OtherNoneBlock
 ```
@@ -81,7 +81,7 @@ Bases: {py:obj}`agentsociety.workflow.Block`
 `````{py:class} OtherBlock(llm: agentsociety.llm.LLM, memory: agentsociety.memory.Memory)
 :canonical: agentsociety.cityagent.blocks.other_block.OtherBlock
 
-Bases: {py:obj}`agentsociety.workflow.Block`
+Bases: {py:obj}`agentsociety.agent.Block`
 
 ```{autodoc2-docstring} agentsociety.cityagent.blocks.other_block.OtherBlock
 ```

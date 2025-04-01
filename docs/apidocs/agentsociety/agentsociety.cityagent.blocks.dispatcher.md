@@ -56,7 +56,7 @@
 ```{autodoc2-docstring} agentsociety.cityagent.blocks.dispatcher.BlockDispatcher.__init__
 ```
 
-````{py:method} register_blocks(blocks: list[agentsociety.workflow.Block]) -> None
+````{py:method} register_blocks(blocks: list[agentsociety.agent.Block]) -> None
 :canonical: agentsociety.cityagent.blocks.dispatcher.BlockDispatcher.register_blocks
 
 ```{autodoc2-docstring} agentsociety.cityagent.blocks.dispatcher.BlockDispatcher.register_blocks
@@ -64,7 +64,7 @@
 
 ````
 
-````{py:method} _get_function_schema() -> dict
+````{py:method} _get_function_schema() -> openai.types.chat.ChatCompletionToolParam
 :canonical: agentsociety.cityagent.blocks.dispatcher.BlockDispatcher._get_function_schema
 
 ```{autodoc2-docstring} agentsociety.cityagent.blocks.dispatcher.BlockDispatcher._get_function_schema
@@ -72,7 +72,7 @@
 
 ````
 
-````{py:method} dispatch(step: dict) -> agentsociety.workflow.Block
+````{py:method} dispatch(step: dict) -> agentsociety.agent.Block
 :canonical: agentsociety.cityagent.blocks.dispatcher.BlockDispatcher.dispatch
 :async:
 

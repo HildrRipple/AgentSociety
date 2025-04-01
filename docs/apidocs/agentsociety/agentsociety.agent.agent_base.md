@@ -15,6 +15,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`AgentToolbox <agentsociety.agent.agent_base.AgentToolbox>`
+  - ```{autodoc2-docstring} agentsociety.agent.agent_base.AgentToolbox
+    :summary:
+    ```
 * - {py:obj}`AgentType <agentsociety.agent.agent_base.AgentType>`
   - ```{autodoc2-docstring} agentsociety.agent.agent_base.AgentType
     :summary:
@@ -49,12 +53,94 @@
 
 ````
 
-`````{py:class} AgentType
+`````{py:class} AgentToolbox
+:canonical: agentsociety.agent.agent_base.AgentToolbox
+
+Bases: {py:obj}`typing.NamedTuple`
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.AgentToolbox
+```
+
+````{py:attribute} llm
+:canonical: agentsociety.agent.agent_base.AgentToolbox.llm
+:type: agentsociety.llm.LLM
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.AgentToolbox.llm
+```
+
+````
+
+````{py:attribute} environment
+:canonical: agentsociety.agent.agent_base.AgentToolbox.environment
+:type: agentsociety.environment.Environment
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.AgentToolbox.environment
+```
+
+````
+
+````{py:attribute} messager
+:canonical: agentsociety.agent.agent_base.AgentToolbox.messager
+:type: agentsociety.message.Messager
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.AgentToolbox.messager
+```
+
+````
+
+````{py:attribute} avro_saver
+:canonical: agentsociety.agent.agent_base.AgentToolbox.avro_saver
+:type: typing.Optional[agentsociety.storage.AvroSaver]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.AgentToolbox.avro_saver
+```
+
+````
+
+````{py:attribute} pgsql_writer
+:canonical: agentsociety.agent.agent_base.AgentToolbox.pgsql_writer
+:type: typing.Optional[ray.ObjectRef]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.AgentToolbox.pgsql_writer
+```
+
+````
+
+````{py:attribute} mlflow_client
+:canonical: agentsociety.agent.agent_base.AgentToolbox.mlflow_client
+:type: typing.Optional[agentsociety.metrics.MlflowClient]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.AgentToolbox.mlflow_client
+```
+
+````
+
+`````
+
+`````{py:class} AgentType(*args, **kwds)
 :canonical: agentsociety.agent.agent_base.AgentType
 
 Bases: {py:obj}`enum.Enum`
 
 ```{autodoc2-docstring} agentsociety.agent.agent_base.AgentType
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.AgentType.__init__
 ```
 
 ````{py:attribute} Unspecified
@@ -89,7 +175,7 @@ Bases: {py:obj}`enum.Enum`
 
 `````
 
-`````{py:class} Agent(name: str, type: agentsociety.agent.agent_base.AgentType = AgentType.Unspecified, llm_client: typing.Optional[agentsociety.llm.LLM] = None, economy_client: typing.Optional[agentsociety.environment.EconomyClient] = None, messager: typing.Optional[ray.ObjectRef] = None, message_interceptor: typing.Optional[ray.ObjectRef] = None, simulator: typing.Optional[agentsociety.environment.Simulator] = None, memory: typing.Optional[agentsociety.memory.Memory] = None, avro_file: typing.Optional[dict[str, str]] = None, copy_writer: typing.Optional[ray.ObjectRef] = None)
+`````{py:class} Agent(id: int, name: str, type: agentsociety.agent.agent_base.AgentType, toolbox: agentsociety.agent.agent_base.AgentToolbox, memory: agentsociety.memory.Memory)
 :canonical: agentsociety.agent.agent_base.Agent
 
 Bases: {py:obj}`abc.ABC`
@@ -136,11 +222,17 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
+````{py:method} init()
+:canonical: agentsociety.agent.agent_base.Agent.init
+:async:
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.init
+```
+
+````
+
 ````{py:method} __getstate__()
 :canonical: agentsociety.agent.agent_base.Agent.__getstate__
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.__getstate__
-```
 
 ````
 
@@ -153,7 +245,7 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:method} _export_subblocks(block_cls: type[agentsociety.workflow.Block]) -> list[dict]
+````{py:method} _export_subblocks(block_cls: type[agentsociety.agent.block.Block]) -> list[dict]
 :canonical: agentsociety.agent.agent_base.Agent._export_subblocks
 :classmethod:
 
@@ -173,6 +265,7 @@ Bases: {py:obj}`abc.ABC`
 
 ````{py:method} import_block_config(config: dict[str, typing.Union[list[dict], str]]) -> agentsociety.agent.agent_base.Agent
 :canonical: agentsociety.agent.agent_base.Agent.import_block_config
+:abstractmethod:
 :classmethod:
 
 ```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.import_block_config
@@ -205,98 +298,10 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:method} set_messager(messager: agentsociety.message.Messager)
-:canonical: agentsociety.agent.agent_base.Agent.set_messager
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_messager
-```
-
-````
-
-````{py:method} set_llm_client(llm_client: agentsociety.llm.LLM)
-:canonical: agentsociety.agent.agent_base.Agent.set_llm_client
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_llm_client
-```
-
-````
-
-````{py:method} set_simulator(simulator: agentsociety.environment.Simulator)
-:canonical: agentsociety.agent.agent_base.Agent.set_simulator
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_simulator
-```
-
-````
-
-````{py:method} set_economy_client(economy_client: agentsociety.environment.EconomyClient)
-:canonical: agentsociety.agent.agent_base.Agent.set_economy_client
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_economy_client
-```
-
-````
-
-````{py:method} set_memory(memory: agentsociety.memory.Memory)
-:canonical: agentsociety.agent.agent_base.Agent.set_memory
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_memory
-```
-
-````
-
-````{py:method} set_exp_id(exp_id: str)
-:canonical: agentsociety.agent.agent_base.Agent.set_exp_id
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_exp_id
-```
-
-````
-
-````{py:method} set_avro_file(avro_file: dict[str, str])
-:canonical: agentsociety.agent.agent_base.Agent.set_avro_file
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_avro_file
-```
-
-````
-
-````{py:method} set_pgsql_writer(pgsql_writer: ray.ObjectRef)
-:canonical: agentsociety.agent.agent_base.Agent.set_pgsql_writer
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_pgsql_writer
-```
-
-````
-
-````{py:method} set_message_interceptor(message_interceptor: ray.ObjectRef)
-:canonical: agentsociety.agent.agent_base.Agent.set_message_interceptor
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_message_interceptor
-```
-
-````
-
-````{py:method} set_tenant_id(tenant_id: str)
-:canonical: agentsociety.agent.agent_base.Agent.set_tenant_id
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.set_tenant_id
-```
-
-````
-
 ````{py:property} id
 :canonical: agentsociety.agent.agent_base.Agent.id
 
 ```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.id
-```
-
-````
-
-````{py:property} tenant_id
-:canonical: agentsociety.agent.agent_base.Agent.tenant_id
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.tenant_id
 ```
 
 ````
@@ -309,10 +314,42 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:property} economy_client
-:canonical: agentsociety.agent.agent_base.Agent.economy_client
+````{py:property} environment
+:canonical: agentsociety.agent.agent_base.Agent.environment
 
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.economy_client
+```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.environment
+```
+
+````
+
+````{py:property} messager
+:canonical: agentsociety.agent.agent_base.Agent.messager
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.messager
+```
+
+````
+
+````{py:property} avro_saver
+:canonical: agentsociety.agent.agent_base.Agent.avro_saver
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.avro_saver
+```
+
+````
+
+````{py:property} pgsql_writer
+:canonical: agentsociety.agent.agent_base.Agent.pgsql_writer
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.pgsql_writer
+```
+
+````
+
+````{py:property} mlflow_client
+:canonical: agentsociety.agent.agent_base.Agent.mlflow_client
+
+```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.mlflow_client
 ```
 
 ````
@@ -341,41 +378,9 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:property} simulator
-:canonical: agentsociety.agent.agent_base.Agent.simulator
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.simulator
-```
-
-````
-
-````{py:property} copy_writer
-:canonical: agentsociety.agent.agent_base.Agent.copy_writer
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.copy_writer
-```
-
-````
-
-````{py:property} messager
-:canonical: agentsociety.agent.agent_base.Agent.messager
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.messager
-```
-
-````
-
-````{py:method} messager_ping()
-:canonical: agentsociety.agent.agent_base.Agent.messager_ping
-:async:
-
-```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.messager_ping
-```
-
-````
-
 ````{py:method} react_to_intervention(intervention_message: str)
 :canonical: agentsociety.agent.agent_base.Agent.react_to_intervention
+:abstractmethod:
 :async:
 
 ```{autodoc2-docstring} agentsociety.agent.agent_base.Agent.react_to_intervention

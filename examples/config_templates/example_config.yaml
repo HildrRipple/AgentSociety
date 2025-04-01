@@ -9,6 +9,7 @@ env:
     username: <CHANGE_ME> # MLflow server username
     password: <CHANGE_ME> # MLflow server password
   pgsql:
+    enabled: false # Whether to enable PostgreSQL
     dsn: postgresql://postgres:CHANGE_ME@localhost:5432/postgres # PostgreSQL connection string
   redis:
     server: <REDIS-SERVER> # Redis server address

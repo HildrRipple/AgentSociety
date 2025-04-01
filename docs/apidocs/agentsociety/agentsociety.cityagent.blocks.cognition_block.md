@@ -33,7 +33,29 @@
     ```
 ````
 
+### Data
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`__all__ <agentsociety.cityagent.blocks.cognition_block.__all__>`
+  - ```{autodoc2-docstring} agentsociety.cityagent.blocks.cognition_block.__all__
+    :summary:
+    ```
+````
+
 ### API
+
+````{py:data} __all__
+:canonical: agentsociety.cityagent.blocks.cognition_block.__all__
+:value: >
+   ['CognitionBlock']
+
+```{autodoc2-docstring} agentsociety.cityagent.blocks.cognition_block.__all__
+```
+
+````
 
 ````{py:function} extract_json(output_str)
 :canonical: agentsociety.cityagent.blocks.cognition_block.extract_json
@@ -42,10 +64,10 @@
 ```
 ````
 
-`````{py:class} CognitionBlock(llm: agentsociety.llm.LLM, memory: agentsociety.memory.Memory, simulator: agentsociety.environment.simulator.Simulator)
+`````{py:class} CognitionBlock(llm: agentsociety.llm.LLM, environment: agentsociety.environment.Environment, memory: agentsociety.memory.Memory)
 :canonical: agentsociety.cityagent.blocks.cognition_block.CognitionBlock
 
-Bases: {py:obj}`agentsociety.workflow.Block`
+Bases: {py:obj}`agentsociety.agent.Block`
 
 ```{autodoc2-docstring} agentsociety.cityagent.blocks.cognition_block.CognitionBlock
 ```

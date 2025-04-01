@@ -194,9 +194,8 @@ Bases: {py:obj}`int`, {py:obj}`enum.Enum`
 
 ````
 
-````{py:method} set_ids(agent_ids: set[int], firm_ids: set[int], bank_ids: set[int], nbs_ids: set[int], government_ids: set[int])
+````{py:method} set_ids(citizen_ids: set[int], firm_ids: set[int], bank_ids: set[int], nbs_ids: set[int], government_ids: set[int])
 :canonical: agentsociety.environment.economy.econ_client.EconomyClient.set_ids
-:async:
 
 ```{autodoc2-docstring} agentsociety.environment.economy.econ_client.EconomyClient.set_ids
 ```

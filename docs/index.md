@@ -25,7 +25,7 @@ The paper is available at [arXiv](https://arxiv.org/abs/2502.08691):
 
 <!-- ![AgentSocietyDemo](_static/agentsociety-demo.png) -->
 
-![AgentSociety](_static/framework-visual.gif)
+![AgentSociety](_static/ui-demo.gif)
 
 We provide a [Online Demo](https://agentsociety.fiblab.net/) of our simulation platform. 
 
@@ -59,5 +59,6 @@ We welcome collaborative opportunities to advance social science research throug
 05-ui-interface/index
 06-use-case/index
 07-advanced-usage/index
+08-big-change/index
 apidocs/index
 ```
