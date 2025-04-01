@@ -6,9 +6,7 @@ This document provides a detailed guide on how to customize the behavior logic o
 :maxdepth: 2
 
 01-concept
-02-llm-client
-03-simulator
-04-economy-simulator
-05-memory
-06-agent-customization
+02-agent-tools
+03-memory
+04-agent-customization
 ```

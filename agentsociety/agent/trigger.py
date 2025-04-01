@@ -186,7 +186,7 @@ class TimeTrigger(EventTrigger):
         super().initialize()  # First check for required components
         assert self.block is not None
         self.memory = self.block.memory
-        self.environment = self.block.environment
+        self.environment:Environment = self.block.environment
         # Start time monitoring task
         self._monitoring_task = asyncio.create_task(self._monitor_time())
         self._initialized = True
@@ -201,8 +201,7 @@ class TimeTrigger(EventTrigger):
 
         while True:
             try:
-                current_time = await self.environment.get_time()
-
+                current_time = self.environment.get_tick()
                 # If it's the first time or the specified time interval has passed
                 if (
                     self._last_trigger_time is None
