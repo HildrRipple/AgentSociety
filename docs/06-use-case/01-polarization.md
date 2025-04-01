@@ -103,7 +103,7 @@ async def update_attitude(simulation: AgentSociety):
 
 #### Add Init-Functions to Your Workflow
 
-To use these functions, you need to add them with `ExpConfig.SetWorkFlow`. Here's an example from the control group experiment:
+To use these functions, you need to add them in your config file.
 
 ```python
 WorkflowStepConfig(
@@ -130,7 +130,7 @@ async def gather_attitude(simulation: AgentSociety):
         json.dump(chat_histories, f, ensure_ascii=False, indent=2)
 ```
 
-Similar to initializing the attitudes, you need to add the collecting function with `ExpConfig.SetWorkFlow`. 
+Similar to initializing the attitudes, you need to add the collecting function in your config file.
 
 ```python
 WorkflowStepConfig(

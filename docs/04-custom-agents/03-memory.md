@@ -181,7 +181,7 @@ Fields are dynamically contextualized through user-defined templates, allowing t
 
 ### Usage Example
 
-Use status memory in your agent. If you are using `AgentSimulation.run_from_config`, assign your status memory field define function with `ExpConfig.SetAgentConfig(memory_config_func=<STATUS-CONFIG-DICT>)`.
+Below is an example of using `StatusMemory` in an agent.
 
 ```python
 import asyncio
@@ -335,17 +335,13 @@ if __name__ == "__main__":
 
 ## memory.embedding_model: Embedding Model
 
-To change the embedding model within the `Memory`, you simply need to assign it with `ExpConfig.SetAgentConfig`.
-
-### Usage Example
+To change the embedding model within the `Memory`, you simply need to assign it in the AdvancedConfig.
 
 ```python
-from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
-                                 load_config_from_file)
-from agentsociety.llm import SimpleEmbedding
-
-exp_config = ExpConfig(exp_name="test",).SetAgentConfig(
-    embedding_model=SimpleEmbedding()
+config = Config(
+    ...
+    advanced=AdvancedConfig(embedding_model=<EMBEDDING-MODEL-NAME>),
 )
 ```
-The incoming `embedding` is an instance of a subclass from `langchain_core.embeddings.Embeddings` and needs to implement `embed_query`, `embed_documents`.
+
+The incoming `embedding` is the name of the embedding model, supports downloading from huggingface.
