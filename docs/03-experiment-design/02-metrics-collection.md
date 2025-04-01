@@ -53,6 +53,7 @@ We have implemented pre-defined tools (`agentsociety.tools.ExportMlflowMetrics`)
 
 ```python
 from typing import Literal, Union, cast
+import asyncio
 
 import ray
 
@@ -156,7 +157,7 @@ config = Config(
         ]
     ),  # type: ignore
     exp=ExpConfig(
-        name="interview_test",
+        name="mlflow_test",
         workflow=[
             WorkflowStepConfig(
                 type=WorkflowType.STEP,

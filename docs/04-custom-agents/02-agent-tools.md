@@ -15,6 +15,8 @@ The LLM Client manages communications between agents and large language models, 
 ## Environment
 The Environment tool provides access to the simulation environment, allowing agents to interact with the urban space, economy, and other simulation components.
 
+Environment plays a crucial role in the simulation, as it provides the basic information for agents to make decisions.
+
 ### Core APIs
 
 - `get_person(person_id)`: Retrieves information about a specific person by ID
