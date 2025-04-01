@@ -11,27 +11,81 @@ A simple example is as follows. Simply rewrite the `forward` method in the subcl
 
 ```python
 import asyncio
+from typing import Any, Literal, Union, cast
 
-from agentsociety import Agent, AgentType
+import ray
+
+from agentsociety.agent import CitizenAgentBase
+from agentsociety.agent.agent_base import AgentToolbox
+from agentsociety.agent.distribution import Distribution, DistributionConfig
+from agentsociety.agent.memory_config_generator import MemoryT
+from agentsociety.cityagent import (DEFAULT_DISTRIBUTIONS,
+                                    memory_config_societyagent)
+from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
+                                  LLMConfig, MapConfig)
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
+from agentsociety.environment import EnvironmentConfig
+from agentsociety.llm import LLMProviderType
+from agentsociety.memory import Memory
+from agentsociety.simulation import AgentSociety
+from agentsociety.tools import ExportMlflowMetrics
+from agentsociety.tools.tool import UpdateWithSimulator
 
 
-class CustomAgent(Agent):
-    def __init__(self, name: str, **kwargs):
-        super().__init__(name=name, type=AgentType.Citizen, **kwargs)
+class CustomAgent(CitizenAgentBase):
+    export_metric = ExportMlflowMetrics()
+    update_with_sim = UpdateWithSimulator()
 
-    async def forward(
+    def __init__(
         self,
-    ):
-        print(f"type:{self._type}")
+        id: int,
+        name: str,
+        toolbox: AgentToolbox,
+        memory: Memory,
+    ) -> None:
+        super().__init__(
+            id=id,
+            name=name,
+            toolbox=toolbox,
+            memory=memory,
+        )
+
+    async def forward(self):
+        tick = self.environment.get_tick()
+        print(f"CustomAgent forward at {tick}")
+
+
+config = Config(
+    ...
+    agents=AgentsConfig(
+        citizens=[
+            AgentConfig(
+                agent_class=CustomAgent,
+                number=1,
+                memory_config_func=memory_config_societyagent,
+                memory_distributions=cast(
+                    dict[str, Union[Distribution, DistributionConfig]],
+                    DEFAULT_DISTRIBUTIONS,
+                ),
+            ),
+        ]
+    ),
+    ...
+)
 
 
 async def main():
-    agent = CustomAgent("custom_agent")
-    await agent.forward()
+    agentsociety = AgentSociety(config)
+    await agentsociety.init()
+    await agentsociety.run()
+    await agentsociety.close()
+    ray.shutdown()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 ```
 
 ## 2. Implement Your Logic with `Block`
@@ -40,89 +94,83 @@ For complex behaviors, you can use `Block` to organize logic.
 
 ### What is a `Block`?
 
-A `Block` is a abstraction of agent logics, analogous to a layer in PyTorch. It encapsulates modular functionality and supports configurable fields.
+A `Block` is a foundational component that encapsulates modular functionality, similar to a layer in PyTorch. Each Block has:
 
-`Blocks` enable hierarchical system design by allowing nested sub-Blocks and standardized configuration management. 
-They abstract domain-specific tasks (e.g., reasoning, simulation) and promote reusability, scalability, and maintainability.
+- Configurable fields with default values and descriptions
+- Access to core tools like LLM, Memory, and Environment
+- A standardized interface through the `forward` method
+- Support for hierarchical composition through nested sub-blocks
 
-### Workflow of `Block`: The `forward` Method
+### Key Features
 
-The core workflow of a `Block` is defined by its `forward` method. 
-This method encapsulates the block’s primary logic, such as reasoning, data processing, or interaction with external components (e.g., LLMs, memory, or simulators). 
+- **Configurable Parameters**: Define adjustable fields through `configurable_fields`, `default_values`, and `fields_description`
+- **Tool Integration**: Built-in access to LLM, Memory, and Environment services
+- **Configuration Management**: Methods to export/import block configurations
+- **Hierarchical Design**: Support for nested blocks to build complex behaviors
+- **Event-Driven Control**: Optional trigger-based execution flow
 
-Combine multiple blocks by calling `await object.forward()` within a parent block’s `forward` method.
+### Block Workflow
 
-To define a parent-child block relation, you can either write it in the agent config with `ExpConfig.SetAgentConfig(agent_class_configs=<YOUR-CONFIG-DICT>)` or define your own block class and set the child block as its variable.
+The core logic of a Block is defined in its `forward` method, which:
 
-A simple `agent_class_configs` example with parent and child block is as follows:
+- Takes simulation step and context parameters
+- Performs the block's specific reasoning or processing tasks
+- Can call other blocks' forward methods asynchronously
+- Must be implemented by subclasses
 
-```json
-{
-    "agent_name": "SocietyAgent",
-    "config": {
-        "enable_cognition": true,
-        "enable_mobility": true,
-        "enable_social": true,
-        "enable_economy": true
-    },
-    "blocks": [
-        {
-            "name": "mindBlock",
-            "config": {},
-            "description": {},
-            "children": [
-                {
-                    "name": "cognitionBlock",
-                    "config": {
-                        "top_k": 20
-                    },
-                    "description": {
-                        "top_k": "Number of most relevant memories to return, defaults to 20"
-                    },
-                    "children": []
-                }
-            ]
-        }
-      ]
-}
-```
+### Execution Control
 
-### `Block` Execution Control
+Blocks support event-driven execution through the `EventTrigger` system:
 
-When a `Block` is initialized, you can pass an `EventTrigger` to `trigger`.
+- Pass an `EventTrigger` during Block initialization
+- The trigger monitors conditions before block execution
+- Block's forward method only runs after trigger conditions are met
+- Ensures dependencies and prerequisites are satisfied
 
-The `EventTrigger` class is a foundational component designed to monitor and react to specific conditions within a `Block`. 
-
-This class integrates with `Block` instances to access dependencies (e.g., LLMs, memory, simulators) and ensures required components are available before activation.
-
-The `Block` workflow is executed only after `EventTrigger.wait_for_trigger()` has completed.
+This modular architecture promotes:
+- Code reusability
+- Systematic behavior composition  
+- Clear separation of concerns
+- Flexible execution control
 
 ### Implementation Example
 
 ```python
 import asyncio
-from typing import Optional
+from typing import Any, Literal, Union, cast
 
-from agentsociety import Simulator
-from agentsociety.agent import Agent
-from agentsociety.llm import LLM
+import ray
+
+from agentsociety.agent import CitizenAgentBase
+from agentsociety.agent.agent_base import AgentToolbox
+from agentsociety.agent.block import Block
+from agentsociety.agent.distribution import Distribution, DistributionConfig
+from agentsociety.agent.memory_config_generator import MemoryT
+from agentsociety.cityagent import (DEFAULT_DISTRIBUTIONS,
+                                    memory_config_societyagent)
+from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
+                                  LLMConfig, MapConfig)
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
+from agentsociety.environment import EnvironmentConfig
+from agentsociety.llm import LLMProviderType
 from agentsociety.memory import Memory
-from agentsociety.workflow import Block
+from agentsociety.message import MessageBlockListenerBase, RedisConfig
+from agentsociety.metrics import MlflowConfig
+from agentsociety.simulation import AgentSociety
+from agentsociety.storage import AvroConfig, PostgreSQLConfig
+from agentsociety.tools import ExportMlflowMetrics
+from agentsociety.tools.tool import UpdateWithSimulator
 
 
 class SecondCustomBlock(Block):
 
     def __init__(
         self,
-        agent: Agent,
-        llm: LLM,
-        memory: Memory,
-        simulator: Simulator,
     ):
         super().__init__(
-            name="SecondCustomBlock", llm=llm, memory=memory, simulator=simulator
+            name="SecondCustomBlock",
         )
-        self._agent = agent
 
     async def forward(self):
         return f"SecondCustomBlock forward!"
@@ -133,62 +181,69 @@ class FirstCustomBlock(Block):
 
     def __init__(
         self,
-        agent: Agent,
-        llm: LLM,
-        memory: Memory,
-        simulator: Simulator,
     ):
         super().__init__(
-            name="FirstCustomBlock", llm=llm, memory=memory, simulator=simulator
+            name="FirstCustomBlock",
         )
-        self._agent = agent
-        self.second_block = SecondCustomBlock(agent, llm, memory, simulator)
+        self.second_block = SecondCustomBlock()
 
     async def forward(self):
         first_log = f"FirstCustomBlock forward!"
         second_log = await self.second_block.forward()
-        if self._agent.enable_print:
-            print(first_log, second_log)
+        print(first_log)
+        print(second_log)
 
 
-class CustomAgent(Agent):
-
-    configurable_fields = [
-        "enable_print",
-    ]
-    default_values = {
-        "enable_print": True,
-    }
-    fields_description = {
-        "enable_print": "Enable Print Message",
-    }
+class CustomAgent(CitizenAgentBase):
+    export_metric = ExportMlflowMetrics()
+    update_with_sim = UpdateWithSimulator()
     first_block: FirstCustomBlock
+    second_block: SecondCustomBlock
 
     def __init__(
         self,
+        id: int,
         name: str,
-        llm_client: Optional[LLM] = None,
-        simulator: Optional[Simulator] = None,
-        memory: Optional[Memory] = None,
+        toolbox: AgentToolbox,
+        memory: Memory,
     ) -> None:
         super().__init__(
+            id=id,
             name=name,
-            llm_client=llm_client,
-            simulator=simulator,
+            toolbox=toolbox,
             memory=memory,
         )
-        self.enable_print = True
-        self.first_block = FirstCustomBlock(self, llm_client, memory, simulator)
+        self.first_block = FirstCustomBlock()
+        self.second_block = SecondCustomBlock()
 
-    # Main workflow
     async def forward(self):
         await self.first_block.forward()
+        await self.second_block.forward()
+
+config = Config(
+    ...
+    agents=AgentsConfig(
+        citizens=[
+            AgentConfig(
+                agent_class=CustomAgent,
+                number=1,
+                memory_config_func=memory_config_societyagent,
+                memory_distributions=cast(
+                    dict[str, Union[Distribution, DistributionConfig]],
+                    DEFAULT_DISTRIBUTIONS,
+                ),
+            ),
+        ],
+    ),
+)
 
 
 async def main():
-    agent = CustomAgent(name="CustomAgent")
-    print(agent.export_class_config())
-    await agent.forward()
+    agentsociety = AgentSociety(config)
+    await agentsociety.init()
+    await agentsociety.run()
+    await agentsociety.close()
+    ray.shutdown()
 
 
 if __name__ == "__main__":
@@ -226,30 +281,34 @@ class CustomAgent(Agent):
 
 ## 4. Using Self-defined Agents in Your Experiment
 
-Set your agent classes and their count with `configs.ExpConfig.SetAgentConfig`.
+Set your agent classes and their count with `AgentsConfig` in `Config`.
+
+Each of the `AgentConfig` should contain:
+
+- `agent_class`: The class of the agent
+- `number`: The number of agents
+- `memory_config_func`: The function to configure the memory of the agent
+
+Each input agent class should inherit from specific agent class.
+For example, if you give a list of AgentConfig for `citizens`, each agent class should inherit from `CitizenAgentBase`.
+Each agent class is as follows:
+- citizens: `CitizenAgentBase`
+- firms: `FirmAgentBase`
+- banks: `BankAgentBase`
+- nbs: `NBSAgentBase`
+- governments: `GovernmentAgentBase`
 
 ```python
-import logging
-
-from agentsociety.cityagent import memory_config_societyagent
-from agentsociety.configs import ExpConfig
-
-exp_config = (
-    ExpConfig(exp_name="exp", llm_semaphore=200, logging_level=logging.INFO)
-    .SetAgentConfig(
-        number_of_citizen=100,
-        group_size=50,
-        extra_agent_class={
-            # self-defined agent classes
-            DisagreeAgent: 1,
-            AgreeAgent: 1
-        },
-        memory_config_func={
-            DisagreeAgent: memory_config_societyagent,
-            AgreeAgent: memory_config_societyagent
-        }
-    )
+config = Config(
+    ...
+    agents=AgentsConfig(
+        citizens=[
+            AgentConfig(
+                agent_class=CustomAgent,
+                number=1,
+                memory_config_func=memory_config_societyagent,
+            ),
+        ],
+    ),
 )
-```
-
-With the config above, one `DisagreeAgent`, one `AgreeAgent` and 100 `SocietyAgent` will be initialized in our simulation environment.
+``` 
