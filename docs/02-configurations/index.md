@@ -6,6 +6,6 @@ This guide helps you to learn about the configuration for our simulation framewo
 :maxdepth: 2
 
 01-environment-config
-02-agent-config
-03-experiment-config
+02-experiment-config
+03-agent-config
 ```

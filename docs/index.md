@@ -14,6 +14,10 @@ The paper is available at [arXiv](https://arxiv.org/abs/2502.08691):
 
 <img src="_static/framework-overview.jpg" alt="Overall Structure of AgentSociety" style="zoom=28%;" />
 
+## News
+
+Check out our [big changes](./08-big-change/index.md) for the latest updates and new features🎇.
+
 ## Features
 
 - 🌟 **Large Model-driven Social Human Agents**: Based on sociological theories, it constructs social agents with "human-like minds," endowing them with emotions, needs, motivations, and cognitive abilities. These agents perform complex social behaviors such as movement, employment, consumption, and social interactions driven by these mental attributes. We also support [customization of agents](./04-custom-agents/index.md).
