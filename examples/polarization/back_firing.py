@@ -76,36 +76,36 @@ config = Config(
         LLMConfig(
             provider=LLMProviderType.Qwen,
             base_url=None,
-            api_key="API-KEY",
-            model="MODEL",
+            api_key="<YOUR-API-KEY>",
+            model="<YOUR-MODEL>",
             semaphore=200,
         )
     ],
     env=EnvConfig(
         redis=RedisConfig(
-            server="SERVER-ADDRESS",
+            server="<SERVER-ADDRESS>",
             port=6379,
-            password="PASSWORD",
+            password="<PASSWORD>",
         ), # type: ignore
         pgsql=PostgreSQLConfig(
             enabled=True,
-            dsn="PGSQL-DSN",
+            dsn="<PGSQL-DSN>",
             num_workers="auto",
         ),
         avro=AvroConfig(
-            path="SAVE-PATH",
+            path="<SAVE-PATH>",
             enabled=True,
         ),
         mlflow=MlflowConfig(
             enabled=True,
-            mlflow_uri="MLFLOW-URI",
-            username="USERNAME",
-            password="PASSWORD",
+            mlflow_uri="<MLFLOW-URI>",
+            username="<USERNAME>",
+            password="<PASSWORD>",
         ),
     ),
     map=MapConfig(
-        file_path="MAP-PATH.pb",
-        cache_path="MAP-CACHE-PATH.cache",
+        file_path="<MAP-FILE-PATH>",
+        cache_path="<CACHE-FILE-PATH>",
     ),
     agents=AgentsConfig(
         citizens=[

@@ -2,21 +2,21 @@ import asyncio
 import copy
 import json
 import logging
-import os
 import random
 
 import ray
 
-from agentsociety.simulation import AgentSociety
 from agentsociety.cityagent import SocietyAgent
-from agentsociety.configs import Config, LLMConfig, EnvConfig, MapConfig, AgentsConfig, ExpConfig
-from agentsociety.llm import LLMProviderType
-from agentsociety.storage import PostgreSQLConfig, AvroConfig
-from agentsociety.message import RedisConfig
-from agentsociety.configs.agent import AgentConfig, AgentClassType
-from agentsociety.configs.exp import WorkflowType, WorkflowStepConfig
+from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
+                                  LLMConfig, MapConfig)
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
 from agentsociety.environment import EnvironmentConfig
+from agentsociety.llm import LLMProviderType
+from agentsociety.message import RedisConfig
 from agentsociety.metrics import MlflowConfig
+from agentsociety.simulation import AgentSociety
+from agentsociety.storage import AvroConfig, PostgreSQLConfig
 
 ray.init(logging_level=logging.WARNING, log_to_driver=True)
 
@@ -37,7 +37,7 @@ async def update_chat_histories(simulation: AgentSociety):
     selected_citizen_ids = random.sample(citizen_ids, k=3)
     chat_histories = await simulation.gather("chat_histories", selected_citizen_ids)
     for agent in selected_citizen_ids:
-        chat_history = copy.deepcopy(chat_histories[1][agent])
+        chat_history = copy.deepcopy(chat_histories[0][agent])
         for chat in chat_history.keys():
             chat_history[
                 chat
@@ -50,36 +50,36 @@ config = Config(
         LLMConfig(
             provider=LLMProviderType.Qwen,
             base_url=None,
-            api_key="YOUR-API-KEY",
-            model="YOUR-MODEL",
+            api_key="<YOUR-API-KEY>",
+            model="<YOUR-MODEL>",
             semaphore=200,
         )
     ],
     env=EnvConfig(
         redis=RedisConfig(
-            server="SERVER-ADDRESS",
+            server="<SERVER-ADDRESS>",
             port=6379,
-            password="PASSWORD",
-        ), # type: ignore
+            password="<PASSWORD>",
+        ),  # type: ignore
         pgsql=PostgreSQLConfig(
             enabled=True,
-            dsn="PGSQL-DSN",
+            dsn="<PGSQL-DSN>",
             num_workers="auto",
         ),
         avro=AvroConfig(
-            path="SAVE-PATH",
+            path="<SAVE-PATH>",
             enabled=True,
         ),
         mlflow=MlflowConfig(
             enabled=True,
-            mlflow_uri="MLFLOW-URI",
-            username="USERNAME",
-            password="PASSWORD",
+            mlflow_uri="<MLFLOW-URI>",
+            username="<USERNAME>",
+            password="<PASSWORD>",
         ),
     ),
     map=MapConfig(
-        file_path="MAP-PATH.pb",
-        cache_path="MAP-CACHE-PATH.cache",
+        file_path="<MAP-FILE-PATH>",
+        cache_path="<CACHE-FILE-PATH>",
     ),
     agents=AgentsConfig(
         citizens=[
@@ -88,7 +88,7 @@ config = Config(
                 number=100,
             )
         ]
-    ), # type: ignore
+    ),  # type: ignore
     exp=ExpConfig(
         name="social_control",
         workflow=[
@@ -112,12 +112,14 @@ config = Config(
     ),
 )
 
+
 async def main():
     agentsociety = AgentSociety(config)
     await agentsociety.init()
     await agentsociety.run()
     await agentsociety.close()
     ray.shutdown()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
