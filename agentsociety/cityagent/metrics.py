@@ -1,15 +1,15 @@
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
 
 from agentsociety.cityagent import SocietyAgent
+from agentsociety.simulation.agentsociety import AgentSociety
 
-
-async def mobility_metric(simulation):
+async def mobility_metric(simulation: AgentSociety):
     # Use function attributes to store counts
     if not hasattr(mobility_metric, "step_count"):
         mobility_metric.step_count = 0  
 
     # Count the number of visited locations
-    citizen_agents = await simulation.filter(types=[SocietyAgent])
+    citizen_agents = await simulation.filter(types=(SocietyAgent,))
     poi_visited_info = await simulation.gather("number_poi_visited", citizen_agents)
     poi_visited_sum = 0
     for group_gather in poi_visited_info:
@@ -30,18 +30,18 @@ async def mobility_metric(simulation):
     mobility_metric.step_count += 1  
 
 
-async def economy_metric(simulation):
+async def economy_metric(simulation: AgentSociety):
     # Use function attributes to store counts
     if not hasattr(economy_metric, "nbs_id"):
         economy_metric.nbs_id = None  
 
     if economy_metric.nbs_id is None:  
-        nbs_id = await simulation.economy_client.get_nbs_ids()
+        nbs_id = await simulation.environment.economy_client.get_nbs_ids()
         nbs_id = nbs_id[0]
         economy_metric.nbs_id = nbs_id  
 
     try:
-        real_gdp = await simulation.economy_client.get(
+        real_gdp = await simulation.environment.economy_client.get(
             economy_metric.nbs_id, "real_gdp"  
         )
     except:
@@ -77,7 +77,7 @@ async def economy_metric(simulation):
         ]
         for metric, metric_name in zip(other_metrics, other_metrics_names):
             metric_value = (
-                await simulation.economy_client.get(
+                await simulation.environment.economy_client.get(
                     economy_metric.nbs_id, metric  
                 )
             )[latest_time]

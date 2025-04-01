@@ -69,8 +69,9 @@ def _init_agent_class(agent_config: AgentConfig):
         ),
     )
     # lazy generate memory values
-    agents = [(agent_class, generator, i) for i in range(n)]
-    # TODO: how to use the agent config ??
+    # param config
+    param_config = agent_config.param_config
+    agents = [(agent_class, generator, i, param_config) for i in range(n)]
     return agents
 
 
@@ -81,6 +82,10 @@ class AgentSociety:
         tenant_id: str = "",
     ) -> None:
         config.set_auto_workers()
+        # fill in the config
+        from ..cityagent import default
+
+        config = default(config)
         self._config = config
         self.tenant_id = tenant_id
 
@@ -350,7 +355,7 @@ class AgentSociety:
                 ),
                 mlflow_run_id=self._mlflow.run_id if self._mlflow is not None else None,
             )
-            for agent_id, _, _, _ in group_agents:
+            for agent_id, _, _, _, _ in group_agents:
                 self._agent_id2group[agent_id] = self._groups[group_id]
         get_logger().info(
             f"groups: len(self._groups)={len(self._groups)}, waiting for groups to init..."

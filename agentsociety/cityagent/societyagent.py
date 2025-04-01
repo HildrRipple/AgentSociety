@@ -33,13 +33,13 @@ class PlanAndActionBlock(Block):
     """
 
     # Sub-modules for different behavioral aspects
-    monthPlanBlock: MonthPlanBlock
-    needsBlock: NeedsBlock
-    planBlock: PlanBlock
-    mobilityBlock: MobilityBlock
-    socialBlock: SocialBlock
-    economyBlock: EconomyBlock
-    otherBlock: OtherBlock
+    month_plan_block: MonthPlanBlock
+    needs_block: NeedsBlock
+    plan_block: PlanBlock
+    mobility_block: MobilityBlock
+    social_block: SocialBlock
+    economy_block: EconomyBlock
+    other_block: OtherBlock
 
     def __init__(
         self,
@@ -65,21 +65,21 @@ class PlanAndActionBlock(Block):
         self.enable_social = enable_social
         self.enable_economy = enable_economy
         self.enable_cognition = enable_cognition
-        self.monthPlanBlock = MonthPlanBlock(
+        self.month_plan_block = MonthPlanBlock(
             llm=llm, environment=environment, memory=memory
         )
-        self.needsBlock = NeedsBlock(llm=llm, environment=environment, memory=memory)
-        self.planBlock = PlanBlock(llm=llm, environment=environment, memory=memory)
-        self.mobilityBlock = MobilityBlock(
+        self.needs_block = NeedsBlock(llm=llm, environment=environment, memory=memory)
+        self.plan_block = PlanBlock(llm=llm, environment=environment, memory=memory)
+        self.mobility_block = MobilityBlock(
             llm=llm, environment=environment, memory=memory
         )
-        self.socialBlock = SocialBlock(
+        self.social_block = SocialBlock(
             agent=agent, llm=llm, environment=environment, memory=memory
         )
-        self.economyBlock = EconomyBlock(
+        self.economy_block = EconomyBlock(
             llm=llm, environment=environment, memory=memory
         )
-        self.otherBlock = OtherBlock(llm=llm, memory=memory)
+        self.other_block = OtherBlock(llm=llm, memory=memory)
 
     async def plan_generation(self):
         """Generate a new plan if no current plan exists in memory."""
@@ -87,7 +87,7 @@ class PlanAndActionBlock(Block):
         current_plan = await self.memory.status.get("current_plan")
         if current_plan is None or not current_plan:
             cognition = (
-                await self.planBlock.forward()
+                await self.plan_block.forward()
             )  # Delegate to PlanBlock for plan creation
         return cognition
 
@@ -113,7 +113,7 @@ class PlanAndActionBlock(Block):
             result = None
             if step_type == "mobility":
                 if self.enable_mobility:
-                    result = await self.mobilityBlock.forward(
+                    result = await self.mobility_block.forward(
                         current_step, execution_context
                     )
                 else:
@@ -125,7 +125,7 @@ class PlanAndActionBlock(Block):
                     }
             elif step_type == "social":
                 if self.enable_social:
-                    result = await self.socialBlock.forward(
+                    result = await self.social_block.forward(
                         current_step, execution_context
                     )
                 else:
@@ -137,7 +137,7 @@ class PlanAndActionBlock(Block):
                     }
             elif step_type == "economy":
                 if self.enable_economy:
-                    result = await self.economyBlock.forward(
+                    result = await self.economy_block.forward(
                         current_step, execution_context
                     )
                 else:
@@ -148,7 +148,7 @@ class PlanAndActionBlock(Block):
                         "node_id": None,
                     }
             elif step_type == "other":
-                result = await self.otherBlock.forward(current_step, execution_context)
+                result = await self.other_block.forward(current_step, execution_context)
             else:
                 result = {
                     "success": True,
@@ -166,10 +166,10 @@ class PlanAndActionBlock(Block):
 
     async def forward(self):
         # Long-term decision
-        await self.monthPlanBlock.forward()
+        await self.month_plan_block.forward()
 
         # update needs
-        cognition = await self.needsBlock.forward()
+        cognition = await self.needs_block.forward()
         if cognition:
             await self._agent.save_agent_thought(cognition)
 
@@ -543,6 +543,6 @@ class SocietyAgent(CitizenAgentBase):
         await self.save_agent_thought(conclusion)
         await self.memory.stream.add_cognition(description=conclusion)
         # needs
-        await self.plan_and_action_block.needsBlock.reflect_to_intervention(
+        await self.plan_and_action_block.needs_block.reflect_to_intervention(
             intervention_message
         )

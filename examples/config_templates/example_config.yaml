@@ -1,0 +1,46 @@
+llm:
+  api_key: API-KEY
+  base_url: BASE-URL
+  model: MODEL
+  provider: PROVIDER
+env:
+  avro:
+    enabled: true
+    path: avro
+  mlflow:
+    enabled: true
+    mlflow_uri: http://localhost:59000
+    password: CHANGE_ME
+    username: admin
+  pgsql:
+    dsn: postgresql://postgres:CHANGE_ME@localhost:5432/postgres
+  redis:
+    password: CHANGE_ME
+    port: 6379
+    server: localhost
+map:
+  cache_path: /root/agentsociety/__test/srt.map_beijing_extend_20241201.cache
+  file_path: /root/agentsociety/__test/srt.map_beijing_extend_20241201.pb
+agents:
+  citizens:
+    agent_class: citizen
+    memory_config_func: null
+    memory_distributions: null
+    number: 100
+    init_funcs: []
+exp:
+  name: test
+  environment:
+    start_tick: 28800
+    total_tick: 7200
+  message_intercept:
+    blocks: []
+    listener: null
+    mode: point
+  workflow:
+    - func: null
+      times: 60
+      type: step
+advanced:
+  group_size: 200
+  logging_level: info

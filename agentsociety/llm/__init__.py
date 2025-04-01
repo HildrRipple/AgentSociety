@@ -1,7 +1,7 @@
 """LLM related modules"""
 
 from .embeddings import SentenceEmbedding, SimpleEmbedding, init_embedding
-from .llm import LLM, LLMConfig
+from .llm import LLM, LLMConfig, LLMProviderType
 
 __all__ = [
     "LLM",
@@ -9,4 +9,5 @@ __all__ = [
     "SimpleEmbedding",
     "init_embedding",
     "LLMConfig",
+    "LLMProviderType",
 ]

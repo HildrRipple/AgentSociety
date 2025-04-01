@@ -42,7 +42,7 @@ class AgentConfig(BaseModel):
     number: int = Field(gt=0)
     """The number of agents"""
 
-    agent_config: Optional[dict[str, Any]] = None
+    param_config: Optional[dict[str, Any]] = None
     """Agent configuration"""
 
     # Choose one of the following:

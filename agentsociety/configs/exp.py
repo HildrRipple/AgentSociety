@@ -96,8 +96,10 @@ class WorkflowStepConfig(BaseModel):
     def serialize_func(self, func, info):
         if func is None:
             return None
-        else:
-            return func.__name__
+        # Handle partial function
+        if hasattr(func, 'func'):
+            return func.func.__name__
+        return func.__name__
 
     @field_serializer("survey")
     def serialize_survey(self, survey: Optional[Survey], info):
@@ -138,7 +140,7 @@ class WorkflowStepConfig(BaseModel):
                     "intervene_message and target_agent are required for MESSAGE_INTERVENE step"
                 )
         elif self.type == WorkflowType.INTERVENE:
-            if self.target_agent is None or self.intervene_message is None:
+            if self.func is None:
                 raise ValueError(
                     "target_agent and intervene_message are required for INTERVENE step"
                 )
@@ -208,8 +210,10 @@ class MetricExtractorConfig(BaseModel):
     def serialize_func(self, func, info):
         if func is None:
             return None
-        else:
-            return func.__name__
+        # Handle partial function
+        if hasattr(func, 'func'):
+            return func.func.__name__
+        return func.__name__
 
 
 class MessageInterceptConfig(BaseModel):

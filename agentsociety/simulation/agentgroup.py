@@ -52,6 +52,7 @@ class AgentGroup:
                 ],
                 MemoryConfigGenerator,
                 int,
+                dict[str, Any]
             ]
         ],
         environment_init: dict,
@@ -199,7 +200,7 @@ class AgentGroup:
             self._mlflow_client,
         )
         for agent_init in self._agent_inits:
-            id, agent_class, memory_config_generator, index_for_generator = agent_init
+            id, agent_class, memory_config_generator, index_for_generator, param_config = agent_init
             memory_dict = memory_config_generator.generate(index_for_generator)
             extra_attributes = memory_dict.get("extra_attributes", {})
             profile = memory_dict.get("profile", {})
@@ -219,7 +220,9 @@ class AgentGroup:
                 toolbox=agent_toolbox,
                 memory=memory_init,
             )
-            # TODO: load_from_config
+            # load_from_config
+            if param_config is not None:
+                agent.load_from_config(param_config)
             self._agents.append(agent)
             self._id2agent[id] = agent
         get_logger().info(

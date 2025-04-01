@@ -1,14 +1,12 @@
 import asyncio
 import jsonc
 import logging
-from typing import Optional, cast
 
-from agentsociety import CitizenAgentBase, Simulator
-from agentsociety.environment import EconomyClient
-from agentsociety.llm import LLM
+from agentsociety.agent import CitizenAgentBase
+from agentsociety.agent.agent_base import AgentToolbox
 from agentsociety.memory import Memory
-from agentsociety.message import Messager
-from agentsociety.workflow.prompt import FormatPrompt
+from agentsociety.agent.prompt import FormatPrompt
+from agentsociety.tools.tool import UpdateWithSimulator
 
 logger = logging.getLogger(__name__)
 
@@ -44,32 +42,27 @@ What you would say (One or two sentences):
 
 
 class AgreeAgent(CitizenAgentBase):
+    update_with_sim = UpdateWithSimulator()
     def __init__(
         self,
+        id: int,
         name: str,
-        llm_client: Optional[LLM] = None,
-        simulator: Optional[Simulator] = None,
-        memory: Optional[Memory] = None,
-        economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,  
-        avro_file: Optional[dict] = None,
+        toolbox: AgentToolbox,
+        memory: Memory,
     ) -> None:
         super().__init__(
+            id=id,
             name=name,
-            llm_client=llm_client,
-            simulator=simulator,
+            toolbox=toolbox,
             memory=memory,
-            economy_client=economy_client,
-            messager=messager,
-            avro_file=avro_file,
         )
         self.response_prompt = FormatPrompt(AGREE_RESPONSE_PROMPT)
         self.last_time_trigger = None
         self.time_diff = 8 * 60 * 60
 
     async def trigger(self):
-        now_time = await self.simulator.get_time()
-        now_time = cast(int, now_time)
+        day, time = self.environment.get_datetime()
+        now_time = day * 24 * 60 * 60 + time
         if self.last_time_trigger is None:
             self.last_time_trigger = now_time
             return False
@@ -78,7 +71,12 @@ class AgreeAgent(CitizenAgentBase):
             return True
         return False
 
+    async def react_to_intervention(self, intervention_message: str):
+        pass
+
     async def forward(self):
+        # sync agent status with simulator
+        await self.update_with_sim()
         if await self.trigger():
             print("AgreeAgent forward")
             friends = await self.memory.status.get("friends")
@@ -140,32 +138,27 @@ class AgreeAgent(CitizenAgentBase):
 
 
 class DisagreeAgent(CitizenAgentBase):
+    update_with_sim = UpdateWithSimulator()
     def __init__(
         self,
+        id: int,
         name: str,
-        llm_client: Optional[LLM] = None,
-        simulator: Optional[Simulator] = None,
-        memory: Optional[Memory] = None,
-        economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,  
-        avro_file: Optional[dict] = None,
+        toolbox: AgentToolbox,
+        memory: Memory,
     ) -> None:
         super().__init__(
+            id=id,
             name=name,
-            llm_client=llm_client,
-            simulator=simulator,
+            toolbox=toolbox,
             memory=memory,
-            economy_client=economy_client,
-            messager=messager,
-            avro_file=avro_file,
         )
         self.response_prompt = FormatPrompt(DISAGREE_RESPONSE_PROMPT)
         self.last_time_trigger = None
         self.time_diff = 8 * 60 * 60
 
     async def trigger(self):
-        now_time = await self.simulator.get_time()
-        now_time = cast(int, now_time)
+        day, time = self.environment.get_datetime()
+        now_time = day * 24 * 60 * 60 + time
         if self.last_time_trigger is None:
             self.last_time_trigger = now_time
             return False
@@ -173,8 +166,13 @@ class DisagreeAgent(CitizenAgentBase):
             self.last_time_trigger = now_time
             return True
         return False
+    
+    async def react_to_intervention(self, intervention_message: str):
+        pass
 
     async def forward(self):
+        # sync agent status with simulator
+        await self.update_with_sim()
         if await self.trigger():
             print("DisagreeAgent forward")
             friends = await self.memory.status.get("friends")

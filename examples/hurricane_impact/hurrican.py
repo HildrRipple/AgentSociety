@@ -7,19 +7,19 @@ from typing import Literal, Union
 import ray
 from hurrican_memory_config import memory_config_societyagent_hurrican
 
-from agentsociety import AgentSimulation
-from agentsociety.cityagent import SocietyAgent
-from agentsociety.cityagent.metrics import mobility_metric
-from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep, MetricExtractor
-from agentsociety.utils import LLMProviderType, WorkflowType, MetricType
-
-logging.getLogger("agentsociety").setLevel(logging.INFO)
-
-ray.init(logging_level=logging.WARNING, log_to_driver=False)
-
+from agentsociety.simulation import AgentSociety
+from agentsociety.configs import Config, LLMConfig, EnvConfig, MapConfig, AgentsConfig, ExpConfig
+from agentsociety.llm import LLMProviderType
+from agentsociety.storage import PostgreSQLConfig, AvroConfig
+from agentsociety.message import RedisConfig
+from agentsociety.configs.agent import AgentConfig, AgentClassType
+from agentsociety.configs.exp import WorkflowType, WorkflowStepConfig
+from agentsociety.environment import EnvironmentConfig
+from agentsociety.metrics import MlflowConfig
+ray.init(logging_level=logging.WARNING, log_to_driver=True)
 
 async def update_weather_and_temperature(
-    weather: Union[Literal["wind"], Literal["no-wind"]], simulation: AgentSimulation
+    weather: Union[Literal["wind"], Literal["no-wind"]], simulation: AgentSociety
 ):
     if weather == "wind":
         await simulation.update_environment(
@@ -30,60 +30,90 @@ async def update_weather_and_temperature(
         await simulation.update_environment(
             "weather", "The weather is normal and does not affect travel"
         )
-    else:
-        raise ValueError(f"Invalid weather {weather}")
 
 
-sim_config = (
-    SimConfig()
-    .AddLLMConfig(
-        provider=LLMProviderType.ZhipuAI, api_key="YOUR-API-KEY", model="GLM-4-Flash"
-    )
-    .SetSimulatorConfig()
-    .SetRedis(server="redis.example.com", port=6379, password="pass")
-    # change to your file path
-    .SetMapConfig(file_path="map.pb")
-    # .SetAvro(path='./__avro', enabled=True)
-    .SetPostgreSql(dsn="postgresql://user:pass@localhost:5432/db", enabled=True)
-)
-exp_config = (
-    ExpConfig(name="hurrican", llm_semaphore=200, logging_level="INFO")
-    .SetAgentConfig(
-        number_of_citizen=1000,
-        group_size=50,
-    )
-    .SetMemoryConfig(
-        memory_config_func={SocietyAgent: memory_config_societyagent_hurrican},
-    )
-    .SetWorkFlow(
-        [
-            WorkflowStep(type=WorkflowType.RUN, days=3),
-            WorkflowStep(
-                type=WorkflowType.INTERVENE,
+config = Config(
+    llm=[
+        LLMConfig(
+            provider=LLMProviderType.Qwen,
+            base_url=None,
+            api_key="API-KEY",
+            model="MODEL",
+            semaphore=200,
+        )
+    ],
+    env=EnvConfig(
+        redis=RedisConfig(
+            server="SERVER-ADDRESS",
+            port=6379,
+            password="PASSWORD",
+        ), # type: ignore
+        pgsql=PostgreSQLConfig(
+            enabled=True,
+            dsn="PGSQL-DSN",
+            num_workers="auto",
+        ),
+        avro=AvroConfig(
+            path="SAVE-PATH",
+            enabled=True,
+        ),
+        mlflow=MlflowConfig(
+            enabled=True,
+            mlflow_uri="MLFLOW-URI",
+            username="USERNAME",
+            password="PASSWORD",
+        ),
+    ),
+    map=MapConfig(
+        file_path="MAP-PATH.pb",
+        cache_path="MAP-CACHE-PATH.cache",
+    ),
+    agents=AgentsConfig(
+        citizens=[
+            AgentConfig(
+                agent_class=AgentClassType.CITIZEN,
+                number=1000,
+                memory_config_func=memory_config_societyagent_hurrican,
+            )
+        ]
+    ), # type: ignore
+    exp=ExpConfig(
+        name="hurricane_impact",
+        workflow=[
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=3,
+            ),
+            WorkflowStepConfig(
+                type=WorkflowType.FUNCTION,
                 func=partial(update_weather_and_temperature, "wind"),
             ),
-            WorkflowStep(type=WorkflowType.RUN, days=3),
-            WorkflowStep(
-                type=WorkflowType.INTERVENE,
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=3,
+            ),
+            WorkflowStepConfig(
+                type=WorkflowType.FUNCTION,
                 func=partial(update_weather_and_temperature, "no-wind"),
             ),
-            WorkflowStep(type=WorkflowType.RUN, days=3),
-        ]
-    )
-    .SetMetricExtractors(
-        [
-            MetricExtractor(
-                type=MetricType.FUNCTION, func=mobility_metric, step_interval=1
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=3,
             ),
-        ]
-    )
+        ],
+        environment=EnvironmentConfig(
+            start_tick=6 * 60 * 60,
+            total_tick=18 * 60 * 60,
+        ),
+    ),
 )
 
-
 async def main():
-    await AgentSimulation.run_from_config(exp_config, sim_config)
+    agentsociety = AgentSociety(config)
+    await agentsociety.init()
+    await agentsociety.run()
+    await agentsociety.close()
     ray.shutdown()
-
 
 if __name__ == "__main__":
     asyncio.run(main())
