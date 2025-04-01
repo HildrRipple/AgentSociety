@@ -2,132 +2,332 @@
 
 Our platform offers a Sociology Research Toolbox, focusing on interviews and surveys:
 
-- **Interviews**: Researchers can pose questions to agents in real-time, receiving responses based on memory, current status, and environment without affecting their normal behavior.
 - **Surveys**: Facilitates the distribution of structured questionnaires to multiple agents. Responses are collected according to preset rules, ensuring data consistency and facilitating trend analysis.
+- **Interviews**: Researchers can pose questions to agents in real-time, receiving responses based on memory, current status, and environment without affecting their normal behavior.
 
 ## Surveys
 
-We provides a comprehensive survey system for gathering structured feedback from agents.
+We provide a comprehensive survey system for gathering structured feedback from agents using the `SurveyManager` class.
 
 Surveys and interviews communicate with agents via Redis (the same underlying mechanism for dialogues with agents). 
 Agents receive surveys or interviews from the message queue, generate responses, and send these responses to the sending message queue, where they are captured and saved by our framework.
 
-## Usage Example
-
 ### Create and Send A Survey
 
-You can send a survey with codes, or with our [UI Interface](../01-quick-start.md#ui-home-page).
-Below is a simple example to create and send a simple survey to specific agents.
+You can send a survey with code, or with our [UI Interface](../_static/01-exp-status.jpg)
+
+
+### Survey Components
+
+A survey consists of the following components:
+
+- **Survey**: The top-level container with:
+  - Unique ID (UUID)
+  - Title
+  - Description 
+  - List of pages
+  - Response collection
+  - Creation timestamp
+
+- **Pages**: Each survey contains one or more pages with:
+  - Name
+  - List of questions (elements)
+
+- **Questions**: Each page contains questions with:
+  - Name
+  - Title
+  - Question type (one of):
+    - Text
+    - Radio group
+    - Checkbox
+    - Boolean
+    - Rating
+    - Matrix
+  - Additional type-specific properties like:
+    - Choices for radio/checkbox
+    - Columns/rows for matrix
+    - Min/max values for rating
+  - Required flag
+
+### Usage Example
+
+Below is an example of how to create and send a survey.
+In this example, we create a survey with a single page and a single question, and we send it to agents with ID 5, 10, 15, and 20.
 
 ```python
 import asyncio
+import logging
+from typing import Literal, Union
+from uuid import uuid4
+import datetime
+import ray
 
-from agentsociety import AgentSimulation
-from agentsociety.configs import SimConfig
-from agentsociety.survey import SurveyManager
-from agentsociety.utils import LLMRequestType
+from agentsociety.cityagent.metrics import mobility_metric
+from agentsociety.configs import (
+    AgentsConfig,
+    Config,
+    EnvConfig,
+    ExpConfig,
+    LLMConfig,
+    MapConfig,
+)
+from agentsociety.survey import Survey
+from agentsociety.survey.models import Page, Question, QuestionType
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import (
+    MetricExtractorConfig,
+    MetricType,
+    WorkflowStepConfig,
+    WorkflowType,
+)
+from agentsociety.environment import EnvironmentConfig
+from agentsociety.llm import LLMProviderType
+from agentsociety.message import RedisConfig
+from agentsociety.metrics import MlflowConfig
+from agentsociety.simulation import AgentSociety
+from agentsociety.storage import AvroConfig, PostgreSQLConfig
+
+logging.getLogger("agentsociety").setLevel(logging.INFO)
+
+ray.init(logging_level=logging.WARNING, log_to_driver=False)
+
+config = Config(
+    llm=[
+        LLMConfig(
+            provider=LLMProviderType.Qwen,
+            base_url=None,
+            api_key="<YOUR-API-KEY>",
+            model="<YOUR-MODEL>",
+            semaphore=200,
+        )
+    ],
+    env=EnvConfig(
+        redis=RedisConfig(
+            server="<SERVER-ADDRESS>",
+            port=6379,
+            password="<PASSWORD>",
+        ),  # type: ignore
+        pgsql=PostgreSQLConfig(
+            enabled=True,
+            dsn="<PGSQL-DSN>",
+            num_workers="auto",
+        ),
+        avro=AvroConfig(
+            path="<SAVE-PATH>",
+            enabled=True,
+        ),
+        mlflow=MlflowConfig(
+            enabled=True,
+            mlflow_uri="<MLFLOW-URI>",
+            username="<USERNAME>",
+            password="<PASSWORD>",
+        ),
+    ),
+    map=MapConfig(
+        file_path="<MAP-FILE-PATH>",
+        cache_path="<CACHE-FILE-PATH>",
+    ),
+    agents=AgentsConfig(
+        citizens=[
+            AgentConfig(
+                agent_class=AgentClassType.CITIZEN,
+                number=100,
+            )
+        ]
+    ),  # type: ignore
+    exp=ExpConfig(
+        name="survey_test",
+        workflow=[
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=3,
+            ),
+            WorkflowStepConfig(
+                type=WorkflowType.SURVEY,
+                target_agent=[5, 10, 15, 20],
+                survey=Survey(
+                    id=uuid4(),
+                    description="survey_1",
+                    created_at=datetime.datetime.now(),
+                    title="Survey Title",
+                    pages=[
+                        Page(
+                            name="page_0",
+                            elements=[
+                                Question(
+                                    name="question_0",
+                                    title="How much do you like the weather?",
+                                    type=QuestionType.RATING,
+                                    min_rating=1,
+                                    max_rating=5,
+                                    required=True,
+                                )
+                            ],
+                        )
+                    ],
+                ),
+            ),
+        ],
+        environment=EnvironmentConfig(
+            start_tick=6 * 60 * 60,
+            total_tick=18 * 60 * 60,
+        ),
+        metric_extractors=[
+            MetricExtractorConfig(
+                type=MetricType.FUNCTION,
+                func=mobility_metric,
+                step_interval=1,
+            )
+        ],
+    ),
+)
 
 
 async def main():
-    sim_config = (
-        SimConfig()
-        .SetLLMRequest(
-            request_type=LLMRequestType.ZhipuAI,
-            api_key="YOUR-API-KEY",
-            model="GLM-4-Flash",
-        )
-        .SetSimulatorConfig(min_step_time=50)
-        .SetRedis(server="redis.example.com", port=6379, password="pass")
-        # change to your file path
-        .SetMapConfig(file_path="map.pb")
-        .SetAvro(path="./__avro", enabled=True)
-        .SetPostgreSql(path="postgresql://user:pass@localhost:5432/db", enabled=True)
-    )
-    simulation = AgentSimulation(config=sim_config)
-    survey_manager = SurveyManager()
-    # Create a survey
-    # ------------------------------------------------------------------------#
-    survey = survey_manager.create_survey(
-        title="Job Satisfaction Survey",
-        description="Understanding agent job satisfaction",
-        pages=[
-            {
-                "name": "page1",
-                "elements": [
-                    {
-                        "name": "satisfaction",
-                        "title": "How satisfied are you with your job?",
-                        "type": "rating",
-                        "min_rating": 1,
-                        "max_rating": 5,
-                    }
-                ],
-            }
-        ],
-    )
-    # ------------------------------------------------------------------------#
-    # Send survey to specific agents
-    # ------------------------------------------------------------------------#
-    await simulation.send_survey(survey, agent_uuids=["agent1", "agent2"])
-    # ------------------------------------------------------------------------#
+    agentsociety = AgentSociety(config)
+    await agentsociety.init()
+    await agentsociety.run()
+    await agentsociety.close()
+    ray.shutdown()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
 
 ```
-
-### Collect Survey Results
-
-With `SimConfig.SetAvro` and `SimConfig.SetPostgreSql`, the survey result will be automatically stored in local Avro files and PostgreSQL database.
-
-Check [Avro Schema](../07-advanced-usage/02-record-with-avro.md#survey) and [PostgreSQL Table](../07-advanced-usage/01-record-with-pgsql.md#survey) definitions for data structure.
-
+  
 ## Interviews
 
-The interview system allows direct interaction with agents through messages.
+Interviews are similar to surveys, but they are used to gather unstructured feedback from agents.
 
-### Conducting An Interview
+### Send an Interview
+
+In our framework, an interview is a message sent to an agent, the message here is modeled as a `string` object.
+Similar to surveys, you can send an interview with code, or with our [UI Interface](../_static/01-exp-status.jpg)
+
+
+### Usage Example
+
+Below is an example of how to send an interview to an agent.
+In this example, we send an interview to agent with ID 5.
 
 ```python
 import asyncio
+import logging
+from typing import Literal, Union
+from uuid import uuid4
+import datetime
+import ray
 
-from agentsociety import AgentSimulation
-from agentsociety.configs import SimConfig
-from agentsociety.utils import LLMRequestType
+from agentsociety.cityagent.metrics import mobility_metric
+from agentsociety.configs import (
+    AgentsConfig,
+    Config,
+    EnvConfig,
+    ExpConfig,
+    LLMConfig,
+    MapConfig,
+)
+from agentsociety.survey import Survey
+from agentsociety.survey.models import Page, Question, QuestionType
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import (
+    MetricExtractorConfig,
+    MetricType,
+    WorkflowStepConfig,
+    WorkflowType,
+)
+from agentsociety.environment import EnvironmentConfig
+from agentsociety.llm import LLMProviderType
+from agentsociety.message import RedisConfig
+from agentsociety.metrics import MlflowConfig
+from agentsociety.simulation import AgentSociety
+from agentsociety.storage import AvroConfig, PostgreSQLConfig
+
+logging.getLogger("agentsociety").setLevel(logging.INFO)
+
+ray.init(logging_level=logging.WARNING, log_to_driver=False)
+
+config = Config(
+    llm=[
+        LLMConfig(
+            provider=LLMProviderType.Qwen,
+            base_url=None,
+            api_key="<YOUR-API-KEY>",
+            model="<YOUR-MODEL>",
+            semaphore=200,
+        )
+    ],
+    env=EnvConfig(
+        redis=RedisConfig(
+            server="<SERVER-ADDRESS>",
+            port=6379,
+            password="<PASSWORD>",
+        ),  # type: ignore
+        pgsql=PostgreSQLConfig(
+            enabled=True,
+            dsn="<PGSQL-DSN>",
+            num_workers="auto",
+        ),
+        avro=AvroConfig(
+            path="<SAVE-PATH>",
+            enabled=True,
+        ),
+        mlflow=MlflowConfig(
+            enabled=True,
+            mlflow_uri="<MLFLOW-URI>",
+            username="<USERNAME>",
+            password="<PASSWORD>",
+        ),
+    ),
+    map=MapConfig(
+        file_path="<MAP-FILE-PATH>",
+        cache_path="<CACHE-FILE-PATH>",
+    ),
+    agents=AgentsConfig(
+        citizens=[
+            AgentConfig(
+                agent_class=AgentClassType.CITIZEN,
+                number=100,
+            )
+        ]
+    ),  # type: ignore
+    exp=ExpConfig(
+        name="interview_test",
+        workflow=[
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=3,
+            ),
+            WorkflowStepConfig(
+                type=WorkflowType.INTERVIEW,
+                target_agent=[5, 10, 15, 20],
+                interview_message="What is your favorite color?",
+            ),
+        ],
+        environment=EnvironmentConfig(
+            start_tick=6 * 60 * 60,
+            total_tick=18 * 60 * 60,
+        ),
+        metric_extractors=[
+            MetricExtractorConfig(
+                type=MetricType.FUNCTION,
+                func=mobility_metric,
+                step_interval=1,
+            )
+        ],
+    ),
+)
 
 
 async def main():
-    sim_config = (
-        SimConfig()
-        .SetLLMRequest(
-            request_type=LLMRequestType.ZhipuAI,
-            api_key="YOUR-API-KEY",
-            model="GLM-4-Flash",
-        )
-        .SetSimulatorConfig(min_step_time=50)
-        .SetRedis(server="redis.example.com", port=6379, password="pass")
-        # change to your file path
-        .SetMapConfig(file_path="map.pb")
-        .SetAvro(path="./__avro", enabled=True)
-        .SetPostgreSql(path="postgresql://user:pass@localhost:5432/db", enabled=True)
-    )
-    simulation = AgentSimulation(config=sim_config)
-    # Send interview to specific agents
-    # ------------------------------------------------------------------------#
-    await simulation.send_interview_message(
-        content="What are your career goals?", agent_uuids=["agent1"]
-    )
-    # ------------------------------------------------------------------------#
+    agentsociety = AgentSociety(config)
+    await agentsociety.init()
+    await agentsociety.run()
+    await agentsociety.close()
+    ray.shutdown()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 ```
-
-### Collect Interview Results
-
-With `SimConfig.SetAvro` and `SimConfig.SetPostgreSql`, the interview result will be automatically stored in local Avro files and PostgreSQL database.
-
-Check [Avro Schema](../07-advanced-usage/02-record-with-avro.md#interview) and [PostgreSQL Table](../07-advanced-usage/01-record-with-pgsql.md#interview) definitions for data structure.

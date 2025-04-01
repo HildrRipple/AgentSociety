@@ -46,12 +46,13 @@ class Tool:
         assert instance is not None
         subclass = type(self)
         if not hasattr(instance, "_tools"):
-            instance._tools = {}
-        if subclass not in instance._tools:
+            setattr(instance, "_tools", {})
+        instance_tools = getattr(instance, "_tools")
+        if subclass not in instance_tools:
             tool_instance = subclass()
-            tool_instance._instance = instance
-            instance._tools[subclass] = tool_instance
-        return instance._tools[subclass]
+            setattr(tool_instance, "_instance", instance)
+            instance_tools[subclass] = tool_instance
+        return instance_tools[subclass]
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         """Invoke the tool's functionality.
@@ -74,7 +75,7 @@ class Tool:
         - **Raises**:
             - `RuntimeError`: If the tool is not bound to an `Agent`.
         """
-        instance = self._instance
+        instance = getattr(self, "_instance", None)
         if not isinstance(instance, Agent):
             raise RuntimeError(
                 f"Tool bind to object `{type(instance).__name__}`, not an `Agent` object!"
@@ -92,7 +93,7 @@ class Tool:
         - **Raises**:
             - `RuntimeError`: If the tool is not bound to a `Block`.
         """
-        instance = self._instance
+        instance = getattr(self, "_instance", None)
         if not isinstance(instance, Block):
             raise RuntimeError(
                 f"Tool bind to object `{type(instance).__name__}`, not an `Block` object!"

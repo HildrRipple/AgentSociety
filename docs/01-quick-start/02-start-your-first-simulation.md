@@ -131,7 +131,7 @@ After the simulation is finished, you will see the following output.
 When the simulation is over, you can see an error `exception asyncio.CancelledError` in the output. This is normal and can be ignored.
 ```
 
-## Step4：View the Results
+## Step 4：View the Results
 
 ```{admonition} Caution
 :class: caution
