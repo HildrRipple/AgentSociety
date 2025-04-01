@@ -12,13 +12,31 @@ Here’s how you can modify the global weather condition in your Python code:
 
 ```python
 import asyncio
-from functools import partial
-from agentsociety import AgentSimulation
-from agentsociety.configs import ExpConfig, SimConfig, WorkflowStep, load_config_from_file
-from agentsociety.utils import WorkflowType
+import logging
+from typing import Literal, Union
+
+import ray
+
+from agentsociety.cityagent.metrics import mobility_metric
+from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
+                                  LLMConfig, MapConfig)
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import (MetricExtractorConfig, MetricType,
+                                      WorkflowStepConfig, WorkflowType)
+from agentsociety.environment import EnvironmentConfig
+from agentsociety.llm import LLMProviderType
+from agentsociety.message import RedisConfig
+from agentsociety.metrics import MlflowConfig
+from agentsociety.simulation import AgentSociety
+from agentsociety.storage import AvroConfig, PostgreSQLConfig
+
+logging.getLogger("agentsociety").setLevel(logging.INFO)
+
+ray.init(logging_level=logging.WARNING, log_to_driver=False)
+
 
 async def update_weather_and_temperature(
-    weather: Union[Literal["wind"], Literal["no-wind"]], simulation: AgentSimulation
+    weather: Union[Literal["wind"], Literal["no-wind"]], simulation: AgentSociety
 ):
     if weather == "wind":
         await simulation.update_environment(
@@ -40,28 +58,84 @@ For more details on agent properties and configurations, refer to the [Agent Des
 Add the weather intervention to your workflow configuration:
 
 ```python
-exp_config = (
-    ExpConfig(exp_name="hurrican", llm_semaphore=200, logging_level=logging.INFO)
-    .SetAgentConfig(
-        number_of_citizen=1000,
-    )
-    .SetWorkFlow(
-        [
-            WorkflowStep(type=WorkflowType.RUN, days=3),
-            WorkflowStep(
-                type=WorkflowType.INTERVENE,
-                func=partial(update_weather_and_temperature, "wind"),
-            ),
-            WorkflowStep(type=WorkflowType.RUN, days=3),
-            WorkflowStep(
-                type=WorkflowType.INTERVENE,
-                func=partial(update_weather_and_temperature, "no-wind"),
-            ),
-            WorkflowStep(type=WorkflowType.RUN, days=3),
+config = Config(
+    llm=[
+        LLMConfig(
+            provider=LLMProviderType.Qwen,
+            base_url=None,
+            api_key="<YOUR-API-KEY>",
+            model="<YOUR-MODEL>",
+            semaphore=200,
+        )
+    ],
+    env=EnvConfig(
+        redis=RedisConfig(
+            server="<SERVER-ADDRESS>",
+            port=6379,
+            password="<PASSWORD>",
+        ),  # type: ignore
+        pgsql=PostgreSQLConfig(
+            enabled=True,
+            dsn="<PGSQL-DSN>",
+            num_workers="auto",
+        ),
+        avro=AvroConfig(
+            path="<SAVE-PATH>",
+            enabled=True,
+        ),
+        mlflow=MlflowConfig(
+            enabled=True,
+            mlflow_uri="<MLFLOW-URI>",
+            username="<USERNAME>",
+            password="<PASSWORD>",
+        ),
+    ),
+    map=MapConfig(
+        file_path="<MAP-FILE-PATH>",
+        cache_path="<CACHE-FILE-PATH>",
+    ),
+    agents=AgentsConfig(
+        citizens=[
+            AgentConfig(
+                agent_class=AgentClassType.CITIZEN,
+                number=100,
+            )
         ]
-    )
-    .SetMetricExtractors(metric_extractors=[(1, mobility_metric)])
+    ),  # type: ignore
+    exp=ExpConfig(
+        name="social_control",
+        workflow=[
+            WorkflowStepConfig(
+                type=WorkflowType.INTERVENE,
+                func=update_weather_and_temperature,
+            ),
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=3,
+            ),
+            WorkflowStepConfig(
+                type=WorkflowType.INTERVENE,
+                func=update_weather_and_temperature,
+            ),
+            WorkflowStepConfig(
+                type=WorkflowType.RUN,
+                days=3,
+            ),
+        ],
+        environment=EnvironmentConfig(
+            start_tick=6 * 60 * 60,
+            total_tick=18 * 60 * 60,
+        ),
+        metric_extractors=[
+            MetricExtractorConfig(
+                type=MetricType.FUNCTION,
+                func=mobility_metric,
+                step_interval=1,
+            )
+        ],
+    ),
 )
+
 ```
 
 ## Step 2: Storing Data with MLflow
@@ -82,14 +156,15 @@ For more information on data collection APIs and methods, refer to the [Metric C
 
 ### Example of Storing Data in MLflow
 
-Ensure that your MLflow setup is correctly configured in your simulation environment configuration file (`example_sim_config.yaml`):
+Ensure that your MLflow setup is correctly configured in your simulation environment configuration file. 
 
 ```yaml
-metric_request:
-  mlflow: 
-      username: <USER-NAME> # Username for MLflow authentication.
-      password: <PASSWORD> # Password for MLflow authentication.
-      mlflow_uri: <MLFLOW-URI> # URI pointing to the MLflow tracking server.
+env:
+  mlflow:
+    enabled: true # Whether to enable MLflow
+    mlflow_uri: http://localhost:59000 # MLflow server URI``
+    username: <CHANGE_ME> # MLflow server username
+    password: <CHANGE_ME> # MLflow server password
 ```
 
 
@@ -98,22 +173,13 @@ metric_request:
 To run the simulation, use the following script:
 
 ```python
-import ray
-import asyncio
-from agentsociety import AgentSimulation
-from agentsociety.configs import load_config_from_file
-
-logging.getLogger("agentsociety").setLevel(logging.INFO)
-
-ray.init(logging_level=logging.WARNING, log_to_driver=False)
-
-sim_config = load_config_from_file(
-    "examples/config_templates/example_sim_config.yaml", SimConfig
-)
-
 async def main():
-    await AgentSimulation.run_from_config(exp_config, sim_config)
+    agentsociety = AgentSociety(config)
+    await agentsociety.init()
+    await agentsociety.run()
+    await agentsociety.close()
     ray.shutdown()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
