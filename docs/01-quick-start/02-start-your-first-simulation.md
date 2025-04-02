@@ -32,18 +32,22 @@ We need to create one configuration file, which is assumed to be named `exp_conf
 An example configuration file is shown below, you can refer to it to create your own configuration file, remember to replace the placeholders with your own values.
 
 ``` yaml
-llm: [ { api_key: <API-KEY>, base_url: <BASE-URL>, model: <YOUR-MODEL>, provider: <PROVIDER> } ]
+llm:
+- api_key: <API-KEY> # LLM API key
+  base_url: <BASE-URL> # LLM base URL, used for VLLM
+  model: <YOUR-MODEL> # LLM model
+  provider: <PROVIDER> # LLM provider
 env:
   avro:
-    enabled: true # Whether to enable Avro
+    enabled: false # Whether to enable Avro
     path: <AVRO-OUTPUT-PATH> # Path to the Avro output file
   mlflow:
-    enabled: true # Whether to enable MLflow
+    enabled: false # Whether to enable MLflow
     mlflow_uri: http://localhost:59000 # MLflow server URI``
     username: <CHANGE_ME> # MLflow server username
     password: <CHANGE_ME> # MLflow server password
   pgsql:
-    enabled: false # Whether to enable PostgreSQL
+    enabled: true # Whether to enable PostgreSQL
     dsn: postgresql://postgres:CHANGE_ME@localhost:5432/postgres # PostgreSQL connection string
   redis:
     server: <REDIS-SERVER> # Redis server address
@@ -53,29 +57,22 @@ map:
   file_path: <MAP-FILE-PATH> # Path to the map file
   cache_path: <CACHE-FILE-PATH> # Cache path for accelerating map file loading
 agents:
-  citizens: [ { agent_class: citizen, memory_config_func: null, memory_distributions: null, number: 100, init_funcs: [] } ]
+  citizens:
+  - agent_class: citizen # The class of the agent
+    number: 100 # The number of the agents
 exp:
   name: test # Experiment name
   environment:
     start_tick: 28800 # Start time in seconds
     total_tick: 7200 # Total time in seconds
-  message_intercept:
-    blocks: [] # List of message interception blocks
-    listener: null # Message listener
-    mode: point # Message interception mode, options: point, edge
   workflow:
-  - func: null
-    steps: 60 # Number of step to run the function
-    ticks_per_step: 300 # Number of ticks per step - used for [RUN, STEP] type. For example, if it is 300, then the step will run 300 ticks in the environment.
-    type: step # The type of the workflow step
-advanced:
-  group_size: 200 # Group size for each agentgroup
-  logging_level: info # Logging level, options: debug, info, warning, error
+  - day: 1 # The day of the workflow step
+    type: run # The type of the workflow step
 ```
 
 ```{admonition} Hint
 :class: hint
-You can run `agentsociety check -c exp_config.yaml` to check if your own configuration file is valid.
+You can run `agentsociety check -c exp_config.yaml` to check if your own configuration file is valid, which will check the configuration file and give you a detailed error message if there is any problem.
 ```
 
 ## Step 3：Launch the Simulation
