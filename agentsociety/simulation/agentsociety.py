@@ -960,7 +960,7 @@ class AgentSociety:
                     )
                 elif step.type == WorkflowType.INTERVENE:
                     get_logger().warning(
-                        "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congition of target agents"
+                        "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congnition of target agents"
                     )
                     assert step.target_agent is not None
                     assert step.intervene_message is not None
