@@ -13,9 +13,9 @@
 :titlesonly:
 :maxdepth: 1
 
-agentsociety.utils.parsers.json_parser
-agentsociety.utils.parsers.parser_base
 agentsociety.utils.parsers.code_block_parser
+agentsociety.utils.parsers.parser_base
+agentsociety.utils.parsers.json_parser
 ```
 
 ## Package Contents

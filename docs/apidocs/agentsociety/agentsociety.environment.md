@@ -13,8 +13,8 @@
 :titlesonly:
 :maxdepth: 3
 
-agentsociety.environment.sim
 agentsociety.environment.syncer
+agentsociety.environment.sim
 agentsociety.environment.utils
 agentsociety.environment.economy
 ```
@@ -25,8 +25,8 @@ agentsociety.environment.economy
 :titlesonly:
 :maxdepth: 1
 
-agentsociety.environment.environment
 agentsociety.environment.mapdata
+agentsociety.environment.environment
 ```
 
 ## Package Contents
