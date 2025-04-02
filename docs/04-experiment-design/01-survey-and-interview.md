@@ -14,7 +14,7 @@ Agents receive surveys or interviews from the message queue, generate responses,
 
 ### Create and Send A Survey
 
-You can send a survey with code, or with our [UI Interface](../_static/01-exp-status.jpg)
+You can send a survey with code, or with our [WebUI](../_static/01-exp-status.jpg)
 
 
 ### Survey Components
@@ -62,6 +62,7 @@ from uuid import uuid4
 import datetime
 import ray
 
+from agentsociety.cityagent import default
 from agentsociety.cityagent.metrics import mobility_metric
 from agentsociety.configs import (
     AgentsConfig,
@@ -87,9 +88,7 @@ from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import AvroConfig, PostgreSQLConfig
 
-logging.getLogger("agentsociety").setLevel(logging.INFO)
-
-ray.init(logging_level=logging.WARNING, log_to_driver=False)
+ray.init(logging_level=logging.INFO)
 
 config = Config(
     llm=[
@@ -181,7 +180,7 @@ config = Config(
         ],
     ),
 )
-
+config = default(config)
 
 async def main():
     agentsociety = AgentSociety(config)
@@ -219,6 +218,7 @@ from uuid import uuid4
 import datetime
 import ray
 
+from agentsociety.cityagent import default
 from agentsociety.cityagent.metrics import mobility_metric
 from agentsociety.configs import (
     AgentsConfig,
@@ -244,9 +244,7 @@ from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import AvroConfig, PostgreSQLConfig
 
-logging.getLogger("agentsociety").setLevel(logging.INFO)
-
-ray.init(logging_level=logging.WARNING, log_to_driver=False)
+ray.init(logging_level=logging.INFO)
 
 config = Config(
     llm=[
@@ -318,7 +316,7 @@ config = Config(
         ],
     ),
 )
-
+config = default(config)
 
 async def main():
     agentsociety = AgentSociety(config)

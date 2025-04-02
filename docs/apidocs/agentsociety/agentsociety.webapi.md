@@ -13,8 +13,8 @@
 :titlesonly:
 :maxdepth: 3
 
-agentsociety.webapi.models
 agentsociety.webapi.api
+agentsociety.webapi.models
 ```
 
 ## Submodules

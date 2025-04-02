@@ -21,35 +21,36 @@ config = Config(
 
 ## Experiment Meta Info
 ```sql
-CREATE TABLE IF NOT EXISTS <table_name> (
-        id UUID PRIMARY KEY,
-        name TEXT,
-        num_day INT4,
-        status INT4, 
-        cur_day INT4,
-        cur_t FLOAT,
-        config TEXT,
-        error TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS as_experiment (
+    tenant_id TEXT,
+    id UUID,
+    name TEXT,
+    num_day INT4,
+    status INT4, 
+    cur_day INT4,
+    cur_t FLOAT,
+    config TEXT,
+    error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tenant_id, id)
 )
 
 ```
 
 ## Agent Profile
 ```sql
-CREATE TABLE IF NOT EXISTS <table_name> (
-    id UUID PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS as_<exp_id>_agent_profile (
+    id INT4 PRIMARY KEY,
     name TEXT,
     profile JSONB
 )
-
 ```
 
 ## Agent Dialog
 ```sql
-CREATE TABLE IF NOT EXISTS <table_name> (
-    id UUID,
+CREATE TABLE IF NOT EXISTS as_<exp_id>_agent_dialog (
+    id INT4,
     day INT4,
     t FLOAT,
     type INT4,
@@ -61,8 +62,8 @@ CREATE TABLE IF NOT EXISTS <table_name> (
 
 ## Agent Status
 ```sql
-CREATE TABLE IF NOT EXISTS <table_name> (
-    id UUID,
+CREATE TABLE IF NOT EXISTS as_<exp_id>_agent_status (
+    id INT4,
     day INT4,
     t FLOAT,
     lng DOUBLE PRECISION,
@@ -73,21 +74,25 @@ CREATE TABLE IF NOT EXISTS <table_name> (
     status JSONB,
     created_at TIMESTAMPTZ
 )
-CREATE INDEX <table_name>_id_idx ON <table_name> (id)
-CREATE INDEX <table_name>_day_t_idx ON <table_name> (day,t)
 ```
 
 ## Survey
 ```sql
-CREATE TABLE IF NOT EXISTS <table_name> (
-    id UUID,
+CREATE TABLE IF NOT EXISTS as_<exp_id>_agent_survey (
+    id INT4,
     day INT4,
     t FLOAT,
-    survey_id UUID,
-    result JSONB,
+    survey_id TEXT,
+    result TEXT,
     created_at TIMESTAMPTZ
 )
-CREATE INDEX <table_name>_id_idx ON <table_name> (id)
-CREATE INDEX <table_name>_day_t_idx ON <table_name> (day,t)
+```
 
+## Global Prompt
+```sql
+CREATE TABLE IF NOT EXISTS as_<exp_id>_global_prompt (
+    id INT4,
+    prompt TEXT,
+    created_at TIMESTAMPTZ
+)
 ```

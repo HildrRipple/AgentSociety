@@ -13,6 +13,8 @@ Before starting your first simulation, please ensure your environment meets the 
 - macOS ARM
 - Windows Subsystem for Linux (WSL) 2 x86
 
+Python 3.11 and higher is required.
+
 ## LLM API
 
 To use this framework, you **need access to LLM APIs**. We support multiple providers:
@@ -32,9 +34,9 @@ You can set the `base_url` and `api_key` in the `llm` section of the configurati
 As a simple example, you can use GLM-4-Flash, the free model provided by Zhipu.
 
 Here is how to obtain the ZhipuAI API:
-1. Visit https://open.bigmodel.cn/
-2. Register an account and authorize yourself at https://open.bigmodel.cn/usercenter/settings/auth/
-3. Create an API key of `GLM-4-Flash` (free model) at https://open.bigmodel.cn/usercenter/apikeys/
+1. Visit [https://open.bigmodel.cn/](https://open.bigmodel.cn/)
+2. Register an account and authorize yourself at [https://open.bigmodel.cn/usercenter/settings/auth/](https://open.bigmodel.cn/usercenter/settings/auth/)
+3. Create an API key of `GLM-4-Flash` (free model) at [https://open.bigmodel.cn/usercenter/apikeys/](https://open.bigmodel.cn/usercenter/apikeys/)
 
 As shown in the figure below, you will have successfully acquired an API key.
 

@@ -5,13 +5,23 @@ import pickle as pkl
 
 import ray
 
-from agentsociety.cityagent import SocietyAgent
+from agentsociety.cityagent import SocietyAgent, default
 from agentsociety.cityagent.metrics import economy_metric
-from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
-                                  LLMConfig, MapConfig)
+from agentsociety.configs import (
+    AgentsConfig,
+    Config,
+    EnvConfig,
+    ExpConfig,
+    LLMConfig,
+    MapConfig,
+)
 from agentsociety.configs.agent import AgentClassType, AgentConfig
-from agentsociety.configs.exp import (MetricExtractorConfig, MetricType,
-                                      WorkflowStepConfig, WorkflowType)
+from agentsociety.configs.exp import (
+    MetricExtractorConfig,
+    MetricType,
+    WorkflowStepConfig,
+    WorkflowType,
+)
 from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
 from agentsociety.message import RedisConfig
@@ -19,7 +29,7 @@ from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import AvroConfig, PostgreSQLConfig
 
-ray.init(logging_level=logging.WARNING, log_to_driver=True)
+ray.init(logging_level=logging.INFO)
 
 
 async def gather_ubi_opinions(simulation: AgentSociety):
@@ -102,6 +112,7 @@ config = Config(
         ],
     ),
 )
+config = default(config)
 
 
 async def main():

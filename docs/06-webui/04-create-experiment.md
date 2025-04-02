@@ -1,16 +1,16 @@
 # Create Experiment on UI
 
-```{admonition} Caution
-:class: caution
-This document is currently under active development. The complete version will be available soon. Stay tuned!
-```
-
 To start an experiment through the web interface, the configured form on the webpage is sent to the backend, which then creates containers and launches the experiment based on the form content.
 
-Before starting an experiment via the web interface, you need to first build the required Docker image by running scripts/build_docker.sh:
+Before starting an experiment via the web interface, you need to first clone the whole repository and build the required Docker image by running `scripts/build_docker.sh`:
   ```bash
-  ./scripts/build_docker.sh
+  bash ./scripts/build_docker.sh
   ```
+
+```{admonition} Hint
+:class: hint
+We will provide a pre-built Docker image in the future. Linux x64 will be first supported (used in Linux x64 and WSL2 platforms).
+```
 
 The experiment creation interface is shown in the figure below:
 ![create-exp](../_static/05-create-exp.png)

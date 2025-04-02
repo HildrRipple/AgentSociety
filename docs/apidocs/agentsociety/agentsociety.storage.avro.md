@@ -43,6 +43,10 @@
   - ```{autodoc2-docstring} agentsociety.storage.avro.DIALOG_SCHEMA
     :summary:
     ```
+* - {py:obj}`GLOBAL_PROMPT_SCHEMA <agentsociety.storage.avro.GLOBAL_PROMPT_SCHEMA>`
+  - ```{autodoc2-docstring} agentsociety.storage.avro.GLOBAL_PROMPT_SCHEMA
+    :summary:
+    ```
 * - {py:obj}`STATUS_SCHEMA <agentsociety.storage.avro.STATUS_SCHEMA>`
   - ```{autodoc2-docstring} agentsociety.storage.avro.STATUS_SCHEMA
     :summary:
@@ -85,6 +89,16 @@
    None
 
 ```{autodoc2-docstring} agentsociety.storage.avro.DIALOG_SCHEMA
+```
+
+````
+
+````{py:data} GLOBAL_PROMPT_SCHEMA
+:canonical: agentsociety.storage.avro.GLOBAL_PROMPT_SCHEMA
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.storage.avro.GLOBAL_PROMPT_SCHEMA
 ```
 
 ````
@@ -201,10 +215,10 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} _check_is_group_avro_saver()
-:canonical: agentsociety.storage.avro.AvroSaver._check_is_group_avro_saver
+````{py:method} _check(is_group: bool = True)
+:canonical: agentsociety.storage.avro.AvroSaver._check
 
-```{autodoc2-docstring} agentsociety.storage.avro.AvroSaver._check_is_group_avro_saver
+```{autodoc2-docstring} agentsociety.storage.avro.AvroSaver._check
 ```
 
 ````
@@ -237,6 +251,14 @@ Bases: {py:obj}`pydantic.BaseModel`
 :canonical: agentsociety.storage.avro.AvroSaver.append_statuses
 
 ```{autodoc2-docstring} agentsociety.storage.avro.AvroSaver.append_statuses
+```
+
+````
+
+````{py:method} append_global_prompt(global_prompt: agentsociety.storage.type.StorageGlobalPrompt)
+:canonical: agentsociety.storage.avro.AvroSaver.append_global_prompt
+
+```{autodoc2-docstring} agentsociety.storage.avro.AvroSaver.append_global_prompt
 ```
 
 ````

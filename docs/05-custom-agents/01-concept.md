@@ -29,7 +29,10 @@ The cognitive flow typically involves processing current perceptions against exi
 
 ## Integration with Language Models
 
-[Implementation](./02-agent-tools.md#llm-client)
+```{admonition} Note
+:class: note
+Refer to [Integration with Language Models](./02-agent-tools.md#llm-client) for details.
+```
 
 A key innovation in our framework is the integration of Large Language Models (LLMs) that power agent reasoning. This integration enables:
 
@@ -52,7 +55,10 @@ This binding process establishes the agent's presence in the simulation world an
 
 ## Memory Systems
 
-[Implementation](./03-memory.md)
+```{admonition} Note
+:class: note
+Refer to [Memory Systems](./03-memory.md) for details.
+```
 
 Agents maintain two primary types of memory:
 
@@ -74,7 +80,10 @@ The communication framework includes capabilities for message interception, whic
 
 ## Block-Based Design Pattern
 
-[Implementation](./04-agent-customization.md#what-is-a-block)
+```{admonition} Note
+:class: note
+Refer to [Block-Based Design Pattern](./04-agent-customization.md#what-is-a-block) for details.
+```
 
 Agent behaviors are organized using a modular "Block" design pattern (optional):
 

@@ -22,8 +22,8 @@ You can also define your own metric extractor, an example is as follows.
 
 ```python
 from agentsociety.cityagent import SocietyAgent
-
 from agentsociety.simulation import AgentSociety
+
 async def gather_ids(simulation: AgentSociety):
     citizen_ids = await simulation.filter(types=(SocietyAgent,))
     ids = await simulation.gather("id", citizen_ids)
@@ -52,8 +52,8 @@ The `MlflowClient` is the main class to manage experiment tracking.
 We have implemented pre-defined tools (`agentsociety.tools.ExportMlflowMetrics`) for MLflow integration. The example is as follows.
 
 ```python
-from typing import Literal, Union, cast
 import asyncio
+from typing import Literal, Union, cast
 
 import ray
 
@@ -61,14 +61,27 @@ from agentsociety.agent import CitizenAgentBase
 from agentsociety.agent.agent_base import AgentToolbox
 from agentsociety.agent.distribution import Distribution, DistributionConfig
 from agentsociety.agent.prompt import FormatPrompt
-from agentsociety.cityagent import (DEFAULT_DISTRIBUTIONS,
-                                    memory_config_societyagent)
+from agentsociety.cityagent import (
+    DEFAULT_DISTRIBUTIONS,
+    default,
+    memory_config_societyagent,
+)
 from agentsociety.cityagent.metrics import mobility_metric
-from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
-                                  LLMConfig, MapConfig)
+from agentsociety.configs import (
+    AgentsConfig,
+    Config,
+    EnvConfig,
+    ExpConfig,
+    LLMConfig,
+    MapConfig,
+)
 from agentsociety.configs.agent import AgentClassType, AgentConfig
-from agentsociety.configs.exp import (MetricExtractorConfig, MetricType,
-                                      WorkflowStepConfig, WorkflowType)
+from agentsociety.configs.exp import (
+    MetricExtractorConfig,
+    MetricType,
+    WorkflowStepConfig,
+    WorkflowType,
+)
 from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
 from agentsociety.memory import Memory
@@ -170,6 +183,7 @@ config = Config(
         ),
     ),
 )
+config = default(config)
 
 
 async def main():

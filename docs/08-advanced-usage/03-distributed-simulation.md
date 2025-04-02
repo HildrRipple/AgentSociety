@@ -13,6 +13,7 @@ from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
 from agentsociety.environment import EnvironmentConfig, SimulatorConfig
 from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
+from agentsociety.cityagent import default
 
 ray.init(address="auto")
 
@@ -30,6 +31,7 @@ config = Config(
         logging_level="INFO",
     ), # type: ignore
 )
+config = default(config)
 
 
 async def main():

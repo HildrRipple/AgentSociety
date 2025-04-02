@@ -7,16 +7,26 @@ from typing import Literal, Union
 import ray
 from hurrican_memory_config import memory_config_societyagent_hurrican
 
-from agentsociety.simulation import AgentSociety
-from agentsociety.configs import Config, LLMConfig, EnvConfig, MapConfig, AgentsConfig, ExpConfig
-from agentsociety.llm import LLMProviderType
-from agentsociety.storage import PostgreSQLConfig, AvroConfig
-from agentsociety.message import RedisConfig
-from agentsociety.configs.agent import AgentConfig, AgentClassType
-from agentsociety.configs.exp import WorkflowType, WorkflowStepConfig
+from agentsociety.cityagent import default
+from agentsociety.configs import (
+    AgentsConfig,
+    Config,
+    EnvConfig,
+    ExpConfig,
+    LLMConfig,
+    MapConfig,
+)
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
 from agentsociety.environment import EnvironmentConfig
+from agentsociety.llm import LLMProviderType
+from agentsociety.message import RedisConfig
 from agentsociety.metrics import MlflowConfig
-ray.init(logging_level=logging.WARNING, log_to_driver=True)
+from agentsociety.simulation import AgentSociety
+from agentsociety.storage import AvroConfig, PostgreSQLConfig
+
+ray.init(logging_level=logging.INFO)
+
 
 async def update_weather_and_temperature(
     weather: Union[Literal["wind"], Literal["no-wind"]], simulation: AgentSociety
@@ -47,7 +57,7 @@ config = Config(
             server="<SERVER-ADDRESS>",
             port=6379,
             password="<PASSWORD>",
-        ), # type: ignore
+        ),  # type: ignore
         pgsql=PostgreSQLConfig(
             enabled=True,
             dsn="<PGSQL-DSN>",
@@ -76,7 +86,7 @@ config = Config(
                 memory_config_func=memory_config_societyagent_hurrican,
             )
         ]
-    ), # type: ignore
+    ),  # type: ignore
     exp=ExpConfig(
         name="hurricane_impact",
         workflow=[
@@ -107,6 +117,8 @@ config = Config(
         ),
     ),
 )
+config = default(config)
+
 
 async def main():
     agentsociety = AgentSociety(config)
@@ -114,6 +126,7 @@ async def main():
     await agentsociety.run()
     await agentsociety.close()
     ray.shutdown()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

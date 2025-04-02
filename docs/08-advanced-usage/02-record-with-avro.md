@@ -41,31 +41,17 @@ config = Config(
 
 ## Agent Profile
 ```json
- {
+{
     "doc": "Agent属性",
     "name": "AgentProfile",
-    "namespace": "com.socialcity",
+    "namespace": "com.agentsociety",
     "type": "record",
     "fields": [
-        {"name": "id", "type": "string"},
+        {"name": "id", "type": "int"},
         {"name": "name", "type": "string"},
-        {"name": "gender", "type": "string"},
-        {"name": "age", "type": "float"},
-        {"name": "education", "type": "string"},
-        {"name": "skill", "type": "string"},
-        {"name": "occupation", "type": "string"},
-        {"name": "family_consumption", "type": "string"},
-        {"name": "consumption", "type": "string"},
-        {"name": "personality", "type": "string"},
-        {"name": "income", "type": "string"},
-        {"name": "currency", "type": "float"},
-        {"name": "residence", "type": "string"},
-        {"name": "race", "type": "string"},
-        {"name": "religion", "type": "string"},
-        {"name": "marital_status", "type": "string"},
-    ],
+        {"name": "profile", "type": "string"}
+    ]
 }
-
 ```
 
 ## Agent Dialog
@@ -73,10 +59,10 @@ config = Config(
 {
     "doc": "Agent对话",
     "name": "AgentDialog",
-    "namespace": "com.socialcity",
+    "namespace": "com.agentsociety",
     "type": "record",
     "fields": [
-        {"name": "id", "type": "string"},
+        {"name": "id", "type": "int"},
         {"name": "day", "type": "int"},
         {"name": "t", "type": "float"},
         {"name": "type", "type": "int"},
@@ -85,10 +71,9 @@ config = Config(
         {
             "name": "created_at",
             "type": {"type": "long", "logicalType": "timestamp-millis"},
-        },
-    ],
+        }
+    ]
 }
-
 ```
 
 ## Agent Status
@@ -96,54 +81,24 @@ config = Config(
 {
     "doc": "Agent状态",
     "name": "AgentStatus",
-    "namespace": "com.socialcity",
+    "namespace": "com.agentsociety",
     "type": "record",
     "fields": [
-        {"name": "id", "type": "string"},
+        {"name": "id", "type": "int"},
         {"name": "day", "type": "int"},
         {"name": "t", "type": "float"},
-        {"name": "lng", "type": "double"},
-        {"name": "lat", "type": "double"},
-        {"name": "parent_id", "type": "int"},
+        {"name": "lng", "type": ["null", "double"]},
+        {"name": "lat", "type": ["null", "double"]},
+        {"name": "parent_id", "type": ["null", "int"]},
+        {"name": "friend_ids", "type": {"type": "array", "items": "int"}},
         {"name": "action", "type": "string"},
-        {"name": "hungry", "type": "float"},
-        {"name": "tired", "type": "float"},
-        {"name": "safe", "type": "float"},
-        {"name": "social", "type": "float"},
+        {"name": "status", "type": "string"},
         {
             "name": "created_at",
             "type": {"type": "long", "logicalType": "timestamp-millis"},
-        },
-    ],
+        }
+    ]
 }
-```
-
-## Institution Status
-```json
-{
-    "doc": "Institution状态",
-    "name": "InstitutionStatus",
-    "namespace": "com.socialcity",
-    "type": "record",
-    "fields": [
-        {"name": "id", "type": "string"},
-        {"name": "day", "type": "int"},
-        {"name": "t", "type": "float"},
-        {"name": "type", "type": "int"},
-        {"name": "nominal_gdp", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
-        {"name": "real_gdp", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
-        {"name": "unemployment", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
-        {"name": "wages", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
-        {"name": "prices", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
-        {"name": "inventory", "type": ["int", "null"]},
-        {"name": "price", "type": ["float", "null"]},
-        {"name": "interest_rate", "type": ["float", "null"]},
-        {"name": "bracket_cutoffs", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
-        {"name": "bracket_rates", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
-        {"name": "employees", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
-    ],
-}
-
 ```
 
 ## Survey 
@@ -151,10 +106,10 @@ config = Config(
 {
     "doc": "Agent问卷",
     "name": "AgentSurvey",
-    "namespace": "com.socialcity",
+    "namespace": "com.agentsociety",
     "type": "record",
     "fields": [
-        {"name": "id", "type": "string"},
+        {"name": "id", "type": "int"},
         {"name": "day", "type": "int"},
         {"name": "t", "type": "float"},
         {"name": "survey_id", "type": "string"},
@@ -162,8 +117,25 @@ config = Config(
         {
             "name": "created_at",
             "type": {"type": "long", "logicalType": "timestamp-millis"},
-        },
-    ],
+        }
+    ]
 }
-
 ```
+
+## Global Prompt
+```json
+{
+    "doc": "全局Prompt",
+    "name": "GlobalPrompt",
+    "namespace": "com.agentsociety",
+    "type": "record",
+    "fields": [
+        {"name": "day", "type": "int"},
+        {"name": "t", "type": "float"},
+        {"name": "prompt", "type": "string"},
+        {
+            "name": "created_at",
+            "type": {"type": "long", "logicalType": "timestamp-millis"},
+        }
+    ]
+}

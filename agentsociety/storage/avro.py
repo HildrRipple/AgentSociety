@@ -5,7 +5,13 @@ import fastavro
 from pydantic import BaseModel, Field, model_validator
 
 from ..logger import get_logger
-from .type import StorageDialog, StorageProfile, StorageStatus, StorageSurvey
+from .type import (
+    StorageDialog,
+    StorageGlobalPrompt,
+    StorageProfile,
+    StorageStatus,
+    StorageSurvey,
+)
 
 __all__ = ["AvroSaver", "AvroConfig"]
 
@@ -40,6 +46,21 @@ DIALOG_SCHEMA = {
     ],
 }
 
+GLOBAL_PROMPT_SCHEMA = {
+    "doc": "全局Prompt",
+    "name": "GlobalPrompt",
+    "namespace": "com.agentsociety",
+    "type": "record",
+    "fields": [
+        {"name": "day", "type": "int"},
+        {"name": "t", "type": "float"},
+        {"name": "prompt", "type": "string"},
+        {
+            "name": "created_at",
+            "type": {"type": "long", "logicalType": "timestamp-millis"},
+        },
+    ],
+}
 
 STATUS_SCHEMA = {
     "doc": "Agent状态",
@@ -86,6 +107,7 @@ SCHEMA_MAP = {
     "dialog": DIALOG_SCHEMA,
     "status": STATUS_SCHEMA,
     "survey": SURVEY_SCHEMA,
+    "global_prompt": GLOBAL_PROMPT_SCHEMA,
 }
 
 
@@ -128,6 +150,7 @@ class AvroSaver:
             get_logger().warning("AvroSaver is not enabled")
             return
         self._avro_path = Path(self._config.path) / f"{self._exp_id}"
+        self._avro_path.mkdir(parents=True, exist_ok=True)
         if self._group_id is not None:
             self._avro_path = self._avro_path / f"{self._group_id}"
             self._avro_path.mkdir(parents=True, exist_ok=True)
@@ -137,6 +160,16 @@ class AvroSaver:
                 "dialog": self._avro_path / f"dialog.avro",
                 "status": self._avro_path / f"status.avro",
                 "survey": self._avro_path / f"survey.avro",
+            }
+            # initialize avro files
+            for key, file in self._avro_file.items():
+                if not file.exists():
+                    with open(file, "wb") as f:
+                        schema = SCHEMA_MAP[key]
+                        fastavro.writer(f, schema, [], codec="snappy")
+        else:
+            self._avro_file = {
+                "global_prompt": self._avro_path / f"global_prompt.avro",
             }
             # initialize avro files
             for key, file in self._avro_file.items():
@@ -155,10 +188,10 @@ class AvroSaver:
 
     def close(self): ...
 
-    def _check_is_group_avro_saver(self):
+    def _check(self, is_group: bool = True):
         if not self.enabled:
             raise RuntimeError("AvroSaver is not enabled")
-        if self._group_id is None:
+        if self._group_id is None and is_group:
             raise RuntimeError("AvroSaver is not initialized")
 
     def append_surveys(self, surveys: List[StorageSurvey]):
@@ -168,7 +201,7 @@ class AvroSaver:
         - **Args**:
             - `surveys` (List[AvroSurvey]): The surveys to append.
         """
-        self._check_is_group_avro_saver()
+        self._check()
         with open(self._avro_file["survey"], "a+b") as f:
             fastavro.writer(
                 f,
@@ -184,7 +217,7 @@ class AvroSaver:
         - **Args**:
             - `dialogs` (List[AvroDialog]): The dialogs to append.
         """
-        self._check_is_group_avro_saver()
+        self._check()
         with open(self._avro_file["dialog"], "a+b") as f:
             fastavro.writer(
                 f,
@@ -200,7 +233,7 @@ class AvroSaver:
         - **Args**:
             - `profiles` (List[StorageProfile]): The profiles to append.
         """
-        self._check_is_group_avro_saver()
+        self._check()
         with open(self._avro_file["profile"], "a+b") as f:
             fastavro.writer(
                 f,
@@ -216,11 +249,27 @@ class AvroSaver:
         - **Args**:
             - `statuses` (List[StorageStatus]): The statuses to append.
         """
-        self._check_is_group_avro_saver()
+        self._check()
         with open(self._avro_file["status"], "a+b") as f:
             fastavro.writer(
                 f,
                 STATUS_SCHEMA,
                 [status.model_dump() for status in statuses],
+                codec="snappy",
+            )
+
+    def append_global_prompt(self, global_prompt: StorageGlobalPrompt):
+        """
+        Append a global prompt to the avro file.
+
+        - **Args**:
+            - `global_prompt` (List[StorageGlobalPrompt]): The global prompt to append.
+        """
+        self._check(is_group=False)
+        with open(self._avro_file["global_prompt"], "a+b") as f:
+            fastavro.writer(
+                f,
+                GLOBAL_PROMPT_SCHEMA,
+                [global_prompt.model_dump()],
                 codec="snappy",
             )

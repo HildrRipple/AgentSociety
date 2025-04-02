@@ -85,7 +85,7 @@ def ui(config: str, config_base64: str):
     from ..webapi.app import create_app
 
     class WebUIConfig(BaseModel):
-        addr: str = Field(default=":8080")
+        addr: str = Field(default="127.0.0.1:8080")
         env: EnvConfig
         read_only: bool = Field(default=False)
         debug: bool = Field(default=False)

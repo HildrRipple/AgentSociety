@@ -112,9 +112,9 @@ The `MlflowConfig` class contains the following fields:
 - `password` (str, optional): Password for MLflow server authentication  
 - `mlflow_uri` (str, required): URI for connecting to the MLflow tracking server
 
-## Environment Configuration in `exp_config.yaml`
+## Environment Configuration in `config.yaml`
 
-An example of the `env` section in `exp_config.yaml` is as follows:
+An example of the `env` section in `config.yaml` is as follows:
 
 ```yaml
 env:

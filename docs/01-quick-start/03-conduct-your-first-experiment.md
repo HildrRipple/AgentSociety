@@ -9,7 +9,7 @@ We provide two ways to run the simulation:
 
 ## 1. Run from Configuration File
 
-We provide a configuration file template, you can refer to it to create your own configuration file, remember to replace the placeholders with your own values, we assume the configuration file is named `exp_config.yaml`.
+We provide a configuration file template, you can refer to it to create your own configuration file, remember to replace the placeholders with your own values, we assume the configuration file is named `config.yaml`.
 
 ```yaml
 llm:
@@ -60,7 +60,7 @@ exp:
 Then simply run the simulation with the following command:
 
 ```bash
-agentsociety run -c exp_config.yaml
+agentsociety run -c config.yaml
 ```
 
 

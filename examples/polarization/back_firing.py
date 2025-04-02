@@ -6,23 +6,33 @@ import random
 from typing import Union, cast
 
 import ray
-
-from agentsociety.agent.distribution import Distribution, DistributionConfig
-from agentsociety.simulation import AgentSociety
-from agentsociety.cityagent import SocietyAgent
-from agentsociety.configs import Config, LLMConfig, EnvConfig, MapConfig, AgentsConfig, ExpConfig
-from agentsociety.llm import LLMProviderType
-from agentsociety.storage import PostgreSQLConfig, AvroConfig
-from agentsociety.message import RedisConfig
-from agentsociety.configs.agent import AgentConfig, AgentClassType
-from agentsociety.configs.exp import WorkflowType, WorkflowStepConfig
-from agentsociety.environment import EnvironmentConfig
-from agentsociety.metrics import MlflowConfig
-from agentsociety.cityagent import memory_config_societyagent, DEFAULT_DISTRIBUTIONS
-
 from message_agent import AgreeAgent, DisagreeAgent
 
-ray.init(logging_level=logging.WARNING, log_to_driver=True)
+from agentsociety.agent.distribution import Distribution, DistributionConfig
+from agentsociety.cityagent import (
+    DEFAULT_DISTRIBUTIONS,
+    SocietyAgent,
+    default,
+    memory_config_societyagent,
+)
+from agentsociety.configs import (
+    AgentsConfig,
+    Config,
+    EnvConfig,
+    ExpConfig,
+    LLMConfig,
+    MapConfig,
+)
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
+from agentsociety.environment import EnvironmentConfig
+from agentsociety.llm import LLMProviderType
+from agentsociety.message import RedisConfig
+from agentsociety.metrics import MlflowConfig
+from agentsociety.simulation import AgentSociety
+from agentsociety.storage import AvroConfig, PostgreSQLConfig
+
+ray.init(logging_level=logging.INFO)
 
 
 async def update_attitude(simulation: AgentSociety):
@@ -65,6 +75,7 @@ async def gather_attitude(simulation: AgentSociety):
     with open(f"exp3/chat_histories.json", "w", encoding="utf-8") as f:
         json.dump(chat_histories, f, ensure_ascii=False, indent=2)
 
+
 distributions = cast(
     dict[str, Union[Distribution, DistributionConfig]],
     DEFAULT_DISTRIBUTIONS,
@@ -86,7 +97,7 @@ config = Config(
             server="<SERVER-ADDRESS>",
             port=6379,
             password="<PASSWORD>",
-        ), # type: ignore
+        ),  # type: ignore
         pgsql=PostgreSQLConfig(
             enabled=True,
             dsn="<PGSQL-DSN>",
@@ -126,7 +137,7 @@ config = Config(
                 memory_distributions=distributions,
             ),
         ]
-    ), # type: ignore
+    ),  # type: ignore
     exp=ExpConfig(
         name="polarization_back_firing",
         workflow=[
@@ -149,6 +160,8 @@ config = Config(
         ),
     ),
 )
+config = default(config)
+
 
 async def main():
     agentsociety = AgentSociety(config)
@@ -156,6 +169,7 @@ async def main():
     await agentsociety.run()
     await agentsociety.close()
     ray.shutdown()
+
 
 if __name__ == "__main__":
     os.makedirs("exp3", exist_ok=True)

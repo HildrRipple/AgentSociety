@@ -121,9 +121,9 @@ metric_extractors:
   - `step_interval`: Collection frequency
   - `description`: Description of the metric
 
-## Experiment Configuration in `exp_config.yaml`
+## Experiment Configuration in `config.yaml`
 
-An example of the `exp` field in `exp_config.yaml` is as follows:
+An example of the `exp` field in `config.yaml` is as follows:
 
 ```yaml
 exp:

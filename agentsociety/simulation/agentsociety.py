@@ -82,10 +82,6 @@ class AgentSociety:
         tenant_id: str = "",
     ) -> None:
         config.set_auto_workers()
-        # fill in the config
-        from ..cityagent import default
-
-        config = default(config)
         self._config = config
         self.tenant_id = tenant_id
 
@@ -772,14 +768,17 @@ class AgentSociety:
 
     async def _save_global_prompt(self, prompt: str, day: int, t: float):
         """Save global prompt"""
+        prompt_info = StorageGlobalPrompt(
+            day=day,
+            t=t,
+            prompt=prompt,
+            created_at=datetime.now(timezone.utc),
+        )
+        if self.enable_avro:
+            assert self._avro_saver is not None
+            self._avro_saver.append_global_prompt(prompt_info)
         if self.enable_pgsql:
             worker: ray.ObjectRef = self._pgsql_writers[0]
-            prompt_info = StorageGlobalPrompt(
-                day=day,
-                t=t,
-                prompt=prompt,
-                created_at=datetime.now(timezone.utc),
-            )
             await worker.write_global_prompt.remote(prompt_info)  # type:ignore
 
     async def step(self, num_environment_ticks: int = 1) -> Logs:

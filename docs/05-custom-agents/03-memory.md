@@ -1,10 +1,5 @@
 # Memory System
 
-```{admonition} Caution
-:class: caution
-This document is currently under active development. The complete version will be available soon. Stay tuned!
-```
-
 The memory system in our framework consists of two main components: `StreamMemory` and `StatusMemory`. This dual-memory architecture enables agents to maintain both episodic memories (events and experiences) and semantic memories (status and attributes).
 
 ## Core Components
@@ -42,10 +37,19 @@ from agentsociety.agent import CitizenAgentBase
 from agentsociety.agent.agent_base import AgentToolbox
 from agentsociety.agent.distribution import Distribution, DistributionConfig
 from agentsociety.agent.memory_config_generator import MemoryT
-from agentsociety.cityagent import (DEFAULT_DISTRIBUTIONS,
-                                    memory_config_societyagent)
-from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
-                                  LLMConfig, MapConfig)
+from agentsociety.cityagent import (
+    DEFAULT_DISTRIBUTIONS,
+    default,
+    memory_config_societyagent,
+)
+from agentsociety.configs import (
+    AgentsConfig,
+    Config,
+    EnvConfig,
+    ExpConfig,
+    LLMConfig,
+    MapConfig,
+)
 from agentsociety.configs.agent import AgentClassType, AgentConfig
 from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
 from agentsociety.environment import EnvironmentConfig
@@ -156,7 +160,7 @@ config = Config(
         ),
     ),
 )
-
+config = default(config)
 
 async def main():
     agentsociety = AgentSociety(config)
@@ -188,15 +192,25 @@ import asyncio
 from typing import Any, Literal, Union, cast
 
 import ray
+
 from agentsociety.agent import CitizenAgentBase
 from agentsociety.agent.agent_base import AgentToolbox
 from agentsociety.agent.distribution import Distribution, DistributionConfig
 from agentsociety.agent.memory_config_generator import MemoryT
-from agentsociety.cityagent import (DEFAULT_DISTRIBUTIONS,
-                                    memory_config_societyagent)
+from agentsociety.cityagent import (
+    DEFAULT_DISTRIBUTIONS,
+    default,
+    memory_config_societyagent,
+)
 from agentsociety.cityagent.metrics import mobility_metric
-from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
-                                  LLMConfig, MapConfig)
+from agentsociety.configs import (
+    AgentsConfig,
+    Config,
+    EnvConfig,
+    ExpConfig,
+    LLMConfig,
+    MapConfig,
+)
 from agentsociety.configs.agent import AgentClassType, AgentConfig
 from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
 from agentsociety.environment import EnvironmentConfig
@@ -317,6 +331,7 @@ config = Config(
         ),
     ),
 )
+config = default(config)
 
 
 async def main():
@@ -329,8 +344,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
 ```
 
 ## memory.embedding_model: Embedding Model
@@ -345,3 +358,8 @@ config = Config(
 ```
 
 The incoming `embedding` is the name of the embedding model, supports downloading from huggingface.
+
+```{admonition} Attention
+:class: attention
+It requires very large computational resources to use the embedding model and will slow down the simulation speed.
+```

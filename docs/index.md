@@ -16,7 +16,9 @@ The paper is available at [arXiv](https://arxiv.org/abs/2502.08691):
 
 ## News
 
-Check out our [big changes](./08-big-change/index.md) for the latest updates and new features🎇.
+Version 1.3.0 is released!
+
+Check out [Version 1.3](./02-version-1.3/index.md) for the latest updates and new features🎇.
 
 ## Features
 
@@ -49,7 +51,7 @@ We welcome collaborative opportunities to advance social science research throug
 
 ## WeChat Group
 
-<img src="_static/wechat.jpg" alt="WeChat" style="zoom=20%;" />
+<img src="_static/wechat.jpg" alt="WeChat" style="width: 30vw;" />
 
 ## Table of Contents
 

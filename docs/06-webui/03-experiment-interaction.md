@@ -1,10 +1,5 @@
 # Experiment Interaction
 
-```{admonition} Caution
-:class: caution
-This document is currently under active development. The complete version will be available soon. Stay tuned!
-```
-
 Click `Goto` shown in [UI Home Page](#ui-home-page) to interact with specific experiment.
 
 In the experiment page, you can see the geographic position of each Agent.

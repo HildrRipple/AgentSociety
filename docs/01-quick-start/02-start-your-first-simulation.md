@@ -12,13 +12,13 @@ pip install agentsociety
 
 ```{admonition} Warning
 :class: warning
-Please ensure your environment matches the supported platforms shown in the [Prerequisites](../01-prerequisites.md) section.
+Please ensure your environment matches the supported platforms shown in the [Prerequisites](./01-prerequisites.md) section.
 ```
 
 ```{admonition} Hint
 :class: hint
 If you look the error like `ERROR: Could not find a version that satisfies the requirement agentsociety`, it means your OS, architecture or python version is not supported.
-Please refer to the [Prerequisites](../01-prerequisites.md) section for more details.
+Please refer to the [Prerequisites](./01-prerequisites.md) section for more details.
 It could also be the Python mirror source problem. In that case, please switch the mirror source and try again.
 ```
 
@@ -28,7 +28,7 @@ Before the simulation starts, it is necessary to download the city scene data fi
 
 ## Step 2: Edit Configurations
 
-We need to create one configuration file, which is assumed to be named `exp_config.yaml`.
+We need to create one configuration file, which is assumed to be named `config.yaml`.
 An example configuration file is shown below, you can refer to it to create your own configuration file, remember to replace the placeholders with your own values.
 
 ``` yaml
@@ -42,8 +42,8 @@ env:
     enabled: false # Whether to enable Avro
     path: <AVRO-OUTPUT-PATH> # Path to the Avro output file
   mlflow:
-    enabled: false # Whether to enable MLflow
-    mlflow_uri: http://localhost:59000 # MLflow server URI``
+    enabled: true # Whether to enable MLflow
+    mlflow_uri: http://localhost:59000 # MLflow server URI
     username: <CHANGE_ME> # MLflow server username
     password: <CHANGE_ME> # MLflow server password
   pgsql:
@@ -72,28 +72,39 @@ exp:
 
 ```{admonition} Hint
 :class: hint
-You can run `agentsociety check -c exp_config.yaml` to check if your own configuration file is valid, which will check the configuration file and give you a detailed error message if there is any problem.
+You can run `agentsociety check -c config.yaml` to check if your own configuration file is valid, which will check the configuration file and give you a detailed error message if there is any problem.
 ```
 
 ## Step 3：Launch the Simulation
 
-1. From Python Code
+1. From Command Line
+
+After editing the configuration file, you can easily run the following command to launch the simulation.
+```bash
+agentsociety run -c config.yaml
+```
+
+2. From Python Code
+
+If you want to launch the simulation from a python script, you can use the following code.
 
 ```python
-from agentsociety.configs import load_config_from_file, Config
-import ray
 import asyncio
 import logging
+
+import ray
+
+from agentsociety.cityagent import default
+from agentsociety.configs import Config, load_config_from_file
 from agentsociety.simulation import AgentSociety
 
-ray.init(logging_level=logging.WARNING, log_to_driver=True)
-config = load_config_from_file(
-    filepath="exp_config.yaml",
-    config_type=Config,
-)
-
-
 async def main():
+    ray.init(logging_level=logging.INFO)
+    config = load_config_from_file(
+        filepath="config.yaml",
+        config_type=Config,
+    )
+    config = default(config) # This is necessary when using the default cityagent implementation
     agentsociety = AgentSociety(config)
     await agentsociety.init()
     await agentsociety.run()
@@ -106,13 +117,14 @@ if __name__ == "__main__":
 
 ```
 
+```{admonition} Attention
+:class: attention
+Please always remember to call the `default` function when using the default cityagent implementation rather than implementing all the agent classes (including citizens, firms, banks, nbs, governments) by yourself.
+```
+
 Fill in the placeholders in the configuration file with your own values, and run the code above to start the simulation.
 
-2. From Command Line
 
-```bash
-agentsociety run -c exp_config.yaml
-```
 
 After running the command above, you will see the following output, indicating that the simulation has been successfully launched.
 ![ExampleStart](../_static/01-exp-start.png)
@@ -137,9 +149,9 @@ To use this interface, you MUST deploy PostgreSQL, MLflow and Redis first.
 
 When the simulation is done (or is running), you can use our visualization tool within the python package `agentsociety ui` to replay the simulation.
 
-To activate the ui interface, you simply need to code these in your terminal, the `exp_config.yaml` is just the same file as the one you used to run the simulation.
+To activate the ui interface, you simply need to code these in your terminal, the `config.yaml` is just the same file as the one you used to run the simulation.
 ```bash
-agentsociety ui -c exp_config.yaml
+agentsociety ui -c config.yaml
 ```
 
 Running the code above will activate the UI Interface, as shown below.

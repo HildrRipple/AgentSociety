@@ -1,10 +1,5 @@
 # UI Home Page
 
-```{admonition} Caution
-:class: caution
-This document is currently under active development. The complete version will be available soon. Stay tuned!
-```
-
 The home page shown in the listening address lists all the simulation recorded in your deployed PostgreSQL DSN. 
 
 ![home-page](../_static/01-ui-home-page.jpg) 

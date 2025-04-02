@@ -25,8 +25,8 @@ agentsociety.environment.economy
 :titlesonly:
 :maxdepth: 1
 
-agentsociety.environment.mapdata
 agentsociety.environment.environment
+agentsociety.environment.mapdata
 ```
 
 ## Package Contents

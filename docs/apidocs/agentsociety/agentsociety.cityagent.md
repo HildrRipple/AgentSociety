@@ -24,13 +24,13 @@ agentsociety.cityagent.blocks
 
 agentsociety.cityagent.metrics
 agentsociety.cityagent.firmagent
-agentsociety.cityagent.message_intercept
-agentsociety.cityagent.governmentagent
-agentsociety.cityagent.memory_config
 agentsociety.cityagent.nbsagent
+agentsociety.cityagent.bankagent
 agentsociety.cityagent.initial
 agentsociety.cityagent.societyagent
-agentsociety.cityagent.bankagent
+agentsociety.cityagent.memory_config
+agentsociety.cityagent.message_intercept
+agentsociety.cityagent.governmentagent
 ```
 
 ## Package Contents

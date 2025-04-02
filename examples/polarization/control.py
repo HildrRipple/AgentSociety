@@ -6,18 +6,25 @@ import random
 
 import ray
 
-from agentsociety.simulation import AgentSociety
-from agentsociety.cityagent import SocietyAgent
-from agentsociety.configs import Config, LLMConfig, EnvConfig, MapConfig, AgentsConfig, ExpConfig
-from agentsociety.llm import LLMProviderType
-from agentsociety.storage import PostgreSQLConfig, AvroConfig
-from agentsociety.message import RedisConfig
-from agentsociety.configs.agent import AgentConfig, AgentClassType
-from agentsociety.configs.exp import WorkflowType, WorkflowStepConfig
+from agentsociety.cityagent import SocietyAgent, default
+from agentsociety.configs import (
+    AgentsConfig,
+    Config,
+    EnvConfig,
+    ExpConfig,
+    LLMConfig,
+    MapConfig,
+)
+from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
 from agentsociety.environment import EnvironmentConfig
+from agentsociety.llm import LLMProviderType
+from agentsociety.message import RedisConfig
 from agentsociety.metrics import MlflowConfig
+from agentsociety.simulation import AgentSociety
+from agentsociety.storage import AvroConfig, PostgreSQLConfig
 
-ray.init(logging_level=logging.WARNING, log_to_driver=True)
+ray.init(logging_level=logging.INFO)
 
 
 async def update_attitude(simulation: AgentSociety):
@@ -49,7 +56,6 @@ async def gather_attitude(simulation: AgentSociety):
         json.dump(chat_histories, f, ensure_ascii=False, indent=2)
 
 
-
 config = Config(
     llm=[
         LLMConfig(
@@ -65,7 +71,7 @@ config = Config(
             server="<SERVER-ADDRESS>",
             port=6379,
             password="<PASSWORD>",
-        ), # type: ignore
+        ),  # type: ignore
         pgsql=PostgreSQLConfig(
             enabled=True,
             dsn="<PGSQL-DSN>",
@@ -93,7 +99,7 @@ config = Config(
                 number=100,
             )
         ]
-    ), # type: ignore
+    ),  # type: ignore
     exp=ExpConfig(
         name="polarization_control",
         workflow=[
@@ -116,6 +122,8 @@ config = Config(
         ),
     ),
 )
+config = default(config)
+
 
 async def main():
     agentsociety = AgentSociety(config)
@@ -123,6 +131,7 @@ async def main():
     await agentsociety.run()
     await agentsociety.close()
     ray.shutdown()
+
 
 if __name__ == "__main__":
     os.makedirs("exp1", exist_ok=True)

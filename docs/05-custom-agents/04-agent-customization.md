@@ -11,22 +11,12 @@ A simple example is as follows. Simply rewrite the `forward` method in the subcl
 
 ```python
 import asyncio
-from typing import Any, Literal, Union, cast
 
 import ray
 
 from agentsociety.agent import CitizenAgentBase
 from agentsociety.agent.agent_base import AgentToolbox
-from agentsociety.agent.distribution import Distribution, DistributionConfig
-from agentsociety.agent.memory_config_generator import MemoryT
-from agentsociety.cityagent import (DEFAULT_DISTRIBUTIONS,
-                                    memory_config_societyagent)
-from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
-                                  LLMConfig, MapConfig)
-from agentsociety.configs.agent import AgentClassType, AgentConfig
-from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
-from agentsociety.environment import EnvironmentConfig
-from agentsociety.llm import LLMProviderType
+from agentsociety.cityagent import default
 from agentsociety.memory import Memory
 from agentsociety.simulation import AgentSociety
 from agentsociety.tools import ExportMlflowMetrics
@@ -85,7 +75,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 ```
 
 ## 2. Implement Your Logic with `Block`
@@ -137,28 +126,15 @@ This modular architecture promotes:
 
 ```python
 import asyncio
-from typing import Any, Literal, Union, cast
 
 import ray
 
 from agentsociety.agent import CitizenAgentBase
 from agentsociety.agent.agent_base import AgentToolbox
 from agentsociety.agent.block import Block
-from agentsociety.agent.distribution import Distribution, DistributionConfig
-from agentsociety.agent.memory_config_generator import MemoryT
-from agentsociety.cityagent import (DEFAULT_DISTRIBUTIONS,
-                                    memory_config_societyagent)
-from agentsociety.configs import (AgentsConfig, Config, EnvConfig, ExpConfig,
-                                  LLMConfig, MapConfig)
-from agentsociety.configs.agent import AgentClassType, AgentConfig
-from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
-from agentsociety.environment import EnvironmentConfig
-from agentsociety.llm import LLMProviderType
+from agentsociety.configs import Config
 from agentsociety.memory import Memory
-from agentsociety.message import MessageBlockListenerBase, RedisConfig
-from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
-from agentsociety.storage import AvroConfig, PostgreSQLConfig
 from agentsociety.tools import ExportMlflowMetrics
 from agentsociety.tools.tool import UpdateWithSimulator
 
@@ -248,7 +224,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 ```
 
 ## 3. Using Tools in Your `Agent`
