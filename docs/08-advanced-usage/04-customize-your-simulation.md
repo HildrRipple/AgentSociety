@@ -44,7 +44,7 @@ config = Config(
 )
 ```
 
-## Advanced Configuration
+## Utilize Advanced Configuration
 
 ### Distributed Simulation
 

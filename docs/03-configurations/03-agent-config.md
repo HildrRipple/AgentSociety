@@ -10,12 +10,12 @@ The agent configuration consists of several key components:
 The `agent_class` field specifies the type of agent to create. It can be either:
 - A custom Agent class that inherits from the base `Agent` class
   - One of the predefined `AgentClassType` enum values:
-    - `CITIZEN`: For citizen agents
-    - `FIRM`: For company/firm agents  
-    - `GOVERNMENT`: For government agents
-    - `BANK`: For bank agents
-    - `NBS`: For national bureau of statistics agents
-- A `AgentClassType` enum value, e.g. `AgentClassType.CITIZEN`. This will create a citizen agent we have predefined in the framework.
+    - `citizen`: For citizen agents
+    - `firm`: For company/firm agents  
+    - `government`: For government agents
+    - `bank`: For bank agents
+    - `nbs`: For national bureau of statistics agents
+- A `AgentClassType` enum value, e.g. `citizen`. This will create a citizen agent we have predefined in the framework.
 
 
 ### Agent Count
