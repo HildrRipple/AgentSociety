@@ -67,7 +67,7 @@ Memory systems are designed to be searchable based on relevance, enabling agents
 Agents communicate through a message-passing system that supports:
 
 - **Direct Messages**: One-to-one communications between agents
-- **Surveys & Interviews**: Mechanisms for gathering structured information from agents. Check [Surveys & Interviews](../03-experiment-design/01-survey-and-interview.md) for details.
+- **Surveys & Interviews**: Mechanisms for gathering structured information from agents. Check [Surveys & Interviews](../04-experiment-design/01-survey-and-interview.md) for details.
 - **Thought Sharing**: Recording internal reasoning processes for analysis. *TODO*
 
 The communication framework includes capabilities for message interception, which allows for monitoring, filtering, or modifying messages between agents for research or control purposes.

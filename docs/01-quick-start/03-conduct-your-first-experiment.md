@@ -114,7 +114,7 @@ async def update_weather_and_temperature(
         raise ValueError(f"Invalid weather {weather}")
 ```
 
-For more details on agent properties and configurations, refer to the [Agent Description Documentation](../04-custom-agents/01-concept.md).
+For more details on agent properties and configurations, refer to the [Agent Description Documentation](../05-custom-agents/01-concept.md).
 
 #### Add Intervention to Workflow
 
@@ -222,4 +222,4 @@ Review the logs and visualizations provided by MLflow to interpret the outcomes 
 
 ## Next Steps
 
-Congratulations! You have successfully completed your first experiment. To expand your research, consider implementing custom agents with richer functionalities. Refer to the [Design Experiment](../03-experiment-design/index.md) and [Custom Agent](../04-custom-agents/index.md) for guidance on creating advanced agents and integrating them into your simulations.
+Congratulations! You have successfully completed your first experiment. To expand your research, consider implementing custom agents with richer functionalities. Refer to the [Design Experiment](../04-experiment-design/index.md) and [Custom Agent](../05-custom-agents/index.md) for guidance on creating advanced agents and integrating them into your simulations.

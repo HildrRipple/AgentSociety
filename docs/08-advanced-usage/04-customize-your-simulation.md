@@ -2,11 +2,11 @@
 
 ## Agent Number and Profile Configuration
 
-Check the [Agent Configuration](../02-configurations/03-agent-config.md) for more details.
+Check the [Agent Configuration](../03-configurations/03-agent-config.md) for more details.
 
 ## Custom Agent Logics
 
-To implement custom agent behaviors and logic, refer to the [Custom Agents Guide](../04-custom-agents/04-agent-customization.md).
+To implement custom agent behaviors and logic, refer to the [Custom Agents Guide](../05-custom-agents/04-agent-customization.md).
 
 ## City Environment Configuration
 

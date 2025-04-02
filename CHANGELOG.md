@@ -292,7 +292,7 @@
 - N/A
 
 ### Changed
-- Update doc at `04-custom-agents`.
+- Update doc at `05-custom-agents`.
 - Add more comments in agentsociety.cityagent
 
 ### Deprecated
