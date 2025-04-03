@@ -1,20 +1,17 @@
 stages:
 - build
 
-variables:
-  DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: ""
-  DOCKER_HOST: tcp://docker:2375
-
-build:
+build-docker-image:
+  tags:
+  - dind
   stage: build
-  image: docker:20.10.16
-  services:
-  - docker:20.10.16-dind
-  before_script:
-  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-  - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG .
-  - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
   only:
   - commercial
+
+  before_script:
+  - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+  script:
+  - export TIME=$(date +%s)
+  - docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}-${TIME} -t ${CI_REGISTRY_IMAGE}:latest .
+  - docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}-${TIME}
+  - docker push ${CI_REGISTRY_IMAGE}:latest
