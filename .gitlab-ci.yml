@@ -17,8 +17,7 @@ build-docker-image:
 
   before_script:
   - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
-  - docker login -u ${HW_REGISTRY_USER} -p ${HW_REGISTRY_PASSWORD} ${HW_REGISTRY}
-
+  - docker login -u cn-north-4@${HW_AK} -p ${HW_PASSWORD} ${HW_REGISTRY}
   script:
   - export TIME=$(date +%s)
   - docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}-${TIME} -t ${CI_REGISTRY_IMAGE}:latest -t ${HW_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}-${TIME} -t ${HW_REGISTRY_IMAGE}:latest .
