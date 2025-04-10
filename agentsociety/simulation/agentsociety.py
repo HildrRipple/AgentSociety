@@ -28,6 +28,7 @@ from ..logger import get_logger, set_logger_level
 from ..message import MessageInterceptor, Messager
 from ..message.message_interceptor import MessageBlockListenerBase
 from ..metrics import MlflowClient
+from ..s3 import S3Config
 from ..storage import AvroSaver
 from ..storage.pgsql import PgWriter
 from ..storage.type import StorageExpInfo, StorageGlobalPrompt
@@ -39,7 +40,7 @@ from .type import ExperimentStatus, Logs
 __all__ = ["AgentSociety"]
 
 
-def _init_agent_class(agent_config: AgentConfig):
+def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     """
     Initialize the agent class.
 
@@ -67,6 +68,7 @@ def _init_agent_class(agent_config: AgentConfig):
             if agent_config.memory_distributions is not None
             else {}
         ),
+        s3config,
     )
     # lazy generate memory values
     # param config
@@ -107,7 +109,25 @@ class AgentSociety:
         self._agent_ids: set[int] = set()
         self._agent_id2group: dict[int, ray.ObjectRef] = {}
         yaml_config = yaml.dump(
-            self._config.model_dump(exclude_defaults=True, exclude_none=True),
+            self._config.model_dump(
+                exclude_defaults=True,
+                exclude_none=True,
+                exclude={
+                    "llm": {
+                        "__all__": {"api_key": True},
+                    },
+                    "env": {
+                        "redis": True,
+                        "pgsql": {"dsn": True},
+                        "mlflow": {
+                            "username": True,
+                            "password": True,
+                            "mlflow_uri": True,
+                        },
+                        "s3": True,
+                    },
+                },
+            ),
             allow_unicode=True,
         )
         self._exp_info: StorageExpInfo = StorageExpInfo(
@@ -120,6 +140,8 @@ class AgentSociety:
             cur_t=0.0,
             config=yaml_config,
             error="",
+            input_tokens=0,
+            output_tokens=0,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
@@ -136,6 +158,7 @@ class AgentSociety:
             self._config.map,
             self._config.advanced.simulator,
             self._config.exp.environment,
+            self._config.env.s3,
         )
         await self._environment.init()
         get_logger().info(f"Environment initialized")
@@ -235,7 +258,7 @@ class AgentSociety:
                 dist_type=DistributionType.CHOICE,
                 choices=list(aoi_ids),
             )
-            firm_classes = _init_agent_class(agent_config)
+            firm_classes = _init_agent_class(agent_config, self._config.env.s3)
             firms = [
                 (next_id + i, *firm_class) for i, firm_class in enumerate(firm_classes)
             ]
@@ -243,7 +266,7 @@ class AgentSociety:
             agents += firms
             next_id += len(firms)
         for agent_config in self._config.agents.banks:
-            bank_classes = _init_agent_class(agent_config)
+            bank_classes = _init_agent_class(agent_config, self._config.env.s3)
             banks = [
                 (next_id + i, *bank_class) for i, bank_class in enumerate(bank_classes)
             ]
@@ -251,13 +274,13 @@ class AgentSociety:
             agents += banks
             next_id += len(banks)
         for agent_config in self._config.agents.nbs:
-            nbs_classes = _init_agent_class(agent_config)
+            nbs_classes = _init_agent_class(agent_config, self._config.env.s3)
             nbs = [(next_id + i, *nbs_class) for i, nbs_class in enumerate(nbs_classes)]
             nbs_ids.update([nbs[0] for nbs in nbs])
             agents += nbs
             next_id += len(nbs)
         for agent_config in self._config.agents.governments:
-            government_classes = _init_agent_class(agent_config)
+            government_classes = _init_agent_class(agent_config, self._config.env.s3)
             governments = [
                 (next_id + i, *government_class)
                 for i, government_class in enumerate(government_classes)
@@ -311,7 +334,7 @@ class AgentSociety:
                 dist_type=DistributionType.CHOICE,
                 choices=list(aoi_ids),
             )
-            citizen_classes = _init_agent_class(agent_config)
+            citizen_classes = _init_agent_class(agent_config, self._config.env.s3)
             citizens = [
                 (next_id + i, *citizen_class)
                 for i, citizen_class in enumerate(citizen_classes)
@@ -482,15 +505,15 @@ class AgentSociety:
             gather_tasks.append(
                 group.gather.remote(content, target_agent_ids)  # type:ignore
             )
-        data = await asyncio.gather(*gather_tasks)
+        results = await asyncio.gather(*gather_tasks)
         if flatten:
             data_flatten = []
-            for group_data in data:
+            for group_data in results:
                 for _, data in group_data.items():
-                    data_flatten.extend(data)
+                    data_flatten.append(data)
             return data_flatten
         else:
-            return data
+            return results
 
     async def filter(
         self,
@@ -755,9 +778,7 @@ class AgentSociety:
             assert self._avro_saver is not None
             with open(self._avro_saver.exp_info_file, "w") as f:
                 yaml.dump(
-                    self._exp_info.model_dump(
-                        exclude_defaults=True, exclude_none=True
-                    ),
+                    self._exp_info.model_dump(exclude_defaults=True, exclude_none=True),
                     f,
                     allow_unicode=True,
                 )
@@ -780,6 +801,18 @@ class AgentSociety:
         if self.enable_pgsql:
             worker: ray.ObjectRef = self._pgsql_writers[0]
             await worker.write_global_prompt.remote(prompt_info)  # type:ignore
+
+    async def next_round(self):
+        """
+        Proceed to the next round of the simulation.
+        """
+        get_logger().info("Start entering the next round of the simulation")
+        tasks = []
+        for group in self._groups.values():
+            tasks.append(group.reset.remote())  # type:ignore
+        await asyncio.gather(*tasks)
+        await self.environment.step(1)
+        get_logger().info("Finished entering the next round of the simulation")
 
     async def step(self, num_environment_ticks: int = 1) -> Logs:
         """
@@ -813,13 +846,7 @@ class AgentSociety:
             for group in self._groups.values():
                 tasks.append(group.step.remote(tick))  # type:ignore
             logs: list[Logs] = await asyncio.gather(*tasks)
-            # ======================
-            # save the experiment info
-            # ======================
-            self._exp_info.status = ExperimentStatus.RUNNING
-            self._exp_info.cur_day = day
-            self._exp_info.cur_t = t
-            await self._save_exp_info()
+            get_logger().debug(f"({day}-{t}) Finished agent forward steps")
             # ======================
             # log the simulation results
             # ======================
@@ -831,6 +858,16 @@ class AgentSociety:
             )
             for log in logs:
                 all_logs.append(log)
+            # ======================
+            # save the experiment info
+            # ======================
+            self._exp_info.status = ExperimentStatus.RUNNING.value
+            self._exp_info.cur_day = day
+            self._exp_info.cur_t = t
+            for log in all_logs.llm_log:
+                self._exp_info.input_tokens += log["input_tokens"]
+                self._exp_info.output_tokens += log["output_tokens"]
+            await self._save_exp_info()
             # ======================
             # save the simulation results
             # ======================
@@ -844,6 +881,7 @@ class AgentSociety:
                 day=day,
                 t=t,
             )
+            get_logger().debug(f"({day}-{t}) Finished saving simulation results")
             # ======================
             # extract metrics
             # ======================
@@ -859,13 +897,13 @@ class AgentSociety:
 
                 if to_execute_metric:
                     await self.extract_metric(to_execute_metric)
-
+                get_logger().debug(f"({day}-{t}) Finished extracting metrics")
             # ======================
             # go to next step
             # ======================
             self._total_steps += 1
             await self.environment.step(num_environment_ticks)
-
+            get_logger().debug(f"({day}-{t}) Finished simulator sync")
             return all_logs
         except Exception as e:
             import traceback
@@ -929,9 +967,16 @@ class AgentSociety:
                         log = await self.step(step.ticks_per_step)
                         logs.append(log)
                 elif step.type == WorkflowType.RUN:
-                    for _ in range(step.days):
+                    days = int(step.days)
+                    remain = step.days - days
+                    for _ in range(days):
                         log = await self.run_one_day(step.ticks_per_step)
                         logs.append(log)
+                    if remain > 0.001:
+                        ticks_remain = int(remain * 24 * 60 * 60 / step.ticks_per_step)
+                        for _ in range(ticks_remain):
+                            log = await self.step(step.ticks_per_step)
+                            logs.append(log)
                 elif step.type == WorkflowType.INTERVIEW:
                     target_agents = step.target_agent
                     interview_message = step.interview_message
@@ -957,6 +1002,8 @@ class AgentSociety:
                     await self.send_intervention_message(
                         step.intervene_message, step.target_agent
                     )
+                elif step.type == WorkflowType.NEXT_ROUND:
+                    await self.next_round()
                 elif step.type == WorkflowType.INTERVENE:
                     get_logger().warning(
                         "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congnition of target agents"
@@ -975,11 +1022,11 @@ class AgentSociety:
             import traceback
 
             get_logger().error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
-            self._exp_info.status = ExperimentStatus.ERROR
+            self._exp_info.status = ExperimentStatus.ERROR.value
             self._exp_info.error = str(e)
             await self._save_exp_info()
 
             raise RuntimeError(str(e)) from e
-        self._exp_info.status = ExperimentStatus.FINISHED
+        self._exp_info.status = ExperimentStatus.FINISHED.value
         await self._save_exp_info()
         return logs

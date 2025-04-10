@@ -1,8 +1,5 @@
-import asyncio
-import logging
 import random
 import time
-from typing import Any, Optional
 
 import jsonc
 
@@ -10,7 +7,6 @@ from ..agent import Agent, CitizenAgentBase, AgentToolbox, Block
 from ..environment import Environment
 from ..llm import LLM
 from ..memory import Memory
-from ..tools import UpdateWithSimulator
 
 from ..logger import get_logger
 from .blocks import (
@@ -80,6 +76,10 @@ class PlanAndActionBlock(Block):
             llm=llm, environment=environment, memory=memory
         )
         self.other_block = OtherBlock(llm=llm, memory=memory)
+
+    async def reset(self):
+        """Reset the plan and action block."""
+        await self.needs_block.reset()
 
     async def plan_generation(self):
         """Generate a new plan if no current plan exists in memory."""
@@ -206,7 +206,6 @@ class MindBlock(Block):
 class SocietyAgent(CitizenAgentBase):
     """Agent implementation with configurable cognitive/behavioral modules and social interaction capabilities."""
 
-    update_with_sim = UpdateWithSimulator()
     mind_block: MindBlock
     plan_and_action_block: PlanAndActionBlock
 
@@ -266,13 +265,28 @@ class SocietyAgent(CitizenAgentBase):
         self.step_count = -1
         self.cognition_update = -1
 
+    async def reset(self):
+        """Reset the agent."""
+        # reset position to home
+        await self.reset_position()
+
+        # reset needs
+        await self.memory.status.update("current_need", "none")
+
+        # reset plans and actions
+        await self.memory.status.update("current_plan", {})
+        await self.memory.status.update("execution_context", {})
+
+        # reset initial flag
+        await self.plan_and_action_block.reset()
+
     # Main workflow
     async def forward(self):
         """Main agent loop coordinating status updates, plan execution, and cognition."""
         start_time = time.time()
         self.step_count += 1
         # sync agent status with simulator
-        await self.update_with_sim()
+        await self.update_motion()
 
         # check last step
         ifpass = await self.check_and_update_step()
@@ -546,3 +560,9 @@ class SocietyAgent(CitizenAgentBase):
         await self.plan_and_action_block.needs_block.reflect_to_intervention(
             intervention_message
         )
+
+    async def reset_position(self):
+        """Reset the position of the agent."""
+        home = await self.status.get("home")
+        home = home["aoi_position"]["aoi_id"]
+        await self.environment.reset_person_position(person_id=self.id, aoi_id=home)

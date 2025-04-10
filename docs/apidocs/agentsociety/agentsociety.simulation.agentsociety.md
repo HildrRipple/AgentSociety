@@ -57,7 +57,7 @@
 
 ````
 
-````{py:function} _init_agent_class(agent_config: agentsociety.configs.AgentConfig)
+````{py:function} _init_agent_class(agent_config: agentsociety.configs.AgentConfig, s3config: agentsociety.s3.S3Config)
 :canonical: agentsociety.simulation.agentsociety._init_agent_class
 
 ```{autodoc2-docstring} agentsociety.simulation.agentsociety._init_agent_class
@@ -245,6 +245,15 @@
 :async:
 
 ```{autodoc2-docstring} agentsociety.simulation.agentsociety.AgentSociety._save_global_prompt
+```
+
+````
+
+````{py:method} next_round()
+:canonical: agentsociety.simulation.agentsociety.AgentSociety.next_round
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.agentsociety.AgentSociety.next_round
 ```
 
 ````

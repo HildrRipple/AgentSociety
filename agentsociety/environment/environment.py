@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from multiprocessing import cpu_count
 from subprocess import Popen
+import tempfile
 from typing import Any, Literal, Optional, Union, overload
 
 import yaml
@@ -17,6 +18,7 @@ from pyproj import Proj
 from shapely.geometry import Point
 
 from ..logger import get_logger
+from ..s3 import S3Config, S3Client
 from ..utils.decorators import log_execution_time
 from .economy.econ_client import EconomyClient
 from .mapdata import MapConfig, MapData
@@ -50,7 +52,7 @@ class SimulatorConfig(BaseModel):
     max_process: int = Field(cpu_count())
     """Maximum number of processes for the simulator"""
 
-    logging_level: str = Field("info")
+    logging_level: str = Field("warn")
     """Logging level for the simulator"""
 
 
@@ -62,11 +64,8 @@ class EnvironmentConfig(BaseModel):
 
     model_config = ConfigDict(use_enum_values=True, use_attribute_docstrings=True)
 
-    start_tick: int = Field(6 * 60 * 60)
+    start_tick: int = Field(default=8 * 60 * 60)
     """Starting tick of one day, in seconds"""
-
-    total_tick: int = Field(18 * 60 * 60)
-    """Total number of ticks in one day"""
 
     weather: str = Field(default="The weather is sunny")
     """Current weather condition in the environment"""
@@ -139,6 +138,7 @@ class Environment:
         """lock for simulator"""
 
         self._tick = 0
+        """number of simulated ticks"""
 
         self._init_citizen_ids = citizen_ids
         self._init_firm_ids = firm_ids
@@ -324,10 +324,9 @@ class Environment:
         """
 
         tick = self._tick
-        day = tick // (self._environment_config.total_tick)
+        day = (tick + self._environment_config.start_tick) // (24 * 60 * 60)
         time = (
-            tick % (self._environment_config.total_tick)
-            + self._environment_config.start_tick
+            (tick + self._environment_config.start_tick) % (24 * 60 * 60)
         )
         if format_time:
             hours = time // 3600
@@ -554,6 +553,7 @@ class EnvironmentStarter(Environment):
         map_config: MapConfig,
         simulator_config: SimulatorConfig,
         environment_config: EnvironmentConfig,
+        s3config: S3Config,
     ):
         """
         Environment config
@@ -566,7 +566,8 @@ class EnvironmentStarter(Environment):
         self._map_config = map_config
         self._environment_config = environment_config
         self._sim_config = simulator_config
-        mapdata = MapData(map_config)
+        self._s3config = s3config
+        mapdata = MapData(map_config, s3config)
 
         super().__init__(mapdata, None, environment_config)
 
@@ -605,8 +606,18 @@ class EnvironmentStarter(Environment):
         # =========================
         # init simulator
         # =========================
+
+        # if s3 enabled, download the map from s3
+        file_path = self._map_config.file_path
+        if self._s3config.enabled:
+            client = S3Client(self._s3config)
+            map_bytes = client.download(self._map_config.file_path)
+            file_path = tempfile.mktemp()
+            with open(file_path, "wb") as f:
+                f.write(map_bytes)
+
         config_base64 = encode_to_base64(
-            _generate_yaml_config(self._map_config.file_path)
+            _generate_yaml_config(file_path)
         )
         os.environ["GOMAXPROCS"] = str(self._sim_config.max_process)
         self._server_addr = (
@@ -639,6 +650,10 @@ class EnvironmentStarter(Environment):
         get_logger().info(
             f"start agentsociety-sim at {self._server_addr}, PID={self._sim_proc.pid}"
         )
+
+        # remove the temporary file
+        if self._s3config.enabled:
+            os.remove(file_path)
 
         super().init()
 

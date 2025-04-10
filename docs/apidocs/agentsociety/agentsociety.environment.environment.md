@@ -178,17 +178,6 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:attribute} total_tick
-:canonical: agentsociety.environment.environment.EnvironmentConfig.total_tick
-:type: int
-:value: >
-   'Field(...)'
-
-```{autodoc2-docstring} agentsociety.environment.environment.EnvironmentConfig.total_tick
-```
-
-````
-
 ````{py:attribute} weather
 :canonical: agentsociety.environment.environment.EnvironmentConfig.weather
 :type: str
@@ -281,6 +270,16 @@ Bases: {py:obj}`pydantic.BaseModel`
    'Lock(...)'
 
 ```{autodoc2-docstring} agentsociety.environment.environment.Environment._lock
+```
+
+````
+
+````{py:attribute} _tick
+:canonical: agentsociety.environment.environment.Environment._tick
+:value: >
+   0
+
+```{autodoc2-docstring} agentsociety.environment.environment.Environment._tick
 ```
 
 ````
@@ -492,7 +491,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 `````
 
-`````{py:class} EnvironmentStarter(map_config: agentsociety.environment.mapdata.MapConfig, simulator_config: agentsociety.environment.environment.SimulatorConfig, environment_config: agentsociety.environment.environment.EnvironmentConfig)
+`````{py:class} EnvironmentStarter(map_config: agentsociety.environment.mapdata.MapConfig, simulator_config: agentsociety.environment.environment.SimulatorConfig, environment_config: agentsociety.environment.environment.EnvironmentConfig, s3config: agentsociety.s3.S3Config)
 :canonical: agentsociety.environment.environment.EnvironmentStarter
 
 Bases: {py:obj}`agentsociety.environment.environment.Environment`

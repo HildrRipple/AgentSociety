@@ -16,13 +16,13 @@
 agentsociety.agent
 agentsociety.environment
 agentsociety.storage
-agentsociety.tools
 agentsociety.webapi
 agentsociety.configs
 agentsociety.memory
 agentsociety.llm
 agentsociety.simulation
 agentsociety.logger
+agentsociety.s3
 agentsociety.cityagent
 agentsociety.survey
 agentsociety.metrics
