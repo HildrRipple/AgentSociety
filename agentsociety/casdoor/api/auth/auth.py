@@ -15,6 +15,8 @@ __all__ = [
 ]
 
 ROLE = "agentsociety:user"
+DEMO_USER_TOKEN = "DEMO_USER_TOKEN"
+DEMO_USER_ID = "DEMO"
 
 class CasdoorConfig(BaseModel):
     enabled: bool = False
@@ -95,6 +97,8 @@ async def auth_bearer_token(
         raise HTTPException(status_code=401, detail="Unauthorized")
     token = authorization[7:]
     logging.debug(f"token: {token}")
+    if token == DEMO_USER_TOKEN:
+        return DEMO_USER_ID
     claims = None
     try:
         claims = casdoor.sdk.parse_jwt_token(token)

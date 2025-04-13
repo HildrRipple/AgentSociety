@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // 账户管理的按钮，默认显示名称，下拉框可以进入个人主页与退出登录
-import React, { useEffect, useState } from "react";
+import React, { CSSProperties, useEffect, useState } from "react";
 import { Avatar, Button, Dropdown, MenuProps, Space } from "antd";
 import { DownOutlined } from "@ant-design/icons";
-import { getAccessToken, getCasdoorSdk } from "./Auth";
+import { getAccessToken, getCasdoorSdk, DEMO_USER_TOKEN } from "./Auth";
 import { sdkConfig } from "./Auth";
 
 const DEFAULT_AVATAR = "https://cdn.casbin.org/img/casbin.svg";
@@ -15,13 +15,22 @@ const Account: React.FC = () => {
     useEffect(() => {
         const token = getAccessToken();
         if (token !== null) {
-            sdk.getUserInfo(token).then((res: any) => {
-                console.log('Got user info:', res);
-                setUserInfo(res);
-            }).catch((err: any) => {
-                console.error('Failed to get user info:', err);
-                localStorage.removeItem("access_token");
-            });
+            if (token === DEMO_USER_TOKEN) {
+                // 设置演示用户信息
+                setUserInfo({
+                    name: "Demo User",
+                    avatar: DEFAULT_AVATAR,
+                    isDemo: true
+                });
+            } else {
+                sdk.getUserInfo(token).then((res: any) => {
+                    console.log('Got user info:', res);
+                    setUserInfo(res);
+                }).catch((err: any) => {
+                    console.error('Failed to get user info:', err);
+                    localStorage.removeItem("access_token");
+                });
+            }
         }
     }, []);
 
@@ -32,6 +41,15 @@ const Account: React.FC = () => {
         const url = sdk.getSigninUrl();
         // 跳转到 Casdoor 登录页面
         window.location.href = url;
+    };
+
+    const demoLogin = () => {
+        localStorage.setItem("access_token", DEMO_USER_TOKEN);
+        setUserInfo({
+            name: "Demo User",
+            avatar: DEFAULT_AVATAR,
+            isDemo: true
+        });
     };
 
     const casdoorLogout = () => {
@@ -63,19 +81,30 @@ const Account: React.FC = () => {
             key: '3',
         },
     ];
+
+    const loginButtonStyle: CSSProperties = {
+        width: "80px",
+        textAlign: "center",
+        background: 'rgba(255, 255, 255, 0.2)',
+        borderColor: 'transparent',
+        color: 'white'
+    }
+
     if (!userInfo) {
         return (
             <div style={{ marginLeft: "16px", marginRight: "16px" }}>
-                <Button
-                    type="default"
-                    style={{
-                        width: "80px",
-                        textAlign: "center",
-                        background: 'rgba(255, 255, 255, 0.2)',
-                        borderColor: 'transparent',
-                        color: 'white'
-                    }} onClick={casdoorLogin}
-                >Login</Button>
+                <Space>
+                    <Button
+                        type="default"
+                        style={loginButtonStyle}
+                        onClick={casdoorLogin}
+                    >Login</Button>
+                    <Button
+                        type="default"
+                        style={loginButtonStyle}
+                        onClick={demoLogin}
+                    >Demo</Button>
+                </Space>
             </div >
         );
     }

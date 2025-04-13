@@ -18,6 +18,8 @@ export const sdkConfig = {
     signinPath: "/api/signin",
 };
 
+export const DEMO_USER_TOKEN = "DEMO_USER_TOKEN";
+
 let casdoorSdk: Sdk | undefined;
 
 /** 获取全局的 Casdoor SDK，如果还没有初始化，就用 `config` 新建一个。*/
@@ -28,6 +30,9 @@ export function getCasdoorSdk(config: SdkConfig) {
 /** 获取全局的 access token。未登录时返回 `null`。*/
 export function getAccessToken() {
     const token = localStorage.getItem("access_token");
+    if (token === DEMO_USER_TOKEN) {
+        return token;
+    }
     // 检查 token 是否过期
     if (token) {
         const decoded = jwtDecode<AccessTokenPayload>(token);

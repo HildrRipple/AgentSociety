@@ -3,13 +3,14 @@ import base64
 import json
 import logging
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ...cli.pod_runner import run_experiment_in_pod
 from ..models import ApiResponseWrapper
+from .const import DEMO_USER_ID
 
 __all__ = ["router"]
 
@@ -37,6 +38,11 @@ async def run_experiment(
                 detail="Server is in read-only mode",
             )
         tenant_id = await request.app.state.get_tenant_id(request)
+        if tenant_id == DEMO_USER_ID:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Demo user is not allowed to run experiments",
+            )
         if hasattr(request.app.state.env, "model_dump"):  # Pydantic v2
             config["env"] = request.app.state.env.model_dump()
         elif hasattr(request.app.state.env, "dict"):  # Pydantic v1

@@ -36,7 +36,10 @@ def load_config(
                 raise click.BadParameter(f"Failed to parse base64 config: {e}")
     elif config_path:
         # Determine format based on file extension
-        file_ext = Path(config_path).suffix.lower()
+        path = Path(config_path)
+        if not path.exists():
+            raise click.BadParameter(f"Config file {config_path} does not exist")
+        file_ext = path.suffix.lower()
         if file_ext in [".json"]:
             try:
                 with open(config_path, "r", encoding="utf-8") as f:
