@@ -39,8 +39,24 @@ async def list_llm_configs(
         )
         results = await db.execute(stmt)
         db_configs = list(results.scalars().all())
-        configs = cast(List[ApiLLMConfig], db_configs)
-        return ApiResponseWrapper(data=configs)
+        api_configs = [
+            ApiLLMConfig(
+                tenant_id=config.tenant_id,
+                id=config.id,
+                name=config.name,
+                description=config.description,
+                config=config.config,
+                created_at=config.created_at,
+                updated_at=config.updated_at,
+            )
+            for config in db_configs
+        ]
+        # if config.tenant_id is "", hide the api_key
+        for api_config in api_configs:
+            if api_config.tenant_id == "":
+                for c in api_config.config:
+                    c["api_key"] = "********"
+        return ApiResponseWrapper(data=api_configs)
 
 
 @router.get("/llm-configs/{config_id}")
@@ -65,7 +81,20 @@ async def get_llm_config_by_id(
                 detail="LLM configuration not found",
             )
         config = row
-        return ApiResponseWrapper(data=config)
+        api_config = ApiLLMConfig(
+            tenant_id=config.tenant_id,
+            id=config.id,
+            name=config.name,
+            description=config.description,
+            config=config.config,
+            created_at=config.created_at,
+            updated_at=config.updated_at,
+        )
+        # if config.tenant_id is "", hide the api_key
+        if api_config.tenant_id == "":
+            for c in api_config.config:
+                c["api_key"] = "********"
+        return ApiResponseWrapper(data=api_config)
 
 
 @router.post("/llm-configs")

@@ -22,12 +22,12 @@ const MapList: React.FC = () => {
         try {
             const res = await fetchCustom('/api/map-configs');
             if (!res.ok) {
-                throw new Error('Failed to fetch map configurations');
+                throw new Error(await res.text());
             }
             const data = (await res.json()).data;
             setMaps(data);
         } catch (error) {
-            message.error(`Failed to load maps: ${JSON.stringify(error)}`, 3);
+            message.error(`Failed to load maps: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         } finally {
             setLoading(false);
@@ -86,12 +86,12 @@ const MapList: React.FC = () => {
                 method: 'DELETE'
             });
             if (!res.ok) {
-                throw new Error('Failed to delete map');
+                throw new Error(await res.text());
             }
             message.success('Map deleted successfully');
             loadMaps();
         } catch (error) {
-            message.error(`Failed to delete map: ${JSON.stringify(error)}`, 3);
+            message.error(`Failed to delete map: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         }
     };
@@ -112,8 +112,8 @@ const MapList: React.FC = () => {
                 res = await fetchCustom(`/api/map-configs/${currentMap.id}`, {
                     method: 'PUT',
                     headers: {
-                    'Content-Type': 'application/json',
-                },
+                        'Content-Type': 'application/json',
+                    },
                     body: JSON.stringify(configData),
                 });
             } else {
@@ -126,14 +126,14 @@ const MapList: React.FC = () => {
                 });
             }
             if (!res.ok) {
-                throw new Error('Failed to save map config');
+                throw new Error(await res.text());
             }
 
             message.success(`Map config ${currentMap ? 'updated' : 'created'} successfully`);
             setIsModalVisible(false);
             loadMaps();
         } catch (error) {
-            message.error(`Map config ${currentMap ? 'update' : 'create'} failed: ${JSON.stringify(error)}`, 3);
+            message.error(`Map config ${currentMap ? 'update' : 'create'} failed: ${JSON.stringify(error.message)}`, 3);
             console.error('Validation failed:', error);
         }
     };
@@ -159,32 +159,40 @@ const MapList: React.FC = () => {
         },
         {
             title: 'Last Updated',
-            dataIndex: 'updatedAt',
-            key: 'updatedAt',
+            dataIndex: 'updated_at',
+            key: 'updated_at',
             render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-            sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updatedAt).valueOf() - dayjs(b.updatedAt).valueOf()
+            sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updated_at).valueOf() - dayjs(b.updated_at).valueOf()
         },
         {
             title: 'Actions',
             key: 'actions',
             render: (_: any, record: ConfigItem) => (
                 <Space size="small">
-                    <Tooltip title="Edit">
-                        <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
-                    </Tooltip>
+                    {
+                        (record.tenant_id ?? '') !== '' && (
+                            <Tooltip title="Edit">
+                                <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
+                            </Tooltip>
+                        )
+                    }
                     <Tooltip title="View">
                         <Button icon={<EyeOutlined />} size="small" onClick={() => message.info('Map viewer not implemented yet')} />
                     </Tooltip>
-                    <Tooltip title="Delete">
-                        <Popconfirm
-                            title="Are you sure you want to delete this map?"
-                            onConfirm={() => handleDelete(record.id)}
-                            okText="Yes"
-                            cancelText="No"
-                        >
-                            <Button icon={<DeleteOutlined />} size="small" danger />
-                        </Popconfirm>
-                    </Tooltip>
+                    {
+                        (record.tenant_id ?? '') !== '' && (
+                            <Tooltip title="Delete">
+                                <Popconfirm
+                                    title="Are you sure you want to delete this map?"
+                                    onConfirm={() => handleDelete(record.id)}
+                                    okText="Yes"
+                                    cancelText="No"
+                                >
+                                    <Button icon={<DeleteOutlined />} size="small" danger />
+                                </Popconfirm>
+                            </Tooltip>
+                        )
+                    }
                 </Space>
             )
         }

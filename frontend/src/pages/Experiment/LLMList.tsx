@@ -22,12 +22,12 @@ const LLMList: React.FC = () => {
         try {
             const res = await fetchCustom('/api/llm-configs');
             if (!res.ok) {
-                throw new Error('Failed to fetch LLM configurations');
+                throw new Error(await res.text());
             }
             const data = (await res.json()).data;
             setLLMs(data);
         } catch (error) {
-            message.error(`Failed to load LLMs: ${JSON.stringify(error)}`, 3);
+            message.error(`Failed to load LLMs: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         } finally {
             setLoading(false);
@@ -96,12 +96,12 @@ const LLMList: React.FC = () => {
                 method: 'DELETE'
             });
             if (!res.ok) {
-                throw new Error('Failed to delete LLM config');
+                throw new Error(await res.text());
             }
             message.success('LLM config deleted successfully');
             loadLLMs();
         } catch (error) {
-            message.error(`Failed to delete LLM config: ${JSON.stringify(error)}`, 3);
+            message.error(`Failed to delete LLM config: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         }
     };
@@ -149,14 +149,14 @@ const LLMList: React.FC = () => {
                 });
             }
             if (!res.ok) {
-                throw new Error('Failed to save LLM config');
+                throw new Error(await res.text());
             }
 
             message.success(`LLM config ${currentLLM ? 'updated' : 'created'} successfully`);
             setIsModalVisible(false);
             loadLLMs();
         } catch (error) {
-            message.error(`LLM config ${currentLLM ? 'update' : 'create'} failed: ${JSON.stringify(error)}`, 3);
+            message.error(`LLM config ${currentLLM ? 'update' : 'create'} failed: ${JSON.stringify(error.message)}`, 3);
             console.error('Validation failed:', error);
         }
     };
@@ -182,37 +182,42 @@ const LLMList: React.FC = () => {
         },
         {
             title: 'Last Updated',
-            dataIndex: 'updatedAt',
-            key: 'updatedAt',
+            dataIndex: 'updated_at',
+            key: 'updated_at',
             render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-            sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updatedAt).valueOf() - dayjs(b.updatedAt).valueOf()
+            sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updated_at).valueOf() - dayjs(b.updated_at).valueOf()
         },
         {
             title: 'Actions',
             key: 'actions',
-            render: (_: any, record: ConfigItem) => (
-                <Space size="small">
-                    <Tooltip title="Edit">
-                        <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
-                    </Tooltip>
-                    <Tooltip title="Duplicate">
-                        <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
-                    </Tooltip>
-                    <Tooltip title="Export">
-                        <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                        <Popconfirm
-                            title="Are you sure you want to delete this LLM config?"
-                            onConfirm={() => handleDelete(record.id)}
-                            okText="Yes"
-                            cancelText="No"
-                        >
-                            <Button icon={<DeleteOutlined />} size="small" danger />
-                        </Popconfirm>
-                    </Tooltip>
-                </Space>
-            )
+            render: (_: any, record: ConfigItem) => {
+                if ((record.tenant_id ?? '') === '') {
+                    return null
+                }
+                return (
+                    <Space size="small">
+                        <Tooltip title="Edit">
+                            <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
+                        </Tooltip>
+                        <Tooltip title="Duplicate">
+                            <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
+                        </Tooltip>
+                        <Tooltip title="Export">
+                            <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                            <Popconfirm
+                                title="Are you sure you want to delete this LLM config?"
+                                onConfirm={() => handleDelete(record.id)}
+                                okText="Yes"
+                                cancelText="No"
+                            >
+                                <Button icon={<DeleteOutlined />} size="small" danger />
+                            </Popconfirm>
+                        </Tooltip>
+                    </Space>
+                )
+            }
         }
     ];
 

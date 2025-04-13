@@ -21,12 +21,12 @@ const AgentList: React.FC = () => {
         try {
             const res = await fetchCustom('/api/agent-configs');
             if (!res.ok) {
-                throw new Error('Failed to fetch agent configurations');
+                throw new Error(await res.text());
             }
             const data = (await res.json()).data;
             setAgents(data);
         } catch (error) {
-            message.error(`Failed to load agents: ${JSON.stringify(error)}`, 3);
+            message.error(`Failed to load agents: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         } finally {
             setLoading(false);
@@ -134,12 +134,12 @@ const AgentList: React.FC = () => {
                 method: 'DELETE'
             });
             if (!res.ok) {
-                throw new Error('Failed to delete agent');
+                throw new Error(await res.text());
             }
             message.success('Agent deleted successfully');
             loadAgents();
         } catch (error) {
-            message.error(`Failed to delete agent: ${JSON.stringify(error)}`, 3);
+            message.error(`Failed to delete agent: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         }
     };
@@ -173,8 +173,8 @@ const AgentList: React.FC = () => {
                 res = await fetchCustom(`/api/agent-configs/${currentAgent.id}`, {
                     method: 'PUT',
                     headers: {
-                    'Content-Type': 'application/json'
-                },
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify(configData),
                 });
             } else {
@@ -187,13 +187,13 @@ const AgentList: React.FC = () => {
                 });
             }
             if (!res.ok) {
-                throw new Error('Failed to save agent');
+                throw new Error(await res.text());
             }
             message.success(`Agent ${currentAgent ? 'updated' : 'created'} successfully`);
             setIsModalVisible(false);
             loadAgents();
         } catch (error) {
-            message.error(`Agent ${currentAgent ? 'update' : 'create'} failed: ${JSON.stringify(error)}`, 3);
+            message.error(`Agent ${currentAgent ? 'update' : 'create'} failed: ${JSON.stringify(error.message)}`, 3);
             console.error('Validation failed:', error);
         }
     };
@@ -219,35 +219,43 @@ const AgentList: React.FC = () => {
         },
         {
             title: 'Last Updated',
-            dataIndex: 'updatedAt',
-            key: 'updatedAt',
+            dataIndex: 'updated_at',
+            key: 'updated_at',
             render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-            sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updatedAt).valueOf() - dayjs(b.updatedAt).valueOf()
+            sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updated_at).valueOf() - dayjs(b.updated_at).valueOf()
         },
         {
             title: 'Actions',
             key: 'actions',
             render: (_: any, record: ConfigItem) => (
                 <Space size="small">
-                    <Tooltip title="Edit">
-                        <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
-                    </Tooltip>
+                    {
+                        (record.tenant_id ?? '') !== '' && (
+                            <Tooltip title="Edit">
+                                <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
+                            </Tooltip>
+                        )
+                    }
                     <Tooltip title="Duplicate">
                         <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
                     </Tooltip>
                     <Tooltip title="Export">
                         <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
                     </Tooltip>
-                    <Tooltip title="Delete">
-                        <Popconfirm
-                            title="Are you sure you want to delete this agent?"
-                            onConfirm={() => handleDelete(record.id)}
-                            okText="Yes"
-                            cancelText="No"
-                        >
-                            <Button icon={<DeleteOutlined />} size="small" danger />
-                        </Popconfirm>
-                    </Tooltip>
+                    {
+                        (record.tenant_id ?? '') !== '' && (
+                            <Tooltip title="Delete">
+                                <Popconfirm
+                                    title="Are you sure you want to delete this agent?"
+                                    onConfirm={() => handleDelete(record.id)}
+                                    okText="Yes"
+                                    cancelText="No"
+                                >
+                                    <Button icon={<DeleteOutlined />} size="small" danger />
+                                </Popconfirm>
+                            </Tooltip>
+                        )
+                    }
                 </Space>
             )
         }

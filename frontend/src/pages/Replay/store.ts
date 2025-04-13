@@ -4,7 +4,7 @@ import { message } from "antd";
 import React from "react";
 import { Experiment, Survey } from "../../components/type";
 import { round4 } from "../../components/util";
-import { fetchWithAuth } from "../../components/fetch";
+import { fetchCustom } from "../../components/fetch";
 
 const formatStatus = (status: any) => {
     if (typeof status === 'number') {
@@ -68,7 +68,7 @@ export class ReplayStore {
 
     async _fetchSurveys() {
         try {
-            const res = await fetchWithAuth('/api/surveys')
+            const res = await fetchCustom('/api/surveys')
             const data = await res.json()
             runInAction(() => {
                 const surveys = data.data as Survey[]
@@ -85,13 +85,13 @@ export class ReplayStore {
             return
         }
         try {
-            const res = await fetchWithAuth(`/api/experiments/${this.expID}`)
+            const res = await fetchCustom(`/api/experiments/${this.expID}`)
             const data = await res.json()
             runInAction(() => {
                 this.experiment = data.data as Experiment
             })
             {
-                const res = await fetchWithAuth(`/api/experiments/${this.expID}/timeline`)
+                const res = await fetchCustom(`/api/experiments/${this.expID}/timeline`)
                 const data = await res.json()
                 runInAction(() => {
                     this._timeline = data.data as Time[]
@@ -118,7 +118,7 @@ export class ReplayStore {
             return
         }
         try {
-            const res = await fetchWithAuth(`/api/experiments/${this.expID}/agents/-/profile`)
+            const res = await fetchCustom(`/api/experiments/${this.expID}/agents/-/profile`)
             const data = await res.json()
             runInAction(() => {
                 this._agent2Profile = new Map((data.data as AgentProfile[]).map(a => {
@@ -142,7 +142,7 @@ export class ReplayStore {
             if (time !== undefined) {
                 url += `?day=${time.day}&t=${time.t}`
             }
-            const res = await fetchWithAuth(url)
+            const res = await fetchCustom(url)
             const data = await res.json()
             const agentStatuses = data.data as AgentStatus[]
             // if (agentStatuses.length > 0) {
@@ -194,7 +194,7 @@ export class ReplayStore {
             if (time !== undefined) {
                 url += `?day=${time.day}&t=${time.t}`
             }
-            const res = await fetchWithAuth(url)
+            const res = await fetchCustom(url)
             let prompt = undefined
             if (res.ok) {
                 const data = await res.json()
@@ -217,7 +217,7 @@ export class ReplayStore {
         }
         try {
             {
-                const res = await fetchWithAuth(`/api/experiments/${this.expID}/agents/${this.clickedAgentID}/status`)
+                const res = await fetchCustom(`/api/experiments/${this.expID}/agents/${this.clickedAgentID}/status`)
                 const data = await res.json()
                 for (const status of data.data as AgentStatus[]) {
                     status.status = Object.fromEntries(Object.entries(status.status).map(([k, v]) => [k, formatStatus(v)]))
@@ -227,14 +227,14 @@ export class ReplayStore {
                 })
             }
             {
-                const res = await fetchWithAuth(`/api/experiments/${this.expID}/agents/${this.clickedAgentID}/dialog`)
+                const res = await fetchCustom(`/api/experiments/${this.expID}/agents/${this.clickedAgentID}/dialog`)
                 const data = await res.json()
                 runInAction(() => {
                     this._clickedAgentDialogs = data.data as AgentDialog[]
                 })
             }
             {
-                const res = await fetchWithAuth(`/api/experiments/${this.expID}/agents/${this.clickedAgentID}/survey`)
+                const res = await fetchCustom(`/api/experiments/${this.expID}/agents/${this.clickedAgentID}/survey`)
                 const data = await res.json()
                 runInAction(() => {
                     this._clickedAgentSurveys = data.data as AgentSurvey[]
