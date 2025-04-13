@@ -27,7 +27,16 @@ export function getCasdoorSdk(config: SdkConfig) {
 
 /** 获取全局的 access token。未登录时返回 `null`。*/
 export function getAccessToken() {
-    return localStorage.getItem("access_token");
+    const token = localStorage.getItem("access_token");
+    // 检查 token 是否过期
+    if (token) {
+        const decoded = jwtDecode<AccessTokenPayload>(token);
+        if (decoded.exp < Date.now() / 1000) {
+            localStorage.removeItem("access_token");
+            return null;
+        }
+    }
+    return token;
 }
 
 export interface AccessTokenPayload extends JwtPayload {
