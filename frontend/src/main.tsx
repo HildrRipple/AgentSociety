@@ -33,31 +33,59 @@ const router = createBrowserRouter([
     },
     {
         path: "/exp/:id",
-        element: <RootLayout selectedKey='/console'><Replay /></RootLayout>,
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/console'><Replay /></RootLayout>
+            </AuthProvider>
+        ),
     },
     {
         path: "/survey",
-        element: <RootLayout selectedKey='/survey'><Survey /></RootLayout>,
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/survey'><Survey /></RootLayout>
+            </AuthProvider>
+        ),
     },
     {
         path: "/create-experiment",
-        element: <RootLayout selectedKey='/create-experiment'><CreateExperiment /></RootLayout>,
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/create-experiment'><CreateExperiment /></RootLayout>
+            </AuthProvider>
+        ),
     },
     {
         path: "/llms",
-        element: <RootLayout selectedKey='/llms'><LLMList /></RootLayout>,
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/llms'><LLMList /></RootLayout>
+            </AuthProvider>
+        ),
     },
     {
         path: "/agents",
-        element: <RootLayout selectedKey='/agents'><AgentList /></RootLayout>,
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/agents'><AgentList /></RootLayout>
+            </AuthProvider>
+        ),
     },
     {
         path: "/workflows",
-        element: <RootLayout selectedKey='/workflows'><WorkflowList /></RootLayout>,
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/workflows'><WorkflowList /></RootLayout>
+            </AuthProvider>
+        ),
     },
     {
         path: "/maps",
-        element: <RootLayout selectedKey='/maps'><MapList /></RootLayout>,
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/maps'><MapList /></RootLayout>
+            </AuthProvider>
+        ),
     },
     {
         path: "/callback",
