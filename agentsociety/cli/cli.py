@@ -296,7 +296,8 @@ def check(config: str, config_base64: str):
 
 @cli.command()
 @common_options
-def run(config: str, config_base64: str):
+@click.option("--tenant-id", help="Specify tenant ID")
+def run(config: str, config_base64: str, tenant_id: str = "default"):
     """Run the simulation"""
     config_dict = load_config(config, config_base64)
 
@@ -306,7 +307,7 @@ def run(config: str, config_base64: str):
 
     c = Config.model_validate(config_dict)
     c = default(c)
-    society = AgentSociety(c)
+    society = AgentSociety(c, tenant_id)
 
     async def _run():
         try:

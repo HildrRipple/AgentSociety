@@ -18,6 +18,7 @@ logger = logging.getLogger("pod_runner")
 async def run_experiment_in_pod(
     config_base64: Optional[str] = None,
     config_path: Optional[str] = None,
+    tenant_id: str = "default",
 ) -> str:
     """
     Run experiment in Kubernetes Pod.
@@ -81,7 +82,6 @@ async def run_experiment_in_pod(
     
     try:
         # 创建 Pod
-        # 使用 Kubernetes 兼容的时间戳格式
         created_at = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
         
         pod = client.V1Pod(
@@ -90,15 +90,16 @@ async def run_experiment_in_pod(
                 namespace="agentsociety",
                 labels={
                     "app": "agentsociety",
-                    "created_at": created_at,  # 使用兼容的格式
+                    "created_at": created_at,
                     "description": config_dict.get("description", ""),
-                }
+                    "virtual-kubelet.io/burst-to-cci": "enforce" # 将 Pod 调度到 CCI
+                },
             ),
             spec=client.V1PodSpec(
                 containers=[
                     client.V1Container(
                         name="runner",
-                        image="swr.cn-north-4.myhuaweicloud.com/tsinghua-fib-lab/agentsociety:latest",
+                        image="swr.cn-north-4.myhuaweicloud.com/tsinghua-fib-lab/agentsociety:commercial",
                         command=[
                             "python",
                             "-m",
@@ -106,11 +107,24 @@ async def run_experiment_in_pod(
                             "run",
                             "--config-base64",
                             container_config_base64,
-                        ]
+                            "--tenant-id",
+                            tenant_id,
+                        ],
+                        # 添加资源请求和限制
+                        resources=client.V1ResourceRequirements(
+                            requests={
+                                "cpu": "1",       # 请求 1 CPU 核心
+                                "memory": "2Gi"   # 请求 2GB 内存
+                            },
+                            limits={
+                                "cpu": "8",       # 最多使用 2 CPU 核心
+                                "memory": "32Gi"   # 最多使用 4GB 内存
+                            }
+                        )
                     )
                 ],
                 restart_policy="Never",
-                host_network=True
+                host_network=False
             )
         )
         
@@ -151,6 +165,9 @@ def main():
     group.add_argument("--config", help="Path to configuration file")
     group.add_argument("--config-base64", help="Base64 encoded configuration")
     
+    # Add tenant_id argument
+    parser.add_argument("--tenant-id", help="Tenant ID", default="default")
+    
     # Parse command line arguments
     args = parser.parse_args()
     
@@ -159,6 +176,7 @@ def main():
         run_experiment_in_pod(
             config_base64=args.config_base64,
             config_path=args.config,
+            tenant_id=args.tenant_id,
         )
     )
     

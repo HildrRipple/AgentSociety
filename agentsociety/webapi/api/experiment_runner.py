@@ -8,7 +8,7 @@ from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from ...cli.docker_runner import run_experiment_in_container
+from ...cli.pod_runner import run_experiment_in_pod
 from ..models import ApiResponseWrapper
 
 __all__ = ["router"]
@@ -36,7 +36,6 @@ async def run_experiment(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Server is in read-only mode",
             )
-        # TODO: 使用tenant_id
         tenant_id = await request.app.state.get_tenant_id(request)
         if hasattr(request.app.state.env, "model_dump"):  # Pydantic v2
             config["env"] = request.app.state.env.model_dump()
@@ -57,8 +56,9 @@ async def run_experiment(
         try:
             # Create an async task and get its result
             task = asyncio.create_task(
-                run_experiment_in_container(
+                run_experiment_in_pod(
                     config_base64=config_base64,
+                    tenant_id=tenant_id,
                 )
             )
 
