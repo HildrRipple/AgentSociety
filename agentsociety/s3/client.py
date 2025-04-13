@@ -77,7 +77,7 @@ class S3Client:
         s3_path = self._get_s3_path(remote_path)
         response = self.client.get_object(Bucket=self.config.bucket, Key=s3_path)
         return response["Body"].read()
-    
+
     def exists(self, remote_path: str) -> bool:
         """
         Check if the file exists in S3
