@@ -15,6 +15,8 @@ import CreateExperiment from './pages/Experiment/CreateExperiment'
 import Home from './pages/Home'
 import storageService from './services/storageService'
 import enUS from 'antd/locale/en_US'
+import Callback from './pages/Callback'
+import { AuthProvider, sdkConfig } from './components/Auth'
 
 const router = createBrowserRouter([
     {
@@ -23,7 +25,11 @@ const router = createBrowserRouter([
     },
     {
         path: "/console",
-        element: <RootLayout selectedKey='/console'><Console /></RootLayout>,
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/console'><Console /></RootLayout>
+            </AuthProvider>
+        ),
     },
     {
         path: "/exp/:id",
@@ -52,6 +58,10 @@ const router = createBrowserRouter([
     {
         path: "/maps",
         element: <RootLayout selectedKey='/maps'><MapList /></RootLayout>,
+    },
+    {
+        path: "/callback",
+        element: <Callback />,
     },
     {
         path: "*",

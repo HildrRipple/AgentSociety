@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ExperimentOutlined, ApiOutlined, TeamOutlined, GlobalOutlined, RocketOutlined, NodeIndexOutlined } from '@ant-design/icons';
 import storageService, { STORAGE_KEYS, ConfigItem } from '../../services/storageService';
 import configService from '../../services/configService';
+import { fetchWithAuth } from '../../components/fetch';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -135,7 +136,7 @@ const CreateExperiment: React.FC = () => {
       }
 
       // Send request to start experiment
-      const response = await fetch('/api/run-experiments', {
+      const response = await fetchWithAuth('/api/run-experiments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

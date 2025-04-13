@@ -132,7 +132,7 @@ def ui(config: str, config_base64: str):
 
     app = create_app(
         pg_dsn=pg_dsn,
-        mlflow_url="/", # 商业版不暴露mlflow
+        mlflow_url="", # 商业版不暴露mlflow
         read_only=c.read_only,
         env=c.env,
         get_tenant_id=get_tenant_id,
