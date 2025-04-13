@@ -9,7 +9,7 @@ import { Experiment, experimentStatusMap } from "../../components/type";
 import { ProColumns, ProDescriptions, ProTable } from "@ant-design/pro-components";
 import { ActionType } from "@ant-design/pro-table";
 import { EllipsisOutlined } from "@ant-design/icons";
-import { fetchWithAuth } from "../../components/fetch";
+import { fetchCustom } from "../../components/fetch";
 
 const Page = () => {
     const navigate = useNavigate(); // 获取导航函数
@@ -87,7 +87,7 @@ const Page = () => {
                                             title="Are you sure to delete this experiment?"
                                             onConfirm={async () => {
                                                 try {
-                                                    const res = await fetchWithAuth(`/api/experiments/${record.id}`, {
+                                                    const res = await fetchCustom(`/api/experiments/${record.id}`, {
                                                         method: 'DELETE',
                                                     })
                                                     if (res.ok) {
@@ -126,7 +126,7 @@ const Page = () => {
                         columns={columns}
                         request={async (params) => {
                             try {
-                                const res = await fetchWithAuth('/api/experiments')
+                                const res = await fetchCustom('/api/experiments')
                                 let data = await res.json()
                                 data = data.data;
                                 if (params.name !== undefined && params.name !== '') {
