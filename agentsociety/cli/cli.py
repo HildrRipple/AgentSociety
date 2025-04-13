@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlsplit
 
 import click
+from fastapi import APIRouter
 import yaml
 from pydantic import BaseModel, Field
 
@@ -82,10 +83,24 @@ def ui(config: str, config_base64: str):
 
     from ..configs import EnvConfig
     from ..logger import get_logger, set_logger_level
-    from ..webapi.app import create_app
+    from ..webapi.app import create_app, empty_get_tenant_id
+    from ..casdoor.api import CasdoorConfig, Casdoor, login_router, auth_bearer_token
 
     class WebUIConfig(BaseModel):
         addr: str = Field(default="127.0.0.1:8080")
+        casdoor: CasdoorConfig = Field(
+            default_factory=lambda: CasdoorConfig.model_validate(
+                {
+                    "enabled": False,
+                    "client_id": "",
+                    "client_secret": "",
+                    "application_name": "",
+                    "endpoint": "",
+                    "org_name": "",
+                    "certificate": "",
+                }
+            )
+        )
         env: EnvConfig
         read_only: bool = Field(default=False)
         debug: bool = Field(default=False)
@@ -103,11 +118,26 @@ def ui(config: str, config_base64: str):
     if pg_dsn.startswith("postgresql://"):
         pg_dsn = pg_dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+    # ================= 【商业版】 =================
+    get_tenant_id = empty_get_tenant_id
+    more_state = {}
+    more_router = None
+    if c.casdoor.enabled:
+        casdoor = Casdoor(c.casdoor)
+        get_tenant_id = auth_bearer_token
+        more_state["casdoor"] = casdoor
+        more_router = APIRouter(prefix="/api")
+        more_router.include_router(login_router)
+    # ================= 【商业版】 =================
+
     app = create_app(
         pg_dsn=pg_dsn,
-        mlflow_url=c.env.mlflow.mlflow_uri if c.env.mlflow.enabled else "/",
+        mlflow_url="/", # 商业版不暴露mlflow
         read_only=c.read_only,
         env=c.env,
+        get_tenant_id=get_tenant_id,
+        more_router=more_router,
+        more_state=more_state,
     )
 
     # Start server
@@ -286,6 +316,7 @@ def run(config: str, config_base64: str):
             await society.close()
 
     import asyncio
+
     asyncio.run(_run())
 
 

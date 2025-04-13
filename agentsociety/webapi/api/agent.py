@@ -29,7 +29,7 @@ router = APIRouter(tags=["agent"])
 async def _find_started_experiment_by_id(
     request: Request, db: AsyncSession, exp_id: uuid.UUID
 ) -> Experiment:
-    tenant_id = request.app.state.get_tenant_id(request)
+    tenant_id = await request.app.state.get_tenant_id(request)
     stmt = select(Experiment).where(
         Experiment.tenant_id == tenant_id, Experiment.id == exp_id
     )

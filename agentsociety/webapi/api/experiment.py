@@ -37,8 +37,12 @@ async def list_experiments(
     """List all experiments"""
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        tenant_id = request.app.state.get_tenant_id(request)
-        stmt = select(Experiment).where(Experiment.tenant_id == tenant_id).order_by(Experiment.created_at.desc())
+        tenant_id = await request.app.state.get_tenant_id(request)
+        stmt = (
+            select(Experiment)
+            .where(Experiment.tenant_id == tenant_id)
+            .order_by(Experiment.created_at.desc())
+        )
         results = await db.execute(stmt)
         db_experiments = [row[0] for row in results.all() if len(row) > 0]
         experiments = cast(List[ApiExperiment], db_experiments)
@@ -54,7 +58,7 @@ async def get_experiment_by_id(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        tenant_id = request.app.state.get_tenant_id(request)
+        tenant_id = await request.app.state.get_tenant_id(request)
         stmt = select(Experiment).where(
             Experiment.tenant_id == tenant_id, Experiment.id == exp_id
         )
@@ -77,7 +81,7 @@ async def get_experiment_status_timeline_by_id(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        tenant_id = request.app.state.get_tenant_id(request)
+        tenant_id = await request.app.state.get_tenant_id(request)
         stmt = select(Experiment).where(
             Experiment.tenant_id == tenant_id, Experiment.id == exp_id
         )
@@ -132,7 +136,7 @@ async def delete_experiment_by_id(
         try:
             # Start transaction
             async with db.begin():
-                tenant_id = request.app.state.get_tenant_id(request)
+                tenant_id = await request.app.state.get_tenant_id(request)
                 stmt = select(Experiment).where(
                     Experiment.tenant_id == tenant_id, Experiment.id == exp_id
                 )
@@ -188,7 +192,7 @@ async def export_experiment_data(
 
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        tenant_id = request.app.state.get_tenant_id(request)
+        tenant_id = await request.app.state.get_tenant_id(request)
 
         # Get experiment info
         stmt = select(Experiment).where(
