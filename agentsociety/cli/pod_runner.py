@@ -64,10 +64,22 @@ async def run_experiment_in_pod(
     
     # 加载 Kubernetes 配置
     try:
-        k8s_config.load_kube_config(config_file="examples/k8s-fiblab-kubeconfig.yaml")
+        # 首先尝试加载本地配置
+        try:
+            k8s_config.load_kube_config()
+        except Exception as e:
+            logger.warning(f"Failed to load local Kubernetes config: {e}, trying specific config file")
+            # 尝试加载指定的配置文件
+            k8s_config.load_kube_config(config_file="examples/k8s-fiblab-kubeconfig.yaml")
     except Exception as e:
-        logger.error(f"Failed to load Kubernetes config: {e}")
-        raise
+        # 本地配置加载失败，尝试集群内配置
+        try:
+            logger.warning(f"Failed to load Kubernetes config file: {e}, trying in-cluster config")
+            k8s_config.load_incluster_config()
+        except Exception as e2:
+            # 所有配置方式都失败
+            logger.error(f"Failed to load any Kubernetes config: {e2}")
+            raise Exception(f"无法加载Kubernetes配置: {e2}")
     
     v1 = client.CoreV1Api()
     
