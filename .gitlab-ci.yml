@@ -20,12 +20,12 @@ build-docker-image:
   - docker login -u cn-north-4@${HW_AK} -p ${HW_PASSWORD} ${HW_REGISTRY}
   script:
   - export TIME=$(date +%s)
-  - docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}-${TIME} -t ${CI_REGISTRY_IMAGE}:latest -t ${HW_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}-${TIME} -t ${HW_REGISTRY_IMAGE}:latest .
+  - docker build -t ${CI_REGISTRY_IMAGE}:commercial-${CI_COMMIT_SHORT_SHA}-${TIME} -t ${CI_REGISTRY_IMAGE}:commercial -t ${HW_REGISTRY_IMAGE}:commercial-${CI_COMMIT_SHORT_SHA}-${TIME} -t ${HW_REGISTRY_IMAGE}:commercial .
 
   # 推送到GitLab容器注册表
-  - docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}-${TIME}
-  - docker push ${CI_REGISTRY_IMAGE}:latest
+  - docker push ${CI_REGISTRY_IMAGE}:commercial-${CI_COMMIT_SHORT_SHA}-${TIME}
+  - docker push ${CI_REGISTRY_IMAGE}:commercial
 
   # 推送到华为云SWR
-  - docker push ${HW_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}-${TIME}
-  - docker push ${HW_REGISTRY_IMAGE}:latest
+  - docker push ${HW_REGISTRY_IMAGE}:commercial-${CI_COMMIT_SHORT_SHA}-${TIME}
+  - docker push ${HW_REGISTRY_IMAGE}:commercial

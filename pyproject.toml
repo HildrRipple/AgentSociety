@@ -32,6 +32,7 @@ dependencies = [
     "fastavro>=1.10.0",
     "geojson>=3.1.0",
     "grpcio>=1.71.0,<2.0.0",
+    "kubernetes>=32.0.0",
     "json-with-comments>=1.2.10",
     "langchain-community>=0.3.13",
     "langchain-core>=0.3.28",
