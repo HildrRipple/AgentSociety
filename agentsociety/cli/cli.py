@@ -88,6 +88,7 @@ def ui(config: str, config_base64: str):
     from ..logger import get_logger, set_logger_level
     from ..webapi.app import create_app, empty_get_tenant_id
     from ..casdoor.api import CasdoorConfig, Casdoor, login_router, auth_bearer_token
+    from ..kubernetes import load_kube_config
 
     class WebUIConfig(BaseModel):
         addr: str = Field(default="127.0.0.1:8080")
@@ -109,50 +110,61 @@ def ui(config: str, config_base64: str):
         debug: bool = Field(default=False)
         logging_level: str = Field(default="INFO")
 
-    c = WebUIConfig.model_validate(config_data)
-    set_logger_level(c.logging_level.upper())
-    get_logger().info("Launching AgentSociety WebUI")
-    get_logger().debug(f"WebUI config: {c}")
-    # for compatibility with the old config
-    # postgres:// in DSN is not supported by SQLAlchemy
-    # replace it with postgresql://
+    async def _main():
+        c = WebUIConfig.model_validate(config_data)
+        set_logger_level(c.logging_level.upper())
+        get_logger().info("Launching AgentSociety WebUI")
+        get_logger().debug(f"WebUI config: {c}")
+        # for compatibility with the old config
+        # postgres:// in DSN is not supported by SQLAlchemy
+        # replace it with postgresql://
 
-    pg_dsn = c.env.pgsql.dsn
-    if pg_dsn.startswith("postgresql://"):
-        pg_dsn = pg_dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+        pg_dsn = c.env.pgsql.dsn
+        if pg_dsn.startswith("postgresql://"):
+            pg_dsn = pg_dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-    # ================= 【商业版】 =================
-    get_tenant_id = empty_get_tenant_id
-    more_state = {}
-    more_router = None
-    if c.casdoor.enabled:
-        casdoor = Casdoor(c.casdoor)
-        get_tenant_id = auth_bearer_token
-        more_state["casdoor"] = casdoor
-        more_router = APIRouter(prefix="/api")
-        more_router.include_router(login_router)
-    # ================= 【商业版】 =================
+        # ================= 【商业版】 =================
+        get_tenant_id = empty_get_tenant_id
+        more_state = {}
+        more_router = None
+        if c.casdoor.enabled:
+            casdoor = Casdoor(c.casdoor)
+            get_tenant_id = auth_bearer_token
+            more_state["casdoor"] = casdoor
+            more_router = APIRouter(prefix="/api")
+            more_router.include_router(login_router)
+        try:
+            await load_kube_config()
+        except Exception as e:
+            get_logger().error(f"Failed to load Kubernetes config: {e}")
+        # ================= 【商业版】 =================
 
-    app = create_app(
-        pg_dsn=pg_dsn,
-        mlflow_url="", # 商业版不暴露mlflow
-        read_only=c.read_only,
-        env=c.env,
-        get_tenant_id=get_tenant_id,
-        more_router=more_router,
-        more_state=more_state,
-    )
+        app = create_app(
+            pg_dsn=pg_dsn,
+            mlflow_url="", # 商业版不暴露mlflow
+            read_only=c.read_only,
+            env=c.env,
+            get_tenant_id=get_tenant_id,
+            more_router=more_router,
+            more_state=more_state,
+        )
 
-    # Start server
-    url = urlsplit("//" + c.addr)
-    host, port = url.hostname, url.port
-    if host is None or host == "" or host == "localhost":
-        host = "127.0.0.1"
-    if port is None:
-        port = 8080
-    log_level = "debug" if c.debug else "info"
-    get_logger().info("Starting server at %s:%s", host, port)
-    uvicorn.run(app, host=host, port=port, log_level=log_level)
+        # Start server
+        url = urlsplit("//" + c.addr)
+        host, port = url.hostname, url.port
+        if host is None or host == "" or host == "localhost":
+            host = "127.0.0.1"
+        if port is None:
+            port = 8080
+        log_level = "debug" if c.debug else "info"
+        get_logger().info("Starting server at %s:%s", host, port)
+        config = uvicorn.Config(app, host=host, port=port, log_level=log_level)
+        server = uvicorn.Server(config)
+        await server.serve()
+
+    import asyncio
+
+    asyncio.run(_main())
 
 
 @cli.command()

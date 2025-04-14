@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 
-import { Col, Row, message, Table, Button, Space, Popconfirm, Modal, Dropdown, } from 'antd';
+import { Col, Row, message, Table, Button, Space, Popconfirm, Modal, Dropdown, Select } from 'antd';
 import dayjs from "dayjs";
 import { parseT } from "../../components/util";
 import { useNavigate } from "react-router-dom";
@@ -8,13 +8,63 @@ import React from "react";
 import { Experiment, experimentStatusMap } from "../../components/type";
 import { ProColumns, ProDescriptions, ProTable } from "@ant-design/pro-components";
 import { ActionType } from "@ant-design/pro-table";
-import { EllipsisOutlined } from "@ant-design/icons";
+import { EllipsisOutlined, ReloadOutlined } from "@ant-design/icons";
 import { fetchCustom } from "../../components/fetch";
 
 const Page = () => {
     const navigate = useNavigate(); // 获取导航函数
     const [detail, setDetail] = useState<Experiment | null>(null);
+    const [logVisible, setLogVisible] = useState(false);
+    const [logContent, setLogContent] = useState('');
+    const [logLoading, setLogLoading] = useState(false);
     const actionRef = useRef<ActionType>();
+    const [currentExpId, setCurrentExpId] = useState<string>('');
+    const [refreshInterval, setRefreshInterval] = useState<number>(0);
+    const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // 清理定时器
+    const clearRefreshTimer = () => {
+        if (refreshTimerRef.current) {
+            clearInterval(refreshTimerRef.current);
+            refreshTimerRef.current = null;
+        }
+    };
+
+    // 设置新的定时器
+    const setupRefreshTimer = (interval: number, expId: string) => {
+        clearRefreshTimer();
+        if (interval > 0) {
+            refreshTimerRef.current = setInterval(() => {
+                fetchLog(expId);
+            }, interval * 1000);
+        }
+    };
+
+    // 组件卸载时清理定时器
+    useEffect(() => {
+        return () => clearRefreshTimer();
+    }, []);
+
+    const fetchLog = async (experimentId: string) => {
+        // 不清空现有内容，只显示loading状态
+        setLogLoading(true);
+        const oldContent = logContent;  // 保存现有内容
+        try {
+            const res = await fetchCustom(`/api/run-experiments/${experimentId}/log`);
+            if (res.ok) {
+                const log = await res.text();
+                setLogContent(log.replace(/\\n/g, '\n'));
+            } else {
+                throw new Error(await res.text());
+            }
+        } catch (err) {
+            message.error('Failed to fetch log: ' + err);
+            clearRefreshTimer(); // 发生错误时停止刷新
+            setLogContent(oldContent);  // 发生错误时恢复原有内容
+        } finally {
+            setLogLoading(false);
+        }
+    };
 
     const columns: ProColumns<Experiment>[] = [
         { title: 'ID', dataIndex: 'id', width: '10%' },
@@ -57,6 +107,29 @@ const Page = () => {
                         onClick={() => navigate(`/exp/${record.id}`)}
                         disabled={record.status === 0}
                     >Goto</Button>
+                    {record.status === 1 && (  // Add Stop button for running experiments
+                        <Popconfirm
+                            title="Are you sure to stop this experiment?"
+                            onConfirm={async () => {
+                                try {
+                                    const res = await fetchCustom(`/api/run-experiments/${record.id}`, {
+                                        method: 'DELETE',
+                                    });
+                                    if (res.ok) {
+                                        message.success('Stop experiment successfully');
+                                        actionRef.current?.reload();
+                                    } else {
+                                        const errMessage = await res.text();
+                                        throw new Error(errMessage);
+                                    }
+                                } catch (err) {
+                                    message.error('Failed to stop experiment: ' + err);
+                                }
+                            }}
+                        >
+                            <Button danger>Stop</Button>
+                        </Popconfirm>
+                    )}
                     <Dropdown
                         menu={{
                             items: [
@@ -66,12 +139,22 @@ const Page = () => {
                                     onClick: () => setDetail(record)
                                 },
                                 {
+                                    key: 'log',
+                                    label: 'View Log',
+                                    onClick: () => {
+                                        setLogVisible(true);
+                                        setCurrentExpId(record.id);
+                                        fetchLog(record.id);
+                                    }
+                                },
+                                {
                                     key: 'export',
                                     label: 'Export',
                                     onClick: () => {
                                         const url = `/api/experiments/${record.id}/export`
                                         // use form post to download the file
                                         const form = document.createElement('form');
+                                        // TODO: add authorization
                                         form.action = url;
                                         form.method = 'POST';
                                         form.target = '_blank';
@@ -179,6 +262,53 @@ const Page = () => {
                         { title: 'Error', dataIndex: 'error', span: 2, valueType: 'code' },
                     ]}
                 />
+            </Modal>
+            <Modal
+                title="Experiment Log"
+                width="80vw"
+                open={logVisible}
+                onCancel={() => {
+                    setLogVisible(false);
+                    setLogContent('');
+                    setRefreshInterval(0);
+                    clearRefreshTimer();
+                }}
+                footer={null}
+            >
+                <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <Button
+                        icon={<ReloadOutlined />}
+                        onClick={() => fetchLog(currentExpId)}
+                        loading={logLoading}
+                    >
+                        Refresh
+                    </Button>
+                    <Select
+                        value={refreshInterval}
+                        onChange={(value) => {
+                            setRefreshInterval(value);
+                            setupRefreshTimer(value, currentExpId);
+                        }}
+                        style={{ width: 200 }}
+                        options={[
+                            { value: 0, label: 'Manual refresh' },
+                            { value: 1, label: 'Every 1 second' },
+                            { value: 5, label: 'Every 5 seconds' },
+                            { value: 10, label: 'Every 10 seconds' },
+                            { value: 30, label: 'Every 30 seconds' },
+                        ]}
+                    />
+                    {logLoading && <span style={{ color: '#1890ff' }}>Refreshing...</span>}
+                </div>
+                <pre style={{
+                    maxHeight: '70vh',
+                    overflow: 'auto',
+                    padding: '12px',
+                    backgroundColor: '#f5f5f5',
+                    borderRadius: '4px'
+                }}>
+                    {logContent}
+                </pre>
             </Modal>
         </>
     );

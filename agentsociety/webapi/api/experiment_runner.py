@@ -7,15 +7,17 @@ from typing import Any, Dict, cast
 
 from fastapi import APIRouter, Body, HTTPException, Request, status
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agentsociety.configs.env import EnvConfig
 
 from ...cli.pod_runner import run_experiment_in_pod
 from ...configs import Config
+from ...kubernetes import delete_pod, get_pod_logs, get_pod_status
 from ..models import ApiResponseWrapper
 from ..models.config import AgentConfig, LLMConfig, MapConfig, WorkflowConfig
+from ..models.experiment import Experiment
 from .const import DEMO_USER_ID
 
 __all__ = ["router"]
@@ -177,4 +179,71 @@ async def run_experiment(
 
     return ApiResponseWrapper(
         data=ExperimentResponse(id=experiment_id),
+    )
+
+
+@router.delete("/run-experiments/{exp_id}")
+async def delete_experiment(
+    request: Request,
+    exp_id: str,
+):
+    """Delete an experiment pod"""
+    if request.app.state.read_only:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Server is in read-only mode",
+        )
+    tenant_id = await request.app.state.get_tenant_id(request)
+    if tenant_id == DEMO_USER_ID:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo user is not allowed to delete experiments",
+        )
+
+    await delete_pod(tenant_id, exp_id)
+
+    # update experiment status to 3
+    async with request.app.state.get_db() as db:
+        db = cast(AsyncSession, db)
+        stmt = (
+            update(Experiment)
+            .where(Experiment.tenant_id == tenant_id, Experiment.id == exp_id)
+            .values(status=3, error="Experiment stopped by user")
+        )
+        await db.execute(stmt)
+        await db.commit()
+
+
+@router.get("/run-experiments/{exp_id}/log")
+async def get_experiment_logs(
+    request: Request,
+    exp_id: str,
+) -> str:
+    """Get experiment pod logs"""
+    tenant_id = await request.app.state.get_tenant_id(request)
+    if tenant_id == DEMO_USER_ID:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo user is not allowed to view experiment logs",
+        )
+
+    logs = await get_pod_logs(exp_id, tenant_id)
+    return logs
+
+
+@router.get("/run-experiments/{exp_id}/status")
+async def get_experiment_status(
+    request: Request,
+    exp_id: str,
+) -> ApiResponseWrapper[str]:
+    """Get experiment pod status"""
+    tenant_id = await request.app.state.get_tenant_id(request)
+    if tenant_id == DEMO_USER_ID:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo user is not allowed to view experiment status",
+        )
+    pod_status = await get_pod_status(exp_id, tenant_id)
+    return ApiResponseWrapper(
+        data=pod_status,
     )
