@@ -93,7 +93,7 @@ class AgentSociety:
         set_logger_level(self._config.advanced.logging_level.upper())
 
         self.exp_id = str(config.exp.id)
-        get_logger().info(
+        get_logger().debug(
             f"Creating AgentSociety with config: {self._config.model_dump()} as exp_id={self.exp_id}"
         )
 

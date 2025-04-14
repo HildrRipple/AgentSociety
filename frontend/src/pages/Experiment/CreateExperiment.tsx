@@ -133,17 +133,40 @@ const CreateExperiment: React.FC = () => {
             await form.validateFields();
 
             // Build configuration from selected components
+            const llm = llms.find(llm => llm.id === selectedLLM);
+            if (!llm) {
+                throw new Error('LLM not found');
+            }
+            const map = maps.find(map => map.id === selectedMap);
+            if (!map) {
+                throw new Error('Map not found');
+            }
+            const agent = agents.find(agent => agent.id === selectedAgent);
+            if (!agent) {
+                throw new Error('Agent not found');
+            }
+            const workflow = workflows.find(workflow => workflow.id === selectedWorkflow);
+            if (!workflow) {
+                throw new Error('Workflow not found');
+            }
             const config = {
-                llm: llms.find(llm => llm.id === selectedLLM)?.config,
-                map: maps.find(map => map.id === selectedMap)?.config,
-                agents: agents.find(agent => agent.id === selectedAgent)?.config,
-                exp: {
-                    name: experimentName,
-                    workflow: workflows.find(workflow => workflow.id === selectedWorkflow)?.config,
-                    environment: {
-                        start_tick: 28800, // TODO: set when create exp
-                    }
-                }
+                exp_name: experimentName,
+                llm: {
+                    tenant_id: llm.tenant_id,
+                    id: llm.id,
+                },
+                map: {
+                    tenant_id: map.tenant_id,
+                    id: map.id,
+                },
+                agents: {
+                    tenant_id: agent.tenant_id,
+                    id: agent.id,
+                },
+                workflow: {
+                    tenant_id: workflow.tenant_id,
+                    id: workflow.id,
+                },
             }
 
             // Send request to start experiment
@@ -156,8 +179,7 @@ const CreateExperiment: React.FC = () => {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to start experiment');
+                throw new Error(await response.text());
             }
 
             const data = await response.json();
@@ -172,7 +194,7 @@ const CreateExperiment: React.FC = () => {
                 navigate(`/console`);
             }, 2000);
         } catch (error) {
-            message.error(`Failed to start experiment: ${error.message}`);
+            message.error(`Failed to start experiment: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         } finally {
             setLoading(false);
