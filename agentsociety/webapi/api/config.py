@@ -1,20 +1,25 @@
+import os
 import uuid
-from typing import List, Optional, cast, Any
+from typing import Any, List, Optional, cast
 
-from fastapi import APIRouter, Body, HTTPException, Request, status
-from sqlalchemy import or_, select, update, delete, insert
+from fastapi import APIRouter, Body, HTTPException, Request, Response, status
+from fastapi.responses import FileResponse, StreamingResponse
+from sqlalchemy import delete, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...configs import EnvConfig
+from ...s3 import S3Client
 from ..models import ApiResponseWrapper
 from ..models.config import (
-    LLMConfig,
-    ApiLLMConfig,
-    MapConfig,
-    ApiMapConfig,
     AgentConfig,
     ApiAgentConfig,
-    WorkflowConfig,
+    ApiLLMConfig,
+    ApiMapConfig,
     ApiWorkflowConfig,
+    LLMConfig,
+    MapConfig,
+    RealMapConfig,
+    WorkflowConfig,
 )
 
 __all__ = ["router"]
@@ -317,6 +322,61 @@ async def delete_map_config(
                 detail="Map configuration not found",
             )
         await db.commit()
+
+
+@router.post("/map-configs/{config_id}/export")
+async def export_map_config(
+    request: Request,
+    config_id: uuid.UUID,
+):
+    """Export map configuration and file"""
+    tenant_id = await request.app.state.get_tenant_id(request)
+
+    async with request.app.state.get_db() as db:
+        db = cast(AsyncSession, db)
+        stmt = select(MapConfig).where(
+            MapConfig.tenant_id.in_([tenant_id, ""]),
+            MapConfig.id == config_id,
+        )
+        result = await db.execute(stmt)
+        row = result.scalar_one_or_none()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Map configuration not found",
+            )
+    config = RealMapConfig.model_validate(row.config)
+
+    env: EnvConfig = request.app.state.env
+    # Get map file path from config
+    map_path = config.file_path
+
+    if env.s3.enabled:
+        # download map file from s3
+        client = S3Client(env.s3)
+        file_content = client.download(map_path)
+    else:
+        # get map file from local
+
+        # Check if file exists
+        if not os.path.exists(map_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Map file not found",
+            )
+
+        # Read file content
+        with open(map_path, "rb") as f:
+            file_content = f.read()
+
+    # Create response with file
+    return Response(
+        content=file_content,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename={os.path.basename(map_path)}"
+        },
+    )
 
 
 # Agent Config API

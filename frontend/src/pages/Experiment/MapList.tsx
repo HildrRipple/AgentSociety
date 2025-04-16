@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined } from '@ant-design/icons';
 import MapForm from './MapForm';
 import { ConfigItem } from '../../services/storageService';
 import { MapConfig } from '../../types/config';
 import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
+import { getAccessToken } from '../../components/Auth';
 
 const MapList: React.FC = () => {
     const [maps, setMaps] = useState<ConfigItem[]>([]);
@@ -178,6 +179,27 @@ const MapList: React.FC = () => {
                     }
                     <Tooltip title="View">
                         <Button icon={<EyeOutlined />} size="small" onClick={() => message.info('Map viewer not implemented yet')} />
+                    </Tooltip>
+                    <Tooltip title="Export">
+                        <Button icon={<DownloadOutlined />} size="small" onClick={() => {
+                            const token = getAccessToken();
+                            if (!token) {
+                                message.error('No token found, please login');
+                                return;
+                            }
+                            const authorization = `Bearer ${token}`;
+                            const url = `/api/map-configs/${record.id}/export`
+                            // use form post to download the file
+                            const form = document.createElement('form');
+                            // TODO: add authorization
+                            form.action = url;
+                            form.method = 'POST';
+                            form.target = '_blank';
+                            form.innerHTML = '<input type="hidden" name="authorization" value="' + authorization + '">';
+                            document.body.appendChild(form);
+                            form.submit();
+                            document.body.removeChild(form);
+                        }} />
                     </Tooltip>
                     {
                         (record.tenant_id ?? '') !== '' && (
