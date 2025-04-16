@@ -88,10 +88,14 @@ async def auth_bearer_token(
         return "dev"
 
     authorization = request.headers.get("Authorization")
-
     if authorization is None:
-        # 401 Unauthorized
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        # try to get authorization from form
+        form = await request.form()
+        authorization = form.get("authorization")
+        if authorization is None or not isinstance(authorization, str):
+            # 401 Unauthorized
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
     if not authorization.startswith("Bearer "):
         # 401 Unauthorized
         raise HTTPException(status_code=401, detail="Unauthorized")

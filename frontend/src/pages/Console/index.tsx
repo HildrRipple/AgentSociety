@@ -10,6 +10,7 @@ import { ProColumns, ProDescriptions, ProTable } from "@ant-design/pro-component
 import { ActionType } from "@ant-design/pro-table";
 import { EllipsisOutlined, ReloadOutlined } from "@ant-design/icons";
 import { fetchCustom } from "../../components/fetch";
+import { getAccessToken } from "../../components/Auth";
 
 const Page = () => {
     const navigate = useNavigate(); // 获取导航函数
@@ -151,6 +152,12 @@ const Page = () => {
                                     key: 'export',
                                     label: 'Export',
                                     onClick: () => {
+                                        const token = getAccessToken();
+                                        if (!token) {
+                                            message.error('No token found, please login');
+                                            return;
+                                        }
+                                        const authorization = `Bearer ${token}`;
                                         const url = `/api/experiments/${record.id}/export`
                                         // use form post to download the file
                                         const form = document.createElement('form');
@@ -158,6 +165,7 @@ const Page = () => {
                                         form.action = url;
                                         form.method = 'POST';
                                         form.target = '_blank';
+                                        form.innerHTML = '<input type="hidden" name="authorization" value="' + authorization + '">';
                                         document.body.appendChild(form);
                                         form.submit();
                                         document.body.removeChild(form);
