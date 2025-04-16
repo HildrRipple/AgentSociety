@@ -62,8 +62,6 @@ async def run_experiment_in_pod(
     if not config_dict:
         raise ValueError("No configuration provided")
 
-    v1 = client.CoreV1Api()
-
     exp_id = config_dict["exp"]["id"]
     # 生成唯一的 Pod 名称
     pod_name = (
