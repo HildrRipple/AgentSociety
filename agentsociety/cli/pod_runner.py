@@ -10,7 +10,6 @@ from typing import Optional
 import datetime
 import functools
 import yaml
-from kubernetes import client
 from ..kubernetes import create_pod
 
 logger = logging.getLogger("pod_runner")
