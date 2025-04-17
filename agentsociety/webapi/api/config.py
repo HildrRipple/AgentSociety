@@ -2,7 +2,9 @@ import os
 import uuid
 from typing import Any, List, Optional, cast
 
-from fastapi import APIRouter, Body, HTTPException, Request, Response, status
+from pydantic import BaseModel
+import redis.asyncio as aioredis
+from fastapi import APIRouter, Body, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import delete, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -373,6 +375,120 @@ async def export_map_config(
     return Response(
         content=file_content,
         media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename={os.path.basename(map_path)}"
+        },
+    )
+
+
+class CreateTempDownloadLinkRequest(BaseModel):
+    expire_seconds: int = 600
+
+
+class CreateTempDownloadLinkResponse(BaseModel):
+    token: str
+
+
+@router.post("/map-configs/{config_id}/temp-link")
+async def create_temp_download_link(
+    request: Request,
+    config_id: uuid.UUID,
+    body: CreateTempDownloadLinkRequest = Body(...),
+):
+    """Create a temporary download link for map"""
+    tenant_id = await request.app.state.get_tenant_id(request)
+
+    async with request.app.state.get_db() as db:
+        db = cast(AsyncSession, db)
+        stmt = select(MapConfig).where(
+            MapConfig.tenant_id.in_([tenant_id, ""]),
+            MapConfig.id == config_id,
+        )
+        result = await db.execute(stmt)
+        row = result.scalar_one_or_none()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Map configuration not found",
+            )
+    env: EnvConfig = request.app.state.env
+    client = aioredis.Redis(
+        host=env.redis.server,
+        port=env.redis.port,
+        db=env.redis.db,
+        password=env.redis.password,
+        socket_timeout=env.redis.timeout,
+        socket_keepalive=True,
+        health_check_interval=5,
+        single_connection_client=True,
+    )
+    # key: agentsociety:map:<config_id>:token:<token>
+    # value: "1"
+    # expire: expire_seconds
+    token = str(uuid.uuid4().hex)
+    await client.set(
+        f"agentsociety:map:{config_id}:token:{token}", "1", ex=body.expire_seconds
+    )
+
+    return ApiResponseWrapper(data=CreateTempDownloadLinkResponse(token=token))
+
+
+@router.get("/map-configs/{config_id}/temp-link")
+async def download_map_by_token(
+    request: Request,
+    config_id: uuid.UUID,
+    token: str = Query(...),
+):
+    """Download map by token"""
+    env: EnvConfig = request.app.state.env
+    client = aioredis.Redis(
+        host=env.redis.server,
+        port=env.redis.port,
+        db=env.redis.db,
+        password=env.redis.password,
+        socket_timeout=env.redis.timeout,
+        socket_keepalive=True,
+        health_check_interval=5,
+        single_connection_client=True,
+    )
+    res = await client.get(f"agentsociety:map:{config_id}:token:{token}")
+    print(f"res: {res}")
+
+    if res is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Download link expired or invalid",
+        )
+
+    async with request.app.state.get_db() as db:
+        db = cast(AsyncSession, db)
+        stmt = select(MapConfig).where(MapConfig.id == config_id)
+        result = await db.execute(stmt)
+        row = result.scalar_one_or_none()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Map configuration not found",
+            )
+
+    config = RealMapConfig.model_validate(row.config)
+    map_path = config.file_path
+
+    if env.s3.enabled:
+        client = S3Client(env.s3)
+        file_content = client.download(map_path)
+    else:
+        if not os.path.exists(map_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Map file not found",
+            )
+        with open(map_path, "rb") as f:
+            file_content = f.read()
+
+    return StreamingResponse(
+        content=iter([file_content]),
+        media_type="application/octet-stream",
         headers={
             "Content-Disposition": f"attachment; filename={os.path.basename(map_path)}"
         },

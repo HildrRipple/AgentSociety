@@ -178,7 +178,33 @@ const MapList: React.FC = () => {
                         )
                     }
                     <Tooltip title="View">
-                        <Button icon={<EyeOutlined />} size="small" onClick={() => message.info('Map viewer not implemented yet')} />
+                        <Button icon={<EyeOutlined />} size="small" onClick={async () => {
+                            // get token
+                            const url = `/api/map-configs/${record.id}/temp-link`
+                            try {
+                                const res = await fetchCustom(url, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({ expire_seconds: 600 }),
+                                })
+                                if (!res.ok) {
+                                    throw new Error(await res.text());
+                                }
+                                const data = await res.json();
+                                const token = data.data.token;
+                                // create temp-link url
+                                // format: ${window.location.origin}/api/map-configs/{config_id}/temp-link?token=${token}
+                                const tempLinkUrl = `${window.location.origin}/api/map-configs/${record.id}/temp-link?token=${token}`;
+                                // open in new tab
+                                // format: https://moss.fiblab.net/tools/map-editor?dataSource=${tempLinkUrl}
+                                window.open(`https://moss.fiblab.net/tools/map-editor?dataSource=${tempLinkUrl}`, '_blank');
+                            } catch (error) {
+                                message.error(`Failed to get temp link: ${JSON.stringify(error.message)}`, 3);
+                                console.error(error);
+                            }
+                        }} />
                     </Tooltip>
                     <Tooltip title="Export">
                         <Button icon={<DownloadOutlined />} size="small" onClick={() => {

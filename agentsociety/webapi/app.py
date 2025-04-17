@@ -8,6 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.middleware.sessions import SessionMiddleware
@@ -72,13 +73,22 @@ def create_app(
             await conn.run_sync(Base.metadata.create_all)
         yield
 
-    # 创建FastAPI应用
+    # create FastAPI app
     app = FastAPI(
         title="AgentSociety WebUI API",
         lifespan=lifespan,
         openapi_url="/api/openapi.json",
         docs_url="/api/docs",
         redoc_url="/api/redoc",
+    )
+
+    # add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["https://moss.fiblab.net"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     # https://stackoverflow.com/questions/75958222/can-i-return-400-error-instead-of-422-error
