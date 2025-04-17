@@ -4,7 +4,7 @@ from typing import Any, List, Optional, cast
 
 from pydantic import BaseModel
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Body, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Body, HTTPException, Query, Request, Response, status, File, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import delete, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -238,6 +238,44 @@ async def get_map_config_by_id(
         return ApiResponseWrapper(data=config)
 
 
+@router.post("/map-configs/-/upload")
+async def upload_map_file(
+    request: Request,
+    file: UploadFile = File(...),
+):
+    """Upload a map file to S3"""
+    if request.app.state.read_only:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Server is in read-only mode"
+        )
+
+    tenant_id = await request.app.state.get_tenant_id(request)
+    env: EnvConfig = request.app.state.env
+    # Validate file extension
+    if not file.filename or not file.filename.endswith('.pb'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only .pb files are allowed"
+        )
+    # Generate a unique map ID
+    map_id = str(uuid.uuid4())
+    # Construct S3 path
+    s3_path = f"maps/{tenant_id}/{map_id}.pb"
+
+    if not env.s3.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="S3 is not enabled"
+        )
+
+    # Upload to S3
+    client = S3Client(env.s3)
+    content = await file.read()
+    client.upload(content, s3_path)
+
+    return ApiResponseWrapper(data={"file_path": s3_path})
+
+
 @router.post("/map-configs", status_code=status.HTTP_201_CREATED)
 async def create_map_config(
     request: Request,
@@ -251,7 +289,9 @@ async def create_map_config(
 
     tenant_id = await request.app.state.get_tenant_id(request)
 
+    config_data.tenant_id = tenant_id
     config_data.validate_config()
+
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
         stmt = insert(MapConfig).values(
@@ -278,6 +318,7 @@ async def update_map_config(
 
     tenant_id = await request.app.state.get_tenant_id(request)
 
+    config_data.tenant_id = tenant_id
     config_data.validate_config()
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)

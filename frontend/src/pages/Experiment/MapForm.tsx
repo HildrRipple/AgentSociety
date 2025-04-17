@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Form, Input, Card, Upload, Button, message } from 'antd';
-import { UploadOutlined, InboxOutlined } from '@ant-design/icons';
-import type { UploadProps, UploadFile } from 'antd';
+import React from 'react';
+import { Form, Upload, message } from 'antd';
+import { InboxOutlined } from '@ant-design/icons';
 import { MapConfig } from '../../types/config';
+import { getAccessToken } from '../../components/Auth';
 
 const { Dragger } = Upload;
 
@@ -13,11 +13,21 @@ interface MapFormProps {
 
 const MapForm: React.FC<MapFormProps> = ({ value, onChange }) => {
     const [form] = Form.useForm();
-    const [fileList, setFileList] = useState<UploadFile[]>([]);
 
     // Update parent component state when form values change
     const handleValuesChange = (changedValues: any, allValues: any) => {
-        onChange(allValues);
+        console.log('changedValues', changedValues);
+        console.log('allValues', allValues);
+        const file = allValues.file_path.file;
+        if (file && file.status === 'done') {
+            onChange({
+                file_path: file.response.data.file_path,
+            });
+        } else {
+            onChange({
+                file_path: null,
+            });
+        }
     };
 
     // Set initial values
@@ -25,28 +35,27 @@ const MapForm: React.FC<MapFormProps> = ({ value, onChange }) => {
         form.setFieldsValue(value);
     }, [form, value]);
 
-    const uploadProps: UploadProps = {
+    const uploadProps = {
         name: 'file',
         multiple: false,
-        action: '/api/upload-map',
-        fileList,
+        action: '/api/map-configs/-/upload',
+        headers: {
+            Authorization: `Bearer ${getAccessToken()}`
+        },
+        beforeUpload: (file) => {
+            // check suffix
+            if (!file.name.endsWith('.pb')) {
+                message.error('the file must be a .pb file');
+                return false;
+            }
+            return true;
+        },
         onChange(info) {
-            let newFileList = [...info.fileList];
-
-            // Just keep the latest file
-            newFileList = newFileList.slice(-1);
-
-            setFileList(newFileList);
-
-            if (info.file.status === 'done') {
-                message.success(`${info.file.name} file uploaded successfully`);
-                // Update the form with the file path
-                form.setFieldsValue({
-                    file_path: `maps/${info.file.name}`
-                });
-                handleValuesChange({ file_path: `maps/${info.file.name}` }, form.getFieldsValue());
-            } else if (info.file.status === 'error') {
-                message.error(`${info.file.name} file upload failed.`);
+            const { status } = info.file;
+            if (status === 'done') {
+                message.success(`${info.file.name} uploaded successfully`);
+            } else if (status === 'error') {
+                message.error(`${info.file.name} uploaded failed`);
             }
         },
     };
@@ -58,32 +67,21 @@ const MapForm: React.FC<MapFormProps> = ({ value, onChange }) => {
             onValuesChange={handleValuesChange}
             initialValues={value}
         >
-            <Card title="Map Configuration" bordered={false}>
-                <Form.Item
-                    name="file_path"
-                    label="Map File Path"
-                    rules={[{ required: true, message: 'Please enter map file path or upload a map file' }]}
-                >
-                    <Input placeholder="Enter map file path (e.g., maps/default_map.pb)" />
-                </Form.Item>
-
+            <Form.Item
+                name="file_path"
+                label="New Map File (Upload or Replace)"
+                required
+            >
                 <Dragger {...uploadProps} style={{ marginBottom: 16 }}>
                     <p className="ant-upload-drag-icon">
                         <InboxOutlined />
                     </p>
                     <p className="ant-upload-text">Click or drag map file to this area to upload</p>
                     <p className="ant-upload-hint">
-                        Support for a single .pb file upload. The file will be stored in the maps directory.
+                        Support for a single .pb file upload. The file will be stored in S3.
                     </p>
                 </Dragger>
-
-                <Form.Item
-                    name="cache_path"
-                    label="Cache Path (Optional)"
-                >
-                    <Input placeholder="Enter cache path (optional)" />
-                </Form.Item>
-            </Card>
+            </Form.Item>
         </Form>
     );
 };
