@@ -121,6 +121,24 @@ i18n
                             deleteFailed: "Failed to delete experiment:",
                             noToken: "No token found, please login"
                         }
+                    },
+                    replay: {
+                        chatbox: {
+                            day: "Day {{day}}",
+                            tabs: {
+                                reflection: "Reflection",
+                                agent: "Agent",
+                                user: "User",
+                                survey: "Survey"
+                            },
+                            survey: {
+                                preview: "Preview",
+                                surveyName: "Survey Name",
+                                surveySent: "Survey sent, you should wait for the agent to save the survey into database and respond",
+                                messageSent: "Message sent, you should wait for the agent to save the message into database and respond",
+                                sendFailed: "Failed to send:"
+                            }
+                        }
                     }
                 }
             },
@@ -227,6 +245,24 @@ i18n
                             deleteSuccess: "删除实验成功",
                             deleteFailed: "删除实验失败：",
                             noToken: "未找到token，请登录"
+                        }
+                    },
+                    replay: {
+                        chatbox: {
+                            day: "第{{day}}天",
+                            tabs: {
+                                reflection: "反思",
+                                agent: "智能体",
+                                user: "用户",
+                                survey: "问卷"
+                            },
+                            survey: {
+                                preview: "预览",
+                                surveyName: "问卷名称",
+                                surveySent: "问卷已发送，请等待智能体将问卷保存到数据库并响应",
+                                messageSent: "消息已发送，请等待智能体将消息保存到数据库并响应",
+                                sendFailed: "发送失败："
+                            }
                         }
                     }
                 }

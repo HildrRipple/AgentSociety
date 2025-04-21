@@ -8,6 +8,7 @@ import { observer } from 'mobx-react-lite';
 import { StoreContext } from './store';
 import { Model, Survey as SurveyUI } from 'survey-react-ui';
 import { fetchCustom } from '../../components/fetch';
+import { Trans, useTranslation } from 'react-i18next';
 
 const roles: GetProp<typeof Bubble.List, 'roles'> = {
     self: {
@@ -32,6 +33,7 @@ const roles: GetProp<typeof Bubble.List, 'roles'> = {
 
 export const ChatBox = observer(() => {
     const store = useContext(StoreContext);
+    const { t } = useTranslation();
 
     const agent = store.clickedAgent;
     const agentDialogs = store.clickedAgentDialogs;
@@ -67,7 +69,7 @@ export const ChatBox = observer(() => {
         if (res.status !== 200) {
             console.error('Failed to send survey:', res);
         } else {
-            message.success('Survey sent, you should wait for the agent to save the survey into database and respond');
+            message.success(t('replay.chatbox.survey.surveySent'));
         }
         setSelectedSurveyID(undefined);
     };
@@ -116,7 +118,13 @@ export const ChatBox = observer(() => {
                     loading: false,
                     role: role,
                     content: content,
-                    header: <div>{name} (Day {m.day} {parseT(m.t)})</div>
+                    header: <div>
+                        {name} (
+                        <Trans i18nKey='replay.chatbox.day' values={{ day: m.day }}>
+                            Day {m.day}
+                        </Trans>&nbsp;
+                        {parseT(m.t)})
+                    </div>
                 }
             })}
         />
@@ -172,14 +180,14 @@ export const ChatBox = observer(() => {
                         key: `${s.id}-${i}`,
                         loading: false,
                         role: "user",
-                        content: <div>Survey Name: {survey.name} <Button
+                        content: <div>{t('replay.chatbox.survey.surveyName')}: {survey.name} <Button
                             type='link'
                             onClick={() => {
                                 setPreviousSurvey(JSON.stringify(survey.data));
                                 setOpenPreview(true);
                             }}
                         >
-                            Preview
+                            {t('replay.chatbox.survey.preview')}
                         </Button></div>,
                         header: <div>Survey Day {s.day} {parseT(s.t)}</div>
                     }, {
@@ -236,23 +244,23 @@ export const ChatBox = observer(() => {
     return (<>
         <Flex vertical className={rootClass}>
             <Tabs centered defaultActiveKey="0" animated={{ inkBar: true, tabPane: true }} className='tabs w-full'>
-                <Tabs.TabPane tab="Reflection" icon={<SmileOutlined />} key="0">
+                <Tabs.TabPane tab={t('replay.chatbox.tabs.reflection')} icon={<SmileOutlined />} key="0">
                     {renderDialogs(0)}
                 </Tabs.TabPane>
-                <Tabs.TabPane tab="Agent" icon={<AndroidOutlined />} key="1">
+                <Tabs.TabPane tab={t('replay.chatbox.tabs.agent')} icon={<AndroidOutlined />} key="1">
                     {renderDialogs(1)}
                 </Tabs.TabPane>
-                <Tabs.TabPane tab="User" icon={<CommentOutlined />} key="2">
+                <Tabs.TabPane tab={t('replay.chatbox.tabs.user')} icon={<CommentOutlined />} key="2">
                     {renderDialogs(2)}
                 </Tabs.TabPane>
-                <Tabs.TabPane tab="Survey" icon={<ProfileOutlined />} key="3">
+                <Tabs.TabPane tab={t('replay.chatbox.tabs.survey')} icon={<ProfileOutlined />} key="3">
                     {renderSurveys()}
                 </Tabs.TabPane>
             </Tabs>
         </Flex>
         <Modal
             width='50vw'
-            title="Survey Preview"
+            title={t('replay.chatbox.survey.preview')}
             open={openPreview}
             onCancel={() => setOpenPreview(false)}
             footer={null}
