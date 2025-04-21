@@ -16,6 +16,8 @@ import Home from './pages/Home'
 import enUS from 'antd/locale/en_US'
 import Callback from './pages/Callback'
 import { AuthProvider, sdkConfig } from './components/Auth'
+// import i18n (needs to be bundled ;))
+import './i18n';
 
 const router = createBrowserRouter([
     {

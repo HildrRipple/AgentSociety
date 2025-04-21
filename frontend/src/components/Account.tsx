@@ -5,12 +5,14 @@ import { Avatar, Button, Dropdown, MenuProps, Space } from "antd";
 import { DownOutlined } from "@ant-design/icons";
 import { getAccessToken, getCasdoorSdk, DEMO_USER_TOKEN } from "./Auth";
 import { sdkConfig } from "./Auth";
+import { useTranslation } from 'react-i18next';
 
 const DEFAULT_AVATAR = "https://cdn.casbin.org/img/casbin.svg";
 
 const Account: React.FC = () => {
     const [userInfo, setUserInfo] = useState<any>(null);
     const sdk = getCasdoorSdk(sdkConfig);
+    const { t } = useTranslation();
 
     useEffect(() => {
         const token = getAccessToken();
@@ -18,7 +20,7 @@ const Account: React.FC = () => {
             if (token === DEMO_USER_TOKEN) {
                 // 设置演示用户信息
                 setUserInfo({
-                    name: "Demo User",
+                    name: t('demoUser'),
                     avatar: DEFAULT_AVATAR,
                     isDemo: true
                 });
@@ -32,7 +34,7 @@ const Account: React.FC = () => {
                 });
             }
         }
-    }, []);
+    }, [t]);
 
     console.log('Account component rendered, userInfo:', userInfo);
     console.log('Access Token in Account:', localStorage.getItem("access_token"));
@@ -46,7 +48,7 @@ const Account: React.FC = () => {
     const demoLogin = () => {
         localStorage.setItem("access_token", DEMO_USER_TOKEN);
         setUserInfo({
-            name: "Demo User",
+            name: t('demoUser'),
             avatar: DEFAULT_AVATAR,
             isDemo: true
         });
@@ -70,14 +72,14 @@ const Account: React.FC = () => {
 
     const items: MenuProps['items'] = [
         {
-            label: <a onClick={gotoProfile}>Account</a>,
+            label: <a onClick={gotoProfile}>{t('account')}</a>,
             key: '0',
         },
         {
             type: 'divider',
         },
         {
-            label: <a onClick={casdoorLogout}>Logout</a>,
+            label: <a onClick={casdoorLogout}>{t('logout')}</a>,
             key: '3',
         },
     ];
@@ -98,12 +100,12 @@ const Account: React.FC = () => {
                         type="default"
                         style={loginButtonStyle}
                         onClick={casdoorLogin}
-                    >Login</Button>
+                    >{t('login')}</Button>
                     <Button
                         type="default"
                         style={loginButtonStyle}
                         onClick={demoLogin}
-                    >Demo</Button>
+                    >{t('demo')}</Button>
                 </Space>
             </div >
         );
