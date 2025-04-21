@@ -11,8 +11,10 @@ import { ActionType } from "@ant-design/pro-table";
 import { EllipsisOutlined, ReloadOutlined } from "@ant-design/icons";
 import { fetchCustom } from "../../components/fetch";
 import { getAccessToken } from "../../components/Auth";
+import { useTranslation } from "react-i18next";
 
 const Page = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate(); // 获取导航函数
     const [detail, setDetail] = useState<Experiment | null>(null);
     const [logVisible, setLogVisible] = useState(false);
@@ -68,67 +70,66 @@ const Page = () => {
     };
 
     const columns: ProColumns<Experiment>[] = [
-        { title: 'ID', dataIndex: 'id', width: '10%' },
-        { title: 'Name', dataIndex: 'name', width: '5%' },
-        { title: 'Num Day', dataIndex: 'num_day', width: '5%', search: false },
+        { title: t('console.table.id'), dataIndex: 'id', width: '10%' },
+        { title: t('console.table.name'), dataIndex: 'name', width: '5%' },
+        { title: t('console.table.numDay'), dataIndex: 'num_day', width: '5%', search: false },
         {
-            title: 'Status',
+            title: t('console.table.status'),
             dataIndex: 'status',
             width: '5%',
             valueEnum: experimentStatusMap,
         },
-        { title: 'Current Day', dataIndex: 'cur_day', width: '5%', search: false },
-        { title: 'Current Time', dataIndex: 'cur_t', width: '5%', render: (t: number) => parseT(t), search: false },
-        { title: 'Input Tokens', dataIndex: 'input_tokens', width: '5%', search: false },
-        { title: 'Output Tokens', dataIndex: 'output_tokens', width: '5%', search: false },
+        { title: t('console.table.currentDay'), dataIndex: 'cur_day', width: '5%', search: false },
+        { title: t('console.table.currentTime'), dataIndex: 'cur_t', width: '5%', render: (t: number) => parseT(t), search: false },
+        { title: t('console.table.inputTokens'), dataIndex: 'input_tokens', width: '5%', search: false },
+        { title: t('console.table.outputTokens'), dataIndex: 'output_tokens', width: '5%', search: false },
         {
-            title: 'Created At',
+            title: t('console.table.createdAt'),
             dataIndex: 'created_at',
             width: '5%',
             valueType: "dateTime",
             search: false
         },
         {
-            title: 'Updated At',
+            title: t('console.table.updatedAt'),
             dataIndex: 'updated_at',
             width: '5%',
             valueType: "dateTime",
             search: false,
         },
         {
-            title: 'Action',
+            title: t('console.table.action'),
             width: '5%',
             search: false,
             render: (_, record) => {
-                // copy record to avoid reference change
                 record = { ...record };
                 return <Space>
                     <Button
                         type="primary"
                         onClick={() => navigate(`/exp/${record.id}`)}
                         disabled={record.status === 0}
-                    >Goto</Button>
-                    {record.status === 1 && (  // Add Stop button for running experiments
+                    >{t('console.buttons.goto')}</Button>
+                    {record.status === 1 && (
                         <Popconfirm
-                            title="Are you sure to stop this experiment?"
+                            title={t('console.confirmations.stopExperiment')}
                             onConfirm={async () => {
                                 try {
                                     const res = await fetchCustom(`/api/run-experiments/${record.id}`, {
                                         method: 'DELETE',
                                     });
                                     if (res.ok) {
-                                        message.success('Stop experiment successfully');
+                                        message.success(t('console.messages.stopSuccess'));
                                         actionRef.current?.reload();
                                     } else {
                                         const errMessage = await res.text();
                                         throw new Error(errMessage);
                                     }
                                 } catch (err) {
-                                    message.error('Failed to stop experiment: ' + err);
+                                    message.error(t('console.messages.stopFailed') + err);
                                 }
                             }}
                         >
-                            <Button danger>Stop</Button>
+                            <Button danger>{t('console.buttons.stop')}</Button>
                         </Popconfirm>
                     )}
                     <Dropdown
@@ -136,12 +137,12 @@ const Page = () => {
                             items: [
                                 {
                                     key: 'detail',
-                                    label: 'Detail',
+                                    label: t('console.buttons.detail'),
                                     onClick: () => setDetail(record)
                                 },
                                 {
                                     key: 'log',
-                                    label: 'View Log',
+                                    label: t('console.buttons.viewLog'),
                                     onClick: () => {
                                         setLogVisible(true);
                                         setCurrentExpId(record.id);
@@ -150,18 +151,16 @@ const Page = () => {
                                 },
                                 {
                                     key: 'export',
-                                    label: 'Export',
+                                    label: t('console.buttons.export'),
                                     onClick: () => {
                                         const token = getAccessToken();
                                         if (!token) {
-                                            message.error('No token found, please login');
+                                            message.error(t('console.messages.noToken'));
                                             return;
                                         }
                                         const authorization = `Bearer ${token}`;
                                         const url = `/api/experiments/${record.id}/export`
-                                        // use form post to download the file
                                         const form = document.createElement('form');
-                                        // TODO: add authorization
                                         form.action = url;
                                         form.method = 'POST';
                                         form.target = '_blank';
@@ -175,26 +174,25 @@ const Page = () => {
                                     key: 'delete',
                                     label: (
                                         <Popconfirm
-                                            title="Are you sure to delete this experiment?"
+                                            title={t('console.confirmations.deleteExperiment')}
                                             onConfirm={async () => {
                                                 try {
                                                     const res = await fetchCustom(`/api/experiments/${record.id}`, {
                                                         method: 'DELETE',
                                                     })
                                                     if (res.ok) {
-                                                        message.success('Delete experiment successfully');
+                                                        message.success(t('console.messages.deleteSuccess'));
                                                         actionRef.current?.reload();
                                                     } else {
-                                                        // Read the error message as text
                                                         const errMessage = await res.text();
                                                         throw new Error(errMessage);
                                                     }
                                                 } catch (err) {
-                                                    message.error('Failed to delete experiment: ' + err);
+                                                    message.error(t('console.messages.deleteFailed') + err);
                                                 }
                                             }}
                                         >
-                                            <span style={{ color: '#ff4d4f' }}>Delete</span>
+                                            <span style={{ color: '#ff4d4f' }}>{t('console.buttons.delete')}</span>
                                         </Popconfirm>
                                     )
                                 }
@@ -242,7 +240,7 @@ const Page = () => {
                 </Col>
             </Row>
             <Modal
-                title="Experiment Detail"
+                title={t('console.modals.experimentDetail')}
                 width="60vw"
                 open={detail !== null}
                 onCancel={() => setDetail(null)}
@@ -258,21 +256,21 @@ const Page = () => {
                         };
                     }}
                     columns={[
-                        { title: 'ID', dataIndex: 'id' },
-                        { title: 'Name', dataIndex: 'name' },
-                        { title: 'Created At', dataIndex: 'created_at', valueType: 'dateTime' },
-                        { title: 'Updated At', dataIndex: 'updated_at', valueType: 'dateTime' },
-                        { title: 'Num Day', dataIndex: 'num_day' },
-                        { title: 'Status', dataIndex: 'status', valueEnum: experimentStatusMap },
-                        { title: 'Current Day', dataIndex: 'cur_day' },
-                        { title: 'Current Time', dataIndex: 'cur_t', render: (t: number) => parseT(t) },
-                        { title: 'Config', dataIndex: 'config', span: 2, valueType: 'jsonCode' },
-                        { title: 'Error', dataIndex: 'error', span: 2, valueType: 'code' },
+                        { title: t('console.table.id'), dataIndex: 'id' },
+                        { title: t('console.table.name'), dataIndex: 'name' },
+                        { title: t('console.table.createdAt'), dataIndex: 'created_at', valueType: 'dateTime' },
+                        { title: t('console.table.updatedAt'), dataIndex: 'updated_at', valueType: 'dateTime' },
+                        { title: t('console.table.numDay'), dataIndex: 'num_day' },
+                        { title: t('console.table.status'), dataIndex: 'status', valueEnum: experimentStatusMap },
+                        { title: t('console.table.currentDay'), dataIndex: 'cur_day' },
+                        { title: t('console.table.currentTime'), dataIndex: 'cur_t', render: (t: number) => parseT(t) },
+                        { title: t('console.table.config'), dataIndex: 'config', span: 2, valueType: 'jsonCode' },
+                        { title: t('console.table.error'), dataIndex: 'error', span: 2, valueType: 'code' },
                     ]}
                 />
             </Modal>
             <Modal
-                title="Experiment Log"
+                title={t('console.modals.experimentLog')}
                 width="80vw"
                 open={logVisible}
                 onCancel={() => {
@@ -289,7 +287,7 @@ const Page = () => {
                         onClick={() => fetchLog(currentExpId)}
                         loading={logLoading}
                     >
-                        Refresh
+                        {t('console.modals.refresh')}
                     </Button>
                     <Select
                         value={refreshInterval}
@@ -299,14 +297,14 @@ const Page = () => {
                         }}
                         style={{ width: 200 }}
                         options={[
-                            { value: 0, label: 'Manual refresh' },
-                            { value: 1, label: 'Every 1 second' },
-                            { value: 5, label: 'Every 5 seconds' },
-                            { value: 10, label: 'Every 10 seconds' },
-                            { value: 30, label: 'Every 30 seconds' },
+                            { value: 0, label: t('console.modals.manualRefresh') },
+                            { value: 1, label: t('console.modals.refreshIntervals.oneSecond') },
+                            { value: 5, label: t('console.modals.refreshIntervals.fiveSeconds') },
+                            { value: 10, label: t('console.modals.refreshIntervals.tenSeconds') },
+                            { value: 30, label: t('console.modals.refreshIntervals.thirtySeconds') },
                         ]}
                     />
-                    {logLoading && <span style={{ color: '#1890ff' }}>Refreshing...</span>}
+                    {logLoading && <span style={{ color: '#1890ff' }}>{t('console.modals.refreshing')}</span>}
                 </div>
                 <pre style={{
                     maxHeight: '70vh',

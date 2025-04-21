@@ -72,6 +72,55 @@ i18n
                             edit: "Edit",
                             delete: "Delete"
                         }
+                    },
+                    console: {
+                        table: {
+                            id: "ID",
+                            name: "Name",
+                            numDay: "Num Day",
+                            status: "Status",
+                            currentDay: "Current Day",
+                            currentTime: "Current Time",
+                            config: "Config",
+                            error: "Error",
+                            inputTokens: "Input Tokens",
+                            outputTokens: "Output Tokens",
+                            createdAt: "Created At",
+                            updatedAt: "Updated At",
+                            action: "Action"
+                        },
+                        buttons: {
+                            goto: "Goto",
+                            stop: "Stop",
+                            detail: "Detail",
+                            viewLog: "View Log",
+                            export: "Export",
+                            delete: "Delete"
+                        },
+                        modals: {
+                            experimentDetail: "Experiment Detail",
+                            experimentLog: "Experiment Log",
+                            refresh: "Refresh",
+                            manualRefresh: "Manual refresh",
+                            refreshing: "Refreshing...",
+                            refreshIntervals: {
+                                oneSecond: "Every 1 second",
+                                fiveSeconds: "Every 5 seconds",
+                                tenSeconds: "Every 10 seconds",
+                                thirtySeconds: "Every 30 seconds"
+                            }
+                        },
+                        confirmations: {
+                            stopExperiment: "Are you sure to stop this experiment?",
+                            deleteExperiment: "Are you sure to delete this experiment?"
+                        },
+                        messages: {
+                            stopSuccess: "Stop experiment successfully",
+                            stopFailed: "Failed to stop experiment:",
+                            deleteSuccess: "Delete experiment successfully",
+                            deleteFailed: "Failed to delete experiment:",
+                            noToken: "No token found, please login"
+                        }
                     }
                 }
             },
@@ -129,6 +178,55 @@ i18n
                             action: "操作",
                             edit: "编辑",
                             delete: "删除"
+                        }
+                    },
+                    console: {
+                        table: {
+                            id: "ID",
+                            name: "名称",
+                            numDay: "天数",
+                            status: "状态",
+                            currentDay: "当前天数",
+                            currentTime: "当前时间",
+                            config: "配置",
+                            error: "报错",
+                            inputTokens: "输入Token数",
+                            outputTokens: "输出Token数",
+                            createdAt: "创建时间",
+                            updatedAt: "更新时间",
+                            action: "操作"
+                        },
+                        buttons: {
+                            goto: "查看",
+                            stop: "停止",
+                            detail: "详情",
+                            viewLog: "查看日志",
+                            export: "导出",
+                            delete: "删除"
+                        },
+                        modals: {
+                            experimentDetail: "实验详情",
+                            experimentLog: "实验日志",
+                            refresh: "刷新",
+                            manualRefresh: "手动刷新",
+                            refreshing: "正在刷新...",
+                            refreshIntervals: {
+                                oneSecond: "每秒刷新",
+                                fiveSeconds: "每5秒刷新",
+                                tenSeconds: "每10秒刷新",
+                                thirtySeconds: "每30秒刷新"
+                            }
+                        },
+                        confirmations: {
+                            stopExperiment: "确定要停止这个实验吗？",
+                            deleteExperiment: "确定要删除这个实验吗？"
+                        },
+                        messages: {
+                            stopSuccess: "停止实验成功",
+                            stopFailed: "停止实验失败：",
+                            deleteSuccess: "删除实验成功",
+                            deleteFailed: "删除实验失败：",
+                            noToken: "未找到token，请登录"
                         }
                     }
                 }
