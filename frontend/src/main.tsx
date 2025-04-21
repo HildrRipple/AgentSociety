@@ -13,11 +13,12 @@ import WorkflowList from './pages/Experiment/WorkflowList'
 import MapList from './pages/Experiment/MapList'
 import CreateExperiment from './pages/Experiment/CreateExperiment'
 import Home from './pages/Home'
+import zhCN from 'antd/locale/zh_CN'
 import enUS from 'antd/locale/en_US'
 import Callback from './pages/Callback'
 import { AuthProvider, sdkConfig } from './components/Auth'
-// import i18n (needs to be bundled ;))
-import './i18n';
+import './i18n'
+import { useTranslation } from 'react-i18next'
 
 const router = createBrowserRouter([
     {
@@ -121,8 +122,19 @@ const theme: ThemeConfig = {
     }
 };
 
+const App = () => {
+    const { i18n } = useTranslation()
+    
+    return (
+        <ConfigProvider 
+            theme={theme} 
+            locale={i18n.language === 'zh' ? zhCN : enUS}
+        >
+            <RouterProvider router={router} />
+        </ConfigProvider>
+    )
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
-    <ConfigProvider theme={theme} locale={enUS}>
-        <RouterProvider router={router} />
-    </ConfigProvider>,
+    <App />
 )
