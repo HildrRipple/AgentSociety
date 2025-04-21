@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, message, Space, Flex, Col, Row, Alert, Popconfirm } from 'antd';
+import { Table, Button, Modal, Form, Input, message, Space, Flex, Col, Row, Alert, Popconfirm, Dropdown } from 'antd';
 import dayjs from 'dayjs';
 import { Model, Survey as SurveyUI } from 'survey-react-ui';
 import 'survey-core/defaultV2.min.css';
 import { useForm } from 'antd/lib/form/Form';
-import { ExportOutlined } from '@ant-design/icons';
+import { ExportOutlined, EllipsisOutlined } from '@ant-design/icons';
 import { Editor } from '../../../components/Editor';
 import { Survey } from '../../../components/type';
 import { fetchCustom } from '../../../components/fetch';
@@ -174,10 +174,27 @@ const SurveyTable = () => {
             width: '15%',
             render: (record) => (
                 <Space size="middle">
-                    <Button type="primary" onClick={() => handleEdit(record)}>Edit & Preview</Button>
-                    <Popconfirm title="Are you sure to delete this survey?" onConfirm={() => handleDelete(record.id)}>
-                        <Button type="primary" danger>Delete</Button>
-                    </Popconfirm>
+                    <Button type="primary" onClick={() => handleEdit(record)}
+                    >Edit</Button>
+                    <Dropdown
+                        menu={{
+                            items: [
+                                {
+                                    key: 'delete',
+                                    label: (
+                                        <Popconfirm
+                                            title="Are you sure to delete this survey?"
+                                            onConfirm={() => handleDelete(record.id)}
+                                        >
+                                            <span style={{ color: '#ff4d4f' }}>Delete</span>
+                                        </Popconfirm>
+                                    )
+                                }
+                            ]
+                        }}
+                    >
+                        <Button icon={<EllipsisOutlined />} />
+                    </Dropdown>
                 </Space>
             ),
         },
