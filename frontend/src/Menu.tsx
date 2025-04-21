@@ -30,27 +30,27 @@ const RootMenu = ({ selectedKey, style }: {
     const experimentItems: MenuProps['items'] = [
         {
             key: '/llms',
-            label: <Link to="/llms">{t('llmConfigs')}</Link>,
+            label: <Link to="/llms">{t('menu.llmConfigs')}</Link>,
             icon: <ApiOutlined />,
         },
         {
             key: '/maps',
-            label: <Link to="/maps">{t('maps')}</Link>,
+            label: <Link to="/maps">{t('menu.maps')}</Link>,
             icon: <GlobalOutlined />,
         },
         {
             key: '/agents',
-            label: <Link to="/agents">{t('agents')}</Link>,
+            label: <Link to="/agents">{t('menu.agents')}</Link>,
             icon: <TeamOutlined />,
         },
         {
             key: '/workflows',
-            label: <Link to="/workflows">{t('workflows')}</Link>,
+            label: <Link to="/workflows">{t('menu.workflows')}</Link>,
             icon: <NodeIndexOutlined />,
         },
         {
             key: '/create-experiment',
-            label: <Link to="/create-experiment">{t('create')}</Link>,
+            label: <Link to="/create-experiment">{t('menu.create')}</Link>,
             icon: <PlusOutlined />,
         },
     ];
@@ -61,18 +61,18 @@ const RootMenu = ({ selectedKey, style }: {
             label: (
                 <Dropdown menu={{ items: experimentItems }} placement="bottomLeft" arrow>
                     <div>
-                        <Link to="/console"><Space><ExperimentOutlined />{t('experiments')}</Space></Link>
+                        <Link to="/console"><Space><ExperimentOutlined />{t('menu.experiments')}</Space></Link>
                     </div>
                 </Dropdown>
             ),
         },
-        { key: "/survey", label: <Link to="/survey">{t('survey')}</Link> },
+        { key: "/survey", label: <Link to="/survey">{t('menu.survey')}</Link> },
     ];
     if (mlflowUrl !== "") {
-        menuItems.push({ key: "/mlflow", label: <Link to={mlflowUrl} rel="noopener noreferrer" target="_blank"><Space>{t('mlflow')}<ExportOutlined /></Space></Link> });
+        menuItems.push({ key: "/mlflow", label: <Link to={mlflowUrl} rel="noopener noreferrer" target="_blank"><Space>{t('menu.mlflow')}<ExportOutlined /></Space></Link> });
     }
-    menuItems.push({ key: "/Documentation", label: <Link to="https://agentsociety.readthedocs.io/en/latest/" rel="noopener noreferrer" target="_blank"><Space>{t('documentation')}</Space></Link> });
-    menuItems.push({ key: "/Github", label: <Link to="https://github.com/tsinghua-fib-lab/agentsociety/" rel="noopener noreferrer" target="_blank"><Space>{t('github')}<GithubOutlined /></Space></Link> });
+    menuItems.push({ key: "/Documentation", label: <Link to="https://agentsociety.readthedocs.io/en/latest/" rel="noopener noreferrer" target="_blank"><Space>{t('menu.documentation')}</Space></Link> });
+    menuItems.push({ key: "/Github", label: <Link to="https://github.com/tsinghua-fib-lab/agentsociety/" rel="noopener noreferrer" target="_blank"><Space>{t('menu.github')}<GithubOutlined /></Space></Link> });
 
     const menuStyle: React.CSSProperties = {
         ...style,
