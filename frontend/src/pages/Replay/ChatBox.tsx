@@ -8,7 +8,7 @@ import { observer } from 'mobx-react-lite';
 import { StoreContext } from './store';
 import { Model, Survey as SurveyUI } from 'survey-react-ui';
 import { fetchCustom } from '../../components/fetch';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 
 const roles: GetProp<typeof Bubble.List, 'roles'> = {
     self: {
@@ -119,11 +119,7 @@ export const ChatBox = observer(() => {
                     role: role,
                     content: content,
                     header: <div>
-                        {name} (
-                        <Trans i18nKey='replay.chatbox.day' values={{ day: m.day }}>
-                            Day {m.day}
-                        </Trans>&nbsp;
-                        {parseT(m.t)})
+                        {name} ({t('replay.day', { day: m.day })} {parseT(m.t)})
                     </div>
                 }
             })}

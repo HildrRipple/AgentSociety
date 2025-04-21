@@ -123,8 +123,8 @@ i18n
                         }
                     },
                     replay: {
+                        day: "Day {{day}}",
                         chatbox: {
-                            day: "Day {{day}}",
                             tabs: {
                                 reflection: "Reflection",
                                 agent: "Agent",
@@ -137,6 +137,29 @@ i18n
                                 surveySent: "Survey sent, you should wait for the agent to save the survey into database and respond",
                                 messageSent: "Message sent, you should wait for the agent to save the message into database and respond",
                                 sendFailed: "Failed to send:"
+                            }
+                        },
+                        infoPanel: {
+                            title: "Agent Information",
+                            chooseAgent: "Please choose an agent in map",
+                            unknown: "[Unknown]",
+                            currentStatus: "Current Status",
+                            statusHistory: "Status History",
+                            name: "name",
+                            id: "ID",
+                            showAsHeatmap: "Click to show as heatmap"
+                        },
+                        timelinePlayer: {
+                            replay: "Replay",
+                            live: "Live",
+                            stepSpeed: {
+                                "10s": "10s/step",
+                                "5s": "5s/step",
+                                "2s": "2s/step",
+                                "1s": "1s/step",
+                                "0.5s": "0.5s/step",
+                                "0.25s": "0.25s/step",
+                                "0.1s": "0.1s/step"
                             }
                         }
                     }
@@ -248,8 +271,8 @@ i18n
                         }
                     },
                     replay: {
+                        day: "第{{day}}天",
                         chatbox: {
-                            day: "第{{day}}天",
                             tabs: {
                                 reflection: "反思",
                                 agent: "智能体",
@@ -262,6 +285,29 @@ i18n
                                 surveySent: "问卷已发送，请等待智能体将问卷保存到数据库并响应",
                                 messageSent: "消息已发送，请等待智能体将消息保存到数据库并响应",
                                 sendFailed: "发送失败："
+                            }
+                        },
+                        infoPanel: {
+                            title: "智能体信息",
+                            chooseAgent: "请在地图中选择一个智能体",
+                            unknown: "[未知]",
+                            currentStatus: "当前状态",
+                            statusHistory: "状态历史",
+                            name: "名称",
+                            id: "ID",
+                            showAsHeatmap: "点击显示为热力图"
+                        },
+                        timelinePlayer: {
+                            replay: "回放",
+                            live: "直播",
+                            stepSpeed: {
+                                "10s": "10秒/步",
+                                "5s": "5秒/步",
+                                "2s": "2秒/步",
+                                "1s": "1秒/步",
+                                "0.5s": "0.5秒/步",
+                                "0.25s": "0.25秒/步",
+                                "0.1s": "0.1秒/步"
                             }
                         }
                     }

@@ -6,11 +6,13 @@ import { observer } from 'mobx-react-lite';
 import { StoreContext } from './store';
 import { experimentStatusMap } from '../../components/type';
 import FlickeringDot from '../../components/FlickeringDot';
+import { useTranslation } from 'react-i18next';
 
 const TimelinePlayer = observer(({ initialInterval }: {
     initialInterval: number,
 }) => {
     const store = useContext(StoreContext)
+    const { t } = useTranslation();
 
     const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
 
@@ -68,12 +70,12 @@ const TimelinePlayer = observer(({ initialInterval }: {
         if (value === undefined || store.timeline[value] === undefined) {
             return '';
         }
-        const t = store.timeline[value];
-        return `Day ${t.day} ${parseT(t.t)}`;
+        const timeline = store.timeline[value];
+        return `${t('replay.day', { day: timeline.day })} ${parseT(timeline.t)}`;
     }
 
     useEffect(() => {
-        console.log('currentTimeline', `Day ${currentTimeline.day} ${parseT(currentTimeline.t)}`);
+        console.log('currentTimeline', `${t('replay.day', { day: currentTimeline.day })} ${parseT(currentTimeline.t)}`);
         if (!sliderChanging) {
             store.fetchByTime(currentTimeline);
         }
@@ -87,10 +89,10 @@ const TimelinePlayer = observer(({ initialInterval }: {
     }, [store.experiment?.status]);
 
     const modeOptions = [
-        { value: 'Replay', label: 'Replay' },
+        { value: 'Replay', label: t('replay.timelinePlayer.replay') },
     ];
     if (store.experiment?.status === 1) {
-        modeOptions.push({ value: 'Live', label: 'Live' });
+        modeOptions.push({ value: 'Live', label: t('replay.timelinePlayer.live') });
     }
 
     return (<Flex align='center' justify='center' gap="small">
@@ -140,7 +142,7 @@ const TimelinePlayer = observer(({ initialInterval }: {
         </Flex>
         <Flex>
             <Flex vertical>
-                <strong>Day {currentTimeline.day}</strong>
+                <strong>{t('replay.day', { day: currentTimeline.day })}</strong>
                 {parseT(currentTimeline.t)}
             </Flex>
         </Flex>
@@ -152,13 +154,13 @@ const TimelinePlayer = observer(({ initialInterval }: {
                 suffixIcon={<UpOutlined />}
                 style={{ width: '90px' }}
                 options={[
-                    { value: 10000, label: '10s/step' },
-                    { value: 5000, label: '5s/step' },
-                    { value: 2000, label: '2s/step' },
-                    { value: 1000, label: '1s/step' },
-                    { value: 500, label: '0.5s/step' },
-                    { value: 250, label: '0.25s/step' },
-                    { value: 100, label: '0.1s/step' },
+                    { value: 10000, label: t('replay.timelinePlayer.stepSpeed.10s') },
+                    { value: 5000, label: t('replay.timelinePlayer.stepSpeed.5s') },
+                    { value: 2000, label: t('replay.timelinePlayer.stepSpeed.2s') },
+                    { value: 1000, label: t('replay.timelinePlayer.stepSpeed.1s') },
+                    { value: 500, label: t('replay.timelinePlayer.stepSpeed.0.5s') },
+                    { value: 250, label: t('replay.timelinePlayer.stepSpeed.0.25s') },
+                    { value: 100, label: t('replay.timelinePlayer.stepSpeed.0.1s') },
                 ]}
             />
         </Flex>
@@ -172,11 +174,6 @@ const TimelinePlayer = observer(({ initialInterval }: {
                 options={modeOptions}
             />
         </Flex>
-        {/* <Flex>
-            <Tooltip title="Toolset (TODO)">
-                <Button shape="circle" type="text" icon={<ToolOutlined />} />
-            </Tooltip>
-        </Flex> */}
     </Flex >);
 });
 
