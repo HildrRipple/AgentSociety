@@ -39,6 +39,7 @@ async def create_pod(
                     client.V1Container(
                         name="runner",
                         image="swr.cn-north-4.myhuaweicloud.com/tsinghua-fib-lab/agentsociety:commercial",
+                        image_pull_policy="Always",
                         command=[
                             "python",
                             "-m",

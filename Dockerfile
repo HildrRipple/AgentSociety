@@ -12,6 +12,8 @@ RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 # Stage 2: Copy the compiled frontend code to the python image
 FROM python:3.12-slim
 
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 RUN pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
