@@ -10,7 +10,14 @@ from ..logger import get_logger
 __all__ = ["create_pod", "delete_pod", "get_pod_logs", "get_pod_status"]
 
 
-async def create_pod(pod_name: str, config_base64: str, tenant_id: str, exp_id: str):
+async def create_pod(
+    pod_name: str,
+    config_base64: str,
+    tenant_id: str,
+    exp_id: str,
+    callback_url: str,
+    callback_auth_token: str,
+):
     async with ApiClient() as api:
         v1 = client.CoreV1Api(api)
 
@@ -52,6 +59,18 @@ async def create_pod(pod_name: str, config_base64: str, tenant_id: str, exp_id: 
                                 "cpu": "8",
                                 "memory": "32Gi",
                             },
+                        ),
+                        # 添加生命周期回调（通过POST传输exp_id和callback_auth_token）
+                        lifecycle=client.V1Lifecycle(
+                            pre_stop=client.V1LifecycleHandler(
+                                client.V1ExecAction(
+                                    command=[
+                                        "/bin/sh",
+                                        "-c",
+                                        f"curl -X POST {callback_url}/api/run-experiments/{exp_id}/finish?callback_auth_token={callback_auth_token}",
+                                    ],
+                                )
+                            )
                         ),
                     )
                 ],
@@ -167,6 +186,7 @@ async def get_pod_logs(exp_id: str, tenant_id: str) -> str:
         )
         return logs
 
+
 async def get_pod_status(exp_id: str, tenant_id: str) -> str:
     """Get experiment pod status from kubernetes using labels
 
@@ -197,4 +217,3 @@ async def get_pod_status(exp_id: str, tenant_id: str) -> str:
             return "NotRunning"
 
         return pods.items[0].status.phase
-

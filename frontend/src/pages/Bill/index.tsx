@@ -15,6 +15,7 @@ interface Account {
 
 interface Bill {
     id: string;
+    related_exp_id: string;
     item: string;
     amount: number;
     unit_price: number;
@@ -77,11 +78,21 @@ const Page = () => {
             width: '10%',
             valueType: 'text'
         },
+        {
+            title: t('bill.table.related_exp_id'),
+            dataIndex: 'related_exp_id',
+            width: '20%',
+            valueType: 'text',
+        },
         { 
             title: t('bill.table.item'), 
             dataIndex: 'item', 
             width: '20%',
-            valueType: 'text'
+            valueEnum: {
+                'llm_input_token': t('bill.table.llm_input_token'),
+                'llm_output_token': t('bill.table.llm_output_token'),
+                'run_time': t('bill.table.run_time'),
+            },
         },
         { 
             title: t('bill.table.amount'), 
@@ -93,9 +104,10 @@ const Page = () => {
         },
         { 
             title: t('bill.table.unit_price'), 
-            dataIndex: 'unit_price', 
+            dataIndex: 'unit_price',
             width: '10%',
             valueType: 'money',
+            render: (_, record) => record.unit_price,
             search: false,
         },
         { 
@@ -107,14 +119,14 @@ const Page = () => {
         { 
             title: t('bill.table.description'), 
             dataIndex: 'description', 
-            width: '20%',
+            width: '10%',
             valueType: 'text',
             search: false,
         },
         { 
             title: t('bill.table.createdAt'), 
             dataIndex: 'created_at', 
-            width: '20%',
+            width: '10%',
             valueType: 'dateTime',
             search: false,
         },
@@ -127,7 +139,7 @@ const Page = () => {
                     <Card>
                         <Row justify="space-between" align="middle">
                             <Col>
-                                <h2>{t('bill.balance')}: ￥{account?.balance || '0.00'}</h2>
+                                <h2>{t('bill.balance')}: ￥{account?.balance ? Number(account.balance).toFixed(2) : '0.00'}</h2>
                             </Col>
                             <Col>
                                 <Button type="primary" onClick={() => setRechargeVisible(true)}>
@@ -184,7 +196,7 @@ const Page = () => {
             >
                 <Space direction="vertical" style={{ width: '100%' }}>
                     <InputNumber
-                        min={1}
+                        min={0.01}
                         value={rechargeAmount}
                         onChange={(value) => setRechargeAmount(value || 0)}
                         style={{ width: '100%' }}

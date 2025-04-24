@@ -5,13 +5,22 @@
 from datetime import datetime
 import uuid
 from decimal import Decimal
+from enum import Enum
 from pydantic import AwareDatetime, BaseModel
 from sqlalchemy import Index
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ._base import TABLE_PREFIX, Base, BillDecimal, AccountDecimal
+from ._base import TABLE_PREFIX, Base, BillDecimal
 
-__all__ = ["Bill", "ApiBill", "Account", "ApiAccount"]
+__all__ = ["Bill", "ApiBill", "Account", "ApiAccount", "ItemEnum"]
+
+
+class ItemEnum(str, Enum):
+    """账单项目枚举"""
+    RECHARGE = "recharge"
+    LLM_INPUT_TOKEN = "llm_input_token"
+    LLM_OUTPUT_TOKEN = "llm_output_token"
+    RUNTIME = "run_time"
 
 
 class Account(Base):
@@ -21,8 +30,8 @@ class Account(Base):
 
     tenant_id: Mapped[str] = mapped_column(primary_key=True)
     """租户ID"""
-    balance: Mapped[AccountDecimal] = mapped_column(default=Decimal(0))
-    """余额，单位：元，保留2位小数"""
+    balance: Mapped[BillDecimal] = mapped_column(default=Decimal(0))
+    """余额，单位：元，保留6位小数"""
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
     """创建时间"""
     updated_at: Mapped[datetime] = mapped_column(
@@ -39,10 +48,12 @@ class Bill(Base):
     """租户ID"""
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     """账单ID"""
+    related_exp_id: Mapped[uuid.UUID] = mapped_column()
+    """关联实验ID"""
+    item: Mapped[str] = mapped_column(primary_key=True)
+    """项目类型ID"""
     amount: Mapped[BillDecimal] = mapped_column()
     """账单金额，单位：元，保留6位小数，负值为消费，正值为充值"""
-    item: Mapped[str] = mapped_column()
-    """项目"""
     unit_price: Mapped[BillDecimal] = mapped_column()
     """单价，单位：元，保留6位小数"""
     quantity: Mapped[float] = mapped_column()
@@ -52,8 +63,9 @@ class Bill(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
     """创建时间"""
 
-    # 索引: item
-    __table_args__ = (Index("idx_item", "item"),)
+    __table_args__ = (
+        Index("idx_tenant_id_related_exp_id", "tenant_id", "related_exp_id"),
+    )
 
 
 class ApiAccount(BaseModel):
@@ -75,10 +87,12 @@ class ApiBill(BaseModel):
 
     id: uuid.UUID
     """账单ID"""
-    amount: Decimal
-    """账单金额，单位：元，保留6位小数，负值为消费，正值为充值"""
+    related_exp_id: uuid.UUID
+    """关联实验ID"""
     item: str
     """项目"""
+    amount: Decimal
+    """账单金额，单位：元，保留6位小数，负值为消费，正值为充值"""
     unit_price: Decimal
     """单价，单位：元，保留6位小数"""
     quantity: float

@@ -13,10 +13,6 @@ class BillDecimal(Decimal):
     pass  # 6 decimal places for bills
 
 
-class AccountDecimal(Decimal):
-    pass  # 2 decimal places for accounts
-
-
 # The base class of sqlalchemy models
 Base = declarative_base(
     type_annotation_map={
@@ -25,7 +21,6 @@ Base = declarative_base(
         datetime: TIMESTAMP(timezone=True),
         Decimal: DECIMAL,
         BillDecimal: DECIMAL(precision=18, scale=6),
-        AccountDecimal: DECIMAL(precision=18, scale=2),
     }
 )
 

@@ -105,6 +105,7 @@ def ui(config: str, config_base64: str):
                 }
             )
         )
+        callback_url: str = "http://web.agentsociety.svc.cluster.local"
         env: EnvConfig
         read_only: bool = Field(default=False)
         debug: bool = Field(default=False)
@@ -125,7 +126,9 @@ def ui(config: str, config_base64: str):
 
         # ================= 【商业版】 =================
         get_tenant_id = empty_get_tenant_id
-        more_state = {}
+        more_state: Dict[str, Any] = {
+            "callback_url": c.callback_url,
+        }
         more_router = None
         if c.casdoor.enabled:
             casdoor = Casdoor(c.casdoor)

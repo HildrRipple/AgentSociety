@@ -18,6 +18,8 @@ logger = logging.getLogger("pod_runner")
 async def run_experiment_in_pod(
     config_base64: Optional[str] = None,
     config_path: Optional[str] = None,
+    callback_url: str = "",
+    callback_auth_token: str = "",
     tenant_id: str = "",
 ) -> str:
     """
@@ -26,6 +28,9 @@ async def run_experiment_in_pod(
     Args:
         config_base64: Base64 encoded configuration
         config_path: Path to configuration file
+        callback_url: Callback URL
+        callback_auth_token: Callback auth token
+        tenant_id: Tenant ID
 
     Returns:
         Pod name
@@ -77,7 +82,14 @@ async def run_experiment_in_pod(
         container_config_base64 = config_base64
     assert container_config_base64 is not None
 
-    await create_pod(pod_name, container_config_base64, tenant_id, exp_id)
+    await create_pod(
+        pod_name,
+        container_config_base64,
+        tenant_id,
+        exp_id,
+        callback_url,
+        callback_auth_token,
+    )
 
     return pod_name
 
@@ -109,6 +121,8 @@ def main():
 
     # Add tenant_id argument
     parser.add_argument("--tenant-id", help="Tenant ID", default="default")
+    parser.add_argument("--callback-url", help="Callback URL", default="")
+    parser.add_argument("--callback-auth-token", help="Callback auth token", default="")
 
     # Parse command line arguments
     args = parser.parse_args()
@@ -118,6 +132,8 @@ def main():
         run_experiment_in_pod(
             config_base64=args.config_base64,
             config_path=args.config,
+            callback_url=args.callback_url,
+            callback_auth_token=args.callback_auth_token,
             tenant_id=args.tenant_id,
         )
     )

@@ -1,13 +1,14 @@
 import asyncio
 import base64
+from decimal import Decimal, localcontext
 import json
 import logging
 import uuid
 from typing import Any, Dict, cast
 
-from fastapi import APIRouter, Body, HTTPException, Request, status
+from fastapi import APIRouter, Body, HTTPException, Query, Request, status
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import select, update
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agentsociety.configs.env import EnvConfig
@@ -17,7 +18,8 @@ from ...configs import Config
 from ...kubernetes import delete_pod, get_pod_logs, get_pod_status
 from ..models import ApiResponseWrapper
 from ..models.config import AgentConfig, LLMConfig, MapConfig, WorkflowConfig
-from ..models.experiment import Experiment
+from ..models.experiment import Experiment, ExperimentStatus, RunningExperiment
+from ..models.bill import Bill, ItemEnum, Account
 from .const import DEMO_USER_ID
 
 __all__ = ["router"]
@@ -89,6 +91,18 @@ async def run_experiment(
     # get config from db
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
+        # check account balance
+        stmt = select(Account).where(Account.tenant_id == tenant_id)
+        account = (await db.execute(stmt)).scalar_one_or_none()
+        if account is None:
+            # create account with 0 balance
+            stmt = insert(Account).values(tenant_id=tenant_id, balance=0)
+            await db.execute(stmt)
+            account = (await db.execute(stmt)).scalar_one()
+        if account.balance < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient balance"
+            )
         stmt = select(LLMConfig.config).where(
             LLMConfig.tenant_id == config.llm.tenant_id,
             LLMConfig.id == config.llm.id,
@@ -157,10 +171,24 @@ async def run_experiment(
 
     # Start experiment container
     # Create an async task and get its result
+    auth_token = uuid.uuid4().hex
+
+    async with request.app.state.get_db() as db:
+        db = cast(AsyncSession, db)
+        stmt = insert(RunningExperiment).values(
+            tenant_id=tenant_id,
+            id=experiment_id,
+            callback_auth_token=auth_token,
+        )
+        await db.execute(stmt)
+        await db.commit()
+
     task = asyncio.create_task(
         run_experiment_in_pod(
             config_base64=config_base64,
             tenant_id=tenant_id,
+            callback_url=request.app.state.callback_url,
+            callback_auth_token=auth_token,
         )
     )
 
@@ -202,13 +230,26 @@ async def delete_experiment(
 
     await delete_pod(tenant_id, exp_id)
 
-    # update experiment status to 3
+    # update experiment status to STOPPED
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
         stmt = (
             update(Experiment)
             .where(Experiment.tenant_id == tenant_id, Experiment.id == exp_id)
-            .values(status=3, error="Experiment stopped by user")
+            .values(status=ExperimentStatus.STOPPED, error="Experiment stopped by user")
+        )
+        await db.execute(stmt)
+        await db.commit()
+
+        stmt = select(Experiment).where(
+            Experiment.tenant_id == tenant_id, Experiment.id == exp_id
+        )
+        experiment = (await db.execute(stmt)).scalar_one_or_none()
+        await _compute_bill(db, experiment)
+
+        # delete the running experiment
+        stmt = delete(RunningExperiment).where(
+            RunningExperiment.id == exp_id,
         )
         await db.execute(stmt)
         await db.commit()
@@ -247,3 +288,127 @@ async def get_experiment_status(
     return ApiResponseWrapper(
         data=pod_status,
     )
+
+
+@router.post("/run-experiments/{exp_id}/finish")
+async def finish_experiment(
+    request: Request,
+    exp_id: str,
+    callback_auth_token: str = Query(...),
+):
+    """Finish an experiment"""
+    if request.app.state.read_only:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Server is in read-only mode",
+        )
+    async with request.app.state.get_db() as db:
+        db = cast(AsyncSession, db)
+        # 1. check the callback_auth_token is valid
+        stmt = select(RunningExperiment).where(
+            RunningExperiment.id == exp_id,
+            RunningExperiment.callback_auth_token == callback_auth_token,
+        )
+        running_experiment = (await db.execute(stmt)).scalar_one_or_none()
+        if running_experiment is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Running experiment not found",
+            )
+        # 2. check the experiment is FINISHED or STOPPED
+        tenant_id = running_experiment.tenant_id
+        stmt = select(Experiment).where(
+            Experiment.tenant_id == tenant_id,
+            Experiment.id == exp_id,
+            Experiment.status.in_(
+                [ExperimentStatus.FINISHED, ExperimentStatus.STOPPED]
+            ),
+        )
+        experiment = (await db.execute(stmt)).scalar_one_or_none()
+        if experiment is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Experiment is not finished or stopped",
+            )
+        # 3. compute the bill
+        await _compute_bill(db, experiment)
+        # 4. delete the running experiment
+        stmt = delete(RunningExperiment).where(
+            RunningExperiment.id == exp_id,
+        )
+        await db.execute(stmt)
+        await db.commit()
+
+
+async def _compute_bill(db: AsyncSession, experiment: Experiment) -> None:
+    tenant_id = experiment.tenant_id
+    input_tokens = experiment.input_tokens / 1_000_000
+    input_token_price = 1.5
+    output_tokens = experiment.output_tokens / 1_000_000
+    output_token_price = 1.5
+    time = experiment.updated_at - experiment.created_at
+    time_seconds = time.total_seconds()
+    time_second_price = 0.001
+
+    llm_input_amount = int(input_tokens * input_token_price * 1_000_000) / 1_000_000
+    llm_output_amount = int(output_tokens * output_token_price * 1_000_000) / 1_000_000
+    runtime_amount = int(time_seconds * time_second_price * 1_000_000) / 1_000_000
+
+    stmt = insert(Bill).values(
+        tenant_id=tenant_id,
+        id=uuid.uuid4(),
+        related_exp_id=experiment.id,
+        item=ItemEnum.LLM_INPUT_TOKEN,
+        amount=llm_input_amount,
+        unit_price=input_token_price,
+        quantity=input_tokens,
+        description="",
+    )
+    await db.execute(stmt)
+    stmt = insert(Bill).values(
+        tenant_id=tenant_id,
+        id=uuid.uuid4(),
+        related_exp_id=experiment.id,
+        item=ItemEnum.LLM_OUTPUT_TOKEN,
+        amount=llm_output_amount,
+        unit_price=output_token_price,
+        quantity=output_tokens,
+        description="",
+    )
+    await db.execute(stmt)
+    stmt = insert(Bill).values(
+        tenant_id=tenant_id,
+        id=uuid.uuid4(),
+        related_exp_id=experiment.id,
+        item=ItemEnum.RUNTIME,
+        amount=runtime_amount,
+        unit_price=time_second_price,
+        quantity=time_seconds,
+        description="",
+    )
+    await db.execute(stmt)
+    total_amount = llm_input_amount + llm_output_amount + runtime_amount
+
+    # Check if account exists
+    stmt = select(Account).where(Account.tenant_id == tenant_id)
+    account = (await db.execute(stmt)).scalar_one_or_none()
+
+    if account is None:
+        # Create new account with 0 balance
+        stmt = insert(Account).values(tenant_id=tenant_id, balance=0)
+        await db.execute(stmt)
+    with localcontext() as ctx:
+        ctx.prec = 6
+        # Update account balance
+        stmt = (
+            update(Account)
+            .where(Account.tenant_id == tenant_id)
+            .values(
+                balance=Account.balance
+                - Decimal(
+                    total_amount,
+                ),
+            )
+        )
+    await db.execute(stmt)
+    await db.commit()

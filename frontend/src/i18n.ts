@@ -171,12 +171,16 @@ i18n
                             title: 'Bill Details',
                             id: 'ID',
                             item: 'Item',
+                            related_exp_id: 'Related Experiment ID',
                             amount: 'Amount (CNY)',
                             unit_price: 'Unit Price (CNY)',
                             quantity: 'Quantity',
                             description: 'Description',
                             createdAt: 'Created At',
-                            updatedAt: 'Updated At'
+                            updatedAt: 'Updated At',
+                            llm_input_token: 'LLM Input Token',
+                            llm_output_token: 'LLM Output Token',
+                            run_time: 'Run Time'
                         }
                     }
                 }
@@ -335,12 +339,16 @@ i18n
                             title: '账单详情',
                             id: 'ID',
                             item: '项目',
+                            related_exp_id: '关联实验ID',
                             amount: '金额 (元)',
                             unit_price: '单价 (元)',
                             quantity: '数量',
                             description: '描述',
                             createdAt: '创建时间',
-                            updatedAt: '更新时间'
+                            updatedAt: '更新时间',
+                            llm_input_token: 'LLM输入Token',
+                            llm_output_token: 'LLM输出Token',
+                            run_time: '运行时间'
                         }
                     }
                 }
