@@ -90,6 +90,13 @@ i18n
                             updatedAt: "Updated At",
                             action: "Action"
                         },
+                        statusEnum: {
+                            "0": "Not Started",
+                            "1": "Running",
+                            "2": "Completed",
+                            "3": "Error Interrupted",
+                            "4": "Stopped"
+                        },
                         buttons: {
                             goto: "Goto",
                             stop: "Stop",
@@ -257,6 +264,13 @@ i18n
                             createdAt: "创建时间",
                             updatedAt: "更新时间",
                             action: "操作"
+                        },
+                        statusEnum: {
+                            "0": "未开始",
+                            "1": "运行中",
+                            "2": "已完成",
+                            "3": "错误中断",
+                            "4": "已停止"
                         },
                         buttons: {
                             goto: "查看",

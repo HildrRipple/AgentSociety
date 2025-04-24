@@ -4,7 +4,6 @@ import { PlayCircleOutlined, PauseCircleOutlined, FastForwardOutlined, FastBackw
 import { parseT } from '../../components/util';
 import { observer } from 'mobx-react-lite';
 import { StoreContext } from './store';
-import { experimentStatusMap } from '../../components/type';
 import FlickeringDot from '../../components/FlickeringDot';
 import { useTranslation } from 'react-i18next';
 
@@ -99,7 +98,7 @@ const TimelinePlayer = observer(({ initialInterval }: {
         <Flex className='status'>
             <Tooltip title={
                 <span>{store.experiment?.name}:&nbsp;
-                    {experimentStatusMap[store.experiment?.status]}</span>}
+                    {t(`console.statusEnum.${store.experiment?.status}`)}</span>}
             >
                 <Space style={{ paddingLeft: "4px" }}>
                     <FlickeringDot
@@ -107,7 +106,7 @@ const TimelinePlayer = observer(({ initialInterval }: {
                         height="10px"
                         borderRadius="50%"
                         intervalMs={store.experiment?.status === 1 ? 1000 : undefined}
-                        backgroundColor={store.experiment?.status === 0 ? "gray" : store.experiment?.status === 1 ? "green" : store.experiment?.status === 2 ? "green" : "red"}
+                        backgroundColor={store.experiment?.status === 0 ? "gray" : store.experiment?.status === 1 ? "green" : store.experiment?.status === 2 ? "green" : store.experiment?.status === 3 ? "red" : "red"}
                     />
                     <Button
                         shape='circle'

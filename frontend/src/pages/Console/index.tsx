@@ -5,7 +5,7 @@ import dayjs from "dayjs";
 import { parseT } from "../../components/util";
 import { useNavigate } from "react-router-dom";
 import React from "react";
-import { Experiment, experimentStatusMap } from "../../components/type";
+import { Experiment } from "../../components/type";
 import { ProColumns, ProDescriptions, ProTable } from "@ant-design/pro-components";
 import { ActionType } from "@ant-design/pro-table";
 import { EllipsisOutlined, ReloadOutlined } from "@ant-design/icons";
@@ -77,7 +77,9 @@ const Page = () => {
             title: t('console.table.status'),
             dataIndex: 'status',
             width: '5%',
-            valueEnum: experimentStatusMap,
+            render: (status: number) => {
+                return t(`console.statusEnum.${status}`)
+            }
         },
         { title: t('console.table.currentDay'), dataIndex: 'cur_day', width: '5%', search: false },
         { title: t('console.table.currentTime'), dataIndex: 'cur_t', width: '5%', render: (t: number) => parseT(t), search: false },
@@ -261,7 +263,7 @@ const Page = () => {
                         { title: t('console.table.createdAt'), dataIndex: 'created_at', valueType: 'dateTime' },
                         { title: t('console.table.updatedAt'), dataIndex: 'updated_at', valueType: 'dateTime' },
                         { title: t('console.table.numDay'), dataIndex: 'num_day' },
-                        { title: t('console.table.status'), dataIndex: 'status', valueEnum: experimentStatusMap },
+                        { title: t('console.table.status'), dataIndex: 'status', render: (status: number) => t(`console.statusEnum.${status}`) },
                         { title: t('console.table.currentDay'), dataIndex: 'cur_day' },
                         { title: t('console.table.currentTime'), dataIndex: 'cur_t', render: (t: number) => parseT(t) },
                         { title: t('console.table.config'), dataIndex: 'config', span: 2, valueType: 'jsonCode' },
