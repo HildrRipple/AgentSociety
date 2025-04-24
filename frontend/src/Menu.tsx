@@ -67,6 +67,7 @@ const RootMenu = ({ selectedKey, style }: {
             ),
         },
         { key: "/survey", label: <Link to="/survey">{t('menu.survey')}</Link> },
+        { key: "/bill", label: <Link to="/bill">{t('menu.bill')}</Link> },
     ];
     if (mlflowUrl !== "") {
         menuItems.push({ key: "/mlflow", label: <Link to={mlflowUrl} rel="noopener noreferrer" target="_blank"><Space>{t('menu.mlflow')}<ExportOutlined /></Space></Link> });

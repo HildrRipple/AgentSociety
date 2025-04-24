@@ -1,0 +1,92 @@
+"""
+账户系统模型，包含用户账户、消费记录、充值记录等
+"""
+
+from datetime import datetime
+import uuid
+from decimal import Decimal
+from pydantic import AwareDatetime, BaseModel
+from sqlalchemy import Index
+from sqlalchemy.orm import Mapped, mapped_column
+
+from ._base import TABLE_PREFIX, Base, BillDecimal, AccountDecimal
+
+__all__ = ["Bill", "ApiBill", "Account", "ApiAccount"]
+
+
+class Account(Base):
+    """账户记录"""
+
+    __tablename__ = f"{TABLE_PREFIX}account"
+
+    tenant_id: Mapped[str] = mapped_column(primary_key=True)
+    """租户ID"""
+    balance: Mapped[AccountDecimal] = mapped_column(default=Decimal(0))
+    """余额，单位：元，保留2位小数"""
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    """创建时间"""
+    updated_at: Mapped[datetime] = mapped_column(
+        default=datetime.now, onupdate=datetime.now
+    )
+
+
+class Bill(Base):
+    """账单记录，未完成支付的充值不进入账单"""
+
+    __tablename__ = f"{TABLE_PREFIX}bill"
+
+    tenant_id: Mapped[str] = mapped_column(primary_key=True)
+    """租户ID"""
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    """账单ID"""
+    amount: Mapped[BillDecimal] = mapped_column()
+    """账单金额，单位：元，保留6位小数，负值为消费，正值为充值"""
+    item: Mapped[str] = mapped_column()
+    """项目"""
+    unit_price: Mapped[BillDecimal] = mapped_column()
+    """单价，单位：元，保留6位小数"""
+    quantity: Mapped[float] = mapped_column()
+    """数量"""
+    description: Mapped[str] = mapped_column()
+    """账单描述"""
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    """创建时间"""
+
+    # 索引: item
+    __table_args__ = (Index("idx_item", "item"),)
+
+
+class ApiAccount(BaseModel):
+    """账户记录"""
+
+    balance: Decimal
+    """余额，单位：元，保留2位小数"""
+    created_at: AwareDatetime
+    """创建时间"""
+    updated_at: AwareDatetime
+    """更新时间"""
+
+    class Config:
+        from_attributes = True
+
+
+class ApiBill(BaseModel):
+    """账单记录，未完成支付的充值不进入账单"""
+
+    id: uuid.UUID
+    """账单ID"""
+    amount: Decimal
+    """账单金额，单位：元，保留6位小数，负值为消费，正值为充值"""
+    item: str
+    """项目"""
+    unit_price: Decimal
+    """单价，单位：元，保留6位小数"""
+    quantity: float
+    """数量"""
+    description: str
+    """账单描述"""
+    created_at: AwareDatetime
+    """创建时间"""
+
+    class Config:
+        from_attributes = True

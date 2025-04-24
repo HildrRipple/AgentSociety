@@ -19,6 +19,7 @@ import Callback from './pages/Callback'
 import { AuthProvider, sdkConfig } from './components/Auth'
 import './i18n'
 import { useTranslation } from 'react-i18next'
+import Bill from './pages/Bill'
 
 const router = createBrowserRouter([
     {
@@ -86,6 +87,14 @@ const router = createBrowserRouter([
         element: (
             <AuthProvider sdkConfig={sdkConfig}>
                 <RootLayout selectedKey='/maps'><MapList /></RootLayout>
+            </AuthProvider>
+        ),
+    },
+    {
+        path: "/bill",
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/bill'><Bill /></RootLayout>
             </AuthProvider>
         ),
     },

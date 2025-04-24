@@ -6,6 +6,7 @@ from .survey import router as survey_router
 from .mlflow import router as mlflow_router
 from .experiment_runner import router as experiment_runner_router
 from .config import router as config_router
+from .bill import router as bill_router
 
 __all__ = ["api_router"]
 
@@ -19,3 +20,4 @@ api_router.include_router(survey_router)
 api_router.include_router(mlflow_router)
 api_router.include_router(experiment_runner_router)
 api_router.include_router(config_router)
+api_router.include_router(bill_router)

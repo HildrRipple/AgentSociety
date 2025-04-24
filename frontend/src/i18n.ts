@@ -12,7 +12,7 @@ i18n
     // for all options read: https://www.i18next.com/overview/configuration-options
     .init({
         debug: true,
-        fallbackLng: 'en',
+        fallbackLng: 'zh',
         interpolation: {
             escapeValue: false, // not needed for react as it escapes by default
         },
@@ -34,7 +34,8 @@ i18n
                         logout: 'Logout',
                         account: 'Account',
                         demo: 'Demo',
-                        demoUser: 'Demo User'
+                        demoUser: 'Demo User',
+                        bill: 'Billing'
                     },
                     home: {
                         whatsNew: "What's New",
@@ -162,6 +163,21 @@ i18n
                                 "0.1s": "0.1s/step"
                             }
                         }
+                    },
+                    bill: {
+                        balance: 'Balance',
+                        recharge: 'Recharge',
+                        table: {
+                            title: 'Bill Details',
+                            id: 'ID',
+                            item: 'Item',
+                            amount: 'Amount (CNY)',
+                            unit_price: 'Unit Price (CNY)',
+                            quantity: 'Quantity',
+                            description: 'Description',
+                            createdAt: 'Created At',
+                            updatedAt: 'Updated At'
+                        }
                     }
                 }
             },
@@ -182,7 +198,8 @@ i18n
                         logout: '退出登录',
                         account: '账户',
                         demo: '示例',
-                        demoUser: '示例用户'
+                        demoUser: '示例用户',
+                        bill: '账单'
                     },
                     home: {
                         whatsNew: "最新动态",
@@ -309,6 +326,21 @@ i18n
                                 "0.25s": "0.25秒/步",
                                 "0.1s": "0.1秒/步"
                             }
+                        }
+                    },
+                    bill: {
+                        balance: '余额',
+                        recharge: '充值',
+                        table: {
+                            title: '账单详情',
+                            id: 'ID',
+                            item: '项目',
+                            amount: '金额 (元)',
+                            unit_price: '单价 (元)',
+                            quantity: '数量',
+                            description: '描述',
+                            createdAt: '创建时间',
+                            updatedAt: '更新时间'
                         }
                     }
                 }
