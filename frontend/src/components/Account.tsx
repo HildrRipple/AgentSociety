@@ -72,14 +72,14 @@ const Account: React.FC = () => {
 
     const items: MenuProps['items'] = [
         {
-            label: <a onClick={gotoProfile}>{t('account')}</a>,
+            label: <a onClick={gotoProfile}>{t('menu.account')}</a>,
             key: '0',
         },
         {
             type: 'divider',
         },
         {
-            label: <a onClick={casdoorLogout}>{t('logout')}</a>,
+            label: <a onClick={casdoorLogout}>{t('menu.logout')}</a>,
             key: '3',
         },
     ];
@@ -100,12 +100,12 @@ const Account: React.FC = () => {
                         type="default"
                         style={loginButtonStyle}
                         onClick={casdoorLogin}
-                    >{t('login')}</Button>
+                    >{t('menu.login')}</Button>
                     <Button
                         type="default"
                         style={loginButtonStyle}
                         onClick={demoLogin}
-                    >{t('demo')}</Button>
+                    >{t('menu.demo')}</Button>
                 </Space>
             </div >
         );
