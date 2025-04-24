@@ -54,6 +54,34 @@ class AgentType(Enum):
     Institution = "Institution"
 
 
+def extract_json(output_str):
+    """Extract JSON substring from a raw string response.
+
+    Args:
+        output_str: Raw string output that may contain JSON data.
+
+    Returns:
+        Extracted JSON string if valid, otherwise None.
+
+    Note:
+        Searches for the first '{' and last '}' to isolate JSON content.
+        Catches JSON decoding errors and logs warnings.
+    """
+    try:
+        # Find the positions of the first '{' and the last '}'
+        start = output_str.find("{")
+        end = output_str.rfind("}")
+
+        # Extract the substring containing the JSON
+        json_str = output_str[start : end + 1]
+
+        # Convert the JSON string to a dictionary
+        return json_str
+    except (ValueError, jsonc.JSONDecodeError) as e:
+        get_logger().warning(f"Failed to extract JSON: {e}")
+        return None
+
+
 class Agent(ABC):
     """
     Agent base class
@@ -408,10 +436,22 @@ class Agent(ABC):
         # Add survey question
         dialog.append({"role": "user", "content": survey_prompt})
 
-        # Use LLM to generate a response
-        response = await self.llm.atext_request(dialog)
-
-        return response
+        for retry in range(10):
+            try:
+                # Use LLM to generate a response
+                _response = await self.llm.atext_request(
+                    dialog, response_format={"type": "json_object"}
+                )
+                json_str = extract_json(_response)
+                if json_str:
+                    json_dict = jsonc.loads(json_str)
+                    json_str = jsonc.dumps(json_dict, ensure_ascii=False)
+                    break
+            except:
+                pass
+        else:
+            raise Exception("Failed to generate survey response")
+        return json_str
 
     async def _process_survey(self, survey: dict):
         """
@@ -801,7 +841,7 @@ class Agent(ABC):
 
     # Agent logic
     @abstractmethod
-    async def forward(self) -> None:
+    async def forward(self) -> Any:
         """
         Define the behavior logic of the agent.
 
@@ -814,7 +854,7 @@ class Agent(ABC):
         """
         raise NotImplementedError
 
-    async def run(self) -> None:
+    async def run(self) -> Any:
         """
         Unified entry point for executing the agent's logic.
 

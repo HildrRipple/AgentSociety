@@ -71,6 +71,7 @@ class ApiLLMConfig(BaseModel):
         for config in self.config:
             RealLLMConfig.model_validate(config)
 
+
 class MapConfig(Base):
     """Map model"""
 

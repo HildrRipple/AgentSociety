@@ -1,5 +1,55 @@
 # Changelog
 
+## [1.3.6] - 2025-04-17
+
+### Added
+- N/A
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Fixed
+- Refactor chat history gathering to handle grouped data structure across multiple files, ensuring consistent data format for agent interactions.
+- Fix the `from pyparsing import deque` error.
+
+
+## [1.3.5] - 2025-04-14
+
+### Added
+- Add automatic monitoring of LLM requests, if a request is stuck for a long time, it will be logged.
+    - To use this feature, you need to set `logging_level` to `DEBUG` in `AdvancedConfig`.
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Fixed
+- Fix bug in survey dispatching.
+- Fix bug in inconsistent schema when writing survey results to SQL.
+
+## [1.3.4] - 2025-04-14
+
+### Added
+- Add docs for `reset` method in `Agent` and `Block`.
+
+### Changed
+- Return 404 rather than 200 for empty delete/update.
+- Move webui config into database.
+
+### Deprecated
+- N/A
+
+### Fixed
+- Solve the problem of not being able to exit.
+- Fix raising error when from memory.
+- Enhance lock_decorator with exception logging for better error tracking.
+- Fix bug in `NeedsBlock`.
+
 ## [1.3.3] - 2025-04-07
 
 ### Added
