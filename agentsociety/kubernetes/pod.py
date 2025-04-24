@@ -41,14 +41,14 @@ async def create_pod(
                         image="swr.cn-north-4.myhuaweicloud.com/tsinghua-fib-lab/agentsociety:commercial",
                         image_pull_policy="Always",
                         command=[
-                            "python",
-                            "-m",
-                            "agentsociety.cli.cli",
+                            "agentsociety",
                             "run",
                             "--config-base64",
                             config_base64,
                             "--tenant-id",
                             tenant_id,
+                            "--callback-url",
+                            f"{callback_url}/api/run-experiments/{exp_id}/finish?callback_auth_token={callback_auth_token}",
                         ],
                         # 添加资源请求和限制
                         resources=client.V1ResourceRequirements(
@@ -60,18 +60,6 @@ async def create_pod(
                                 "cpu": "8",
                                 "memory": "32Gi",
                             },
-                        ),
-                        # 添加生命周期回调（通过POST传输exp_id和callback_auth_token）
-                        lifecycle=client.V1Lifecycle(
-                            pre_stop=client.V1LifecycleHandler(
-                                client.V1ExecAction(
-                                    command=[
-                                        "/bin/sh",
-                                        "-c",
-                                        f"curl -X POST {callback_url}/api/run-experiments/{exp_id}/finish?callback_auth_token={callback_auth_token}",
-                                    ],
-                                )
-                            )
                         ),
                     )
                 ],

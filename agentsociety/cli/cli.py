@@ -315,10 +315,17 @@ def check(config: str, config_base64: str):
 @cli.command()
 @common_options
 @click.option("--tenant-id", help="Specify tenant ID")
-def run(config: str, config_base64: str, tenant_id: str = "default"):
+@click.option("--callback-url", help="Specify callback URL (POST)")
+def run(
+    config: str,
+    config_base64: str,
+    tenant_id: str = "default",
+    callback_url: str = "",
+):
     """Run the simulation"""
     config_dict = load_config(config, config_base64)
 
+    import requests
     from ..configs import Config
     from ..simulation import AgentSociety
     from ..cityagent import default
@@ -333,6 +340,8 @@ def run(config: str, config_base64: str, tenant_id: str = "default"):
             await society.run()
         finally:
             await society.close()
+            if callback_url:
+                requests.post(callback_url)
 
     import asyncio
 
