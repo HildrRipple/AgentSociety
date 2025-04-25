@@ -14,7 +14,7 @@ __all__ = [
     "CasdoorConfig",
 ]
 
-ROLE = "agentsociety:user"
+ROLE = None # "agentsociety:user"
 DEMO_USER_TOKEN = "DEMO_USER_TOKEN"
 DEMO_USER_ID = "DEMO"
 
@@ -122,6 +122,8 @@ async def auth_bearer_token(
         # 401 Unauthorized
         raise HTTPException(status_code=401, detail="Unauthorized")
     logging.debug(f"user: {user}")
+    if ROLE is None:
+        return user["id"]
     roles = user["roles"]
     for role in roles:
         if role["name"] == ROLE and role["isEnabled"]:
