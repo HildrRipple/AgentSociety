@@ -187,7 +187,8 @@ i18n
                             updatedAt: 'Updated At',
                             llm_input_token: 'LLM Input Token',
                             llm_output_token: 'LLM Output Token',
-                            run_time: 'Run Time'
+                            run_time: 'Run Time',
+                            recharge: 'Recharge'
                         }
                     }
                 }
@@ -362,7 +363,8 @@ i18n
                             updatedAt: '更新时间',
                             llm_input_token: 'LLM输入Token',
                             llm_output_token: 'LLM输出Token',
-                            run_time: '运行时间'
+                            run_time: '运行时间',
+                            recharge: '充值'
                         }
                     }
                 }

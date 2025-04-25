@@ -3,6 +3,7 @@
 """
 
 from datetime import datetime
+from typing import Optional
 import uuid
 from decimal import Decimal
 from enum import Enum
@@ -87,7 +88,7 @@ class ApiBill(BaseModel):
 
     id: uuid.UUID
     """账单ID"""
-    related_exp_id: uuid.UUID
+    related_exp_id: Optional[uuid.UUID]
     """关联实验ID"""
     item: str
     """项目"""

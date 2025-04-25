@@ -72,9 +72,9 @@ const Page = () => {
     };
 
     const columns: ProColumns<Bill>[] = [
-        { 
-            title: t('bill.table.id'), 
-            dataIndex: 'id', 
+        {
+            title: t('bill.table.id'),
+            dataIndex: 'id',
             width: '10%',
             valueType: 'text'
         },
@@ -84,48 +84,49 @@ const Page = () => {
             width: '20%',
             valueType: 'text',
         },
-        { 
-            title: t('bill.table.item'), 
-            dataIndex: 'item', 
+        {
+            title: t('bill.table.item'),
+            dataIndex: 'item',
             width: '20%',
             valueEnum: {
                 'llm_input_token': t('bill.table.llm_input_token'),
                 'llm_output_token': t('bill.table.llm_output_token'),
                 'run_time': t('bill.table.run_time'),
+                'recharge': t('bill.table.recharge'),
             },
         },
-        { 
-            title: t('bill.table.amount'), 
-            dataIndex: 'amount', 
+        {
+            title: t('bill.table.amount'),
+            dataIndex: 'amount',
             width: '10%',
             valueType: 'money',
             render: (_, record) => record.amount,
             search: false,
         },
-        { 
-            title: t('bill.table.unit_price'), 
+        {
+            title: t('bill.table.unit_price'),
             dataIndex: 'unit_price',
             width: '10%',
             valueType: 'money',
             render: (_, record) => record.unit_price,
             search: false,
         },
-        { 
-            title: t('bill.table.quantity'), 
-            dataIndex: 'quantity', 
+        {
+            title: t('bill.table.quantity'),
+            dataIndex: 'quantity',
             width: '10%',
             search: false,
         },
-        { 
-            title: t('bill.table.description'), 
-            dataIndex: 'description', 
+        {
+            title: t('bill.table.description'),
+            dataIndex: 'description',
             width: '10%',
             valueType: 'text',
             search: false,
         },
-        { 
-            title: t('bill.table.createdAt'), 
-            dataIndex: 'created_at', 
+        {
+            title: t('bill.table.createdAt'),
+            dataIndex: 'created_at',
             width: '10%',
             valueType: 'dateTime',
             search: false,
