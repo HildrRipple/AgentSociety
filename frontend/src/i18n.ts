@@ -174,6 +174,22 @@ i18n
                     bill: {
                         balance: 'Balance',
                         recharge: 'Recharge',
+                        refresh: 'Refresh',
+                        refreshSuccess: 'Refresh success',
+                        autoRefreshOn: 'Auto refresh enabled',
+                        autoRefreshOff: 'Auto refresh disabled',
+                        fetchAccountFailed: 'Failed to fetch account information',
+                        payment: {
+                            title: 'Payment',
+                            instruction: 'Please complete the payment on the new opened payment page',
+                            openPayment: 'Open Payment Page',
+                            waiting: 'Waiting for payment completion...',
+                            success: 'Payment Success',
+                            failed: 'Payment Failed',
+                            timeout: 'Payment Timeout',
+                            checkFailed: 'Check Payment Status Failed',
+                            createFailed: 'Create Payment Order Failed'
+                        },
                         table: {
                             title: 'Bill Details',
                             id: 'ID',
@@ -350,6 +366,22 @@ i18n
                     bill: {
                         balance: '余额',
                         recharge: '充值',
+                        refresh: '刷新',
+                        refreshSuccess: '刷新成功',
+                        autoRefreshOn: '自动刷新已开启',
+                        autoRefreshOff: '自动刷新已关闭',
+                        fetchAccountFailed: '获取账户信息失败',
+                        payment: {
+                            title: '支付',
+                            instruction: '请在新打开的支付页面完成支付',
+                            openPayment: '打开支付页面',
+                            waiting: '等待支付完成...',
+                            success: '支付成功',
+                            failed: '支付失败',
+                            timeout: '支付超时',
+                            checkFailed: '检查支付状态失败',
+                            createFailed: '创建支付订单失败'
+                        },
                         table: {
                             title: '账单详情',
                             id: 'ID',

@@ -5,6 +5,7 @@ import { ActionType } from "@ant-design/pro-table";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchCustom } from "../../components/fetch";
+import { SyncOutlined } from "@ant-design/icons";
 
 interface Account {
     id: string;
@@ -29,7 +30,13 @@ const Page = () => {
     const [account, setAccount] = useState<Account | null>(null);
     const [rechargeVisible, setRechargeVisible] = useState(false);
     const [rechargeAmount, setRechargeAmount] = useState<number>(100);
+    const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
+    const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+    const [paymentUrl, setPaymentUrl] = useState('');
+    const [paymentId, setPaymentId] = useState('');
     const actionRef = useRef<ActionType>();
+
+    const presetAmounts = [10, 20, 50, 100, 1000];
 
     const fetchAccount = async () => {
         try {
@@ -40,8 +47,9 @@ const Page = () => {
             } else {
                 throw new Error(await res.text());
             }
+            message.success(t('bill.refreshSuccess'));
         } catch (err) {
-            message.error('Failed to fetch account: ' + err);
+            message.error(t('bill.fetchAccountFailed'));
         }
     };
 
@@ -49,25 +57,81 @@ const Page = () => {
         fetchAccount();
     }, []);
 
+    const checkPaymentStatus = async (id: string) => {
+        try {
+            const res = await fetchCustom(`/api/alipay/recharge/${id}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.data.status === 'success') {
+                    setPaymentStatus('success');
+                    message.success(t('bill.payment.success'));
+                    setPaymentModalVisible(false);
+                    fetchAccount();
+                    actionRef.current?.reload();
+                    return true;
+                } else if (data.data.status === 'failed') {
+                    setPaymentStatus('failed');
+                    message.error(t('bill.payment.failed'));
+                    setPaymentModalVisible(false);
+                    return true;
+                }
+            }
+            return false;
+        } catch (err) {
+            message.error(t('bill.payment.checkFailed'));
+            return false;
+        }
+    };
+
+    const startPaymentPolling = (id: string) => {
+        const interval = setInterval(async () => {
+            const isCompleted = await checkPaymentStatus(id);
+            if (isCompleted) {
+                clearInterval(interval);
+            }
+        }, 3000);
+
+        // 5分钟后停止轮询
+        setTimeout(() => {
+            clearInterval(interval);
+            if (paymentStatus === 'pending') {
+                message.warning(t('bill.payment.timeout'));
+                setPaymentModalVisible(false);
+            }
+        }, 5 * 60 * 1000);
+    };
+
     const handleRecharge = async () => {
         try {
-            const res = await fetchCustom('/api/bill/recharge', {
+            const formattedAmount = Number(rechargeAmount.toFixed(2));
+            const res = await fetchCustom('/api/alipay/recharge', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ amount: rechargeAmount }),
+                body: JSON.stringify({
+                    amount: formattedAmount,
+                    return_url: window.location.href,
+                }),
             });
             if (res.ok) {
-                message.success('Recharge successful');
+                const data = await res.json();
+                setPaymentId(data.data.id);
+                setPaymentUrl(data.data.url);
+                setPaymentStatus('pending');
+                setPaymentModalVisible(true);
                 setRechargeVisible(false);
-                fetchAccount();
-                actionRef.current?.reload();
+                
+                // 打开支付页面
+                window.open(data.data.url, '_blank');
+                
+                // 开始轮询支付状态
+                startPaymentPolling(data.data.id);
             } else {
                 throw new Error(await res.text());
             }
         } catch (err) {
-            message.error('Failed to recharge: ' + err);
+            message.error(t('bill.payment.createFailed'));
         }
     };
 
@@ -140,7 +204,15 @@ const Page = () => {
                     <Card>
                         <Row justify="space-between" align="middle">
                             <Col>
-                                <h2>{t('bill.balance')}: ￥{account?.balance ? Number(account.balance).toFixed(2) : '0.00'}</h2>
+                                <Space>
+                                    <h2>{t('bill.balance')}: ￥{account?.balance ? Number(account.balance).toFixed(2) : '0.00'}</h2>
+                                    <Button 
+                                        type="text" 
+                                        icon={<SyncOutlined />} 
+                                        onClick={fetchAccount}
+                                        title={t('bill.refresh')}
+                                    />
+                                </Space>
                             </Col>
                             <Col>
                                 <Button type="primary" onClick={() => setRechargeVisible(true)}>
@@ -199,10 +271,45 @@ const Page = () => {
                     <InputNumber
                         min={0.01}
                         value={rechargeAmount}
-                        onChange={(value) => setRechargeAmount(value || 0)}
+                        onChange={(value) => setRechargeAmount(value ? Number(value.toFixed(2)) : 0)}
                         style={{ width: '100%' }}
                         addonBefore="￥"
+                        precision={2}
+                        step={0.01}
                     />
+                    <div style={{ marginBottom: 16 }}>
+                        <Space wrap>
+                            {presetAmounts.map((amount) => (
+                                <Button
+                                    key={amount}
+                                    type={rechargeAmount === amount ? 'primary' : 'default'}
+                                    onClick={() => setRechargeAmount(amount)}
+                                >
+                                    ￥{amount}
+                                </Button>
+                            ))}
+                        </Space>
+                    </div>
+                </Space>
+            </Modal>
+
+            <Modal
+                title={t('bill.payment.title')}
+                open={paymentModalVisible}
+                onCancel={() => setPaymentModalVisible(false)}
+                footer={null}
+            >
+                <Space direction="vertical" style={{ width: '100%' }}>
+                    <p>{t('bill.payment.instruction')}</p>
+                    <Button 
+                        type="primary" 
+                        onClick={() => window.open(paymentUrl, '_blank')}
+                    >
+                        {t('bill.payment.openPayment')}
+                    </Button>
+                    {paymentStatus === 'pending' && (
+                        <p>{t('bill.payment.waiting')}</p>
+                    )}
                 </Space>
             </Modal>
         </div>
