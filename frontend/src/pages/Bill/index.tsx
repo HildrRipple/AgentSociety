@@ -293,6 +293,7 @@ const Page = () => {
                     <div style={{ color: '#666', fontSize: '12px' }}>
                         <p>1. {t('bill.payment.alipayOnly')}</p>
                         <p>2. {t('bill.payment.refundInvoice')}</p>
+                        <p>3. {t('bill.payment.billingItems')}</p>
                     </div>
                 </Space>
             </Modal>

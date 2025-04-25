@@ -190,7 +190,8 @@ i18n
                             checkFailed: 'Check Payment Status Failed',
                             createFailed: 'Create Payment Order Failed',
                             alipayOnly: 'Currently only Alipay payment is supported',
-                            refundInvoice: 'Refund and invoice functions are under development. Please contact platform staff if needed'
+                            refundInvoice: 'Refund and invoice functions are under development. Please contact platform staff if needed',
+                            billingItems: 'Billing items include LLM input tokens (¥1.5/million tokens), output tokens (¥1.5/million tokens), and runtime (¥0.001/second)'
                         },
                         table: {
                             title: 'Bill Details',
@@ -384,7 +385,8 @@ i18n
                             checkFailed: '检查支付状态失败',
                             createFailed: '创建支付订单失败',
                             alipayOnly: '本平台支付目前仅支持支付宝',
-                            refundInvoice: '退款与发票开具功能正在开发中，如有需要请联系平台工作人员'
+                            refundInvoice: '退款与发票开具功能正在开发中，如有需要请联系平台工作人员',
+                            billingItems: '计费项目目前包括大模型输入Token（1.5元/百万Token）、输出Token（1.5元/百万Token）、运行时长（0.001元/秒）'
                         },
                         table: {
                             title: '账单详情',
