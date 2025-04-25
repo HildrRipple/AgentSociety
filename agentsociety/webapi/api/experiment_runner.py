@@ -350,9 +350,9 @@ async def _compute_bill(db: AsyncSession, experiment: Experiment) -> None:
     time_seconds = time.total_seconds()
     time_second_price = 0.001
 
-    llm_input_amount = int(input_tokens * input_token_price * 1_000_000) / 1_000_000
-    llm_output_amount = int(output_tokens * output_token_price * 1_000_000) / 1_000_000
-    runtime_amount = int(time_seconds * time_second_price * 1_000_000) / 1_000_000
+    llm_input_amount = int(-input_tokens * input_token_price * 1_000_000) / 1_000_000
+    llm_output_amount = int(-output_tokens * output_token_price * 1_000_000) / 1_000_000
+    runtime_amount = int(-time_seconds * time_second_price * 1_000_000) / 1_000_000
 
     stmt = insert(Bill).values(
         tenant_id=tenant_id,
@@ -405,7 +405,7 @@ async def _compute_bill(db: AsyncSession, experiment: Experiment) -> None:
             .where(Account.tenant_id == tenant_id)
             .values(
                 balance=Account.balance
-                - Decimal(
+                + Decimal(
                     total_amount,
                 ),
             )
