@@ -48,7 +48,7 @@ class Bill(Base):
     """租户ID"""
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     """账单ID"""
-    related_exp_id: Mapped[uuid.UUID] = mapped_column()
+    related_exp_id: Mapped[uuid.UUID] = mapped_column(nullable=True)
     """关联实验ID"""
     item: Mapped[str] = mapped_column(primary_key=True)
     """项目类型ID"""
