@@ -99,7 +99,7 @@ async def run_experiment(
             stmt = insert(Account).values(tenant_id=tenant_id, balance=0)
             await db.execute(stmt)
             account = (await db.execute(stmt)).scalar_one()
-        if account.balance < 0:
+        if account.balance <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient balance"
             )
