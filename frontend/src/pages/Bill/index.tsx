@@ -277,7 +277,7 @@ const Page = () => {
                         precision={2}
                         step={0.01}
                     />
-                    <div style={{ marginBottom: 16 }}>
+                    <div>
                         <Space wrap>
                             {presetAmounts.map((amount) => (
                                 <Button
@@ -289,6 +289,10 @@ const Page = () => {
                                 </Button>
                             ))}
                         </Space>
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>
+                        <p>1. {t('bill.payment.alipayOnly')}</p>
+                        <p>2. {t('bill.payment.refundInvoice')}</p>
                     </div>
                 </Space>
             </Modal>

@@ -188,7 +188,9 @@ i18n
                             failed: 'Payment Failed',
                             timeout: 'Payment Timeout',
                             checkFailed: 'Check Payment Status Failed',
-                            createFailed: 'Create Payment Order Failed'
+                            createFailed: 'Create Payment Order Failed',
+                            alipayOnly: 'Currently only Alipay payment is supported',
+                            refundInvoice: 'Refund and invoice functions are under development. Please contact platform staff if needed'
                         },
                         table: {
                             title: 'Bill Details',
@@ -380,7 +382,9 @@ i18n
                             failed: '支付失败',
                             timeout: '支付超时',
                             checkFailed: '检查支付状态失败',
-                            createFailed: '创建支付订单失败'
+                            createFailed: '创建支付订单失败',
+                            alipayOnly: '本平台支付目前仅支持支付宝',
+                            refundInvoice: '退款与发票开具功能正在开发中，如有需要请联系平台工作人员'
                         },
                         table: {
                             title: '账单详情',
