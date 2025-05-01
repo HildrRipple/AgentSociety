@@ -103,13 +103,6 @@ class WorkflowStepConfig(BaseModel):
             return func.func.__name__
         return func.__name__
 
-    @field_serializer("survey")
-    def serialize_survey(self, survey: Optional[Survey], info):
-        if survey is None:
-            return None
-        else:
-            return survey.to_dict()
-
     @model_validator(mode="after")
     def validate_func(self):
         if self.type == WorkflowType.STEP:

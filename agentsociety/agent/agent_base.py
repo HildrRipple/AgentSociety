@@ -19,7 +19,7 @@ from ..memory import Memory
 from ..message import Messager
 from ..metrics import MlflowClient
 from ..storage import AvroSaver, StorageDialog, StorageSurvey
-from ..utils import process_survey_for_llm
+from ..survey.models import Survey
 from .block import Block
 
 __all__ = [
@@ -397,12 +397,12 @@ class Agent(ABC):
         """
         raise NotImplementedError("This method should be implemented by subclasses")
 
-    async def generate_user_survey_response(self, survey: dict) -> str:
+    async def generate_user_survey_response(self, survey: Survey) -> str:
         """
         Generate a response to a user survey based on the agent's memory and current state.
 
         - **Args**:
-            - `survey` (`dict`): The survey that needs to be answered.
+            - `survey` (`Survey`): The survey that needs to be answered.
 
         - **Returns**:
             - `str`: The generated response from the agent.
@@ -414,7 +414,7 @@ class Agent(ABC):
             - If the LLM client is not available, it returns a default message indicating unavailability.
             - This method can be overridden by subclasses to customize survey response generation.
         """
-        survey_prompt = process_survey_for_llm(survey)
+        survey_prompt = survey.to_prompt()
         dialog = []
 
         # Add system prompt
@@ -439,9 +439,11 @@ class Agent(ABC):
         for retry in range(10):
             try:
                 # Use LLM to generate a response
+                # print(f"dialog: {dialog}")
                 _response = await self.llm.atext_request(
                     dialog, response_format={"type": "json_object"}
                 )
+                # print(f"response: {_response}")
                 json_str = extract_json(_response)
                 if json_str:
                     json_dict = jsonc.loads(json_str)
@@ -450,15 +452,18 @@ class Agent(ABC):
             except:
                 pass
         else:
+            import traceback
+
+            traceback.print_exc()
             raise Exception("Failed to generate survey response")
         return json_str
 
-    async def _process_survey(self, survey: dict):
+    async def _process_survey(self, survey: Survey):
         """
         Process a survey by generating a response and recording it in Avro format and PostgreSQL.
 
         - **Args**:
-            - `survey` (`dict`): The survey data that includes an ID and other relevant information.
+            - `survey` (`Survey`): The survey data that includes an ID and other relevant information.
 
         - **Description**:
             - Generates a survey response using `generate_user_survey_response`.
@@ -475,7 +480,7 @@ class Agent(ABC):
             id=self.id,
             day=day,
             t=t,
-            survey_id=survey["id"],
+            survey_id=str(survey.id),
             result=survey_response,
             created_at=date_time,
         )
@@ -493,7 +498,7 @@ class Agent(ABC):
         await self.messager.send_message(
             self.messager.get_user_payback_channel(), {"count": 1}
         )
-        get_logger().info(f"Sent payback message for survey {survey['id']}")
+        get_logger().info(f"Sent payback message for survey {survey.id}")
 
     async def generate_user_chat_response(self, question: str) -> str:
         """
@@ -740,7 +745,8 @@ class Agent(ABC):
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
         get_logger().info(f"Agent {self.id} received user survey message: {payload}")
-        await self._process_survey(payload["data"])
+        survey = Survey.model_validate(payload["data"])
+        await self._process_survey(survey)
 
     async def handle_gather_message(self, payload: Any):
         """

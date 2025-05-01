@@ -628,7 +628,7 @@ class AgentSociety:
         - **Returns**:
             - None
         """
-        survey_dict = survey.to_dict()
+        survey_dict = survey.model_dump()
         _date_time = datetime.now(timezone.utc)
         payload = {
             "from": NONE_SENDER_ID,

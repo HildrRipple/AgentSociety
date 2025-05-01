@@ -192,7 +192,7 @@ export const RightPanel = observer(() => {
                         loading: false,
                         role: "agent",
                         content: <div>{Object.entries(s.result).map(([k, v]) => (
-                            <><span>{k}: {v}</span><br /></>
+                            <><span>{k}: {JSON.stringify(v)}</span><br /></>
                         ))}</div>,
                         header: <div>{agent?.name} Day {s.day} {parseT(s.t)}</div>
                     }];
