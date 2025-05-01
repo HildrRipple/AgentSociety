@@ -137,7 +137,8 @@ i18n
                                 reflection: "Reflection",
                                 agent: "Agent",
                                 user: "User",
-                                survey: "Survey"
+                                survey: "Survey",
+                                metrics: "Metrics"
                             },
                             survey: {
                                 preview: "Preview",
@@ -145,6 +146,11 @@ i18n
                                 surveySent: "Survey sent, you should wait for the agent to save the survey into database and respond",
                                 messageSent: "Message sent, you should wait for the agent to save the message into database and respond",
                                 sendFailed: "Failed to send:"
+                            },
+                            metrics: {
+                                noMetrics: "No metrics data available",
+                                step: "Step",
+                                value: "Value"
                             }
                         },
                         infoPanel: {
@@ -332,7 +338,8 @@ i18n
                                 reflection: "反思",
                                 agent: "智能体",
                                 user: "用户",
-                                survey: "问卷"
+                                survey: "问卷",
+                                metrics: "指标"
                             },
                             survey: {
                                 preview: "预览",
@@ -340,6 +347,11 @@ i18n
                                 surveySent: "问卷已发送，请等待智能体将问卷保存到数据库并响应",
                                 messageSent: "消息已发送，请等待智能体将消息保存到数据库并响应",
                                 sendFailed: "发送失败："
+                            },
+                            metrics: {
+                                noMetrics: "没有可用的指标数据",
+                                step: "步数",
+                                value: "值"
                             }
                         },
                         infoPanel: {

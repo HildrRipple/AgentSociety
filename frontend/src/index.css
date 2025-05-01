@@ -177,8 +177,8 @@ body {
     width: 21vw;
     height: calc(100vh - 68px - 60px);
 
-    justify-content: center;
-    align-items: center;
+    justify-content: flex-start;
+    align-items: flex-start;
 
     backdrop-filter: blur(40px);
 

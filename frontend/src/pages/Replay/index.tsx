@@ -3,8 +3,8 @@ import {
     Row,
 } from "antd";
 
-import InfoPanel from "./InfoPanel";
-import { ChatBox } from "./ChatBox";
+import InfoPanel from "./LeftPanel";
+import { RightPanel } from "./ChatBox";
 import LngLatJump from "./components/LngLatJump";
 import { LngLat } from "./components/type";
 import Deck from "./Deck";
@@ -52,7 +52,7 @@ const Replay: React.FC = observer(() => {
             }}>
             </Row>
             <div className="right">
-                <ChatBox />
+                <RightPanel />
             </div>
         </>
     );
