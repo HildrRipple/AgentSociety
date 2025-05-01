@@ -188,6 +188,16 @@ i18n
                         autoRefreshOn: 'Auto refresh enabled',
                         autoRefreshOff: 'Auto refresh disabled',
                         fetchAccountFailed: 'Failed to fetch account information',
+                        confirmRecharge: {
+                            title: 'Confirm Recharge',
+                            content: 'Please confirm the following information:',
+                            invited: 'You are an invited user.',
+                            testing: 'You understand that the system is still in testing phase and not officially launched.',
+                            incomplete: 'You understand that system features may be incomplete.',
+                            changeable: 'You understand that system features and pricing may change without notice.',
+                            okText: 'Confirm',
+                            cancelText: 'Cancel'
+                        },
                         payment: {
                             title: 'Payment',
                             instruction: 'Please complete the payment on the new opened payment page',
@@ -392,6 +402,16 @@ i18n
                         autoRefreshOn: '自动刷新已开启',
                         autoRefreshOff: '自动刷新已关闭',
                         fetchAccountFailed: '获取账户信息失败',
+                        confirmRecharge: {
+                            title: '确认充值',
+                            content: '请确认以下信息：',
+                            invited: '您是受邀请的用户。',
+                            testing: '您了解该系统目前仍处于测试阶段，尚未正式运行。',
+                            incomplete: '您了解系统各项功能可能存在不完善的情况。',
+                            changeable: '您了解系统功能、收费标准随时可能变更且不作通知。',
+                            okText: '确认',
+                            cancelText: '取消'
+                        },
                         payment: {
                             title: '支付',
                             instruction: '请在新打开的支付页面完成支付',

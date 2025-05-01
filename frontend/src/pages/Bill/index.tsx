@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Row, Col, Button, message, Space, Modal, InputNumber } from "antd";
+import { Card, Row, Col, Button, message, Space, Modal, InputNumber, Popconfirm } from "antd";
 import { ProTable, ProColumns } from "@ant-design/pro-components";
 import { ActionType } from "@ant-design/pro-table";
 import { useRef } from "react";
@@ -29,6 +29,7 @@ const Page = () => {
     const { t } = useTranslation();
     const [account, setAccount] = useState<Account | null>(null);
     const [rechargeVisible, setRechargeVisible] = useState(false);
+    const [confirmVisible, setConfirmVisible] = useState(false);
     const [rechargeAmount, setRechargeAmount] = useState<number>(100);
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
     const [paymentModalVisible, setPaymentModalVisible] = useState(false);
@@ -99,6 +100,10 @@ const Page = () => {
                 setPaymentModalVisible(false);
             }
         }, 5 * 60 * 1000);
+    };
+
+    const handleRechargeClick = () => {
+        setRechargeVisible(true);
     };
 
     const handleRecharge = async () => {
@@ -215,9 +220,26 @@ const Page = () => {
                                 </Space>
                             </Col>
                             <Col>
-                                <Button type="primary" onClick={() => setRechargeVisible(true)}>
-                                    {t('bill.recharge')}
-                                </Button>
+                                <Popconfirm
+                                    title={t('bill.confirmRecharge.title')}
+                                    description={
+                                        <div>
+                                            <p>{t('bill.confirmRecharge.content')}</p>
+                                            <p>1. {t('bill.confirmRecharge.invited')}</p>
+                                            <p>2. {t('bill.confirmRecharge.testing')}</p>
+                                            <p>3. {t('bill.confirmRecharge.incomplete')}</p>
+                                            <p>4. {t('bill.confirmRecharge.changeable')}</p>
+                                        </div>
+                                    }
+                                    placement="bottomLeft"
+                                    onConfirm={handleRechargeClick}
+                                    okText={t('bill.confirmRecharge.okText')}
+                                    cancelText={t('bill.confirmRecharge.cancelText')}
+                                >
+                                    <Button type="primary">
+                                        {t('bill.recharge')}
+                                    </Button>
+                                </Popconfirm>
                             </Col>
                         </Row>
                     </Card>
