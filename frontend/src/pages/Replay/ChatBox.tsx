@@ -142,7 +142,7 @@ export const RightPanel = observer(() => {
                     if (res.status !== 200) {
                         console.error('Failed to send message:', res);
                     } else {
-                        message.success('Message sent, you should wait for the agent to save the message into database and respond');
+                        message.success(t('replay.chatbox.dialog.sendSuccess'));
                     }
                     setContent('');
                 }}

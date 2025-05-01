@@ -147,6 +147,9 @@ i18n
                                 messageSent: "Message sent, you should wait for the agent to save the message into database and respond",
                                 sendFailed: "Failed to send:"
                             },
+                            dialog: {
+                                sendSuccess: "Message sent, you should wait for the agent to save the message into database and respond"
+                            },
                             metrics: {
                                 noMetrics: "No metrics data available",
                                 step: "Step",
@@ -340,6 +343,9 @@ i18n
                                 user: "用户",
                                 survey: "问卷",
                                 metrics: "指标"
+                            },
+                            dialog: {
+                                sendSuccess: "消息已发送，请等待智能体将消息保存到数据库并响应"
                             },
                             survey: {
                                 preview: "预览",

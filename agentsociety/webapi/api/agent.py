@@ -1,12 +1,15 @@
-from typing import List, Optional, cast
+import json
 import uuid
+from typing import List, Optional, cast
 
-from fastapi import APIRouter, HTTPException, Request, status, Query
+import redis.asyncio as aioredis
+from fastapi import APIRouter, Body, HTTPException, Query, Request, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agentsociety.webapi.models import ApiResponseWrapper
-
+from ...configs import EnvConfig
+from ..models import ApiResponseWrapper
 from ..models.agent import (
     ApiAgentDialog,
     ApiAgentProfile,
@@ -235,3 +238,60 @@ async def get_global_prompt_by_day_t(
         prompt = ApiGlobalPrompt(**{columns[i]: row[i] for i in range(len(columns))})
 
         return ApiResponseWrapper(data=prompt)
+
+
+class AgentChatMessage(BaseModel):
+    content: str
+
+
+@router.post("/experiments/{exp_id}/agents/{agent_id}/dialog")
+async def post_agent_dialog(
+    request: Request,
+    exp_id: uuid.UUID,
+    agent_id: int,
+    message: AgentChatMessage = Body(...),
+) -> ApiResponseWrapper[None]:
+    """Send dialog to agent by experiment ID and agent ID"""
+
+    # Get tenant_id from request
+    tenant_id = await request.app.state.get_tenant_id(request)
+
+    # Check whether the experiment is started and belongs to the tenant
+    async with request.app.state.get_db() as db:
+        db = cast(AsyncSession, db)
+        stmt = select(Experiment).where(
+            Experiment.tenant_id == tenant_id, Experiment.id == exp_id
+        )
+        result = await db.execute(stmt)
+        experiment = result.scalar_one_or_none()
+        if not experiment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Experiment not found or you don't have permission to access it",
+            )
+
+        if ExperimentStatus(experiment.status) != ExperimentStatus.RUNNING:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Experiment not running"
+            )
+
+        env: EnvConfig = request.app.state.env
+
+        # Get Redis client from app state
+        redis_client = aioredis.Redis(
+            host=env.redis.server,
+            port=env.redis.port,
+            db=env.redis.db,
+            password=env.redis.password,
+            socket_timeout=env.redis.timeout,
+            socket_keepalive=True,
+            health_check_interval=5,
+            single_connection_client=True,
+        )
+
+        # Send message through Redis
+        channel = f"exps:{exp_id}:agents:{agent_id}:user-chat"
+        await redis_client.publish(channel, message.model_dump_json())
+        await redis_client.close()
+
+        return ApiResponseWrapper(data=None)

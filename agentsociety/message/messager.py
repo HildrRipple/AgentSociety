@@ -4,9 +4,9 @@ import time
 from typing import List, Optional
 
 import jsonc
-from pydantic import BaseModel, Field
 import ray
 import redis.asyncio as aioredis
+from pydantic import BaseModel, Field
 from redis.asyncio.client import PubSub
 
 from ..logger import get_logger

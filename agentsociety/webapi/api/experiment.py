@@ -12,7 +12,6 @@ from fastapi import APIRouter, Form, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from ..models import ApiResponseWrapper
 from ..models.agent import (
     agent_dialog,
@@ -193,11 +192,11 @@ async def get_experiment_metrics_by_id(
     exp_id: uuid.UUID,
 ) -> Tuple[bool, Dict[str, List[ApiMLflowMetric]]]:
     """Get metrics for an experiment by ID
-    
+
     Args:
         db: Database session
         exp_id: Experiment ID
-        
+
     Returns:
         Tuple containing:
         - bool: Whether metrics were found
@@ -225,16 +224,18 @@ async def get_experiment_metrics_by_id(
             is_nan=metric.is_nan,
         )
         metrics_by_key[metric.key].append(api_metric)
-    
+
     return True, metrics_by_key
 
 
-def serialize_metrics(metrics_by_key: Dict[str, List[ApiMLflowMetric]]) -> Dict[str, List[dict]]:
+def serialize_metrics(
+    metrics_by_key: Dict[str, List[ApiMLflowMetric]],
+) -> Dict[str, List[dict]]:
     """Serialize metrics data for JSON output
-    
+
     Args:
         metrics_by_key: Metrics data aggregated by key
-        
+
     Returns:
         Dict with serialized metrics data
     """

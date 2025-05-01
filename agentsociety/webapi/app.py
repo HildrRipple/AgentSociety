@@ -3,19 +3,21 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, Optional
 
-from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, status
+import redis.asyncio as aioredis
+from fastapi import (APIRouter, FastAPI, HTTPException, Request, Response,
+                     status)
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.middleware.sessions import SessionMiddleware
 
+from ..configs import EnvConfig
 from .api import api_router
 from .models._base import Base
-from ..configs import EnvConfig
 
 __all__ = ["create_app", "empty_get_tenant_id"]
 
