@@ -3,9 +3,9 @@ import random
 
 from openai.types.chat import ChatCompletionToolParam
 
-from ...agent import Block, FormatPrompt
-from ...llm import LLM
-from ...logger import get_logger
+from . import Block, FormatPrompt
+from ..llm import LLM
+from ..logger import get_logger
 
 DISPATCHER_PROMPT = """
 Based on the task information (which describes the needs of the user), select the most appropriate block to handle the task.
@@ -79,11 +79,11 @@ class BlockDispatcher:
             },
         }
 
-    async def dispatch(self, step: dict) -> Block:
+    async def dispatch(self, intention: str) -> Block:
         """Route a task step to the most appropriate processing block.
 
         Args:
-            step: Dictionary containing task information with 'intention' key
+            intention: Intention of the task
 
         Returns:
             Selected Block instance for handling the task
@@ -98,7 +98,7 @@ class BlockDispatcher:
         """
         try:
             function_schema = self._get_function_schema()
-            self.prompt.format(step=step["intention"])
+            self.prompt.format(intention=intention)
 
             # Call LLM with tools schema
             function_args = await self.llm.atext_request(

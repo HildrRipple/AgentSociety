@@ -13,7 +13,7 @@ from ...environment import Environment
 from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
-from .dispatcher import BlockDispatcher
+from ...agent.dispatcher import BlockDispatcher
 from .utils import clean_json_response
 
 # Prompt templates for LLM interactions
