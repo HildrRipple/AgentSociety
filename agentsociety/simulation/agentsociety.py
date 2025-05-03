@@ -73,7 +73,8 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     # lazy generate memory values
     # param config
     agent_params = agent_config.agent_params
-    agents = [(agent_class, generator, i, agent_params) for i in range(n)]
+    blocks = agent_config.blocks
+    agents = [(agent_class, generator, i, agent_params, blocks) for i in range(n)]
     return agents
 
 

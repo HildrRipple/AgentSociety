@@ -7,6 +7,9 @@ import ray
 
 from ..agent import (
     Agent,
+    AgentParams,
+    Block,
+    BlockParams,
     AgentToolbox,
     BankAgentBase,
     CitizenAgentBase,
@@ -52,7 +55,8 @@ class AgentGroup:
                 ],
                 MemoryConfigGenerator,
                 int,
-                dict[str, Any],
+                AgentParams,  # agent_params
+                dict[type[Block], BlockParams],  # blocks
             ]
         ],
         environment_init: dict,
@@ -206,7 +210,8 @@ class AgentGroup:
                 agent_class,
                 memory_config_generator,
                 index_for_generator,
-                param_config,
+                agent_params,
+                blocks,
             ) = agent_init
             memory_dict = memory_config_generator.generate(index_for_generator)
             extra_attributes = memory_dict.get("extra_attributes", {})
@@ -221,15 +226,25 @@ class AgentGroup:
                 profile=profile,
                 base=base,
             )
+            # build blocks
+            blocks = [
+                block_type(
+                    llm=self.llm,
+                    environment=self.environment,
+                    agent_memory=memory_init,
+                    block_params=block_params,
+                )
+                for block_type, block_params in blocks.items()
+            ]
+            # build agent
             agent = agent_class(
                 id=id,
                 name=f"{agent_class.__name__}_{id}",
                 toolbox=agent_toolbox,
                 memory=memory_init,
+                agent_params=agent_params,
+                blocks=blocks,
             )
-            # load_from_config
-            if param_config is not None:
-                agent.load_from_config(param_config)
             self._agents.append(agent)
             self._id2agent[id] = agent
         get_logger().info(

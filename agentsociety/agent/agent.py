@@ -9,7 +9,7 @@ from ..environment.sim.person_service import PersonService
 from ..logger import get_logger
 from ..memory import Memory
 from .agent_base import Agent, AgentToolbox, AgentType, AgentParams
-
+from .block import Block
 __all__ = [
     "CitizenAgentBase",
     "FirmAgentBase",
@@ -39,6 +39,7 @@ class CitizenAgentBase(Agent):
         toolbox: AgentToolbox,
         memory: Memory,
         agent_params: Optional[AgentParams] = None,
+        blocks: Optional[list[Block]] = None,
     ) -> None:
         """
         Initialize a new instance of the CitizenAgent.
@@ -59,6 +60,7 @@ class CitizenAgentBase(Agent):
             toolbox=toolbox,
             memory=memory,
             agent_params=agent_params,
+            blocks=blocks,
         )
 
     async def init(self):
@@ -186,6 +188,7 @@ class InstitutionAgentBase(Agent):
         toolbox: AgentToolbox,
         memory: Memory,
         agent_params: Optional[AgentParams] = None,
+        blocks: Optional[list[Block]] = None,
     ):
         """
         Initialize a new instance of the InstitutionAgent.
@@ -206,6 +209,7 @@ class InstitutionAgentBase(Agent):
             toolbox=toolbox,
             memory=memory,
             agent_params=agent_params,
+            blocks=blocks,
         )
         # add response collector
         self._gather_responses: dict[int, asyncio.Future] = {}

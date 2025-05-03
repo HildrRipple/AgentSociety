@@ -159,7 +159,7 @@ def trigger_class():
     return decorator
 
 
-# Define a Block, similar to a layer in PyTorch
+# Behavior Block, used for augmenting agent's behavior capabilities
 class Block:
     """
     A foundational component similar to a layer in PyTorch, used for building complex systems.
@@ -173,8 +173,7 @@ class Block:
         self,
         llm: Optional[LLM] = None,
         environment: Optional[Environment] = None,
-        memory: Optional[Memory] = None,
-        trigger: Optional[EventTrigger] = None,
+        agent_memory: Optional[Memory] = None,
         block_params: Optional[BlockParams] = None,
     ):
         """
@@ -189,13 +188,8 @@ class Block:
             - `trigger` (Optional[EventTrigger], optional): An event trigger that may be associated with this block. Defaults to None.
         """
         self._llm = llm
-        self._memory = memory
+        self._agent_memory = agent_memory
         self._environment = environment
-        # If a trigger is passed in, inject the block into the trigger and initialize it immediately.
-        if trigger is not None:
-            trigger.block = self
-            trigger.initialize()
-        self.trigger = trigger
 
         # parse block_params
         if block_params is None:
@@ -219,11 +213,11 @@ class Block:
 
     @property
     def agent_memory(self) -> Memory:
-        if self._memory is None:
+        if self._agent_memory is None:
             raise RuntimeError(
                 f"Memory access before assignment, please `set_memory` first!"
             )
-        return self._memory
+        return self._agent_memory
     
     @property
     def block_memory(self) -> StateMemory:
