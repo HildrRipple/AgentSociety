@@ -69,6 +69,23 @@ def common_options(f):
     return f
 
 
+def repo_options(f):
+    """
+    Repository configuration options decorator
+    - **Description**:
+        - Adds common repository-related options to CLI commands
+
+    - **Args**:
+        - `f` (function): The function to decorate
+
+    - **Returns**:
+        - function: The decorated function
+    """
+    f = click.option("--local", "-l", help="Local repository path")(f)
+    f = click.option("--remote", "-r", help="Remote repository URL")(f)
+    return f
+
+
 @click.group(context_settings=CONTEXT_SETTINGS)
 @click.version_option(version=version_string_of_agentsociety, prog_name="AgentSociety")
 def cli():
@@ -346,6 +363,66 @@ def run(
     import asyncio
 
     asyncio.run(_run())
+
+
+@cli.group(name="repo")
+def repo_command():
+    """Repository management commands"""
+    pass
+
+
+@repo_command.command(name="init")
+@repo_options
+def repo_init(local: str, remote: str):
+    """
+    Initialize repository configuration
+    """
+    if not local:
+        raise click.BadParameter("Local repository path is required")
+    
+    click.echo(f"Initializing repository with local path: {local}")
+    if remote:
+        click.echo(f"Remote repository URL: {remote}")
+    
+    # TODO: Implement repository initialization logic
+
+
+@repo_command.command(name="agent")
+def repo_agent():
+    """
+    List agents in the repository
+    """
+    click.echo("Listing agents in repository...")
+    # TODO: Implement agent listing logic
+
+
+@repo_command.command(name="block")
+def repo_block():
+    """
+    List blocks in the repository
+    """
+    click.echo("Listing blocks in repository...")
+    # TODO: Implement block listing logic
+
+
+@repo_command.command(name="install")
+@click.argument("source")
+def repo_install(source: str):
+    """
+    Install agent/block from local path or remote URL
+    """
+    click.echo(f"Installing from source: {source}")
+    # TODO: Implement installation logic
+
+
+@repo_command.command(name="push")
+@click.argument("name")
+def repo_push(name: str):
+    """
+    Push agent/block to remote repository
+    """
+    click.echo(f"Pushing {name} to remote repository")
+    # TODO: Implement push logic
 
 
 if __name__ == "__main__":
