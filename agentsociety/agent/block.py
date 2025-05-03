@@ -5,10 +5,12 @@ import functools
 import inspect
 from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any, Optional, Union, cast
+from pydantic import BaseModel, Field
 
 from ..environment import Environment
 from ..llm import LLM
 from ..memory import Memory
+from ..memory.state import StateMemory
 from ..utils.decorators import record_call_aio
 from .trigger import EventTrigger
 
@@ -20,6 +22,9 @@ __all__ = [
     "log_and_check_with_memory",
     "trigger_class",
 ]
+
+class BlockParams(BaseModel):
+    block_memory: Optional[dict[str, Any]] = None
 
 
 def log_and_check_with_memory(
@@ -158,25 +163,19 @@ def trigger_class():
 class Block:
     """
     A foundational component similar to a layer in PyTorch, used for building complex systems.
-
-    - **Attributes**:
-        - `configurable_fields` (list[str]): A list of fields that can be configured.
-        - `default_values` (dict[str, Any]): Default values for configurable fields.
-        - `fields_description` (dict[str, str]): Descriptions for each configurable field.
     """
-
-    configurable_fields: list[str] = []
-    default_values: dict[str, Any] = {}
-    fields_description: dict[str, str] = {}
+    ParamsType = BlockParams
+    name: str = ""
+    description: str = ""
+    actions: Optional[list[Callable]] = None
 
     def __init__(
         self,
-        name: str,
         llm: Optional[LLM] = None,
         environment: Optional[Environment] = None,
         memory: Optional[Memory] = None,
         trigger: Optional[EventTrigger] = None,
-        description: str = "",
+        block_params: Optional[BlockParams] = None,
     ):
         """
         - **Description**:
@@ -189,7 +188,6 @@ class Block:
             - `memory` (Optional[Memory], optional): An instance of Memory. Defaults to None.
             - `trigger` (Optional[EventTrigger], optional): An event trigger that may be associated with this block. Defaults to None.
         """
-        self.name = name
         self._llm = llm
         self._memory = memory
         self._environment = environment
@@ -198,100 +196,62 @@ class Block:
             trigger.block = self
             trigger.initialize()
         self.trigger = trigger
-        self.description = description
 
-    def export_config(self) -> dict[str, Optional[str]]:
-        """
-        - **Description**:
-            - Exports the configuration of the block as a dictionary.
-
-        - **Returns**:
-            - `Dict[str, Optional[str]]`: A dictionary containing the configuration of the block.
-        """
-        return {
-            field: self.default_values.get(field, "default_value")
-            for field in self.configurable_fields
-        }
-
-    @classmethod
-    def export_class_config(cls) -> tuple[dict[str, Any], dict[str, Any]]:
-        """
-        - **Description**:
-            - Exports the default configuration and descriptions for the configurable fields of the class.
-
-        - **Returns**:
-            - `tuple[Dict[str, Any], Dict[str, Any]]`: A tuple containing two dictionaries, one for default values and one for field descriptions.
-        """
-        return (
-            {
-                field: cls.default_values.get(field, "default_value")
-                for field in cls.configurable_fields
-            },
-            {
-                field: cls.fields_description.get(field, "")
-                for field in cls.configurable_fields
-            },
-        )
-
-    @classmethod
-    def import_config(cls, config: dict[str, Union[str, dict]]) -> Block:
-        """
-        - **Description**:
-            - Creates an instance of the Block from a configuration dictionary.
-
-        - **Args**:
-            - `config` (Dict[str, Union[str, dict]]): Configuration dictionary for creating the block.
-
-        - **Returns**:
-            - `Block`: An instance of the Block created from the provided configuration.
-        """
-        instance = cls(name=config["name"])  # type: ignore
-        assert isinstance(config["config"], dict)
-        for field, value in config["config"].items():
-            if field in cls.configurable_fields:
-                setattr(instance, field, value)
-
-        # Recursively create sub-blocks
-        for child_config in config.get("children", []):
-            child_block = Block.import_config(child_config)  # type: ignore
-            setattr(instance, child_block.name.lower(), child_block)
-
-        return instance
-
-    def load_from_config(self, config: dict[str, list[dict]]) -> None:
-        """
-        - **Description**:
-            - Updates the current Block instance parameters using a configuration dictionary and recursively updates its children.
-
-        - **Args**:
-            - `config` (Dict[str, List[Dict]]): Configuration dictionary for updating the block.
-        """
-        # Update parameters of the current Block
-        for field in self.configurable_fields:
-            if field in config["config"]:
-                if config["config"][field] != "default_value":
-                    setattr(self, field, config["config"][field])
-
-        def build_or_update_block(block_data: dict) -> Block:
-            block_name = block_data["name"]
-            existing_block = getattr(self, block_name, None)
-
-            if existing_block:
-                # Recursively update child Block
-                existing_block.load_from_config(block_data)
-                return existing_block
+        # parse block_params
+        if block_params is None:
+            block_params = self.default_params()
+        self.params = block_params
+        for key, value in block_params.model_dump().items():
+            if key == "block_memory":
+                self._block_memory = StateMemory(value)
             else:
-                # Create a new child Block
-                block_cls = globals().get(block_data["name"])
-                if block_cls is None:
-                    raise KeyError(f"Block class '{block_data['name']}' not found.")
-                block_instance = block_cls.import_config(block_data)
-                setattr(self, block_name, block_instance)
-                return block_instance
+                setattr(self, key, value)
 
-        # Recursively iterate through child Block configurations
-        for block_data in config.get("children", []):
-            build_or_update_block(block_data)
+    @classmethod
+    def default_params(cls) -> BlockParams:
+        return cls.ParamsType()
+
+    @property
+    def llm(self) -> LLM:
+        if self._llm is None:
+            raise RuntimeError(f"LLM access before assignment, please `set_llm` first!")
+        return self._llm
+
+    @property
+    def agent_memory(self) -> Memory:
+        if self._memory is None:
+            raise RuntimeError(
+                f"Memory access before assignment, please `set_memory` first!"
+            )
+        return self._memory
+    
+    @property
+    def block_memory(self) -> StateMemory:
+        if self._block_memory is None:
+            raise RuntimeError(
+                f"Block memory access before assignment, please `set_block_memory` first!"
+            )
+        return self._block_memory
+
+    @property
+    def environment(self) -> Environment:
+        if self._environment is None:
+            raise RuntimeError(
+                f"Environment access before assignment, please `set_environment` first!"
+            )
+        return self._environment
+    
+    async def before_forward(self):
+        """
+        Before forward
+        """
+        pass
+
+    async def after_forward(self):
+        """
+        After forward
+        """
+        pass
 
     async def forward(self, step, context):
         """
@@ -302,25 +262,3 @@ class Block:
             - `NotImplementedError`: Subclasses must implement this method.
         """
         raise NotImplementedError("Subclasses should implement this method")
-
-    @property
-    def llm(self) -> LLM:
-        if self._llm is None:
-            raise RuntimeError(f"LLM access before assignment, please `set_llm` first!")
-        return self._llm
-
-    @property
-    def memory(self) -> Memory:
-        if self._memory is None:
-            raise RuntimeError(
-                f"Memory access before assignment, please `set_memory` first!"
-            )
-        return self._memory
-
-    @property
-    def environment(self) -> Environment:
-        if self._environment is None:
-            raise RuntimeError(
-                f"Environment access before assignment, please `set_environment` first!"
-            )
-        return self._environment

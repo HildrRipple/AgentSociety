@@ -7,8 +7,10 @@ from typing import Any, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-from ..agent import Agent
+from ..agent import Agent, Block
 from ..agent.distribution import Distribution, DistributionConfig
+from ..agent.agent_base import AgentParams
+from ..agent.block import BlockParams
 
 __all__ = [
     "AgentConfig",
@@ -42,8 +44,11 @@ class AgentConfig(BaseModel):
     number: int = Field(gt=0)
     """The number of agents"""
 
-    param_config: Optional[dict[str, Any]] = None
+    agent_params: Optional[AgentParams] = None
     """Agent configuration"""
+
+    blocks: Optional[dict[type[Block], BlockParams]] = None
+    """Blocks configuration"""
 
     # Choose one of the following:
     # 1. memory_config_func: Optional[Callable] = None

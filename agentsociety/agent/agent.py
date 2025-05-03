@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import random
-from typing import Any
+from typing import Any, Optional
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
 from ..environment.sim.person_service import PersonService
 from ..logger import get_logger
 from ..memory import Memory
-from .agent_base import Agent, AgentToolbox, AgentType
+from .agent_base import Agent, AgentToolbox, AgentType, AgentParams
 
 __all__ = [
     "CitizenAgentBase",
@@ -38,6 +38,7 @@ class CitizenAgentBase(Agent):
         name: str,
         toolbox: AgentToolbox,
         memory: Memory,
+        agent_params: Optional[AgentParams] = None,
     ) -> None:
         """
         Initialize a new instance of the CitizenAgent.
@@ -57,6 +58,7 @@ class CitizenAgentBase(Agent):
             type=AgentType.Citizen,
             toolbox=toolbox,
             memory=memory,
+            agent_params=agent_params,
         )
 
     async def init(self):
@@ -183,6 +185,7 @@ class InstitutionAgentBase(Agent):
         name: str,
         toolbox: AgentToolbox,
         memory: Memory,
+        agent_params: Optional[AgentParams] = None,
     ):
         """
         Initialize a new instance of the InstitutionAgent.
@@ -202,6 +205,7 @@ class InstitutionAgentBase(Agent):
             type=AgentType.Institution,
             toolbox=toolbox,
             memory=memory,
+            agent_params=agent_params,
         )
         # add response collector
         self._gather_responses: dict[int, asyncio.Future] = {}

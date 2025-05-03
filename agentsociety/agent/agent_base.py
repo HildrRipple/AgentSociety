@@ -6,7 +6,9 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, NamedTuple, Optional, Union, get_type_hints
+import time
+from typing import Any, NamedTuple, Optional, Union, get_type_hints, List, TypeVar, Generic
+from pydantic import BaseModel, Field
 
 import jsonc
 import ray
@@ -21,12 +23,15 @@ from ..metrics import MlflowClient
 from ..storage import AvroSaver, StorageDialog, StorageSurvey
 from ..utils import process_survey_for_llm
 from .block import Block
+from .dispatcher import BlockDispatcher
 
 __all__ = [
     "Agent",
     "AgentType",
 ]
 
+class AgentParams(BaseModel):
+    pass
 
 class AgentToolbox(NamedTuple):
     """
@@ -86,10 +91,7 @@ class Agent(ABC):
     """
     Agent base class
     """
-
-    configurable_fields: list[str] = []
-    default_values: dict[str, Any] = {}
-    fields_description: dict[str, str] = {}
+    ParamsType = AgentParams
 
     def __init__(
         self,
@@ -98,6 +100,8 @@ class Agent(ABC):
         type: AgentType,
         toolbox: AgentToolbox,
         memory: Memory,
+        agent_params: Optional[AgentParams] = None,
+        blocks: Optional[list[Block]] = None,
     ) -> None:
         """
         Initialize the `Agent`.
@@ -117,6 +121,23 @@ class Agent(ABC):
 
         self._last_asyncio_pg_task = None  # Hide SQL writes behind computational tasks
 
+        # parse agent_params
+        if agent_params is None:
+            agent_params = self.default_params()
+        self.params = agent_params
+        for key, value in agent_params.model_dump().items():
+            setattr(self, key, value)
+
+        # register blocks
+        if blocks is not None:
+            self.blocks = blocks
+            self.dispatcher = BlockDispatcher(self.llm)
+            self.dispatcher.register_blocks(self.blocks)
+
+    @classmethod
+    def default_params(cls) -> AgentParams:
+        return cls.ParamsType()
+
     async def init(self):
         await self._memory.status.update(
             "id", self._id, protect_llm_read_only_fields=False
@@ -127,195 +148,6 @@ class Agent(ABC):
         # Exclude lock objects
         del state["_toolbox"]
         return state
-
-    @classmethod
-    def export_class_config(cls) -> dict[str, dict]:
-        """
-        Export the class configuration as a dictionary.
-
-        - **Args**:
-            - None. This method relies on class attributes and type hints.
-
-        - **Returns**:
-            - `dict[str, dict]`: A dictionary containing the class configuration information, including:
-                - `agent_name`: The name of the class.
-                - `config`: A mapping of configurable fields to their default values.
-                - `description`: A mapping of descriptions for each configurable field.
-                - `blocks`: A list of dictionaries with configuration information for fields that are of type `Block`, each containing:
-                    - `name`: The name of the field.
-                    - `config`: Configuration information for the Block.
-                    - `description`: Description information for the Block.
-                    - `children`: Configuration information for any child Blocks (if applicable).
-
-        - **Description**:
-            - This method parses the annotations within the class to identify and process all fields that inherit from the `Block` class.
-            - For each `Block`-typed field, it calls the corresponding `export_class_config` method to retrieve its configuration and adds it to the result.
-            - If there are child `Block`s, it recursively exports their configurations using the `_export_subblocks` method.
-        """
-        result = {
-            "agent_name": cls.__name__,
-            "config": {},
-            "description": {},
-            "blocks": [],
-        }
-        config = {
-            field: cls.default_values.get(field, "default_value")
-            for field in cls.configurable_fields
-        }
-        result["config"] = config
-        result["description"] = {
-            field: cls.fields_description.get(field, "")
-            for field in cls.configurable_fields
-        }
-        # Parse class annotations to find fields of type Block
-        hints = get_type_hints(cls)
-        for attr_name, attr_type in hints.items():
-            if inspect.isclass(attr_type) and issubclass(attr_type, Block):
-                block_config = attr_type.export_class_config()
-                result["blocks"].append(
-                    {
-                        "name": attr_name,
-                        "config": block_config[0],
-                        "description": block_config[1],
-                        "children": cls._export_subblocks(attr_type),
-                    }
-                )
-        return result
-
-    @classmethod
-    def _export_subblocks(cls, block_cls: type[Block]) -> list[dict]:
-        children = []
-        hints = get_type_hints(block_cls)  # Get class annotations
-        for attr_name, attr_type in hints.items():
-            if inspect.isclass(attr_type) and issubclass(attr_type, Block):
-                block_config = attr_type.export_class_config()
-                children.append(
-                    {
-                        "name": attr_name,
-                        "config": block_config[0],
-                        "description": block_config[1],
-                        "children": cls._export_subblocks(attr_type),
-                    }
-                )
-        return children
-
-    @classmethod
-    def export_to_file(cls, filepath: str) -> None:
-        """
-        Export the class configuration to a JSON file.
-
-        - **Args**:
-            - `filepath` (`str`): The path where the JSON file will be saved.
-
-        - **Returns**:
-            - `None`
-
-        - **Description**:
-            - This method calls `export_class_config` to get the configuration dictionary and writes it to the specified file in JSON format with indentation for readability.
-        """
-        config = cls.export_class_config()
-        with open(filepath, "w") as f:
-            jsonc.dump(config, f, indent=4)
-
-    @classmethod
-    def import_block_config(cls, config: dict[str, Union[list[dict], str]]) -> "Agent":
-        """
-        Import an agent's configuration from a dictionary and initialize the Agent instance along with its Blocks.
-
-        - **Args**:
-            - `config` (`dict[str, Union[list[dict], str]]`): A dictionary containing the configuration of the agent and its blocks.
-
-        - **Returns**:
-            - `Agent`: An initialized Agent instance configured according to the provided configuration.
-
-        - **Description**:
-            - Initializes a new agent using the name found in the configuration.
-            - Dynamically creates Block instances based on the configuration data and assigns them to the agent.
-            - If a block is not found in the global namespace or cannot be created, this method may raise errors.
-        """
-        raise NotImplementedError("Bad implementation and should be re-implemented!")
-        agent = cls(name=config["agent_name"])
-
-        def build_block(block_data: dict[str, Any]) -> Block:
-            block_cls = globals()[block_data["name"]]
-            block_instance = block_cls.import_config(block_data)
-            return block_instance
-
-        # Create top-level Blocks
-        for block_data in config["blocks"]:
-            assert isinstance(block_data, dict)
-            block = build_block(block_data)
-            setattr(agent, block.name.lower(), block)
-        return agent
-
-    @classmethod
-    def import_from_file(cls, filepath: str) -> "Agent":
-        """
-        Load an agent's configuration from a JSON file and initialize the Agent instance.
-
-        - **Args**:
-            - `filepath` (`str`): The path to the JSON file containing the agent's configuration.
-
-        - **Returns**:
-            - `Agent`: An initialized Agent instance configured according to the loaded configuration.
-
-        - **Description**:
-            - Reads the JSON configuration from the given file path.
-            - Delegates the creation of the agent and its blocks to `import_block_config`.
-        """
-        with open(filepath, "r") as f:
-            config = jsonc.load(f)
-            return cls.import_block_config(config)
-
-    def load_from_config(self, config: dict[str, Any]) -> None:
-        """
-        Update the current Agent instance's Block hierarchy using the provided configuration.
-
-        - **Args**:
-            - `config` (`dict[str, Any]`): A dictionary containing the configuration for updating the agent and its blocks.
-
-        - **Returns**:
-            - `None`
-
-        - **Description**:
-            - Updates the base parameters of the current agent instance according to the provided configuration.
-            - Recursively updates or creates top-level Blocks as specified in the configuration.
-            - Raises a `KeyError` if a required Block is not found in the agent.
-        """
-        for field in self.configurable_fields:
-            if field in config["config"]:
-                if config["config"][field] != "default_value":
-                    setattr(self, field, config["config"][field])
-
-        for block_data in config.get("blocks", []):
-            block_name = block_data["name"]
-            existing_block = getattr(self, block_name, None)
-
-            if existing_block:
-                existing_block.load_from_config(block_data)
-            else:
-                raise KeyError(
-                    f"Block '{block_name}' not found in agent '{self.__class__.__name__}'"
-                )
-
-    def load_from_file(self, filepath: str) -> None:
-        """
-        Load configuration from a JSON file and update the current Agent instance.
-
-        - **Args**:
-            - `filepath` (`str`): The path to the JSON file containing the agent's configuration.
-
-        - **Returns**:
-            - `None`
-
-        - **Description**:
-            - Reads the configuration from the specified JSON file.
-            - Uses the `load_from_config` method to apply the loaded configuration to the current Agent instance.
-            - This method is useful for restoring an Agent's state from a saved configuration file.
-        """
-        with open(filepath, "r") as f:
-            config = jsonc.load(f)
-            self.load_from_config(config)
 
     @property
     def id(self):
@@ -418,7 +250,7 @@ class Agent(ABC):
         dialog = []
 
         # Add system prompt
-        system_prompt = "Please answer the survey question in first person. Follow the format requirements strictly and provide clear and specific answers."
+        system_prompt = "Please answer the survey question in first person. Follow the format requirements strictly and provide clear and specific answers (In JSON format)."
         dialog.append({"role": "system", "content": system_prompt})
 
         # Add memory context
@@ -614,6 +446,7 @@ class Agent(ABC):
             - Saves the thought data to the memory.
         """
         day, t = self.environment.get_datetime()
+        await self.memory.stream.add_cognition(thought)
         storage_thought = StorageDialog(
             id=self.id,
             day=day,
@@ -853,6 +686,32 @@ class Agent(ABC):
             - It is intended to be overridden by subclasses to define specific behaviors.
         """
         raise NotImplementedError
+    
+    async def before_forward(self):
+        """
+        Before forward
+        """
+        pass
+
+    async def after_forward(self):
+        """
+        After forward
+        """
+        pass
+
+    async def before_blocks(self):
+        """
+        Before blocks
+        """
+        for block in self.blocks:
+            await block.before_forward()
+
+    async def after_blocks(self):
+        """
+        After blocks
+        """
+        for block in self.blocks:
+            await block.after_forward()
 
     async def run(self) -> Any:
         """
@@ -862,4 +721,14 @@ class Agent(ABC):
             - It calls the `forward` method to execute the agent's behavior logic.
             - Acts as the main control flow for the agent, coordinating when and how the agent performs its actions.
         """
-        return await self.forward()
+        start_time = time.time()
+        # run required methods before agent forward
+        await self.before_forward()
+        await self.before_blocks()
+        # run agent forward
+        await self.forward()
+        # run required methods after agent forward
+        await self.after_blocks()
+        await self.after_forward()
+        end_time = time.time()
+        return end_time - start_time
