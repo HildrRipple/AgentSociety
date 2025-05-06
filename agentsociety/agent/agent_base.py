@@ -31,7 +31,7 @@ __all__ = [
 ]
 
 class AgentParams(BaseModel):
-    pass
+    ...
 
 class AgentToolbox(NamedTuple):
     """
@@ -100,7 +100,7 @@ class Agent(ABC):
         type: AgentType,
         toolbox: AgentToolbox,
         memory: Memory,
-        agent_params: Optional[AgentParams] = None,
+        agent_params: Optional[Any] = None,
         blocks: Optional[list[Block]] = None,
     ) -> None:
         """
@@ -133,9 +133,11 @@ class Agent(ABC):
             self.blocks = blocks
             self.dispatcher = BlockDispatcher(self.llm)
             self.dispatcher.register_blocks(self.blocks)
+        else:
+            self.blocks = []
 
     @classmethod
-    def default_params(cls) -> AgentParams:
+    def default_params(cls) -> ParamsType:
         return cls.ParamsType()
 
     async def init(self):

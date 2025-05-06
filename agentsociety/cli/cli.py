@@ -378,7 +378,8 @@ def repo_init(local: str, remote: str):
     Initialize repository configuration
     """
     if not local:
-        raise click.BadParameter("Local repository path is required")
+        click.echo("Local repository path is not specified, use default path: ./repo")
+        local = "./repo"
     
     click.echo(f"Initializing repository with local path: {local}")
     if remote:
@@ -387,7 +388,7 @@ def repo_init(local: str, remote: str):
     # TODO: Implement repository initialization logic
 
 
-@repo_command.command(name="agent")
+@repo_command.command(name="agents")
 def repo_agent():
     """
     List agents in the repository
@@ -396,7 +397,7 @@ def repo_agent():
     # TODO: Implement agent listing logic
 
 
-@repo_command.command(name="block")
+@repo_command.command(name="blocks")
 def repo_block():
     """
     List blocks in the repository

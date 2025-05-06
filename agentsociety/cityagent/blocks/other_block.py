@@ -1,9 +1,11 @@
 import logging
 import random
+from typing import Optional
 
 import jsonc
 
-from ...agent import Block, FormatPrompt
+from ...agent import Block, FormatPrompt, BlockParams
+from ...environment import Environment
 from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
@@ -18,13 +20,13 @@ class SleepBlock(Block):
         description (str): Human-readable block purpose.
         guidance_prompt (FormatPrompt): Template for generating time estimation prompts.
     """
+    name = "SleepBlock"
+    description = "Handles sleep-related actions"
 
-    def __init__(self, llm: LLM, memory: Memory):
+    def __init__(self, llm: LLM, agent_memory: Optional[Memory] = None):
         super().__init__(
-            "SleepBlock",
             llm=llm,
-            memory=memory,
-            description="Sleep",
+            agent_memory=agent_memory,
         )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
@@ -75,13 +77,13 @@ class OtherNoneBlock(Block):
         description (str): Human-readable block purpose.
         guidance_prompt (FormatPrompt): Template for generating time estimation prompts.
     """
+    name = "OtherNoneBlock"
+    description = "Handles other cases"
 
-    def __init__(self, llm: LLM, memory: Memory):
+    def __init__(self, llm: LLM, agent_memory: Optional[Memory] = None):
         super().__init__(
-            "OtherNoneBlock",
             llm=llm,
-            memory=memory,
-            description="Used to handle other cases",
+            agent_memory=agent_memory,
         )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
@@ -116,6 +118,10 @@ class OtherNoneBlock(Block):
                 "consumed_time": random.randint(1, 180),
                 "node_id": node_id,
             }
+        
+
+class OtherBlockParams(BlockParams):
+    ...
 
 
 class OtherBlock(Block):
@@ -128,15 +134,22 @@ class OtherBlock(Block):
         token_consumption (int): Accumulated LLM token usage.
         dispatcher (BlockDispatcher): Router for selecting appropriate sub-blocks.
     """
+    ParamsType = OtherBlockParams
+    name = "OtherBlock"
+    description = "Orchestration block for managing specialized sub-blocks (SleepBlock/OtherNoneBlock)"
+    actions = None
 
-    sleep_block: SleepBlock
-    other_none_block: OtherNoneBlock
-
-    def __init__(self, llm: LLM, memory: Memory):
-        super().__init__("OtherBlock", llm=llm, memory=memory)
+    def __init__(
+            self, 
+            llm: LLM,
+            environment: Optional[Environment] = None,
+            agent_memory: Optional[Memory] = None,
+            block_params: Optional[OtherBlockParams] = None
+        ):
+        super().__init__(llm=llm, agent_memory=agent_memory, block_params=block_params)
         # init all blocks
-        self.sleep_block = SleepBlock(llm, memory)
-        self.other_none_block = OtherNoneBlock(llm, memory)
+        self.sleep_block = SleepBlock(llm, agent_memory)
+        self.other_none_block = OtherNoneBlock(llm, agent_memory)
         self.trigger_time = 0
         self.token_consumption = 0
         # init dispatcher

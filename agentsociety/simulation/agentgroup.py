@@ -227,15 +227,18 @@ class AgentGroup:
                 base=base,
             )
             # build blocks
-            blocks = [
-                block_type(
-                    llm=self.llm,
-                    environment=self.environment,
-                    agent_memory=memory_init,
-                    block_params=block_params,
-                )
-                for block_type, block_params in blocks.items()
-            ]
+            if blocks is not None:
+                blocks = [
+                    block_type(
+                        llm=self.llm,
+                        environment=self.environment,
+                        agent_memory=memory_init,
+                        block_params=block_params,
+                    )
+                    for block_type, block_params in blocks.items()
+                ]
+            else:
+                blocks = None
             # build agent
             agent = agent_class(
                 id=id,

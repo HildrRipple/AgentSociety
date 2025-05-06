@@ -376,7 +376,7 @@ class AgentSociety:
                 ),
                 mlflow_run_id=self._mlflow.run_id if self._mlflow is not None else None,
             )
-            for agent_id, _, _, _, _ in group_agents:
+            for agent_id, _, _, _, _, _ in group_agents:
                 self._agent_id2group[agent_id] = self._groups[group_id]
         get_logger().info(
             f"groups: len(self._groups)={len(self._groups)}, waiting for groups to init..."

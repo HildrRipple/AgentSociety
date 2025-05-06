@@ -75,7 +75,7 @@ Please response in json format for whatever need adjustment (Do not return any o
 }}
 """
 
-REFLECT_PROMPT = """You are an intelligent agent reflection system. Based on the intervention message below, please help to rebuild the satisfaction levels of the agent.
+REFLECTION_PROMPT = """You are an intelligent agent reflection system. Based on the intervention message below, please help to rebuild the satisfaction levels of the agent.
 
 The agent has received/sense the following intervention message:
 --------------------------------
@@ -117,14 +117,22 @@ class NeedsBlock(Block):
     - Plan execution evaluation and satisfaction adjustments
     """
 
-    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+    def __init__(
+            self, 
+            llm: LLM, 
+            environment: Environment, 
+            agent_memory: Memory,
+            evaluation_prompt: str = EVALUATION_PROMPT,
+            reflection_prompt: str = REFLECTION_PROMPT,
+            initial_prompt: str = INITIAL_NEEDS_PROMPT,
+        ):
         """
         Initialize needs management system.
 
         Args:
             llm: Language model instance for processing prompts
             environment: Simulation environment controller
-            memory: Agent's memory storage interface
+            agent_memory: Agent's memory storage interface
 
         Configuration Parameters:
             alpha_H: Hunger satisfaction decay rate per hour (default: 0.15)
@@ -136,10 +144,10 @@ class NeedsBlock(Block):
             T_P: Safety threshold for triggering need (default: 0.2)
             T_C: Social threshold for triggering need (default: 0.3)
         """
-        super().__init__("NeedsBlock", llm=llm, environment=environment, memory=memory)
-        self.evaluation_prompt = FormatPrompt(EVALUATION_PROMPT)
-        self.initial_prompt = FormatPrompt(INITIAL_NEEDS_PROMPT)
-        self.reflect_prompt = FormatPrompt(REFLECT_PROMPT)
+        super().__init__(llm=llm, environment=environment, agent_memory=agent_memory)
+        self.evaluation_prompt = FormatPrompt(evaluation_prompt)
+        self.initial_prompt = FormatPrompt(initial_prompt)
+        self.reflection_prompt = FormatPrompt(reflection_prompt)
         self.need_work = True
         self.now_day = -1
         self.last_evaluation_time = None
@@ -249,7 +257,7 @@ class NeedsBlock(Block):
             if current_action["intention"] != ""
             else "None"
         )
-        self.reflect_prompt.format(
+        self.reflection_prompt.format(
             intervention_message=intervention,
             current_action=action_message,
             hunger_satisfaction=await self.memory.status.get("hunger_satisfaction"),
@@ -258,7 +266,7 @@ class NeedsBlock(Block):
             social_satisfaction=await self.memory.status.get("social_satisfaction"),
         )
         response = await self.llm.atext_request(
-            self.reflect_prompt.to_dialog(), response_format={"type": "json_object"}
+            self.reflection_prompt.to_dialog(), response_format={"type": "json_object"}
         )
         try:
             reflection = jsonc.loads(clean_json_response(response))  #

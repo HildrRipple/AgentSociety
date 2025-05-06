@@ -3,7 +3,8 @@ import random
 
 from openai.types.chat import ChatCompletionToolParam
 
-from . import Block, FormatPrompt
+from .block import Block
+from .prompt import FormatPrompt
 from ..llm import LLM
 from ..logger import get_logger
 
@@ -12,7 +13,7 @@ Based on the task information (which describes the needs of the user), select th
 Each block has its specific functionality as described in the function schema.
         
 Task information:
-{step}
+{intention}
 """
 
 
@@ -25,7 +26,7 @@ class BlockDispatcher:
         prompt: Formatted prompt template for LLM instructions
     """
 
-    def __init__(self, llm: LLM):
+    def __init__(self, llm: LLM, selection_prompt: str = DISPATCHER_PROMPT):
         """Initialize dispatcher with LLM interface.
 
         Args:
@@ -33,7 +34,7 @@ class BlockDispatcher:
         """
         self.llm = llm
         self.blocks: dict[str, Block] = {}
-        self.prompt = FormatPrompt(DISPATCHER_PROMPT)
+        self.prompt = FormatPrompt(selection_prompt)
 
     def register_blocks(self, blocks: list[Block]) -> None:
         """Register multiple processing blocks for dispatching.
@@ -107,7 +108,7 @@ class BlockDispatcher:
                 tool_choice={"type": "function", "function": {"name": "select_block"}},
             )
 
-            selected_block = function_args.get("block_name")  #
+            selected_block = function_args.get("block_name")
 
             if selected_block not in self.blocks:
                 raise ValueError(

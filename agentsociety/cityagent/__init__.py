@@ -11,6 +11,10 @@ from .memory_config import (
     DEFAULT_DISTRIBUTIONS,
 )
 from ..agent.distribution import Distribution, DistributionConfig
+from ..cityagent.blocks.mobility_block import MobilityBlock, MobilityBlockParams
+from ..cityagent.blocks.economy_block import EconomyBlock, EconomyBlockParams
+from ..cityagent.blocks.social_block import SocialBlock, SocialBlockParams
+from ..cityagent.blocks.other_block import OtherBlock, OtherBlockParams
 from ..configs import (
     Config,
     AgentClassType,
@@ -54,6 +58,13 @@ def _fill_in_agent_class_and_memory_config(self: AgentConfig):
             if self.memory_distributions is not None:
                 distributions.update(self.memory_distributions)
             self.memory_distributions = distributions
+            if self.blocks is None:
+                self.blocks = {
+                    MobilityBlock: MobilityBlockParams(),
+                    EconomyBlock: EconomyBlockParams(),
+                    SocialBlock: SocialBlockParams(),
+                    OtherBlock: OtherBlockParams(),
+                }
         elif self.agent_class == AgentClassType.FIRM:
             self.agent_class = FirmAgent
             if self.memory_config_func is None:

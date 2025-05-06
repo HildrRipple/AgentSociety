@@ -2,13 +2,14 @@ import logging
 import math
 import random
 from operator import itemgetter
-from typing import Any
+from typing import Any, Optional
 
 import jsonc
 import numpy as np
+from pydantic import Field
 import ray
 
-from ...agent import Block, FormatPrompt
+from ...agent import Block, FormatPrompt, BlockParams
 from ...environment import Environment
 from ...llm import LLM
 from ...logger import get_logger
@@ -163,23 +164,21 @@ class PlaceSelectionBlock(Block):
         search_limit: Max number of POIs to retrieve from map service
     """
 
-    configurable_fields = ["search_limit"]
-    default_values = {"search_limit": 50}
+    name = "PlaceSelectionBlock"
+    description = "Selects destinations for unknown locations (excluding home/work)"
 
-    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+    def __init__(self, llm: LLM, environment: Environment, agent_memory: Memory, search_limit: int = 50):
         super().__init__(
-            "PlaceSelectionBlock",
             llm=llm,
             environment=environment,
-            memory=memory,
-            description="Selects destinations for unknown locations (excluding home/work)",
+            agent_memory=agent_memory,
         )
         self.typeSelectionPrompt = FormatPrompt(PLACE_TYPE_SELECTION_PROMPT)
         self.secondTypeSelectionPrompt = FormatPrompt(
             PLACE_SECOND_TYPE_SELECTION_PROMPT
         )
         self.radiusPrompt = FormatPrompt(RADIUS_PROMPT)
-        self.search_limit = 50  # Default config value
+        self.search_limit = search_limit  # Default config value
 
     async def forward(self, step, context):
         """Execute the destination selection workflow"""
@@ -276,14 +275,14 @@ class PlaceSelectionBlock(Block):
 
 class MoveBlock(Block):
     """Block for executing mobility operations (home/work/other)"""
+    name = "MoveBlock"
+    description = "Executes mobility operations between locations"
 
-    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+    def __init__(self, llm: LLM, environment: Environment, agent_memory: Memory):
         super().__init__(
-            "MoveBlock",
             llm=llm,
             environment=environment,
-            memory=memory,
-            description="Executes mobility operations between locations",
+            agent_memory=agent_memory,
         )
         self.placeAnalysisPrompt = FormatPrompt(PLACE_ANALYSIS_PROMPT)
 
@@ -448,13 +447,13 @@ class MobilityNoneBlock(Block):
     """
     MobilityNoneBlock
     """
+    name = "MobilityNoneBlock"
+    description = "Handles other mobility operations"
 
-    def __init__(self, llm: LLM, memory: Memory):
+    def __init__(self, llm: LLM, agent_memory: Memory):
         super().__init__(
-            "MobilityNoneBlock",
             llm=llm,
-            memory=memory,
-            description="Handles completed mobility operations",
+            agent_memory=agent_memory,
         )
 
     async def forward(self, step, context):
@@ -469,26 +468,33 @@ class MobilityNoneBlock(Block):
             "node_id": node_id,
         }
 
+class MobilityBlockParams(BlockParams):
+    search_limit: int = Field(default=50, description="Number of POIs to retrieve from map service")
+
 
 class MobilityBlock(Block):
     """
     Main mobility coordination block.
-
-    Orchestrates:
-    - PlaceSelectionBlock: Destination selection
-    - MoveBlock: Physical movement
-    - MobilityNoneBlock: Completion handling
-    Uses BlockDispatcher to route requests to appropriate sub-blocks.
     """
+    ParamsType = MobilityBlockParams
+    name = "MobilityBlock"
+    description = "Main mobility coordination block"
+    actions = None
 
-    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+    def __init__(
+            self, 
+            llm: LLM, 
+            environment: Environment, 
+            agent_memory: Memory, 
+            block_params: Optional[MobilityBlockParams] = None
+        ):
         super().__init__(
-            "MobilityBlock", llm=llm, environment=environment, memory=memory
+            llm=llm, environment=environment, agent_memory=agent_memory, block_params=block_params
         )
         # initialize all blocks
-        self.place_selection_block = PlaceSelectionBlock(llm, environment, memory)
-        self.move_block = MoveBlock(llm, environment, memory)
-        self.mobility_none_block = MobilityNoneBlock(llm, memory)
+        self.place_selection_block = PlaceSelectionBlock(llm, environment, agent_memory, self.params.search_limit)
+        self.move_block = MoveBlock(llm, environment, agent_memory)
+        self.mobility_none_block = MobilityNoneBlock(llm, agent_memory)
         self.trigger_time = 0  # Block invocation counter
         self.token_consumption = 0  # LLM token tracker
 

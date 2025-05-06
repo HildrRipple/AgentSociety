@@ -138,11 +138,14 @@ class PlanBlock(Block):
         max_plan_steps: Maximum allowed steps in generated plans (configurable)
     """
 
-    configurable_fields: list[str] = ["max_plan_steps"]
-    default_values = {"max_plan_steps": 6}
-    fields_description = {"max_plan_steps": "The maximum number of steps in a plan"}
-
-    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+    def __init__(
+            self, 
+            llm: LLM, 
+            environment: Environment, 
+            agent_memory: Memory, 
+            max_plan_steps: int = 6,
+            detailed_plan_prompt: str = DETAILED_PLAN_PROMPT,
+        ):
         """Initialize PlanBlock with required components.
 
         Args:
@@ -150,9 +153,9 @@ class PlanBlock(Block):
             environment: Environment for contextual data
             memory: Agent's memory storage for status tracking
         """
-        super().__init__("PlanBlock", llm=llm, environment=environment, memory=memory)
+        super().__init__(llm=llm, environment=environment, agent_memory=agent_memory)
         self.guidance_prompt = FormatPrompt(template=GUIDANCE_SELECTION_PROMPT)
-        self.detail_prompt = FormatPrompt(template=DETAILED_PLAN_PROMPT)
+        self.detail_prompt = FormatPrompt(template=detailed_plan_prompt)
         self.trigger_time = 0
         self.token_consumption = 0
         self.guidance_options = {
@@ -164,7 +167,7 @@ class PlanBlock(Block):
         }
 
         # configurable fields
-        self.max_plan_steps = 6
+        self.max_plan_steps = max_plan_steps
 
     async def select_guidance(self, current_need: str) -> Optional[Tuple[dict, str]]:
         """Select optimal guidance option using Theory of Planned Behavior evaluation.

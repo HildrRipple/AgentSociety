@@ -174,7 +174,7 @@ class Block:
         llm: Optional[LLM] = None,
         environment: Optional[Environment] = None,
         agent_memory: Optional[Memory] = None,
-        block_params: Optional[BlockParams] = None,
+        block_params: Optional[Any] = None,
     ):
         """
         - **Description**:
@@ -202,7 +202,7 @@ class Block:
                 setattr(self, key, value)
 
     @classmethod
-    def default_params(cls) -> BlockParams:
+    def default_params(cls) -> ParamsType:
         return cls.ParamsType()
 
     @property
@@ -210,6 +210,14 @@ class Block:
         if self._llm is None:
             raise RuntimeError(f"LLM access before assignment, please `set_llm` first!")
         return self._llm
+    
+    @property
+    def memory(self) -> Memory:
+        if self._agent_memory is None:
+            raise RuntimeError(
+                f"Memory access before assignment, please `set_memory` first!"
+            )
+        return self._agent_memory
 
     @property
     def agent_memory(self) -> Memory:

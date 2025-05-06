@@ -8,8 +8,9 @@ from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from ..environment.sim.person_service import PersonService
 from ..logger import get_logger
 from ..memory import Memory
-from .agent_base import Agent, AgentToolbox, AgentType, AgentParams
+from .agent_base import Agent, AgentToolbox, AgentType
 from .block import Block
+
 __all__ = [
     "CitizenAgentBase",
     "FirmAgentBase",
@@ -38,7 +39,7 @@ class CitizenAgentBase(Agent):
         name: str,
         toolbox: AgentToolbox,
         memory: Memory,
-        agent_params: Optional[AgentParams] = None,
+        agent_params: Optional[Any] = None,
         blocks: Optional[list[Block]] = None,
     ) -> None:
         """
@@ -166,6 +167,15 @@ class CitizenAgentBase(Agent):
         }
         await self._send_message(sender_id, payload, "gather")
 
+    async def before_forward(self):
+        """
+        Before forward.
+        """
+        await super().before_forward()
+        # sync agent status with simulator
+        await self.update_motion()
+        get_logger().debug(f"Agent {self.id}: Finished main workflow - update motion")
+
 
 class InstitutionAgentBase(Agent):
     """
@@ -187,7 +197,7 @@ class InstitutionAgentBase(Agent):
         name: str,
         toolbox: AgentToolbox,
         memory: Memory,
-        agent_params: Optional[AgentParams] = None,
+        agent_params: Optional[Any] = None,
         blocks: Optional[list[Block]] = None,
     ):
         """
