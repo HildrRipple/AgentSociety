@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_valid
 
 from ..agent import Agent, Block
 from ..agent.distribution import Distribution, DistributionConfig
-from ..cityagent.blocks import MobilityBlock, EconomyBlock, SocialBlock, OtherBlock
 
 __all__ = [
     "AgentConfig",
@@ -26,14 +25,6 @@ class AgentClassType(str, Enum):
     GOVERNMENT = "government"
     BANK = "bank"
     NBS = "nbs"
-
-# TODO: 暂时使用
-BLOCK_MAPPING = {
-    "mobilityblock": MobilityBlock,
-    "economyblock": EconomyBlock,
-    "socialblock": SocialBlock,
-    "otherblock": OtherBlock,
-}
 
 class BlockClassType(str, Enum):
     """
@@ -108,14 +99,3 @@ class AgentConfig(BaseModel):
                 else:
                     result[key] = value
             return result
-        
-    @model_validator(mode="after")
-    def validate_func(self):
-        if self.blocks is not None:
-            blocks = {}
-            for key, value in self.blocks.items():
-                if isinstance(key, str):
-                    value_ = BLOCK_MAPPING[key].ParamsType(**value)
-                    blocks[BLOCK_MAPPING[key]] = value_
-            self.blocks = blocks
-        return self

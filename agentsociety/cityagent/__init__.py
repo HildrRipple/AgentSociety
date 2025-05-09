@@ -45,10 +45,20 @@ __all__ = [
 ]
 
 
+BLOCK_MAPPING = {
+    "mobilityblock": MobilityBlock,
+    "economyblock": EconomyBlock,
+    "socialblock": SocialBlock,
+    "otherblock": OtherBlock,
+}
+
+
 def _fill_in_agent_class_and_memory_config(self: AgentConfig):
     if isinstance(self.agent_class, str):
         if self.agent_class == AgentClassType.CITIZEN:
             self.agent_class = SocietyAgent
+            if self.agent_params is not None:
+                self.agent_params = SocietyAgent.ParamsType(**self.agent_params)
             if self.memory_config_func is None:
                 self.memory_config_func = memory_config_societyagent
             distributions = cast(
@@ -65,20 +75,36 @@ def _fill_in_agent_class_and_memory_config(self: AgentConfig):
                     SocialBlock: SocialBlockParams(),
                     OtherBlock: OtherBlockParams(),
                 }
+            else:
+                for key, value in self.blocks.items():
+                    blocks = {}
+                    if isinstance(key, str):
+                        blocks[BLOCK_MAPPING[key]] = BLOCK_MAPPING[key].ParamsType(**value)
+                    else:
+                        blocks[key] = value
+                    self.blocks = blocks
         elif self.agent_class == AgentClassType.FIRM:
             self.agent_class = FirmAgent
+            if self.agent_params is not None:
+                self.agent_params = FirmAgent.ParamsType(**self.agent_params)
             if self.memory_config_func is None:
                 self.memory_config_func = memory_config_firm
         elif self.agent_class == AgentClassType.GOVERNMENT:
             self.agent_class = GovernmentAgent
+            if self.agent_params is not None:
+                self.agent_params = GovernmentAgent.ParamsType(**self.agent_params)
             if self.memory_config_func is None:
                 self.memory_config_func = memory_config_government
         elif self.agent_class == AgentClassType.BANK:
             self.agent_class = BankAgent
+            if self.agent_params is not None:
+                self.agent_params = BankAgent.ParamsType(**self.agent_params)
             if self.memory_config_func is None:
                 self.memory_config_func = memory_config_bank
         elif self.agent_class == AgentClassType.NBS:
             self.agent_class = NBSAgent
+            if self.agent_params is not None:
+                self.agent_params = NBSAgent.ParamsType(**self.agent_params)
             if self.memory_config_func is None:
                 self.memory_config_func = memory_config_nbs
         else:
