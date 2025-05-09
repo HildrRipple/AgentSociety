@@ -84,6 +84,9 @@ class AgentsConfig(BaseModel):
     )
     """Government Agent configuration"""
 
+    others: list[AgentConfig] = Field([])
+    """Other Agent configuration"""
+
     init_funcs: list[Callable[[Any], Union[None, Awaitable[None]]]] = Field([])
     """Initialization functions for simulation, the only one argument is the AgentSociety object"""
 

@@ -1,10 +1,7 @@
 import re
-from typing import Optional, Union, overload
+from typing import Any, Optional, Union, overload
 
 from openai.types.chat import ChatCompletionMessageParam
-
-from .agent import Agent
-from .block import Block
 
 
 class FormatPrompt:
@@ -43,7 +40,7 @@ class FormatPrompt:
         """
         return re.findall(r"\{(\w+)\}", self.template)
 
-    def format(self, agent: Optional[Agent] = None, block: Optional[Block] = None, **kwargs) -> str:
+    def format(self, agent: Optional[Any] = None, block: Optional[Any] = None, **kwargs) -> str:
         """
         - **Description**:
             - Formats the template string using the provided agent, block, or keyword arguments.

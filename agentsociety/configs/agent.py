@@ -5,18 +5,17 @@ import logging
 from collections.abc import Callable
 from typing import Any, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from ..agent import Agent, Block
 from ..agent.distribution import Distribution, DistributionConfig
-from ..agent.agent_base import AgentParams
-from ..agent.block import BlockParams
+from ..cityagent.blocks import MobilityBlock, EconomyBlock, SocialBlock, OtherBlock
 
 __all__ = [
     "AgentConfig",
 ]
 
-
+# TODO: 同BlockClassType
 class AgentClassType(str, Enum):
     """
     Defines the types of agent class types.
@@ -28,6 +27,23 @@ class AgentClassType(str, Enum):
     BANK = "bank"
     NBS = "nbs"
 
+# TODO: 暂时使用
+BLOCK_MAPPING = {
+    "mobilityblock": MobilityBlock,
+    "economyblock": EconomyBlock,
+    "socialblock": SocialBlock,
+    "otherblock": OtherBlock,
+}
+
+class BlockClassType(str, Enum):
+    """
+    Defines the types of block class types.
+    """
+
+    MOBILITYBLOCK = "mobilityblock"
+    ECONOMYBLOCK = "economyblock"
+    SOCIALBLOCK = "socialblock"
+    OTHERBLOCK = "otherblock"
 
 class AgentConfig(BaseModel):
     """Configuration for different types of agents in the simulation."""
@@ -44,10 +60,10 @@ class AgentConfig(BaseModel):
     number: int = Field(gt=0)
     """The number of agents"""
 
-    agent_params: Optional[AgentParams] = None
+    agent_params: Optional[Any] = None
     """Agent configuration"""
 
-    blocks: Optional[dict[type[Block], BlockParams]] = None
+    blocks: Optional[dict[Union[type[Block], BlockClassType], Any]] = None
     """Blocks configuration"""
 
     # Choose one of the following:
@@ -92,3 +108,14 @@ class AgentConfig(BaseModel):
                 else:
                     result[key] = value
             return result
+        
+    @model_validator(mode="after")
+    def validate_func(self):
+        if self.blocks is not None:
+            blocks = {}
+            for key, value in self.blocks.items():
+                if isinstance(key, str):
+                    value_ = BLOCK_MAPPING[key].ParamsType(**value)
+                    blocks[BLOCK_MAPPING[key]] = value_
+            self.blocks = blocks
+        return self
