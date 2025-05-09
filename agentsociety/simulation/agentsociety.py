@@ -357,38 +357,34 @@ class AgentSociety:
         )
         environment_init = self._environment.to_init_args()
         assert group_size != "auto"
-        try:
-            for i in range(0, len(agents), group_size):
-                group_agents = agents[i : i + group_size]
-                group_id = str(uuid.uuid4())
-                self._groups[group_id] = AgentGroup.remote(
-                    tenant_id=self.tenant_id,  # type:ignore
-                    exp_name=self.name,
-                    exp_id=self.exp_id,
-                    group_id=group_id,
-                    config=self._config,
-                    agent_inits=group_agents,
-                    environment_init=environment_init,
-                    message_interceptor=self._messager.message_interceptor,
-                    pgsql_writer=(
-                        self._pgsql_writers[i % len(self._pgsql_writers)]
-                        if len(self._pgsql_writers) > 0
-                        else None
-                    ),
-                    mlflow_run_id=self._mlflow.run_id if self._mlflow is not None else None,
-                )
-                for agent_id, _, _, _, _, _ in group_agents:
-                    self._agent_id2group[agent_id] = self._groups[group_id]
-            get_logger().info(
-                f"groups: len(self._groups)={len(self._groups)}, waiting for groups to init..."
+        for i in range(0, len(agents), group_size):
+            group_agents = agents[i : i + group_size]
+            group_id = str(uuid.uuid4())
+            self._groups[group_id] = AgentGroup.remote(
+                tenant_id=self.tenant_id,  # type:ignore
+                exp_name=self.name,
+                exp_id=self.exp_id,
+                group_id=group_id,
+                config=self._config,
+                agent_inits=group_agents,
+                environment_init=environment_init,
+                message_interceptor=self._messager.message_interceptor,
+                pgsql_writer=(
+                    self._pgsql_writers[i % len(self._pgsql_writers)]
+                    if len(self._pgsql_writers) > 0
+                    else None
+                ),
+                mlflow_run_id=self._mlflow.run_id if self._mlflow is not None else None,
             )
-            await asyncio.gather(
-                *[group.init.remote() for group in self._groups.values()]  # type:ignore
-            )
-            get_logger().info(f"Agent groups initialized")
-        except Exception as e:
-            get_logger().error(f"Error initializing agent groups: {e}")
-            raise e
+            for agent_id, _, _, _, _, _ in group_agents:
+                self._agent_id2group[agent_id] = self._groups[group_id]
+        get_logger().info(
+            f"groups: len(self._groups)={len(self._groups)}, waiting for groups to init..."
+        )
+        await asyncio.gather(
+            *[group.init.remote() for group in self._groups.values()]  # type:ignore
+        )
+        get_logger().info(f"Agent groups initialized")
         # step 1 tick to make the initialization complete
         await self.environment.step(1)
         get_logger().info(f"run 1 tick to make the initialization complete")

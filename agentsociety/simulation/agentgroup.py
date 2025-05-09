@@ -73,33 +73,56 @@ class AgentGroup:
         Initialize the AgentGroupV2.
 
         """
-        set_logger_level(config.advanced.logging_level.upper())
+        try:
+            get_logger().info("Starting AgentGroup initialization...")
+            set_logger_level(config.advanced.logging_level.upper())
 
-        self._tenant_id = tenant_id
-        self._exp_name = exp_name
-        self._exp_id = exp_id
-        self._group_id = group_id
-        self._config = config
-        self._agent_inits = agent_inits
-        self._environment_init = environment_init
-        self._pgsql_writer = pgsql_writer
-        self._message_interceptor = message_interceptor
-        self._mlflow_run_id = mlflow_run_id
-        self._agent_config_file = agent_config_file
-        self._embedding_model = init_embedding(config.advanced.embedding_model)
-        self._faiss_query = FaissQuery(self._embedding_model)
+            self._tenant_id = tenant_id
+            get_logger().debug(f"Set tenant_id: {tenant_id}")
+            self._exp_name = exp_name
+            get_logger().debug(f"Set exp_name: {exp_name}")
+            self._exp_id = exp_id
+            get_logger().debug(f"Set exp_id: {exp_id}")
+            self._group_id = group_id
+            get_logger().debug(f"Set group_id: {group_id}")
+            self._config = config
+            get_logger().debug(f"Config loaded")
+            self._agent_inits = agent_inits
+            get_logger().debug(f"Agent inits loaded, count: {len(agent_inits)}")
+            self._environment_init = environment_init
+            get_logger().debug(f"Environment init loaded")
+            self._pgsql_writer = pgsql_writer
+            get_logger().debug(f"PGSQL writer reference set")
+            self._message_interceptor = message_interceptor
+            get_logger().debug(f"Message interceptor reference set")
+            self._mlflow_run_id = mlflow_run_id
+            get_logger().debug(f"MLflow run ID set: {mlflow_run_id}")
+            self._agent_config_file = agent_config_file
+            get_logger().debug(f"Agent config file loaded")
+            
+            get_logger().info("Initializing embedding model...")
+            self._embedding_model = init_embedding(config.advanced.embedding_model)
+            get_logger().debug(f"Embedding model initialized")
+            self._faiss_query = FaissQuery(self._embedding_model)
+            get_logger().debug(f"FAISS query initialized")
 
-        # typing definition
-        self._llm: Optional[LLM] = None
-        self._environment: Optional[Environment] = None
-        self._messager: Optional[Messager] = None
-        self._avro_saver: Optional[AvroSaver] = None
-        self._mlflow_client: Optional[MlflowClient] = None
+            # typing definition
+            self._llm = None
+            self._environment = None
+            self._messager = None
+            self._avro_saver = None
+            self._mlflow_client = None
 
-        self._agents: list[Agent] = []
-        self._id2agent: dict[int, Agent] = {}
-        self._message_dispatch_task: Optional[asyncio.Task] = None
-        self._last_asyncio_pg_task: Optional[asyncio.Task] = None
+            self._agents = []
+            self._id2agent = {}
+            self._message_dispatch_task = None
+            self._last_asyncio_pg_task = None
+            get_logger().info("AgentGroup initialization completed successfully")
+        except Exception as e:
+            get_logger().error(f"Error in AgentGroup.__init__: {str(e)}")
+            import traceback
+            get_logger().error(f"Traceback: {traceback.format_exc()}")
+            raise
 
     # ====================
     # Property Accessors
@@ -226,7 +249,7 @@ class AgentGroup:
                 profile=profile,
                 base=base,
             )
-            # build blocks
+            # # build blocks
             if blocks is not None:
                 blocks = [
                     block_type(
