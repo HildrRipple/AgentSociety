@@ -165,7 +165,7 @@ class CitizenAgentBase(Agent):
             "from": self.id,
             "content": content,
         }
-        await self._send_message(sender_id, payload, "gather")
+        await self._send_message(sender_id, payload, "gather_receive")
 
     async def before_forward(self):
         """
@@ -221,8 +221,6 @@ class InstitutionAgentBase(Agent):
             agent_params=agent_params,
             blocks=blocks,
         )
-        # add response collector
-        self._gather_responses: dict[int, asyncio.Future] = {}
 
     async def init(self):
         """
@@ -328,70 +326,6 @@ class InstitutionAgentBase(Agent):
             - React to an intervention.
         """
         ...
-
-    async def handle_gather_message(self, payload: dict):
-        """
-        Handle a gather message received by the agent.
-
-        - **Args**:
-            - `payload` (`dict`): The message payload containing the content and sender ID.
-
-        - **Description**:
-            - Extracts the content and sender ID from the payload.
-            - Stores the response in the corresponding Future object using the sender ID as the key.
-        """
-        content = payload["content"]
-        sender_id = payload["from"]
-
-        # Store the response into the corresponding Future
-        response_key = sender_id
-        if response_key in self._gather_responses:
-            self._gather_responses[response_key].set_result(
-                {
-                    "from": sender_id,
-                    "content": content,
-                }
-            )
-
-    async def gather_messages(self, agent_ids: list[int], target: str) -> list[Any]:
-        """
-        Gather messages from multiple agents.
-
-        - **Args**:
-            - `agent_ids` (`list[int]`): A list of IDs for the target agents.
-            - `target` (`str`): The type of information to collect from each agent.
-
-        - **Returns**:
-            - `list[Any]`: A list of collected responses.
-
-        - **Description**:
-            - For each agent ID provided, creates a `Future` object to wait for its response.
-            - Sends a gather request to each specified agent.
-            - Waits for all responses and returns them as a list of dictionaries.
-            - Ensures cleanup of Futures after collecting responses.
-        """
-        # Create a Future for each agent
-        futures = {}
-        for agent_id in agent_ids:
-            futures[agent_id] = asyncio.Future()
-            self._gather_responses[agent_id] = futures[agent_id]  
-
-        # Send gather requests
-        payload = {
-            "from": self.id,
-            "target": target,
-        }
-        for agent_id in agent_ids:
-            await self._send_message(agent_id, payload, "gather")
-
-        try:
-            # Wait for all responses
-            responses = await asyncio.gather(*futures.values())
-            return responses
-        finally:
-            # Cleanup Futures
-            for key in futures:
-                self._gather_responses.pop(key, None)
 
 
 class FirmAgentBase(InstitutionAgentBase):

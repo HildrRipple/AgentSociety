@@ -1,7 +1,10 @@
 import re
-from typing import Optional, Union
+from typing import Optional, Union, overload
 
 from openai.types.chat import ChatCompletionMessageParam
+
+from .agent import Agent
+from .block import Block
 
 
 class FormatPrompt:
@@ -40,12 +43,14 @@ class FormatPrompt:
         """
         return re.findall(r"\{(\w+)\}", self.template)
 
-    def format(self, **kwargs) -> str:
+    def format(self, agent: Optional[Agent] = None, block: Optional[Block] = None, **kwargs) -> str:
         """
         - **Description**:
-            - Formats the template string using the provided keyword arguments.
+            - Formats the template string using the provided agent, block, or keyword arguments.
 
         - **Args**:
+            - `agent` (Optional[Agent]): Agent object containing attributes to format the template.
+            - `block` (Optional[Block]): Block object containing attributes to format the template.
             - `**kwargs`: Variable names and their corresponding values to format the template.
 
         - **Returns**:
@@ -54,12 +59,30 @@ class FormatPrompt:
         - **Raises**:
             - `KeyError`: If a placeholder in the template does not have a corresponding key in kwargs.
         """
-        filtered_kwargs = {
-            key: value for key, value in kwargs.items() if key in self.variables
-        }
-        self.formatted_string = self.template.format(
-            **filtered_kwargs
-        )  # Store the formatted string
+        # Create a dictionary to hold all formatting variables
+        format_vars = {}
+        
+        # Extract variables from agent if provided
+        if agent is not None:
+            # Add agent attributes that match template variables
+            for var in self.variables:
+                if var in agent.__class__.get_functions:
+                    format_vars[var] = agent._getx(var)
+        
+        # Extract variables from block if provided
+        if block is not None:
+            # Add block attributes that match template variables
+            for var in self.variables:
+                if var in block.__class__.get_functions:
+                    format_vars[var] = block._getx(var)
+        
+        # Add any explicitly provided kwargs, these take precedence
+        for key, value in kwargs.items():
+            if key in self.variables:
+                format_vars[key] = value
+        
+        # Format the template with the collected variables
+        self.formatted_string = self.template.format(**format_vars)
         return self.formatted_string
 
     def to_dialog(self) -> list[ChatCompletionMessageParam]:

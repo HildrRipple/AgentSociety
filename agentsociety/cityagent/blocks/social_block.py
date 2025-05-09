@@ -423,7 +423,11 @@ class SocialBlock(Block):
     ParamsType = SocialBlockParams
     name = "SocialBlock"
     description = "Orchestrates social interactions by dispatching to appropriate sub-blocks."
-    actions = None
+    actions = {
+        "find_person": "Support the find person action, determine the social target.",
+        "message": "Support the message action, send a message to the social target.",
+        "social_none": "Support other social operations",
+    }
 
     def __init__(
             self, 

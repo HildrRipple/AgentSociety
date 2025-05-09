@@ -248,7 +248,11 @@ class EconomyBlock(Block):
     ParamsType = EconomyBlockParams
     name = "EconomyBlock"
     description = "Orchestrates economic activities through specialized actions"
-    actions = None
+    actions = {
+        "work": "Support the work action",
+        "consume": "Support the consume action",
+        "economy_none": "Support other economic operations",
+    }
 
     def __init__(
         self,

@@ -479,7 +479,11 @@ class MobilityBlock(Block):
     ParamsType = MobilityBlockParams
     name = "MobilityBlock"
     description = "Main mobility coordination block"
-    actions = None
+    actions = {
+        "place_selection": "Support the place selection action",
+        "move": "Support the move action",
+        "mobility_none": "Support other mobility operations",
+    }
 
     def __init__(
             self, 

@@ -137,7 +137,10 @@ class OtherBlock(Block):
     ParamsType = OtherBlockParams
     name = "OtherBlock"
     description = "Orchestration block for managing specialized sub-blocks (SleepBlock/OtherNoneBlock)"
-    actions = None
+    actions = {
+        "sleep": "Support the sleep action",
+        "other": "Support other actions",
+    }
 
     def __init__(
             self, 

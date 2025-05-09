@@ -34,6 +34,21 @@ class SocialAgentConfig(AgentParams):
 
 class SocietyAgent(CitizenAgentBase):
     ParamsType = SocialAgentConfig
+    description: str = """
+A social agent that can interact with other agents and the environment.
+The main workflow includes:
+1. Agent needs determination (based on Maxlow's Hierarchy Needs) —— including hunger needs, safety needs, social needs and emergency needs)
+2. Plan generation (The citizen generate a detailed plan based on the needs)
+3. Step execution (The citizen execute the action based on the generated plan)
+
+Notice: The capability of citizen is controled by the BLOCKS (defaultly, it contains 4 blocks:
+1). MobilityBlock: endow the citizen with the ability to move around the city
+2). EconomyBlock: endow the citizen with the ability to shoping and working
+3). SocialBlock: endow the citizen with the ability to socializing with other citizens
+4). OtherBlocks: handle other intentions (e.g., cooking, sleeping, etc.)
+
+You can add more blocks to the citizen as you wish to adapt to the different scenarios. We strongly recommend you keep the default blocks as they are.
+"""
 
     """Agent implementation with configurable cognitive/behavioral modules and social interaction capabilities."""
     def __init__(

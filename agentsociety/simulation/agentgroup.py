@@ -432,6 +432,8 @@ class AgentGroup:
                             await agent.handle_user_survey_message(payload)
                         elif topic_type == "gather":
                             await agent.handle_gather_message(payload)
+                        elif topic_type == "gather_receive":
+                            await agent.handle_gather_receive_message(payload)
             except Exception as e:
                 get_logger().error(f"Error dispatching message: {e}")
                 import traceback

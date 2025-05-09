@@ -67,7 +67,9 @@ class BankAgent(BankAgentBase):
     - time_diff: Frequency of policy updates in simulation seconds (default: 30 days)
     """
     ParamsType = BankAgentConfig
-
+    description: str = """
+The central banking agent that manages monetary policy in the simulation.
+    """
     def __init__(
         self,
         id: int,

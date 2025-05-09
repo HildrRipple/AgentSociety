@@ -23,6 +23,9 @@ class GovernmentAgentConfig(AgentParams):
 class GovernmentAgent(GovernmentAgentBase):
     """A government institution agent that handles periodic economic operations such as tax collection."""
     ParamsType = GovernmentAgentConfig
+    description: str = """
+A government institution agent that handles periodic economic operations such as tax collection.
+    """
 
     def __init__(
         self,

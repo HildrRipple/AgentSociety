@@ -22,6 +22,7 @@ from ..message import Messager
 from ..metrics import MlflowClient
 from ..storage import AvroSaver, StorageDialog, StorageSurvey
 from ..survey.models import Survey
+from .decorator import register_get
 from .block import Block
 from .dispatcher import BlockDispatcher
 
@@ -91,7 +92,9 @@ class Agent(ABC):
     """
     Agent base class
     """
-    ParamsType = AgentParams
+    ParamsType = AgentParams  # Determine agent parameters
+    description: str = ""  # Agent description: How this agent works
+    get_functions: dict[str, dict[str, Any]] = {}  # GET functions: What this agent can do
 
     def __init__(
         self,
@@ -120,6 +123,7 @@ class Agent(ABC):
         self._memory = memory
 
         self._last_asyncio_pg_task = None  # Hide SQL writes behind computational tasks
+        self._gather_responses: dict[int, asyncio.Future] = {}
 
         # parse agent_params
         if agent_params is None:
@@ -139,6 +143,45 @@ class Agent(ABC):
     @classmethod
     def default_params(cls) -> ParamsType:
         return cls.ParamsType()
+    
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Create a new dictionary that inherits from parent
+        cls.ff = dict(cls.__base__.ff) if hasattr(cls.__base__, 'ff') else {} # type: ignore
+        
+        # Register all methods with _register_info
+        for name, method in cls.__dict__.items():
+            if hasattr(method, '_register_info'):
+                info = method._register_info
+                cls.ff[info["function_name"]] = {
+                    "description": info["description"],
+                    "callable": lambda self, f=info["original_method"], *args, **kwargs: f(self, *args, **kwargs)
+                }
+
+    async def _getx(self, function_name: str, *args, **kwargs):
+        """
+        Calls a registered function by name.
+        
+        - **Description**:
+            - Calls a registered function by its function_name.
+        
+        - **Args**:
+            - `function_name` (str): The name of the function to call.
+            - `*args`: Variable length argument list to pass to the function.
+            - `**kwargs`: Arbitrary keyword arguments to pass to the function.
+        
+        - **Returns**:
+            - The result of the called function.
+        
+        - **Raises**:
+            - `ValueError`: If the function_name is not registered.
+        """
+        if function_name not in self.__class__.ff:
+            raise ValueError(f"GET function '{function_name}' is not registered")
+        
+        func_info = self.__class__.ff[function_name]
+        return await func_info["callable"](self, *args, **kwargs)
 
     async def init(self):
         await self._memory.status.update(
@@ -212,6 +255,12 @@ class Agent(ABC):
                 f"Stream access before assignment, please `set_memory` first!"
             )
         return self.memory.stream
+    
+    @register_get("Get the current time in the format of HH:MM:SS")
+    async def get_nowtime(self):
+        """Get the current time"""
+        now_time = self.environment.get_datetime(format_time=True)
+        return now_time[1]
 
     @abstractmethod
     async def reset(self):
@@ -583,19 +632,94 @@ class Agent(ABC):
         survey = Survey.model_validate(payload["data"])
         await self._process_survey(survey)
 
-    async def handle_gather_message(self, payload: Any):
+    async def handle_gather_message(self, payload: dict):
         """
-        Placeholder for handling gather messages.
+        Handle a gather message received by the agent.
 
         - **Args**:
-            - `payload` (`Any`): The received message payload.
-
-        - **Raises**:
-            - `NotImplementedError`: As this method is not implemented.
+            - `payload` (`dict`): The message payload containing the target attribute and sender ID.
 
         - **Description**:
-            - This method is intended to handle specific types of gather messages but has not been implemented yet.
+            - Extracts the target attribute and sender ID from the payload.
+            - Retrieves the content associated with the target attribute from the agent's status.
+            - Prepares a response payload with the retrieved content and sends it back to the sender using `_send_message`.
         """
+        # Process the received message, identify the sender
+        # Parse sender ID and message content from the message
+        target = payload["target"]
+        sender_id = payload["from"]
+        if not isinstance(target, list):
+            content = await self.status.get(target)
+        else:
+            content = {}
+            for single in target:
+                try:
+                    content[single] = await self.status.get(single)
+                except Exception as e:
+                    get_logger().error(f"Error gathering {single} from status: {e}")
+                    content[single] = None
+        payload = {
+            "from": self.id,
+            "content": content,
+        }
+        await self._send_message(sender_id, payload, "gather_receive")
+
+    async def handle_gather_receive_message(self, payload: Any):
+        """
+        Handle a gather receive message.
+        """
+        content = payload["content"]
+        sender_id = payload["from"]
+
+        # Store the response into the corresponding Future
+        response_key = sender_id
+        if response_key in self._gather_responses:
+            self._gather_responses[response_key].set_result(
+                {
+                    "from": sender_id,
+                    "content": content,
+                }
+            )
+
+    async def gather_messages(self, agent_ids: list[int], target: Union[str, list[str]]) -> list[Any]:
+        """
+        Gather messages from multiple agents.
+
+        - **Args**:
+            - `agent_ids` (`list[int]`): A list of IDs for the target agents.
+            - `target` (`Union[str, list[str]]`): The type of information to collect from each agent.
+
+        - **Returns**:
+            - `list[Any]`: A list of collected responses.
+
+        - **Description**:
+            - For each agent ID provided, creates a `Future` object to wait for its response.
+            - Sends a gather request to each specified agent.
+            - Waits for all responses and returns them as a list of dictionaries.
+            - Ensures cleanup of Futures after collecting responses.
+        """
+        # Create a Future for each agent
+        futures = {}
+        for agent_id in agent_ids:
+            futures[agent_id] = asyncio.Future()
+            self._gather_responses[agent_id] = futures[agent_id]  
+
+        # Send gather requests
+        payload = {
+            "from": self.id,
+            "target": target,
+        }
+        for agent_id in agent_ids:
+            await self._send_message(agent_id, payload, "gather")
+
+        try:
+            # Wait for all responses
+            responses = await asyncio.gather(*futures.values())
+            return responses
+        finally:
+            # Cleanup Futures
+            for key in futures:
+                self._gather_responses.pop(key, None)
 
     # Redis send message
     async def _send_message(self, to_agent_id: int, payload: dict, sub_topic: str):

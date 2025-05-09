@@ -167,7 +167,8 @@ class Block:
     ParamsType = BlockParams
     name: str = ""
     description: str = ""
-    actions: Optional[list[Callable]] = None
+    get_functions: dict[str, dict[str, Any]] = {}
+    actions: dict[str, str] = {}
 
     def __init__(
         self,
@@ -204,6 +205,45 @@ class Block:
     @classmethod
     def default_params(cls) -> ParamsType:
         return cls.ParamsType()
+    
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Create a new dictionary that inherits from parent
+        cls.ff = dict(cls.__base__.ff) if hasattr(cls.__base__, 'ff') else {} # type: ignore
+        
+        # Register all methods with _register_info
+        for name, method in cls.__dict__.items():
+            if hasattr(method, '_register_info'):
+                info = method._register_info
+                cls.ff[info["function_name"]] = {
+                    "description": info["description"],
+                    "callable": lambda self, f=info["original_method"], *args, **kwargs: f(self, *args, **kwargs)
+                }
+
+    async def _getx(self, function_name: str, *args, **kwargs):
+        """
+        Calls a registered function by name.
+        
+        - **Description**:
+            - Calls a registered function by its function_name.
+        
+        - **Args**:
+            - `function_name` (str): The name of the function to call.
+            - `*args`: Variable length argument list to pass to the function.
+            - `**kwargs`: Arbitrary keyword arguments to pass to the function.
+        
+        - **Returns**:
+            - The result of the called function.
+        
+        - **Raises**:
+            - `ValueError`: If the function_name is not registered.
+        """
+        if function_name not in self.__class__.ff:
+            raise ValueError(f"GET function '{function_name}' is not registered")
+        
+        func_info = self.__class__.ff[function_name]
+        return await func_info["callable"](self, *args, **kwargs)
 
     @property
     def llm(self) -> LLM:

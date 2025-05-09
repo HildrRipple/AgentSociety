@@ -26,6 +26,9 @@ class NBSAgent(NBSAgentBase):
     GDP, labor statistics, prices, and citizen welfare indicators.
     """
     ParamsType = NBSAgentConfig
+    description: str = """
+The National Bureau of Statistics Agent simulating economic data collection and analysis.
+    """
 
     def __init__(
         self,

@@ -29,6 +29,9 @@ class FirmAgent(FirmAgentBase):
     Inherits from InstitutionAgent and extends its economic behaviors.
     """
     ParamsType = FirmAgentConfig
+    description: str = """
+The firm agent that manages economic activities including price adjustments, wage policies, inventory control, and employee skill development.
+    """
 
     def __init__(
         self,
