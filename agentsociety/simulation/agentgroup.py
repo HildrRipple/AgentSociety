@@ -389,6 +389,7 @@ class AgentGroup:
             self.messager.clear_log_list()
             self.environment.clear_log_list()
             self.environment.economy_client.clear_log_list()
+
             return group_logs
         except Exception as e:
             import traceback
@@ -441,22 +442,32 @@ class AgentGroup:
                     payload = cast(bytes, message["data"])
                     payload = jsonc.loads(payload.decode("utf-8"))
 
-                    # Extract agent_id (channel format is "exps:{exp_id}:agents:{agent_id}:{topic_type}")
-                    _, _, _, agent_id, topic_type = channel.strip(":").split(":")
-                    agent_id = int(agent_id)
-                    if agent_id in self._id2agent:
-                        agent = self._id2agent[agent_id]
-                        # topic_type: agent-chat, user-chat, user-survey, gather
-                        if topic_type == "agent-chat":
-                            await agent.handle_agent_chat_message(payload)
-                        elif topic_type == "user-chat":
-                            await agent.handle_user_chat_message(payload)
-                        elif topic_type == "user-survey":
-                            await agent.handle_user_survey_message(payload)
-                        elif topic_type == "gather":
-                            await agent.handle_gather_message(payload)
-                        elif topic_type == "gather_receive":
-                            await agent.handle_gather_receive_message(payload)
+                    if "agents" in channel:
+                        # Extract agent_id (channel format is "exps:{exp_id}:agents:{agent_id}:{topic_type}")
+                        _, _, _, agent_id, topic_type = channel.strip(":").split(":")
+                        agent_id = int(agent_id)
+                        if agent_id in self._id2agent:
+                            agent = self._id2agent[agent_id]
+                            # topic_type: agent-chat, user-chat, user-survey, gather
+                            if topic_type == "agent-chat":
+                                await agent.handle_agent_chat_message(payload)
+                            elif topic_type == "user-chat":
+                                await agent.handle_user_chat_message(payload)
+                            elif topic_type == "user-survey":
+                                await agent.handle_user_survey_message(payload)
+                            elif topic_type == "gather":
+                                await agent.handle_gather_message(payload)
+                            elif topic_type == "gather_receive":
+                                await agent.handle_gather_receive_message(payload)
+                    elif "aoi" in channel:
+                        _, _, _, aoi_id = channel.strip(":").split(":")
+                        aoi_id = int(aoi_id)
+                        agent_id = payload["agent_id"]
+                        operation = payload["type"]
+                        if operation == "aoi_message_register":
+                            self.environment.register_aoi_message(agent_id, aoi_id, payload)
+                        elif operation == "aoi_message_cancel":
+                            self.environment.cancel_aoi_message(agent_id, aoi_id)
             except Exception as e:
                 get_logger().error(f"Error dispatching message: {e}")
                 import traceback

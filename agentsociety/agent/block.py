@@ -210,16 +210,13 @@ class Block:
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         # Create a new dictionary that inherits from parent
-        cls.ff = dict(cls.__base__.ff) if hasattr(cls.__base__, 'ff') else {} # type: ignore
+        cls.get_functions = dict(cls.__base__.get_functions) if hasattr(cls.__base__, 'get_functions') else {} # type: ignore
         
         # Register all methods with _register_info
         for name, method in cls.__dict__.items():
             if hasattr(method, '_register_info'):
                 info = method._register_info
-                cls.ff[info["function_name"]] = {
-                    "description": info["description"],
-                    "callable": lambda self, f=info["original_method"], *args, **kwargs: f(self, *args, **kwargs)
-                }
+                cls.get_functions[info["function_name"]] = info
 
     async def _getx(self, function_name: str, *args, **kwargs):
         """
@@ -239,11 +236,15 @@ class Block:
         - **Raises**:
             - `ValueError`: If the function_name is not registered.
         """
-        if function_name not in self.__class__.ff:
+        if function_name not in self.__class__.get_functions:
             raise ValueError(f"GET function '{function_name}' is not registered")
         
-        func_info = self.__class__.ff[function_name]
-        return await func_info["callable"](self, *args, **kwargs)
+        func_info = self.__class__.get_functions[function_name]
+        if func_info.get('is_async', False):
+            result = await func_info["original_method"](self, *args, **kwargs)
+        else:
+            result = func_info["original_method"](self, *args, **kwargs)
+        return result
 
     @property
     def llm(self) -> LLM:

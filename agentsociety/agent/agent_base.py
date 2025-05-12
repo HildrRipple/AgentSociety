@@ -25,6 +25,7 @@ from ..survey.models import Survey
 from .decorator import register_get
 from .block import Block
 from .dispatcher import BlockDispatcher
+from .memory_config_generator import MemoryT
 
 __all__ = [
     "Agent",
@@ -94,6 +95,7 @@ class Agent(ABC):
     """
     ParamsType = AgentParams  # Determine agent parameters
     description: str = ""  # Agent description: How this agent works
+    memory_config: dict[str, MemoryT] = {}  # Memory configuration
     get_functions: dict[str, dict[str, Any]] = {}  # GET functions: What this agent can do
 
     def __init__(
@@ -148,16 +150,13 @@ class Agent(ABC):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         # Create a new dictionary that inherits from parent
-        cls.ff = dict(cls.__base__.ff) if hasattr(cls.__base__, 'ff') else {} # type: ignore
+        cls.get_functions = dict(cls.__base__.get_functions) if hasattr(cls.__base__, 'get_functions') else {} # type: ignore
         
         # Register all methods with _register_info
         for name, method in cls.__dict__.items():
-            if hasattr(method, '_register_info'):
-                info = method._register_info
-                cls.ff[info["function_name"]] = {
-                    "description": info["description"],
-                    "callable": lambda self, f=info["original_method"], *args, **kwargs: f(self, *args, **kwargs)
-                }
+            if hasattr(method, '_get_info'):
+                info = method._get_info
+                cls.get_functions[info["function_name"]] = info
 
     async def _getx(self, function_name: str, *args, **kwargs):
         """
@@ -177,11 +176,15 @@ class Agent(ABC):
         - **Raises**:
             - `ValueError`: If the function_name is not registered.
         """
-        if function_name not in self.__class__.ff:
+        if function_name not in self.__class__.get_functions:
             raise ValueError(f"GET function '{function_name}' is not registered")
         
-        func_info = self.__class__.ff[function_name]
-        return await func_info["callable"](self, *args, **kwargs)
+        func_info = self.__class__.get_functions[function_name]
+        if func_info.get('is_async', False):
+            result = await func_info["original_method"](self, *args, **kwargs)
+        else:
+            result = func_info["original_method"](self, *args, **kwargs)
+        return result
 
     async def init(self):
         await self._memory.status.update(
@@ -803,6 +806,65 @@ class Agent(ABC):
                     [storage_dialog]
                 )
             )
+
+    async def register_aoi_message(self, target_aoi: Union[int, list[int]], content: str):
+        """
+        Register a message to target aoi
+
+        - **Args**:
+            - `target_aoi` (`Union[int, list[int]]`): The ID of the target aoi.
+            - `content` (`str`): The content of the message to send.
+
+        - **Description**:
+            - Register a message to target aoi.
+        """
+        day, t = self.environment.get_datetime()
+        if isinstance(target_aoi, int):
+            payload = {
+                "from": self.id,
+                "content": content,
+                "type": "aoi_message_register",
+                "timestamp": int(datetime.now().timestamp() * 1000),
+                "day": day,
+                "t": t,
+            }
+            await self.messager.send_message(self.messager.get_aoi_channel(target_aoi), payload)
+        else:
+            for aoi in target_aoi:
+                payload = {
+                    "from": self.id,
+                    "content": content,
+                    "type": "aoi_message_register",
+                    "timestamp": int(datetime.now().timestamp() * 1000),
+                    "day": day,
+                    "t": t,
+                }
+                await self.messager.send_message(self.messager.get_aoi_channel(aoi), payload)
+
+    async def cancel_aoi_message(self, target_aoi: Union[int, list[int]]):
+        """
+        Cancel a message to target aoi
+        """
+        day, t = self.environment.get_datetime()
+        if isinstance(target_aoi, int):
+            payload = {
+                "from": self.id,
+                "type": "aoi_message_cancel",
+                "timestamp": int(datetime.now().timestamp() * 1000),
+                "day": day,
+                "t": t,
+            }
+            await self.messager.send_message(self.messager.get_aoi_channel(target_aoi), payload)
+        else:
+            for aoi in target_aoi:
+                payload = {
+                    "from": self.id,
+                    "type": "aoi_message_cancel",
+                    "timestamp": int(datetime.now().timestamp() * 1000),
+                    "day": day,
+                    "t": t,
+                }
+                await self.messager.send_message(self.messager.get_aoi_channel(aoi), payload)
 
     # Agent logic
     @abstractmethod

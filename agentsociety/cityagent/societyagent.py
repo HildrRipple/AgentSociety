@@ -2,16 +2,28 @@ import random
 import time
 
 import jsonc
-from typing import Optional
+from typing import Optional, Any
 
 from pydantic import Field
-from ..agent import AgentToolbox, Block, CitizenAgentBase, AgentParams
+from ..agent import AgentToolbox, Block, CitizenAgentBase, AgentParams, FormatPrompt
 from ..logger import get_logger
 from ..memory import Memory
 from .blocks import (CognitionBlock, NeedsBlock, PlanBlock)
 from .blocks.economy_block import MonthEconomyPlanBlock
-from .blocks.needs_block import INITIAL_NEEDS_PROMPT, EVALUATION_PROMPT, REFLECTION_PROMPT
+from .blocks.needs_block import INITIAL_NEEDS_PROMPT
 from .blocks.plan_block import DETAILED_PLAN_PROMPT
+
+ENVIRONMENT_REFLECTION_PROMPT = """
+You are a citizen of the city.
+Your occupation: {occupation}
+Your age: {age}
+Your current emotion: {emotion_types}
+
+In your current location, you can sense the following information:
+{get_aoi_info}
+
+What's your feeling about those environmental information?
+"""
 
 
 class SocialAgentConfig(AgentParams):
@@ -22,10 +34,11 @@ class SocialAgentConfig(AgentParams):
     productivity_per_labor: float = Field(default=1, description="Productivity per labor hour")
     time_diff: int = Field(default=30 * 24 * 60 * 60, description="Time difference between two triggers")
 
+    # Environment Reflection
+    environment_reflection_prompt: str = Field(default=ENVIRONMENT_REFLECTION_PROMPT, description="Environment reflection prompt")
+
     # Maxlow's Needs
     need_initialization_prompt: str = Field(default=INITIAL_NEEDS_PROMPT, description="Initial needs prompt")
-    need_evaluation_prompt: str = Field(default=EVALUATION_PROMPT, description="Need evaluation prompt")
-    need_reflection_prompt: str = Field(default=REFLECTION_PROMPT, description="Need reflection prompt")
 
     # Planned-Behavior
     max_plan_steps: int = Field(default=6, description="Maximum number of steps in a plan")
@@ -34,6 +47,45 @@ class SocialAgentConfig(AgentParams):
 
 class SocietyAgent(CitizenAgentBase):
     ParamsType = SocialAgentConfig
+    memory_config = {
+        # Needs Model
+        "hunger_satisfaction": (float, 0.9, False),  # hunger satisfaction
+        "energy_satisfaction": (float, 0.9, False),  # energy satisfaction
+        "safety_satisfaction": (float, 0.4, False),  # safety satisfaction
+        "social_satisfaction": (float, 0.6, False),  # social satisfaction
+        "current_need": (str, "none", False),
+        # cognition
+        "emotion": (
+            dict,
+            {
+                "sadness": 5,
+                "joy": 5,
+                "fear": 5,
+                "disgust": 5,
+                "anger": 5,
+                "surprise": 5,
+            },
+            False,
+        ),
+        "thought": (str, "Currently nothing good or bad is happening", True),
+        "emotion_types": (str, "Relief", True),
+        "firm_id": (int, 0, False),
+        "government_id": (int, 0, False),
+        "bank_id": (int, 0, False),
+        "nbs_id": (int, 0, False),
+        "depression": (float, 0.0, False),
+        "working_experience": (list, [], False),
+        "work_hour_month": (float, 160, False),
+        "work_hour_finish": (float, 0, False),
+        # social
+        "friends": (list, [], False),  # friends list
+        "relationships": (dict, {}, False),  # relationship strength with each friend
+        "relation_types": (dict, {}, False),
+        "chat_histories": (dict, {}, False),  # all chat histories
+        "interactions": (dict, {}, False),  # all interaction records
+        # mobility
+        "number_poi_visited": (int, 1, False),
+    }
     description: str = """
 A social agent that can interact with other agents and the environment.
 The main workflow includes:
@@ -84,8 +136,6 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
             llm=self.llm, 
             environment=self.environment, 
             agent_memory=self.memory,
-            evaluation_prompt=self.params.need_evaluation_prompt,
-            reflection_prompt=self.params.need_reflection_prompt,
             initial_prompt=self.params.need_initialization_prompt,
         )
 
@@ -100,6 +150,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         self.cognition_block = CognitionBlock(
             llm=self.llm, agent_memory=self.memory, environment=self.environment
         )
+        self.environment_reflection_prompt = FormatPrompt(self.params.environment_reflection_prompt)
         self.step_count = -1
         self.cognition_update = -1
 
@@ -127,12 +178,22 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                 await self.plan_block.forward()
             )  # Delegate to PlanBlock for plan creation
         return cognition
+    
+    async def reflect_to_environment(self):
+        """Reflect to the environment"""
+        aoi_info = await self.get_aoi_info()
+        if aoi_info:
+            reflection = self.environment_reflection_prompt.format(self)
+            await self.save_agent_thought(reflection)
 
     # Main workflow
     async def forward(self):
         """Main agent loop coordinating status updates, plan execution, and cognition."""
         start_time = time.time()
         self.step_count += 1
+
+        # reflect to environment
+        await self.reflect_to_environment()
 
         # check last step
         ifpass = await self.check_and_update_step()

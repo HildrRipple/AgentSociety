@@ -15,7 +15,7 @@ import yaml
 
 from ..agent import Agent
 from ..agent.distribution import Distribution, DistributionConfig, DistributionType
-from ..agent.memory_config_generator import MemoryConfigGenerator
+from ..agent.memory_config_generator import MemoryConfigGenerator, MemoryT
 from ..configs import (
     AgentConfig,
     Config,
@@ -50,18 +50,19 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     - **Returns**:
         - `agents`: A list of tuples, each containing an agent class, a memory config generator, and an index.
     """
-    agent_class = agent_config.agent_class
+    agent_class: type[Agent] = agent_config.agent_class # type: ignore
     n = agent_config.number
     # memory config function
     memory_config_func = cast(
         Callable[
-            [dict[str, Distribution]],
+            [dict[str, Distribution], Optional[dict[str, MemoryT]]],
             tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
         ],
         agent_config.memory_config_func,
     )
     generator = MemoryConfigGenerator(
         memory_config_func,
+        agent_class.memory_config,
         agent_config.memory_from_file,
         (
             agent_config.memory_distributions
@@ -854,6 +855,7 @@ class AgentSociety:
             for group in self._groups.values():
                 tasks.append(group.step.remote(tick))  # type:ignore
             logs: list[Logs] = await asyncio.gather(*tasks)
+            
             get_logger().debug(f"({day}-{t}) Finished agent forward steps")
             # ======================
             # log the simulation results

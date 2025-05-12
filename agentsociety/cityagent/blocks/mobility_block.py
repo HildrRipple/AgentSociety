@@ -469,6 +469,8 @@ class MobilityNoneBlock(Block):
         }
 
 class MobilityBlockParams(BlockParams):
+    # PlaceSelection
+    radius_prompt: str = Field(default=RADIUS_PROMPT, description="Used to determine the maximum travel radius")
     search_limit: int = Field(default=50, description="Number of POIs to retrieve from map service")
 
 

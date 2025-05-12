@@ -278,6 +278,9 @@ class Messager:
 
     def get_subtopic_channel(self, agent_id: int, subtopic: str):
         return f"exps:{self.exp_id}:agents:{agent_id}:{subtopic}"
+    
+    def get_aoi_channel(self, aoi_id: int):
+        return f"exps:{self.exp_id}:aois:{aoi_id}"
 
     def get_user_survey_channel(self, agent_id: int):
         return self.get_subtopic_channel(agent_id, "user-survey")

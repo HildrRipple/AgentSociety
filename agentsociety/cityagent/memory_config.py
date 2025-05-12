@@ -125,9 +125,9 @@ DEFAULT_DISTRIBUTIONS: dict[str, Distribution] = {
 
 
 def memory_config_societyagent(
-    distributions: dict[str, Distribution],
+    distributions: dict[str, Distribution], class_config: Optional[dict[str, MemoryT]] = None
 ) -> tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]]:
-    EXTRA_ATTRIBUTES = {
+    EXTRA_ATTRIBUTES: dict[str, MemoryT] = {
         "type": (str, "citizen"),
         # Needs Model
         "hunger_satisfaction": (float, 0.9, False),  # hunger satisfaction
@@ -176,7 +176,7 @@ def memory_config_societyagent(
         ),
         "bank_id": (int, sample_field_value(distributions, "bank_id"), False),
         "nbs_id": (int, sample_field_value(distributions, "nbs_id"), False),
-        "dialog_queue": (deque(maxlen=3), [], False),
+        "dialog_queue": (deque(maxlen=3), [], False), # type: ignore
         "firm_forward": (int, 0, False),
         "bank_forward": (int, 0, False),
         "nbs_forward": (int, 0, False),
@@ -197,6 +197,9 @@ def memory_config_societyagent(
         "number_poi_visited": (int, 1, False),
         "location_knowledge": (dict, {}, False),  # location knowledge
     }
+
+    if class_config:
+        EXTRA_ATTRIBUTES.update(class_config)
 
     PROFILE = {
         "name": (str, sample_field_value(distributions, "name"), True),
@@ -238,7 +241,7 @@ def memory_config_societyagent(
 
 
 def memory_config_firm(
-    distributions: dict[str, Distribution],
+    distributions: dict[str, Distribution], class_config: Optional[dict[str, Any]] = None
 ) -> tuple[dict[str, MemoryT], dict[str, Union[MemoryT, float]], dict[str, Any]]:
     EXTRA_ATTRIBUTES = {
         "type": (int, EconomyEntityType.Firm),
@@ -274,7 +277,7 @@ def memory_config_firm(
 
 
 def memory_config_government(
-    distributions: dict[str, Distribution],
+    distributions: dict[str, Distribution], class_config: Optional[dict[str, Any]] = None
 ) -> tuple[dict[str, MemoryT], dict[str, Union[MemoryT, float]], dict[str, Any]]:
     EXTRA_ATTRIBUTES = {
         "type": (int, EconomyEntityType.Government),
@@ -306,7 +309,7 @@ def memory_config_government(
 
 
 def memory_config_bank(
-    distributions: dict[str, Distribution],
+    distributions: dict[str, Distribution], class_config: Optional[dict[str, Any]] = None
 ) -> tuple[dict[str, MemoryT], dict[str, Union[MemoryT, float]], dict[str, Any]]:
     EXTRA_ATTRIBUTES = {
         "type": (int, EconomyEntityType.Bank),
@@ -336,7 +339,7 @@ def memory_config_bank(
 
 
 def memory_config_nbs(
-    distributions: dict[str, Distribution],
+    distributions: dict[str, Distribution], class_config: Optional[dict[str, Any]] = None
 ) -> tuple[dict[str, MemoryT], dict[str, Union[MemoryT, float]], dict[str, Any]]:
     EXTRA_ATTRIBUTES = {
         "type": (int, EconomyEntityType.NBS),

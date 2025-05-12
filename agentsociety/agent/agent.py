@@ -10,6 +10,7 @@ from ..logger import get_logger
 from ..memory import Memory
 from .agent_base import Agent, AgentToolbox, AgentType
 from .block import Block
+from .decorator import register_get
 
 __all__ = [
     "CitizenAgentBase",
@@ -166,6 +167,16 @@ class CitizenAgentBase(Agent):
             "content": content,
         }
         await self._send_message(sender_id, payload, "gather_receive")
+
+    @register_get("Get surrounding environment information - aoi information")
+    async def get_aoi_info(self):
+        """Get the surrounding environment information - aoi information"""
+        position = await self.status.get("position")
+        if "aoi_position" in position:
+            parent_id = position["aoi_position"]["aoi_id"]
+            return self.environment.sense_aoi(parent_id)
+        else:
+            return "Nothing"
 
     async def before_forward(self):
         """

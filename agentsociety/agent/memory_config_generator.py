@@ -28,9 +28,10 @@ class MemoryConfigGenerator:
     def __init__(
         self,
         config_func: Callable[
-            [dict[str, Distribution]],
+            [dict[str, Distribution], Optional[dict[str, Any]]],
             tuple[dict[str, MemoryT], dict[str, Union[MemoryT, float]], dict[str, Any]],
         ],
+        class_config: Optional[dict[str, Any]] = None,
         file: Optional[str] = None,
         distributions: dict[str, Union[Distribution, DistributionConfig]] = {},
         s3config: S3Config = S3Config.model_validate({}),
@@ -45,6 +46,7 @@ class MemoryConfigGenerator:
             - `s3config` (S3Config): The S3 configuration.
         """
         self._memory_config_func = config_func
+        self._class_config = class_config
         if file is not None:
             self._memory_data = _memory_config_load_file(file, s3config)
         else:
@@ -66,7 +68,9 @@ class MemoryConfigGenerator:
         Returns:
             tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]]: The memory configuration.
         """
-        extra_attrs, profile, base = self._memory_config_func(self._distributions)
+        extra_attrs, profile, base = self._memory_config_func(
+            self._distributions, self._class_config
+        )
         if self._memory_data is not None:
             if i >= len(self._memory_data):
                 raise ValueError(

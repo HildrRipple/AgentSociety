@@ -10,6 +10,7 @@ from .block import Block, BlockParams, log_and_check, log_and_check_with_memory,
 from .dispatcher import BlockDispatcher
 from .prompt import FormatPrompt
 from .trigger import EventTrigger, MemoryChangeTrigger, TimeTrigger
+from .decorator import register_get
 
 __all__ = [
     "Agent",
@@ -31,4 +32,5 @@ __all__ = [
     "FormatPrompt",
     "trigger_class",
     "BlockDispatcher",
+    "register_get",
 ]

@@ -42,7 +42,7 @@ class WorkBlock(Block):
     name = "WorkBlock"
     description = "Handles work-related economic activities and time tracking"
 
-    def __init__(self, llm: LLM, environment: Environment, memory: Memory):
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory, worktime_estimation_prompt: str = TIME_ESTIMATE_PROMPT):
         """Initialize with dependencies.
 
         Args:
@@ -55,7 +55,7 @@ class WorkBlock(Block):
             environment=environment,
             agent_memory=memory,
         )
-        self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
+        self.guidance_prompt = FormatPrompt(template=worktime_estimation_prompt)
 
     async def forward(self, step, context):
         """Process work task and track time expenditure.
@@ -234,7 +234,7 @@ class EconomyNoneBlock(Block):
         }
     
 class EconomyBlockParams(BlockParams):
-    ...
+    worktime_estimation_prompt: str = Field(default=TIME_ESTIMATE_PROMPT, description="Used to determine the worktime")
 
 class EconomyBlock(Block):
     """Orchestrates economic activities through specialized sub-blocks.
@@ -264,7 +264,7 @@ class EconomyBlock(Block):
         super().__init__(
             llm=llm, environment=environment, agent_memory=agent_memory, block_params=block_params
         )
-        self.work_block = WorkBlock(llm, environment, agent_memory)
+        self.work_block = WorkBlock(llm, environment, agent_memory, self.params.worktime_estimation_prompt)
         self.consumption_block = ConsumptionBlock(llm, environment, agent_memory)
         self.none_block = EconomyNoneBlock(llm, agent_memory)
         self.trigger_time = 0
