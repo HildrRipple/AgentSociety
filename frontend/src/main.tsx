@@ -7,11 +7,14 @@ import RootLayout from './Layout'
 import Console from './pages/Console/index'
 import Replay from './pages/Replay/index'
 import Survey from './pages/Survey/index'
-import LLMList from './pages/Experiment/LLMList'
-import AgentList from './pages/Experiment/AgentList'
+import LLMList from './pages/LLM/LLMList'
+import AgentList from './pages/Agent/AgentList'
 import WorkflowList from './pages/Experiment/WorkflowList'
-import MapList from './pages/Experiment/MapList'
+import MapList from './pages/Map/MapList'
 import CreateExperiment from './pages/Experiment/CreateExperiment'
+import ProfileList from './pages/Agent/ProfileList'
+import ProfileGeneration from './pages/Agent/ProfileGeneration'
+import AgentTemplate from './pages/Agent/AgentTemplateList'
 import Home from './pages/Home'
 import zhCN from 'antd/locale/zh_CN'
 import enUS from 'antd/locale/en_US'
@@ -20,6 +23,7 @@ import { AuthProvider, sdkConfig } from './components/Auth'
 import './i18n'
 import { useTranslation } from 'react-i18next'
 import Bill from './pages/Bill'
+import AgentTemplateForm from './pages/Agent/AgentTemplateForm'
 
 const router = createBrowserRouter([
     {
@@ -75,6 +79,22 @@ const router = createBrowserRouter([
         ),
     },
     {
+        path: "/profiles",
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/profiles'><ProfileList /></RootLayout>
+            </AuthProvider>
+        ),
+    },
+    {
+        path: "/profile-generation",
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/profile-generation'><ProfileGeneration /></RootLayout>
+            </AuthProvider>
+        ),
+    },
+    {
         path: "/workflows",
         element: (
             <AuthProvider sdkConfig={sdkConfig}>
@@ -101,6 +121,30 @@ const router = createBrowserRouter([
     {
         path: "/callback",
         element: <Callback />,
+    },
+    {
+        path: "/agent-templates",
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/agent-templates'><AgentTemplate /></RootLayout>
+            </AuthProvider>
+        ),
+    },
+    {
+        path: "/agent-templates/create",
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/agent-templates'><AgentTemplateForm /></RootLayout>
+            </AuthProvider>
+        ),
+    },
+    {
+        path: "/agent-templates/edit/:id",
+        element: (
+            <AuthProvider sdkConfig={sdkConfig}>
+                <RootLayout selectedKey='/agent-templates'><AgentTemplateForm /></RootLayout>
+            </AuthProvider>
+        ),
     },
     {
         path: "*",

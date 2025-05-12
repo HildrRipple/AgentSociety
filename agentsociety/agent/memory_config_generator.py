@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Callable, Optional, Union, cast
+from typing import Any, Callable, Optional, Union, cast, List
 
 import jsonc
 
@@ -47,6 +47,8 @@ class MemoryConfigGenerator:
         """
         self._memory_config_func = config_func
         self._class_config = class_config
+        self._file_path = file
+        self._s3config = s3config
         if file is not None:
             self._memory_data = _memory_config_load_file(file, s3config)
         else:
@@ -80,6 +82,28 @@ class MemoryConfigGenerator:
         else:
             memory_data = {}
         return _memory_config_merge(memory_data, extra_attrs, profile, base)
+    
+    def get_agent_data_from_file(self) -> List[dict]:
+        """
+        Get agent data from file.
+
+        - **Description**:
+            - Retrieves the raw agent data from the file specified during initialization.
+            - This is used when agents need to be created with IDs from the file.
+
+        - **Returns**:
+            - `List[dict]`: A list of agent data dictionaries from the file.
+
+        - **Raises**:
+            - `ValueError`: If no file was specified during initialization.
+        """
+        if self._file_path is None:
+            raise ValueError("No file was specified during initialization")
+        
+        if self._memory_data is None:
+            self._memory_data = _memory_config_load_file(self._file_path, self._s3config)
+            
+        return self._memory_data
 
 
 # TODO: TEST THIS in V1.3

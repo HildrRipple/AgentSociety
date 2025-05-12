@@ -48,8 +48,8 @@ class AgentConfig(BaseModel):
     agent_class: Union[type[Agent], AgentClassType]
     """The class of the agent"""
 
-    number: int = Field(gt=0)
-    """The number of agents"""
+    number: Optional[int] = Field(default=None, gt=0)
+    """The number of agents. Required when using memory_distributions, ignored when using memory_from_file."""
 
     agent_params: Optional[Any] = None
     """Agent configuration"""
@@ -71,7 +71,25 @@ class AgentConfig(BaseModel):
     memory_distributions: Optional[
         dict[str, Union[Distribution, DistributionConfig]]
     ] = None
-    """Memory distributions"""
+    """Memory distributions. Required when using number, ignored when using memory_from_file."""
+
+    @model_validator(mode='after')
+    def validate_configuration(self):
+        """Validate configuration options to ensure the user selects the correct combination"""
+        memory_from_file = self.memory_from_file
+        number = self.number
+        memory_distributions = self.memory_distributions
+        
+        if memory_from_file is not None:
+            # When using file method, number and memory_distributions should not be set
+            if number is not None or memory_distributions is not None:
+                raise ValueError("When using memory_from_file, number and memory_distributions should not be set")
+        else:
+            # When not using file method, both number and memory_distributions must be set
+            if number is None:
+                raise ValueError("When not using memory_from_file, number must be set")
+        
+        return self
 
     @field_serializer("agent_class")
     def serialize_agent_class(self, agent_class, info):

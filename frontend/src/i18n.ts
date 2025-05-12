@@ -28,6 +28,8 @@ i18n
                         llmConfigs: 'LLM Configs',
                         maps: 'Maps',
                         agents: 'Agents',
+                        agentConfigs: 'Agent Configs',
+                        agentTemplates: 'Agent Templates',
                         workflows: 'Workflows',
                         create: 'Create',
                         login: 'Login',
@@ -35,7 +37,9 @@ i18n
                         account: 'Account',
                         demo: 'Demo',
                         demoUser: 'Demo User',
-                        bill: 'Billing'
+                        bill: 'Billing',
+                        profiles: 'Profiles',
+                        profileGeneration: 'Generate Profiles',
                     },
                     home: {
                         whatsNew: "What's New",
@@ -242,6 +246,8 @@ i18n
                         llmConfigs: 'LLM配置',
                         maps: '地图',
                         agents: '智能体',
+                        agentConfigs: '智能体配置',
+                        agentTemplates: '智能体模板',
                         workflows: '工作流',
                         create: '创建',
                         login: '登录',
@@ -249,7 +255,9 @@ i18n
                         account: '账户',
                         demo: '示例',
                         demoUser: '示例用户',
-                        bill: '账单'
+                        bill: '账单',
+                        profiles: '智能体配置',
+                        profileGeneration: '生成配置',
                     },
                     home: {
                         whatsNew: "最新动态",

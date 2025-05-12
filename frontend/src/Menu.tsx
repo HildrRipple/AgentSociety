@@ -1,4 +1,4 @@
-import { ExportOutlined, GithubOutlined, PlusOutlined, ExperimentOutlined, ApiOutlined, TeamOutlined, GlobalOutlined, NodeIndexOutlined } from "@ant-design/icons";
+import { ExportOutlined, GithubOutlined, PlusOutlined, ExperimentOutlined, ApiOutlined, TeamOutlined, GlobalOutlined, NodeIndexOutlined, SettingOutlined } from "@ant-design/icons";
 import { Menu, MenuProps, Space, Dropdown, Button } from "antd";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -26,23 +26,8 @@ const RootMenu = ({ selectedKey, style }: {
         i18n.changeLanguage(newLang);
     };
 
-    // Experiment submenu items - horizontal layout
+    // Experiment submenu items
     const experimentItems: MenuProps['items'] = [
-        {
-            key: '/llms',
-            label: <Link to="/llms">{t('menu.llmConfigs')}</Link>,
-            icon: <ApiOutlined />,
-        },
-        {
-            key: '/maps',
-            label: <Link to="/maps">{t('menu.maps')}</Link>,
-            icon: <GlobalOutlined />,
-        },
-        {
-            key: '/agents',
-            label: <Link to="/agents">{t('menu.agents')}</Link>,
-            icon: <TeamOutlined />,
-        },
         {
             key: '/workflows',
             label: <Link to="/workflows">{t('menu.workflows')}</Link>,
@@ -55,7 +40,46 @@ const RootMenu = ({ selectedKey, style }: {
         },
     ];
 
+    const agentItems: MenuProps['items'] = [
+        {
+            key: '/agent-templates',
+            label: <Link to="/agent-templates">{t('menu.agentTemplates')}</Link>,
+            icon: <SettingOutlined />,
+        },
+        {
+            key: '/profiles',
+            label: <Link to="/profiles">{t('menu.profiles')}</Link>,
+            icon: <TeamOutlined />,
+        },
+        {
+            key: '/profile-generation',
+            label: <Link to="/profile-generation">{t('menu.profileGeneration')}</Link>,
+            icon: <PlusOutlined />,
+        },
+    ];
+
     const menuItems: MenuProps['items'] = [
+        {
+            key: '/llms',
+            label: <Link to="/llms">{t('menu.llmConfigs')}</Link>,
+            icon: <ApiOutlined />,
+        },
+        {
+            key: '/maps',
+            label: <Link to="/maps">{t('menu.maps')}</Link>,
+            icon: <GlobalOutlined />,
+        },
+        {
+            key: '/agents',
+            label: (
+                <Dropdown menu={{ items: agentItems }} placement="bottomLeft" arrow>
+                    <div>
+                        <Link to="/agents"><Space><TeamOutlined />{t('menu.agents')}</Space></Link>
+                    </div>
+                </Dropdown>
+            ),
+
+        },
         {
             key: "/console",
             label: (
@@ -69,6 +93,7 @@ const RootMenu = ({ selectedKey, style }: {
         { key: "/survey", label: <Link to="/survey">{t('menu.survey')}</Link> },
         { key: "/bill", label: <Link to="/bill">{t('menu.bill')}</Link> },
     ];
+
     if (mlflowUrl !== "") {
         menuItems.push({ key: "/mlflow", label: <Link to={mlflowUrl} rel="noopener noreferrer" target="_blank"><Space>{t('menu.mlflow')}<ExportOutlined /></Space></Link> });
     }
@@ -91,14 +116,14 @@ const RootMenu = ({ selectedKey, style }: {
                 selectedKeys={[selectedKey]}
                 style={menuStyle}
             />
-            <div style={{ 
-                marginLeft: 'auto', 
-                display: 'flex', 
+            <div style={{
+                marginLeft: 'auto',
+                display: 'flex',
                 alignItems: 'center',
                 minWidth: '320px',
                 justifyContent: 'flex-end'
             }}>
-                <Button 
+                <Button
                     type="text"
                     style={{ color: 'white' }}
                     onClick={handleLanguageChange}
