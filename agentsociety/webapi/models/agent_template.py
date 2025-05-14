@@ -1,13 +1,60 @@
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+from enum import Enum
 
 from pydantic import BaseModel, Field
+from sqlalchemy import JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ._base import Base, TABLE_PREFIX
 
 __all__ = ["AgentTemplateDB", "TemplateBlock", "ApiAgentTemplate"]
+
+class DistributionType(str, Enum):
+    CHOICE = "choice"
+    UNIFORM_INT = "uniform_int"
+    NORMAL = "normal"
+
+class ChoiceDistribution(BaseModel):
+    type: DistributionType = DistributionType.CHOICE
+    params: Dict[str, Union[List[str], List[float]]] = Field(
+        ...,
+        description="Choice distribution parameters including choices and weights"
+    )
+
+class UniformIntDistribution(BaseModel):
+    type: DistributionType = DistributionType.UNIFORM_INT
+    params: Dict[str, int] = Field(
+        ...,
+        description="Uniform distribution parameters including min_value and max_value"
+    )
+
+class NormalDistribution(BaseModel):
+    type: DistributionType = DistributionType.NORMAL
+    params: Dict[str, float] = Field(
+        ...,
+        description="Normal distribution parameters including mean and std"
+    )
+
+class ChoiceDistributionConfig(BaseModel):
+    type: DistributionType = DistributionType.CHOICE
+    choices: List[str]
+    weights: List[float]
+
+class UniformIntDistributionConfig(BaseModel):
+    type: DistributionType = DistributionType.UNIFORM_INT
+    min_value: int
+    max_value: int
+
+class NormalDistributionConfig(BaseModel):
+    type: DistributionType = DistributionType.NORMAL
+    mean: float
+    std: float
+
+Distribution = Union[ChoiceDistribution, UniformIntDistribution, NormalDistribution]
+DistributionConfig = Union[ChoiceDistributionConfig, UniformIntDistributionConfig, NormalDistributionConfig]
 
 class AgentTemplateDB(Base):
     """Agent template database model"""
@@ -17,15 +64,13 @@ class AgentTemplateDB(Base):
     id: Mapped[str] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column()
     description: Mapped[Optional[str]] = mapped_column()
-    profile: Mapped[Any] = mapped_column()  # JSONB field for profile configuration
-    base: Mapped[Any] = mapped_column()  # JSONB field for base configuration
-    states: Mapped[Any] = mapped_column()  # JSONB field for states configuration
-    agent_params: Mapped[Any] = mapped_column()  # JSONB field for agent parameters
-    blocks: Mapped[Any] = mapped_column()  # JSONB field for blocks
+    profile: Mapped[Dict] = mapped_column(type_=JSONB)  # 使用 JSONB 类型
+    base: Mapped[Dict] = mapped_column(type_=JSONB)
+    states: Mapped[Dict] = mapped_column(type_=JSONB)
+    agent_params: Mapped[Dict] = mapped_column(type_=JSONB)
+    blocks: Mapped[List] = mapped_column(type_=JSONB)  # 修改为 JSONB
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(
-        default=datetime.now, onupdate=datetime.now
-    )
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.now, onupdate=datetime.now)
 
 class AgentParams(BaseModel):
     """Agent parameters model"""
@@ -41,28 +86,23 @@ class AgentParams(BaseModel):
     plan_generation_prompt: Optional[str] = None
 
 class TemplateBlock(BaseModel):
-    """Template block model for API"""
+    """Template block model"""
     id: str
     name: str
     type: str
     description: str
-    dependencies: Optional[Dict[str, str]] = None
-    params: Optional[Dict[str, Any]] = None
-
-    class Config:
-        from_attributes = True
-
-class ProfileConfig(BaseModel):
-    """Profile configuration model"""
-    fields: Dict[str, str]
+    dependencies: Dict[str, str] = Field(default_factory=dict)
+    params: Dict[str, Any] = Field(default_factory=dict)
 
 class BaseConfig(BaseModel):
     """Base configuration model"""
-    fields: Dict[str, Any]
+    home: Dict[str, Any] = Field(default_factory=lambda: {"aoi_position": {"aoi_id": 0}})
+    work: Dict[str, Any] = Field(default_factory=lambda: {"aoi_position": {"aoi_id": 0}})
 
 class StatesConfig(BaseModel):
     """States configuration model"""
-    fields: Dict[str, str]
+    needs: str = "str"
+    plan: str = "dict"
     selfDefine: Optional[str] = None
 
 class ApiAgentTemplate(BaseModel):
@@ -71,28 +111,16 @@ class ApiAgentTemplate(BaseModel):
     id: Optional[str] = None
     name: str = Field(..., description="Template name")
     description: Optional[str] = Field(None, description="Template description")
-    profile: ProfileConfig = Field(
-        default_factory=lambda: ProfileConfig(fields={}),
-        description="Profile configuration"
+    profile: Dict[str, Union[Distribution, DistributionConfig]] = Field(
+        ..., 
+        description="Profile configuration with distributions"
     )
-    base: BaseConfig = Field(
-        default_factory=lambda: BaseConfig(fields={}),
-        description="Base configuration"
-    )
-    states: StatesConfig = Field(
-        default_factory=lambda: StatesConfig(fields={}),
-        description="States configuration"
-    )
-    agent_params: AgentParams = Field(
-        default_factory=AgentParams,
-        description="Agent parameters"
-    )
-    blocks: List[TemplateBlock] = Field(
-        default_factory=list,
-        description="List of template blocks"
-    )
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    base: BaseConfig = Field(default_factory=BaseConfig)
+    states: StatesConfig = Field(default_factory=StatesConfig)
+    agent_params: AgentParams = Field(default_factory=AgentParams)
+    blocks: List[TemplateBlock] = Field(default_factory=list)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

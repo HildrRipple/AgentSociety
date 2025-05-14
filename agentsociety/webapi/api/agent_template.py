@@ -8,9 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import ApiResponseWrapper
 from ..models.agent_template import (
     AgentTemplateDB, 
-    ApiAgentTemplate, 
+    ApiAgentTemplate,
     TemplateBlock,
-    ProfileConfig,
+    Distribution,
+    DistributionConfig,
+    ChoiceDistribution,
+    UniformIntDistribution,
+    NormalDistribution,
+    ChoiceDistributionConfig,
+    UniformIntDistributionConfig,
+    NormalDistributionConfig,
     BaseConfig,
     StatesConfig,
     AgentParams
@@ -37,20 +44,69 @@ async def list_agent_templates(
             result = await db.execute(stmt)
             templates = result.scalars().all()
             
-            # 转换数据库模型到 API 模型
             api_templates = []
             for template in templates:
+                # 将数据库中的分布配置转换为对应的分布对象
+                profile_dict = {}
+                for key, value in template.profile.items():
+                    if isinstance(value, dict):
+                        dist_type = value.get('type')
+                        if dist_type == 'choice':
+                            if 'params' in value:
+                                # Distribution 格式
+                                profile_dict[key] = ChoiceDistribution(
+                                    type='choice',
+                                    params={
+                                        'choices': value['params']['choices'],
+                                        'weights': value['params']['weights']
+                                    }
+                                )
+                            else:
+                                # DistributionConfig 格式
+                                profile_dict[key] = ChoiceDistributionConfig(
+                                    type='choice',
+                                    choices=value['choices'],
+                                    weights=value['weights']
+                                )
+                        elif dist_type == 'uniform_int':
+                            if 'params' in value:
+                                profile_dict[key] = UniformIntDistribution(
+                                    type='uniform_int',
+                                    params={
+                                        'min_value': value['params']['min_value'],
+                                        'max_value': value['params']['max_value']
+                                    }
+                                )
+                            else:
+                                profile_dict[key] = UniformIntDistributionConfig(
+                                    type='uniform_int',
+                                    min_value=value['min_value'],
+                                    max_value=value['max_value']
+                                )
+                        elif dist_type == 'normal':
+                            if 'params' in value:
+                                profile_dict[key] = NormalDistribution(
+                                    type='normal',
+                                    params={
+                                        'mean': value['params']['mean'],
+                                        'std': value['params']['std']
+                                    }
+                                )
+                            else:
+                                profile_dict[key] = NormalDistributionConfig(
+                                    type='normal',
+                                    mean=value['mean'],
+                                    std=value['std']
+                                )
+                
                 api_template = ApiAgentTemplate(
                     tenant_id=template.tenant_id,
                     id=template.id,
                     name=template.name,
                     description=template.description,
-                    profile=ProfileConfig(fields=template.profile.get('fields', {})),
-                    base=BaseConfig(fields=template.base.get('fields', {})),
-                    states=StatesConfig(
-                        fields=template.states.get('fields', {}),
-                        selfDefine=template.states.get('selfDefine', '')
-                    ),
+                    profile=profile_dict,
+                    base=BaseConfig(**template.base),
+                    states=StatesConfig(**template.states),
                     agent_params=AgentParams(**template.agent_params),
                     blocks=[TemplateBlock(**block) for block in template.blocks],
                     created_at=template.created_at.isoformat() if template.created_at else None,
@@ -61,7 +117,7 @@ async def list_agent_templates(
             return ApiResponseWrapper(data=api_templates)
             
     except Exception as e:
-        print(f"Error in list_agent_templates: {str(e)}")  # 添加调试日志
+        print(f"Error in list_agent_templates: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list templates: {str(e)}"
@@ -92,18 +148,65 @@ async def get_agent_template(
                     detail="Template not found"
                 )
             
-            # 转换为 API 模型
+            # 将数据库中的分布配置转换为对应的分布对象
+            profile_dict = {}
+            for key, value in template.profile.items():
+                if isinstance(value, dict):
+                    dist_type = value.get('type')
+                    if dist_type == 'choice':
+                        if 'params' in value:
+                            profile_dict[key] = ChoiceDistribution(
+                                type='choice',
+                                params={
+                                    'choices': value['params']['choices'],
+                                    'weights': value['params']['weights']
+                                }
+                            )
+                        else:
+                            profile_dict[key] = ChoiceDistributionConfig(
+                                type='choice',
+                                choices=value['choices'],
+                                weights=value['weights']
+                            )
+                    elif dist_type == 'uniform_int':
+                        if 'params' in value:
+                            profile_dict[key] = UniformIntDistribution(
+                                type='uniform_int',
+                                params={
+                                    'min_value': value['params']['min_value'],
+                                    'max_value': value['params']['max_value']
+                                }
+                            )
+                        else:
+                            profile_dict[key] = UniformIntDistributionConfig(
+                                type='uniform_int',
+                                min_value=value['min_value'],
+                                max_value=value['max_value']
+                            )
+                    elif dist_type == 'normal':
+                        if 'params' in value:
+                            profile_dict[key] = NormalDistribution(
+                                type='normal',
+                                params={
+                                    'mean': value['params']['mean'],
+                                    'std': value['params']['std']
+                                }
+                            )
+                        else:
+                            profile_dict[key] = NormalDistributionConfig(
+                                type='normal',
+                                mean=value['mean'],
+                                std=value['std']
+                            )
+            
             api_template = ApiAgentTemplate(
                 tenant_id=template.tenant_id,
                 id=template.id,
                 name=template.name,
                 description=template.description,
-                profile=ProfileConfig(fields=template.profile.get('fields', {})),
-                base=BaseConfig(fields=template.base.get('fields', {})),
-                states=StatesConfig(
-                    fields=template.states.get('fields', {}),
-                    selfDefine=template.states.get('selfDefine', '')
-                ),
+                profile=profile_dict,  # 使用转换后的分布对象
+                base=BaseConfig(**template.base),
+                states=StatesConfig(**template.states),
                 agent_params=AgentParams(**template.agent_params),
                 blocks=[TemplateBlock(**block) for block in template.blocks],
                 created_at=template.created_at.isoformat() if template.created_at else None,
@@ -115,7 +218,7 @@ async def get_agent_template(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error in get_agent_template: {str(e)}")  # 添加调试日志
+        print(f"Error in get_agent_template: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get template: {str(e)}"
@@ -137,36 +240,44 @@ async def create_agent_template(
         tenant_id = await request.app.state.get_tenant_id(request)
         template_id = str(uuid.uuid4())
         
+        # 将 profile 中的分布对象转换为字典
+        profile_dict = {}
+        for key, value in template.profile.items():
+            if isinstance(value, (ChoiceDistribution, UniformIntDistribution, NormalDistribution,
+                                ChoiceDistributionConfig, UniformIntDistributionConfig, NormalDistributionConfig)):
+                profile_dict[key] = value.dict()
+            else:
+                profile_dict[key] = value
+        
         async with request.app.state.get_db() as db:
             db = cast(AsyncSession, db)
             
-            # 创建新模板
             new_template = AgentTemplateDB(
                 tenant_id=tenant_id,
                 id=template_id,
                 name=template.name,
                 description=template.description,
-                profile=template.profile.dict() if template.profile else {},
-                base=template.base.dict() if template.base else {},
-                states=template.states.dict() if template.states else {},
-                agent_params=template.agent_params.dict() if template.agent_params else {},
-                blocks=[block.dict() for block in template.blocks] if template.blocks else []
+                profile=profile_dict,  # 使用转换后的字典
+                base=template.base.dict(),
+                states=template.states.dict(),
+                agent_params=template.agent_params.dict(),
+                blocks=[block.dict() for block in template.blocks]
             )
             
             db.add(new_template)
             await db.commit()
             await db.refresh(new_template)
             
-            # 构造返回数据
+            # 构造返回数据时需要将字典转回分布对象
             response_template = ApiAgentTemplate(
                 tenant_id=new_template.tenant_id,
                 id=new_template.id,
                 name=new_template.name,
                 description=new_template.description,
-                profile=new_template.profile,
-                base=new_template.base,
-                states=new_template.states,
-                agent_params=new_template.agent_params,
+                profile=new_template.profile,  # 数据库中存储的是字典格式
+                base=BaseConfig(**new_template.base),
+                states=StatesConfig(**new_template.states),
+                agent_params=AgentParams(**new_template.agent_params),
                 blocks=[TemplateBlock(**block) for block in new_template.blocks],
                 created_at=new_template.created_at.isoformat(),
                 updated_at=new_template.updated_at.isoformat()
@@ -175,6 +286,7 @@ async def create_agent_template(
             return ApiResponseWrapper(data=response_template)
             
     except Exception as e:
+        print(f"Error details: {str(e)}")  # 添加详细错误日志
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create template: {str(e)}"
