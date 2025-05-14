@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Card, Row, Col, Button, Switch, InputNumber, Select, Space, message, Tooltip, Table } from 'antd';
+import type { FormInstance } from 'antd/es/form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCustom } from '../../components/fetch';
 import { QuestionCircleOutlined } from '@ant-design/icons';
