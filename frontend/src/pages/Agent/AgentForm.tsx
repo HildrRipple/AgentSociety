@@ -52,19 +52,16 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
   React.useEffect(() => {
     const formValues = form.getFieldsValue();
     
-    if (formValues.citizenGroups) {
+    if (formValues.citizens) {
       const newDistributionsState = {};
       
-      formValues.citizenGroups.forEach((group, index) => {
+      formValues.citizens.forEach((group, index) => {
         if (group.memory_distributions) {
-          // Ensure each distribution item has a unique ID
-          newDistributionsState[index] = group.memory_distributions.map(dist => ({
-            ...dist,
-            id: dist.id || Date.now() + Math.random()
-          }));
+          // 不再转换为数组，保持对象格式
+          newDistributionsState[index] = group.memory_distributions;
         } else {
-          // If no distribution items, initialize as empty array
-          newDistributionsState[index] = [];
+          // 初始化为空对象而不是空数组
+          newDistributionsState[index] = {};
         }
       });
       
@@ -100,11 +97,11 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
     
     // Update form values based on selected profile
     const formValues = form.getFieldsValue();
-    if (!formValues.citizenGroups) {
-      formValues.citizenGroups = [{}];
+    if (!formValues.citizens) {
+      formValues.citizens = [{}];
     }
     
-    formValues.citizenGroups[0].profile_id = profileId;
+    formValues.citizens[0].profile_id = profileId;
     form.setFieldsValue(formValues);
     
     // Update parent component
@@ -189,9 +186,25 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
         <Form
           form={form}
           layout="vertical"
-          initialValues={value}
+          initialValues={{
+            citizens: [{ number: 10, agent_class: 'citizen', memory_distributions: {} }],
+            firms: [{ number: 1, agent_class: 'firm' }],
+            governments: [{ number: 1, agent_class: 'government' }],
+            banks: [{ number: 1, agent_class: 'bank' }],
+            nbs: [{ number: 1, agent_class: 'nbs' }],
+          }}
           onValuesChange={(_, allValues) => {
-            onChange(allValues);
+            // 确保每个列表至少有一个元素
+            const transformedValues = {
+              citizens: (allValues.citizens?.length ? allValues.citizens : [{ number: 10, agent_class: 'citizen', memory_distributions: {} }])
+                .map(({ memory_distributions, ...rest }) => rest), // 移除 memory_distributions 字段
+              firms: allValues.firms?.length ? allValues.firms : [{ number: 1, agent_class: 'firm' }],
+              governments: allValues.governments?.length ? allValues.governments : [{ number: 1, agent_class: 'government' }],
+              banks: allValues.banks?.length ? allValues.banks : [{ number: 1, agent_class: 'bank' }],
+              nbs: allValues.nbs?.length ? allValues.nbs : [{ number: 1, agent_class: 'nbs' }],
+            };
+            
+            onChange(transformedValues);
           }}
         >
           <Tabs activeKey={activeTab} onChange={setActiveTab}>
@@ -208,7 +221,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                 </Form.Item>
                 
                 {citizenConfigMode === 'profile' ? (
-                  <Form.List name="citizenGroups" initialValue={[{}]}>
+                  <Form.List name="citizens" initialValue={[{ agent_class: 'citizen', memory_distributions: {} }]}>
                     {(fields, { add, remove }) => (
                       <>
                         {fields.map(({ key, name, ...restField }) => (
@@ -240,7 +253,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         ))}
                         <Button
                           type="dashed"
-                          onClick={() => add({})}
+                          onClick={() => add({ number: 10, agent_class: 'citizen', memory_distributions: {} })}
                           block
                           icon={<PlusOutlined />}
                         >
@@ -250,7 +263,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                     )}
                   </Form.List>
                 ) : (
-                  <Form.List name="citizenGroups" initialValue={[{ number: 10 }]}>
+                  <Form.List name="citizens" initialValue={[{ number: 10, agent_class: 'citizen', memory_distributions: {} }]}>
                     {(fields, { add, remove }) => (
                       <>
                         {fields.map(({ key, name, ...restField }) => (
@@ -273,115 +286,106 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                               <InputNumber min={1} style={{ width: '100%' }} />
                             </Form.Item>
                             
-                            <Form.List
-                              name={[name, 'memory_distributions']}
-                              initialValue={[{
-                                name: '',
-                                distribution: {
-                                  type: 'constant',
-                                  params: { val: '' }
-                                }
-                              }]}
-                            >
-                              {(fields, { add, remove }) => (
-                                <>
-                                  {fields.map(({ key, name: distName, ...restField }) => (
-                                    <Card
-                                      key={key}
-                                      title={`Distribution ${distName + 1}`}
-                                      style={{ marginBottom: 8 }}
+                            <div>
+                              {Object.entries(form.getFieldValue(['citizens', name, 'memory_distributions']) || {}).map(([distName, dist]) => (
+                                <Card
+                                  key={distName}
+                                  title={`Distribution ${parseInt(distName.split('_')[1]) + 1}`}
+                                  style={{ marginBottom: 8 }}
+                                  size="small"
+                                  extra={
+                                    <Button
+                                      icon={<MinusCircleOutlined />}
+                                      onClick={() => {
+                                        const currentValues = form.getFieldsValue();
+                                        const { [distName]: _, ...rest } = currentValues.citizens[name].memory_distributions;
+                                        currentValues.citizens[name].memory_distributions = rest;
+                                        form.setFieldsValue(currentValues);
+                                      }}
                                       size="small"
-                                      extra={
-                                        <Button
-                                          icon={<MinusCircleOutlined />}
-                                          onClick={() => remove(distName)}
-                                          size="small"
-                                          danger
-                                        />
-                                      }
-                                    >
-                                      <Form.Item
-                                        {...restField}
-                                        name={[distName, 'name']}
-                                        label="Attribute Name"
-                                        rules={[{ required: true, message: 'Please enter attribute name' }]}
-                                      >
-                                        <Input placeholder="e.g. age, income" />
-                                      </Form.Item>
-                                      
-                                      <Form.Item
-                                        {...restField}
-                                        name={[distName, 'distribution', 'type']}
-                                        label="Distribution Type"
-                                        rules={[{ required: true, message: 'Please select distribution type' }]}
-                                        initialValue="constant"
-                                      >
-                                        <Select
-                                          options={distributionTypeOptions}
-                                          onChange={(value) => {
-                                            // Reset params when distribution type changes
-                                            const currentValues = form.getFieldsValue();
-                                            let defaultParams = {};
-                                            
-                                            switch (value) {
-                                              case 'choice':
-                                                defaultParams = { choices: '' };
-                                                break;
-                                              case 'uniform_int':
-                                              case 'uniform_float':
-                                                defaultParams = { low: 0, high: 10 };
-                                                break;
-                                              case 'normal':
-                                                defaultParams = { loc: 0, scale: 1 };
-                                                break;
-                                              case 'constant':
-                                                defaultParams = { val: '' };
-                                                break;
-                                            }
-                                            
-                                            if (currentValues.citizenGroups && 
-                                              currentValues.citizenGroups[name] && 
-                                              currentValues.citizenGroups[name].memory_distributions) {
-                                              currentValues.citizenGroups[name].memory_distributions[distName].distribution.params = defaultParams;
-                                              form.setFieldsValue(currentValues);
-                                            }
-                                          }}
-                                        />
-                                      </Form.Item>
-                                      
-                                      {renderDistributionForm(
-                                        form.getFieldValue(['citizenGroups', name, 'memory_distributions', distName, 'distribution', 'type']),
-                                        ['citizenGroups', name, 'memory_distributions', distName, 'distribution']
-                                      )}
-                                    </Card>
-                                  ))}
-                                  <Button
-                                    type="dashed"
-                                    onClick={() => {
-                                      console.log('Adding new distribution');
-                                      add({
-                                        name: '',
-                                        distribution: {
-                                          type: 'constant',
-                                          params: { val: '' }
-                                        }
-                                      });
-                                    }}
-                                    block
-                                    icon={<PlusOutlined />}
-                                    size="small"
-                                    style={{ marginBottom: 16 }}
+                                      danger
+                                    />
+                                  }
+                                >
+                                  <Form.Item
+                                    name={['citizens', name, 'memory_distributions', distName, 'name']}
+                                    label="Attribute Name"
+                                    rules={[{ required: true, message: 'Please enter attribute name' }]}
                                   >
-                                    Add Distribution
-                                  </Button>
-                                </>
-                              )}
-                            </Form.List>
+                                    <Input placeholder="e.g. age, income" />
+                                  </Form.Item>
+                                  
+                                  <Form.Item
+                                    name={['citizens', name, 'memory_distributions', distName, 'type']}
+                                    label="Distribution Type"
+                                    rules={[{ required: true, message: 'Please select distribution type' }]}
+                                  >
+                                    <Select
+                                      options={distributionTypeOptions}
+                                      onChange={(value) => {
+                                        // Reset params when distribution type changes
+                                        const currentValues = form.getFieldsValue();
+                                        let defaultParams = {};
+                                        
+                                        switch (value) {
+                                          case 'choice':
+                                            defaultParams = { choices: '' };
+                                            break;
+                                          case 'uniform_int':
+                                          case 'uniform_float':
+                                            defaultParams = { low: 0, high: 10 };
+                                            break;
+                                          case 'normal':
+                                            defaultParams = { loc: 0, scale: 1 };
+                                            break;
+                                          case 'constant':
+                                            defaultParams = { val: '' };
+                                            break;
+                                        }
+                                        
+                                        currentValues.citizens[name].memory_distributions[distName].params = defaultParams;
+                                        form.setFieldsValue(currentValues);
+                                      }}
+                                    />
+                                  </Form.Item>
+                                  
+                                  {renderDistributionForm(
+                                    form.getFieldValue(['citizens', name, 'memory_distributions', distName, 'type']),
+                                    ['citizens', name, 'memory_distributions', distName]
+                                  )}
+                                </Card>
+                              ))}
+                              <Button
+                                type="dashed"
+                                onClick={() => {
+                                  const currentValues = form.getFieldsValue();
+                                  const currentDistributions = currentValues.citizens[name].memory_distributions || {};
+                                  const newDistName = `dist_${Object.keys(currentDistributions).length}`;
+                                  
+                                  currentValues.citizens[name].memory_distributions = {
+                                    ...currentDistributions,
+                                    [newDistName]: {
+                                      name: '',
+                                      type: 'constant',
+                                      params: { val: '' }
+                                    }
+                                  };
+                                  
+                                  form.setFieldsValue(currentValues);
+                                }}
+                                block
+                                icon={<PlusOutlined />}
+                                size="small"
+                                style={{ marginBottom: 16 }}
+                              >
+                                Add Distribution
+                              </Button>
+                            </div>
                           </Card>
                         ))}
                         <Button
                           type="dashed"
-                          onClick={() => add({ number: 10 })}
+                          onClick={() => add({ number: 10, agent_class: 'citizen', memory_distributions: {} })}
                           block
                           icon={<PlusOutlined />}
                         >
@@ -396,7 +400,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
 
             <TabPane tab="Firms" key="2">
               <Card bordered={false}>
-                <Form.List name="firmGroups" initialValue={[{ number: 1 }]}>
+                <Form.List name="firms" initialValue={[{ number: 1, agent_class: 'firm' }]}>
                   {(fields, { add, remove }) => (
                     <>
                       {fields.map(({ key, name, ...restField }) => (
@@ -436,7 +440,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
 
             <TabPane tab="Government" key="3">
               <Card bordered={false}>
-                <Form.List name="governmentGroups" initialValue={[{ number: 1 }]}>
+                <Form.List name="governments" initialValue={[{ number: 1, agent_class: 'government' }]}>
                   {(fields, { add, remove }) => (
                     <>
                       {fields.map(({ key, name, ...restField }) => (
@@ -476,7 +480,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
 
             <TabPane tab="Banks" key="4">
               <Card bordered={false}>
-                <Form.List name="bankGroups" initialValue={[{ number: 1 }]}>
+                <Form.List name="banks" initialValue={[{ number: 1, agent_class: 'bank' }]}>
                   {(fields, { add, remove }) => (
                     <>
                       {fields.map(({ key, name, ...restField }) => (
@@ -516,7 +520,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
 
             <TabPane tab="NBS" key="5">
               <Card bordered={false}>
-                <Form.List name="nbsGroups" initialValue={[{ number: 1 }]}>
+                <Form.List name="nbs" initialValue={[{ number: 1, agent_class: 'nbs' }]}>
                   {(fields, { add, remove }) => (
                     <>
                       {fields.map(({ key, name, ...restField }) => (
@@ -556,7 +560,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
 
             <TabPane tab="Custom" key="6">
               <Card bordered={false}>
-                <Form.List name="customGroups" initialValue={[{}]}>
+                <Form.List name="customs" initialValue={[{ number: 1 }]}>
                   {(fields, { add, remove }) => (
                     <>
                       {fields.map(({ key, name, ...restField }) => (
@@ -591,11 +595,19 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                               ))}
                             </Select>
                           </Form.Item>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'number']}
+                            label="Number of Agents"
+                            rules={[{ required: true, message: 'Please enter number of agents' }]}
+                          >
+                            <InputNumber min={1} style={{ width: '100%' }} />
+                          </Form.Item>
                         </Card>
                       ))}
                       <Button
                         type="dashed"
-                        onClick={() => add({})}
+                        onClick={() => add({ number: 1 })}
                         block
                         icon={<PlusOutlined />}
                       >
