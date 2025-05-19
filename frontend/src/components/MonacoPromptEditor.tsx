@@ -84,7 +84,7 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
             
             return {
               label: item.label,
-              kind: monaco.languages.CompletionItemKind.Text,
+              kind: monaco.languages.CompletionItemKind.Field,
               insertText: insertText,
               detail: item.detail || '',
               range: range,
@@ -137,6 +137,17 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
         showInlineDetails: true
       }
     });
+
+    // 设置编辑器背景色
+    monaco.editor.defineTheme('vs-gray', {
+      base: 'vs',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#f0f0f0',  // 浅灰色背景
+      }
+    });
+    monaco.editor.setTheme('vs-gray');
   };
   
   // 当suggestions变化时重新注册提供器
@@ -159,13 +170,13 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
     <Editor
       height={height}
       defaultLanguage={`markdown-${editorId}`}
-      theme="vs-light"
+      theme="vs-gray"
       value={value}
       onChange={onChange}
       onMount={handleEditorDidMount}
       options={{
         minimap: { enabled: false },
-        lineNumbers: 'off',
+        lineNumbers: 'on',
         folding: false,
         wordWrap: 'on',
         contextmenu: false,

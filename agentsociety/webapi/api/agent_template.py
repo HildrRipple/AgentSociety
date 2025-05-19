@@ -409,9 +409,7 @@ async def get_agent_blocks(
             # 获取参数类的字段信息
             params = {}
             if hasattr(block_class, 'ParamsType'):
-                # print(block_class.ParamsType.__fields__.items())
                 for field_name, field in block_class.ParamsType.__fields__.items():
-                    # print(field_name, field)
                     if field_name == 'block_memory':
                         continue
                     type_name = field.annotation.__name__ if hasattr(field.annotation, '__name__') else str(field.annotation)
@@ -433,7 +431,6 @@ async def get_agent_blocks(
                 ],
                 "params": params
             }
-            print(block_info)
             blocks.append(block_info)
 
         return ApiResponseWrapper(data=blocks)
