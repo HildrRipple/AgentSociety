@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined } from '@ant-design/icons';
+import { 
+  PlusOutlined, 
+  EditOutlined, 
+  DeleteOutlined, 
+  CopyOutlined, 
+  ExportOutlined, 
+  EyeOutlined, 
+  DownloadOutlined 
+} from '@ant-design/icons';
 import MapForm from './MapForm';
 import { ConfigItem } from '../../services/storageService';
 import { MapConfig } from '../../types/config';
 import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
 import { getAccessToken } from '../../components/Auth';
+import { useTranslation } from 'react-i18next';
 
 const MapList: React.FC = () => {
+    const { t } = useTranslation();
     const [maps, setMaps] = useState<ConfigItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
@@ -97,6 +107,47 @@ const MapList: React.FC = () => {
         }
     };
 
+    // Handle duplicate map
+    const handleDuplicate = async (map: ConfigItem) => {
+        try {
+            const duplicateData = {
+                ...map,
+                name: `${map.name} (Copy)`,
+                id: undefined,
+            };
+            
+            const res = await fetchCustom('/api/map-configs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(duplicateData),
+            });
+
+            if (!res.ok) {
+                throw new Error(await res.text());
+            }
+
+            message.success('Map duplicated successfully');
+            loadMaps();
+        } catch (error) {
+            message.error(`Failed to duplicate map: ${JSON.stringify(error.message)}`, 3);
+            console.error(error);
+        }
+    };
+
+    // Handle export map
+    const handleExport = (map: ConfigItem) => {
+        const dataStr = JSON.stringify(map, null, 2);
+        const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+        const exportFileDefaultName = `${map.name.replace(/\s+/g, '_')}_map.json`;
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+    };
+
     // Handle modal OK
     const handleModalOk = async () => {
         try {
@@ -147,94 +198,48 @@ const MapList: React.FC = () => {
     // Table columns
     const columns = [
         {
-            title: 'Name',
+            title: t('form.common.name'),
             dataIndex: 'name',
             key: 'name',
-            sorter: (a: ConfigItem, b: ConfigItem) => a.name.localeCompare(b.name)
         },
         {
-            title: 'Description',
+            title: t('form.common.description'),
             dataIndex: 'description',
             key: 'description',
             ellipsis: true
         },
         {
-            title: 'Last Updated',
+            title: t('form.common.lastUpdated'),
             dataIndex: 'updated_at',
             key: 'updated_at',
-            render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-            sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updated_at).valueOf() - dayjs(b.updated_at).valueOf()
+            render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss')
         },
         {
-            title: 'Actions',
-            key: 'actions',
+            title: t('form.common.actions'),
+            key: 'action',
             render: (_: any, record: ConfigItem) => (
                 <Space size="small">
                     {
                         (record.tenant_id ?? '') !== '' && (
-                            <Tooltip title="Edit">
+                            <Tooltip title={t('form.common.edit')}>
                                 <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
                             </Tooltip>
                         )
                     }
-                    <Tooltip title="View">
-                        <Button icon={<EyeOutlined />} size="small" onClick={async () => {
-                            // get token
-                            const url = `/api/map-configs/${record.id}/temp-link`
-                            try {
-                                const res = await fetchCustom(url, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify({ expire_seconds: 600 }),
-                                })
-                                if (!res.ok) {
-                                    throw new Error(await res.text());
-                                }
-                                const data = await res.json();
-                                const token = data.data.token;
-                                // create temp-link url
-                                // format: ${window.location.origin}/api/map-configs/{config_id}/temp-link?token=${token}
-                                const tempLinkUrl = `${window.location.origin}/api/map-configs/${record.id}/temp-link?token=${token}`;
-                                // open in new tab
-                                // format: https://moss.fiblab.net/tools/map-editor?dataSource=${tempLinkUrl}
-                                window.open(`https://moss.fiblab.net/tools/map-editor?dataSource=${tempLinkUrl}`, '_blank');
-                            } catch (error) {
-                                message.error(`Failed to get temp link: ${JSON.stringify(error.message)}`, 3);
-                                console.error(error);
-                            }
-                        }} />
+                    <Tooltip title={t('form.common.duplicate')}>
+                        <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
                     </Tooltip>
-                    <Tooltip title="Export">
-                        <Button icon={<DownloadOutlined />} size="small" onClick={() => {
-                            const token = getAccessToken();
-                            if (!token) {
-                                message.error('No token found, please login');
-                                return;
-                            }
-                            const authorization = `Bearer ${token}`;
-                            const url = `/api/map-configs/${record.id}/export`
-                            // use form post to download the file
-                            const form = document.createElement('form');
-                            // TODO: add authorization
-                            form.action = url;
-                            form.method = 'POST';
-                            form.target = '_blank';
-                            form.innerHTML = '<input type="hidden" name="authorization" value="' + authorization + '">';
-                            document.body.appendChild(form);
-                            form.submit();
-                            document.body.removeChild(form);
-                        }} />
+                    <Tooltip title={t('form.common.export')}>
+                        <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
                     </Tooltip>
                     {
                         (record.tenant_id ?? '') !== '' && (
-                            <Tooltip title="Delete">
+                            <Tooltip title={t('form.common.delete')}>
                                 <Popconfirm
-                                    title="Are you sure you want to delete this map?"
+                                    title={t('form.common.deleteConfirm')}
                                     onConfirm={() => handleDelete(record.id)}
-                                    okText="Yes"
-                                    cancelText="No"
+                                    okText={t('form.common.submit')}
+                                    cancelText={t('form.common.cancel')}
                                 >
                                     <Button icon={<DeleteOutlined />} size="small" danger />
                                 </Popconfirm>
@@ -248,11 +253,11 @@ const MapList: React.FC = () => {
 
     return (
         <Card
-            title="Map Configurations"
-            extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>Create New</Button>}
+            title={t('form.map.title')}
+            extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>{t('form.map.createNew')}</Button>}
         >
             <Input.Search
-                placeholder="Search maps"
+                placeholder={t('form.map.searchPlaceholder')}
                 onChange={handleSearch}
                 style={{ marginBottom: 16 }}
             />
@@ -266,38 +271,38 @@ const MapList: React.FC = () => {
             />
 
             <Modal
-                title={currentMap ? "Edit Map" : "Create Map"}
+                title={currentMap ? t('form.map.editTitle') : t('form.map.createTitle')}
                 open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
                 width={800}
                 destroyOnClose
             >
-                <Card title="Configuration Metadata" style={{ marginBottom: 16 }}>
+                <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 16 }}>
                     <Form
                         form={metaForm}
                         layout="vertical"
                     >
                         <Form.Item
                             name="name"
-                            label="Name"
-                            rules={[{ required: true, message: 'Please enter a name for this configuration' }]}
+                            label={t('form.common.name')}
+                            rules={[{ required: true, message: t('form.common.nameRequired') }]}
                         >
-                            <Input placeholder="Enter configuration name" />
+                            <Input placeholder={t('form.common.namePlaceholder')} />
                         </Form.Item>
                         <Form.Item
                             name="description"
-                            label="Description"
+                            label={t('form.common.description')}
                         >
                             <Input.TextArea
                                 rows={2}
-                                placeholder="Enter a description for this configuration"
+                                placeholder={t('form.common.descriptionPlaceholder')}
                             />
                         </Form.Item>
                     </Form>
                 </Card>
 
-                <Card title="Map Settings">
+                <Card title={t('form.map.settingsTitle')}>
                     <MapForm
                         value={formValues}
                         onChange={setFormValues}

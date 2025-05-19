@@ -3,6 +3,7 @@ import { Form, Input, Select, Card, Button } from 'antd';
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import { Config, LLMConfig } from '../../types/config';
 import { LLMProviderType } from '../../utils/enums';
+import { useTranslation } from 'react-i18next';
 
 interface LLMFormProps {
     value: { llm_configs: LLMConfig[] };
@@ -54,6 +55,7 @@ const providerModels = {
 
 const LLMForm: React.FC<LLMFormProps> = ({ value, onChange }) => {
     const [form] = Form.useForm();
+    const { t } = useTranslation();
     const [selectedProviders, setSelectedProviders] = useState<Record<number, LLMProviderType>>({});
 
     // Handle form value changes
@@ -100,33 +102,29 @@ const LLMForm: React.FC<LLMFormProps> = ({ value, onChange }) => {
             onValuesChange={handleValuesChange}
             initialValues={value}
         >
-            <Card bordered={false}>
-                <Form.List name="llm_configs" initialValue={[{}]}>
+            <Card title={t('form.llm.settingsTitle')}>
+                <Form.List name="llm_configs">
                     {(fields, { add, remove }) => (
                         <>
                             {fields.map(({ key, name, ...restField }) => (
                                 <Card
                                     key={key}
-                                    title={`LLM Provider ${name + 1}`}
+                                    title={`${t('form.llm.providerTitle')} ${name + 1}`}
                                     style={{ marginBottom: 16 }}
                                     extra={
-                                        fields.length > 1 ?
-                                            <Button
-                                                type="text"
-                                                danger
-                                                icon={<MinusCircleOutlined />}
-                                                onClick={() => remove(name)}
-                                            /> : null
+                                        fields.length > 1 ? (
+                                            <MinusCircleOutlined onClick={() => remove(name)} />
+                                        ) : null
                                     }
                                 >
                                     <Form.Item
                                         {...restField}
                                         name={[name, 'provider']}
-                                        label="Provider"
-                                        rules={[{ required: true, message: 'Please select a provider' }]}
+                                        label={t('form.llm.providerLabel')}
+                                        rules={[{ required: true, message: t('form.llm.providerPlaceholder') }]}
                                     >
                                         <Select
-                                            placeholder="Select LLM provider"
+                                            placeholder={t('form.llm.providerPlaceholder')}
                                             options={[
                                                 { value: LLMProviderType.OPENAI, label: 'OpenAI' },
                                                 { value: LLMProviderType.DEEPSEEK, label: 'DeepSeek' },
@@ -160,18 +158,18 @@ const LLMForm: React.FC<LLMFormProps> = ({ value, onChange }) => {
                                     <Form.Item
                                         {...restField}
                                         name={[name, 'base_url']}
-                                        label="Base URL (Optional)"
+                                        label={t('form.llm.baseUrl')}
                                     >
-                                        <Input placeholder="Enter base URL if using a custom endpoint" />
+                                        <Input placeholder={t('form.llm.baseUrlPlaceholder')} />
                                     </Form.Item>
 
                                     <Form.Item
                                         {...restField}
                                         name={[name, 'api_key']}
-                                        label="API Key"
-                                        rules={[{ required: true, message: 'Please enter API key' }]}
+                                        label={t('form.llm.apiKey')}
+                                        rules={[{ required: true, message: t('form.llm.apiKeyPlaceholder') }]}
                                     >
-                                        <Input.Password placeholder="Enter API key" />
+                                        <Input.Password placeholder={t('form.llm.apiKeyPlaceholder')} />
                                     </Form.Item>
 
                                     {/* Model selection based on provider */}
@@ -180,20 +178,20 @@ const LLMForm: React.FC<LLMFormProps> = ({ value, onChange }) => {
                                         <Form.Item
                                             {...restField}
                                             name={[name, 'model']}
-                                            label="Model"
-                                            rules={[{ required: true, message: 'Please enter model name' }]}
+                                            label={t('form.llm.model')}
+                                            rules={[{ required: true, message: t('form.llm.vllmModelPlaceholder') }]}
                                         >
-                                            <Input placeholder="Enter vLLM model name" />
+                                            <Input placeholder={t('form.llm.vllmModelPlaceholder')} />
                                         </Form.Item>
                                     ) : (
                                         <Form.Item
                                             {...restField}
                                             name={[name, 'model']}
-                                            label="Model"
-                                            rules={[{ required: true, message: 'Please select a model' }]}
+                                            label={t('form.llm.model')}
+                                            rules={[{ required: true, message: t('form.llm.modelPlaceholder') }]}
                                         >
                                             <Select
-                                                placeholder="Select model"
+                                                placeholder={t('form.llm.modelPlaceholder')}
                                                 options={
                                                     selectedProviders[name] && providerModels[selectedProviders[name]]
                                                         ? providerModels[selectedProviders[name]]
@@ -211,7 +209,7 @@ const LLMForm: React.FC<LLMFormProps> = ({ value, onChange }) => {
                                     block
                                     icon={<PlusOutlined />}
                                 >
-                                    Add LLM Provider
+                                    {t('form.llm.addProvider')}
                                 </Button>
                             </Form.Item>
                         </>

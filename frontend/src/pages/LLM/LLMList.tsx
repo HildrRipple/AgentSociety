@@ -6,8 +6,10 @@ import { ConfigItem } from '../../services/storageService';
 import { Config, LLMConfig } from '../../types/config';
 import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 
 const LLMList: React.FC = () => {
+    const { t } = useTranslation();
     const [llms, setLLMs] = useState<ConfigItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
@@ -169,65 +171,66 @@ const LLMList: React.FC = () => {
     // Table columns
     const columns = [
         {
-            title: 'Name',
+            title: t('form.common.name'),
             dataIndex: 'name',
             key: 'name',
-            sorter: (a: ConfigItem, b: ConfigItem) => a.name.localeCompare(b.name)
         },
         {
-            title: 'Description',
+            title: t('form.common.description'),
             dataIndex: 'description',
             key: 'description',
             ellipsis: true
         },
         {
-            title: 'Last Updated',
+            title: t('form.common.lastUpdated'),
             dataIndex: 'updated_at',
             key: 'updated_at',
-            render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-            sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updated_at).valueOf() - dayjs(b.updated_at).valueOf()
+            render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss')
         },
         {
-            title: 'Actions',
-            key: 'actions',
-            render: (_: any, record: ConfigItem) => {
-                if ((record.tenant_id ?? '') === '') {
-                    return null
-                }
-                return (
-                    <Space size="small">
-                        <Tooltip title="Edit">
-                            <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
-                        </Tooltip>
-                        <Tooltip title="Duplicate">
-                            <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
-                        </Tooltip>
-                        <Tooltip title="Export">
-                            <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                            <Popconfirm
-                                title="Are you sure you want to delete this LLM config?"
-                                onConfirm={() => handleDelete(record.id)}
-                                okText="Yes"
-                                cancelText="No"
-                            >
-                                <Button icon={<DeleteOutlined />} size="small" danger />
-                            </Popconfirm>
-                        </Tooltip>
-                    </Space>
-                )
-            }
+            title: t('form.common.actions'),
+            key: 'action',
+            render: (_: any, record: ConfigItem) => (
+                <Space size="small">
+                    {
+                        (record.tenant_id ?? '') !== '' && (
+                            <Tooltip title={t('form.common.edit')}>
+                                <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
+                            </Tooltip>
+                        )
+                    }
+                    <Tooltip title={t('form.common.duplicate')}>
+                        <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
+                    </Tooltip>
+                    <Tooltip title={t('form.common.export')}>
+                        <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
+                    </Tooltip>
+                    {
+                        (record.tenant_id ?? '') !== '' && (
+                            <Tooltip title={t('form.common.delete')}>
+                                <Popconfirm
+                                    title={t('form.common.deleteConfirm')}
+                                    onConfirm={() => handleDelete(record.id)}
+                                    okText={t('form.common.submit')}
+                                    cancelText={t('form.common.cancel')}
+                                >
+                                    <Button icon={<DeleteOutlined />} size="small" danger />
+                                </Popconfirm>
+                            </Tooltip>
+                        )
+                    }
+                </Space>
+            )
         }
     ];
 
     return (
         <Card
-            title="LLM Configurations"
-            extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>Create New</Button>}
+            title={t('form.llm.title')}
+            extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>{t('form.llm.createNew')}</Button>}
         >
             <Input.Search
-                placeholder="Search LLM configs"
+                placeholder={t('form.llm.searchPlaceholder')}
                 onChange={handleSearch}
                 style={{ marginBottom: 16 }}
             />
@@ -241,38 +244,38 @@ const LLMList: React.FC = () => {
             />
 
             <Modal
-                title={currentLLM ? "Edit LLM Config" : "Create LLM Config"}
+                title={currentLLM ? t('form.llm.editTitle') : t('form.llm.createTitle')}
                 open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
                 width={800}
                 destroyOnClose
             >
-                <Card title="Configuration Metadata" style={{ marginBottom: 16 }}>
+                <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 16 }}>
                     <Form
                         form={metaForm}
                         layout="vertical"
                     >
                         <Form.Item
                             name="name"
-                            label="Name"
-                            rules={[{ required: true, message: 'Please enter a name for this configuration' }]}
+                            label={t('form.common.name')}
+                            rules={[{ required: true, message: t('form.common.nameRequired') }]}
                         >
-                            <Input placeholder="Enter configuration name" />
+                            <Input placeholder={t('form.common.namePlaceholder')} />
                         </Form.Item>
                         <Form.Item
                             name="description"
-                            label="Description"
+                            label={t('form.common.description')}
                         >
                             <Input.TextArea
                                 rows={2}
-                                placeholder="Enter a description for this configuration"
+                                placeholder={t('form.common.descriptionPlaceholder')}
                             />
                         </Form.Item>
                     </Form>
                 </Card>
 
-                <Card title="LLM Config Settings">
+                <Card title={t('form.llm.settingsTitle')}>
                     <LLMForm
                         value={formValues}
                         onChange={setFormValues}

@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict, List, cast
+from typing import Dict, List, cast, Any
 
 from fastapi import APIRouter, Body, HTTPException, Request, status
 from sqlalchemy import delete, insert, select, update
@@ -22,6 +22,11 @@ from ..models.agent_template import (
     StatesConfig,
     AgentParams
 )
+from agentsociety.cityagent.societyagent import SocietyAgent
+from agentsociety.cityagent.blocks.economy_block import EconomyBlock, WorkBlock, ConsumptionBlock, EconomyNoneBlock
+from agentsociety.cityagent.blocks.mobility_block import MobilityBlock, PlaceSelectionBlock, MoveBlock, MobilityNoneBlock
+from agentsociety.cityagent.blocks.other_block import OtherBlock, SleepBlock, OtherNoneBlock
+from agentsociety.cityagent.blocks.social_block import SocialBlock, FindPersonBlock, MessageBlock, SocialNoneBlock
 
 __all__ = ["router"]
 
@@ -362,3 +367,79 @@ async def delete_agent_template(
         
         await db.commit()
         return ApiResponseWrapper(data={"message": "Template deleted successfully"})
+
+@router.get("/agent-functions")
+async def get_agent_functions(
+    request: Request,
+) -> ApiResponseWrapper[List[Dict[str, str]]]:
+    """Get available functions for agent"""
+    try:
+        functions_map = SocietyAgent.get_functions
+        functions = [
+            {
+                "function_name": func_info["function_name"],
+                "description": func_info["description"]
+            }
+            for func_info in functions_map.values()
+        ]
+        return ApiResponseWrapper(data=functions)
+    except Exception as e:
+        print(f"Error in get_agent_functions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get agent functions: {str(e)}"
+        )
+
+@router.get("/agent-blocks")
+async def get_agent_blocks(
+    request: Request,
+) -> ApiResponseWrapper[List[Dict[str, Any]]]:
+    """Get available blocks and their functions for agent"""
+    try:
+        block_classes = [
+            # CognitionBlock,
+            EconomyBlock,
+            MobilityBlock,
+            OtherBlock,
+            SocialBlock
+        ]
+
+        blocks = []
+        for block_class in block_classes:
+            # 获取参数类的字段信息
+            params = {}
+            if hasattr(block_class, 'ParamsType'):
+                # print(block_class.ParamsType.__fields__.items())
+                for field_name, field in block_class.ParamsType.__fields__.items():
+                    # print(field_name, field)
+                    if field_name == 'block_memory':
+                        continue
+                    type_name = field.annotation.__name__ if hasattr(field.annotation, '__name__') else str(field.annotation)
+                    params[field_name] = {
+                        "description": field.description if hasattr(field, 'description') else None,
+                        "default": field.default,
+                        "type": type_name
+                    }
+
+            block_info = {
+                "block_name": block_class.name,
+                "description": block_class.description,
+                "functions": [
+                    {
+                        "function_name": func_info["function_name"],
+                        "description": func_info["description"]
+                    }
+                    for func_info in block_class.get_functions.values()
+                ],
+                "params": params
+            }
+            print(block_info)
+            blocks.append(block_info)
+
+        return ApiResponseWrapper(data=blocks)
+    except Exception as e:
+        print(f"Error in get_agent_blocks: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get agent blocks: {str(e)}"
+        )

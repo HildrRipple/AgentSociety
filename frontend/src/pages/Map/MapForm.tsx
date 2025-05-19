@@ -3,6 +3,7 @@ import { Form, Upload, message } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import { MapConfig } from '../../types/config';
 import { getAccessToken } from '../../components/Auth';
+import { useTranslation } from 'react-i18next';
 
 const { Dragger } = Upload;
 
@@ -13,6 +14,7 @@ interface MapFormProps {
 
 const MapForm: React.FC<MapFormProps> = ({ value, onChange }) => {
     const [form] = Form.useForm();
+    const { t } = useTranslation();
 
     // Update parent component state when form values change
     const handleValuesChange = (changedValues: any, allValues: any) => {
@@ -69,16 +71,16 @@ const MapForm: React.FC<MapFormProps> = ({ value, onChange }) => {
         >
             <Form.Item
                 name="file_path"
-                label="New Map File (Upload or Replace)"
+                label={t('form.map.uploadTitle')}
                 required
             >
                 <Dragger {...uploadProps} style={{ marginBottom: 16 }}>
                     <p className="ant-upload-drag-icon">
                         <InboxOutlined />
                     </p>
-                    <p className="ant-upload-text">Click or drag map file to this area to upload</p>
+                    <p className="ant-upload-text">{t('form.map.uploadHint')}</p>
                     <p className="ant-upload-hint">
-                        Support for a single .pb file upload. The file will be stored in S3.
+                        {t('form.map.uploadDescription')}
                     </p>
                 </Dragger>
             </Form.Item>

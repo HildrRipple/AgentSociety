@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Card, Row, Col, Button, Switch, InputNumber, Select, Space, message, Tooltip, Table } from 'antd';
+import { Form, Input, Card, Row, Col, Button, Switch, InputNumber, Select, Space, message, Tooltip, Table, Modal, Typography } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCustom } from '../../components/fetch';
 import { QuestionCircleOutlined } from '@ant-design/icons';
+import MonacoPromptEditor from '../../components/MonacoPromptEditor';
+import { useTranslation } from 'react-i18next';
 
 // Import required interfaces and constants
 interface TemplateBlock {
@@ -522,101 +524,397 @@ const renderBaseLocation = () => (
   </Card>
 );
 
-// 在 Agent Configuration 部分添加 prompt 输入框
-const renderAgentConfiguration = () => (
-  <Card title="Agent Configuration" bordered={false}>
-    <Row gutter={[16, 16]}>
-      <Col span={12}>
+// 首先添加一个接口定义
+interface FunctionInfo {
+  function_name: string;
+  description: string;
+}
+
+// 在 renderAgentConfiguration 函数中添加 Usable Functions 部分
+const renderAgentConfiguration = () => {
+  const [functions, setFunctions] = useState<FunctionInfo[]>([]);
+
+  useEffect(() => {
+    // 获取函数列表
+    fetchCustom('/api/agent-functions')
+      .then(res => res.json())
+      .then(response => {
+        if (response.data && Array.isArray(response.data)) {
+          setFunctions(response.data);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch functions:', err);
+        setFunctions([]);
+      });
+  }, []);
+
+  // 从 profile 选项中提取建议
+  const profileSuggestions = Object.entries(profileOptions).map(([key, config]) => ({
+    label: `${key}`,
+    detail: `Agent's ${config.label.toLowerCase()}`
+  }));
+
+  // 从函数列表中提取建议
+  const functionSuggestions = functions.map(func => ({
+    label: func.function_name,
+    detail: func.description
+  }));
+
+  // 合并所有建议
+  const suggestions = [...profileSuggestions, ...functionSuggestions];
+
+  return (
+    <Card title="Agent Configuration" bordered={false}>
+      <Row gutter={[16, 16]}>
+        <Col span={12}>
+          <Form.Item
+            name={['agent_params', 'enable_cognition']}
+            label={
+              <Space>
+                Enable Cognition
+                <Tooltip title="Whether to enable cognition">
+                  <QuestionCircleOutlined />
+                </Tooltip>
+              </Space>
+            }
+            valuePropName="checked"
+          >
+            <Switch />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
+            name={['agent_params', 'UBI']}
+            label={
+              <Space>
+                UBI
+                <Tooltip title="Universal Basic Income">
+                  <QuestionCircleOutlined />
+                </Tooltip>
+              </Space>
+            }
+            rules={[{ required: true }]}
+          >
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
+            name={['agent_params', 'num_labor_hours']}
+            label={
+              <span>
+                Labor Hours&nbsp;
+                <Tooltip title="Number of labor hours per month">
+                  <QuestionCircleOutlined />
+                </Tooltip>
+              </span>
+            }
+            rules={[{ required: true }]}
+          >
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
+            name={['agent_params', 'productivity_per_labor']}
+            label={
+              <span>
+                Productivity per Labor&nbsp;
+                <Tooltip title="Productivity per labor hour">
+                  <QuestionCircleOutlined />
+                </Tooltip>
+              </span>
+            }
+            rules={[{ required: true }]}
+          >
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
+            name={['agent_params', 'time_diff']}
+            label={
+              <span>
+                Time Difference&nbsp;
+                <Tooltip title="Time difference between two triggers">
+                  <QuestionCircleOutlined />
+                </Tooltip>
+              </span>
+            }
+            rules={[{ required: true }]}
+          >
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
+            name={['agent_params', 'max_plan_steps']}
+            label={
+              <span>
+                Max Plan Steps&nbsp;
+                <Tooltip title="Maximum number of steps in a plan">
+                  <QuestionCircleOutlined />
+                </Tooltip>
+              </span>
+            }
+            rules={[{ required: true }]}
+          >
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+
+        {/* 添加 Usable Functions 部分 */}
+        <Col span={24}>
+          <Card title="Usable Functions" size="small" style={{ marginBottom: 16 }}>
+            <Space wrap>
+              {Array.isArray(functions) && functions.map((func, index) => (
+                <span key={index}>
+                  <code>{func.function_name}</code>
+                  <Tooltip title={func.description}>
+                    <QuestionCircleOutlined style={{ marginLeft: 4 }} />
+                  </Tooltip>
+                </span>
+              ))}
+            </Space>
+          </Card>
+        </Col>
+
+        <Col span={24}>
+          <Form.Item
+            name={['agent_params', 'need_initialization_prompt']}
+            label={
+              <Space>
+                Need Initialization Prompt
+                <Tooltip title="Initial needs prompt">
+                  <QuestionCircleOutlined />
+                </Tooltip>
+              </Space>
+            }
+          >
+            <MonacoPromptEditor height="200px" suggestions={suggestions} editorId="need_initialization_prompt" />
+          </Form.Item>
+        </Col>
+        <Col span={24}>
+          <Form.Item
+            name={['agent_params', 'environment_reflection_prompt']}
+            label={
+              <Space>
+                Environment Reflection Prompt
+                <Tooltip title="Environment reflection prompt">
+                  <QuestionCircleOutlined />
+                </Tooltip>
+              </Space>
+            }
+          >
+            <MonacoPromptEditor height="200px" suggestions={suggestions} editorId="environment_reflection_prompt" />
+          </Form.Item>
+        </Col>
+        <Col span={24}>
+          <Form.Item
+            name={['agent_params', 'plan_generation_prompt']}
+            label={
+              <Space>
+                Plan Generation Prompt
+                <Tooltip title="Plan generation prompt">
+                  <QuestionCircleOutlined />
+                </Tooltip>
+              </Space>
+            }
+          >
+            <MonacoPromptEditor height="200px" suggestions={suggestions} editorId="plan_generation_prompt" />
+          </Form.Item>
+        </Col>
+      </Row>
+    </Card>
+  );
+};
+
+// 添加参数相关的接口定义
+interface BlockParam {
+  description: string | null;
+  default: any;
+  type: string;
+}
+
+interface BlockFunction {
+  function_name: string;
+  description: string;
+}
+
+interface BlockInfo {
+  block_name: string;
+  description: string;
+  functions: BlockFunction[];
+  params: Record<string, BlockParam>;
+}
+
+// 渲染参数表单项的函数
+const renderParamField = (param: BlockParam, blockName: string, paramName: string) => {
+  switch (param.type) {
+    case 'str':
+      if (param.description?.toLowerCase().includes('prompt')) {
+        return (
+          <MonacoPromptEditor
+            value={param.default}
+            height="200px"
+            editorId={`${blockName}_${paramName}`}
+          />
+        );
+      }
+      return (
+        <Input
+          placeholder={param.description || ''}
+          defaultValue={param.default}
+        />
+      );
+    case 'int':
+    case 'float':
+      return (
+        <InputNumber
+          style={{ width: '100%' }}
+          placeholder={param.description || ''}
+          defaultValue={param.default}
+        />
+      );
+    case 'bool':
+      return (
+        <Switch
+          defaultChecked={param.default}
+        />
+      );
+    default:
+      return (
+        <Input
+          placeholder={param.description || ''}
+          defaultValue={param.default}
+        />
+      );
+  }
+};
+
+// Block Configuration 组件
+const BlockConfiguration: React.FC = () => {
+  const [blocks, setBlocks] = useState<BlockInfo[]>([]);
+  const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
+  const [form] = Form.useForm();
+
+  useEffect(() => {
+    // 获取所有可用的 blocks
+    fetchCustom('/api/agent-blocks')
+      .then(res => res.json())
+      .then(response => {
+        if (response.data && Array.isArray(response.data)) {
+          setBlocks(response.data);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch blocks:', err);
+        setBlocks([]);
+      });
+  }, []);
+
+  const handleBlockSelect = (values: string[]) => {
+    setSelectedBlocks(values);
+  };
+
+  return (
+    <Card title="Block Configuration" bordered={false}>
+      <Space direction="vertical" style={{ width: '100%' }}>
+        {/* Block 选择框 */}
         <Form.Item
-          name={['agent_params', 'enable_cognition']}
-          label="Enable Cognition"
-          valuePropName="checked"
+          label="Select Blocks"
+          required
         >
-          <Switch />
+          <Select
+            mode="multiple"
+            placeholder="Select blocks to configure"
+            style={{ width: '100%' }}
+            onChange={handleBlockSelect}
+            options={blocks.map(block => ({
+              label: (
+                <Space>
+                  {block.block_name}
+                  <Tooltip title={block.description}>
+                    <QuestionCircleOutlined />
+                  </Tooltip>
+                </Space>
+              ),
+              value: block.block_name
+            }))}
+          />
         </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item
-          name={['agent_params', 'UBI']}
-          label="UBI"
-          rules={[{ required: true }]}
-        >
-          <InputNumber style={{ width: '100%' }} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item
-          name={['agent_params', 'num_labor_hours']}
-          label="Labor Hours"
-          rules={[{ required: true }]}
-        >
-          <InputNumber style={{ width: '100%' }} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item
-          name={['agent_params', 'productivity_per_labor']}
-          label="Productivity per Labor"
-          rules={[{ required: true }]}
-        >
-          <InputNumber style={{ width: '100%' }} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item
-          name={['agent_params', 'time_diff']}
-          label="Time Difference"
-          rules={[{ required: true }]}
-        >
-          <InputNumber style={{ width: '100%' }} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item
-          name={['agent_params', 'max_plan_steps']}
-          label="Max Plan Steps"
-          rules={[{ required: true }]}
-        >
-          <InputNumber style={{ width: '100%' }} />
-        </Form.Item>
-      </Col>
-      <Col span={24}>
-        <Form.Item
-          name={['agent_params', 'need_initialization_prompt']}
-          label="Need Initialization Prompt"
-        >
-          <Input.TextArea rows={4} placeholder="Enter prompt for need initialization" />
-        </Form.Item>
-      </Col>
-      <Col span={24}>
-        <Form.Item
-          name={['agent_params', 'need_evaluation_prompt']}
-          label="Need Evaluation Prompt"
-        >
-          <Input.TextArea rows={4} placeholder="Enter prompt for need evaluation" />
-        </Form.Item>
-      </Col>
-      <Col span={24}>
-        <Form.Item
-          name={['agent_params', 'need_reflection_prompt']}
-          label="Need Reflection Prompt"
-        >
-          <Input.TextArea rows={4} placeholder="Enter prompt for need reflection" />
-        </Form.Item>
-      </Col>
-      <Col span={24}>
-        <Form.Item
-          name={['agent_params', 'plan_generation_prompt']}
-          label="Plan Generation Prompt"
-        >
-          <Input.TextArea rows={4} placeholder="Enter prompt for plan generation" />
-        </Form.Item>
-      </Col>
-    </Row>
-  </Card>
-);
+
+        {/* 已选中 Block 的配置 */}
+        {selectedBlocks.map(blockName => {
+          const blockInfo = blocks.find(b => b.block_name === blockName);
+          if (!blockInfo) return null;
+
+          return (
+            <Card
+              key={blockName}
+              title={blockInfo.block_name}
+              size="small"
+              style={{ marginBottom: 16 }}
+            >
+              {/* <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+                {blockInfo.description}
+              </Typography.Text> */}
+
+              {/* 显示可用函数 */}
+              <div style={{ marginBottom: 16 }}>
+                <Typography.Text strong>Available Functions:</Typography.Text>
+                <div style={{ marginTop: 8 }}>
+                  <Space wrap>
+                    {blockInfo.functions.map((func, index) => (
+                      <span key={index}>
+                        <code>{func.function_name}</code>
+                        <Tooltip title={func.description}>
+                          <QuestionCircleOutlined style={{ marginLeft: 4 }} />
+                        </Tooltip>
+                      </span>
+                    ))}
+                  </Space>
+                </div>
+              </div>
+
+              {/* 参数配置 */}
+              {blockInfo.params && Object.keys(blockInfo.params).length > 0 && (
+                <div>
+                  <Typography.Text strong>Parameters:</Typography.Text>
+                  <div style={{ marginTop: 8 }}>
+                    {Object.entries(blockInfo.params).map(([paramName, param]) => (
+                      <Form.Item
+                        key={paramName}
+                        name={['blocks', blockName, 'params', paramName]}
+                        label={
+                          <Space>
+                            {paramName}
+                            {param.description && (
+                              <Tooltip title={param.description}>
+                                <QuestionCircleOutlined />
+                              </Tooltip>
+                            )}
+                          </Space>
+                        }
+                        initialValue={param.default}
+                      >
+                        {renderParamField(param, blockName, paramName)}
+                      </Form.Item>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </Space>
+    </Card>
+  );
+};
 
 const AgentTemplateForm: React.FC = () => {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const { id } = useParams(); // Get template ID from URL
@@ -797,12 +1095,12 @@ const AgentTemplateForm: React.FC = () => {
   return (
     <div style={{ padding: '24px' }}>
       <Card
-        title={id ? "Edit Template" : "Create Template"}
+        title={id ? t('form.template.editTitle') : t('form.template.createTitle')}
         extra={
           <Space>
-            <Button onClick={() => navigate('/agent-templates')}>Cancel</Button>
+            <Button onClick={() => navigate('/agent-templates')}>{t('form.common.cancel')}</Button>
             <Button type="primary" onClick={() => form.submit()}>
-              Save
+              {t('form.common.submit')}
             </Button>
           </Space>
         }
@@ -814,23 +1112,23 @@ const AgentTemplateForm: React.FC = () => {
         >
           <Row gutter={[24, 24]}>
             <Col span={24}>
-              <Card title="Basic Information" bordered={false}>
+              <Card title={t('form.template.basicInfo')} bordered={false}>
                 <Row gutter={16}>
                   <Col span={12}>
                     <Form.Item
                       name="name"
-                      label="Template Name"
+                      label={t('form.common.name')}
                       rules={[{ required: true }]}
                     >
-                      <Input placeholder="General Social Agent" />
+                      <Input placeholder={t('form.template.namePlaceholder')} />
                     </Form.Item>
                   </Col>
                   <Col span={12}>
                     <Form.Item
                       name="description"
-                      label="Description"
+                      label={t('form.common.description')}
                     >
-                      <Input.TextArea rows={2} />
+                      <Input.TextArea rows={2} placeholder={t('form.template.descriptionPlaceholder')} />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -849,102 +1147,7 @@ const AgentTemplateForm: React.FC = () => {
               {renderAgentConfiguration()}
 
               {/* Right column: Block Configuration */}
-              <Card title="Block Configuration" bordered={false}>
-                <Form.Item
-                  label="Select Block Types"
-                  name="blockTypes"
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select block types"
-                    style={{ width: '100%' }}
-                    onChange={handleBlockTypeChange}
-                    options={BLOCK_TYPES.map(block => ({
-                      label: (
-                        <Space>
-                          {block.label}
-                          <Tooltip title={block.description}>
-                            <QuestionCircleOutlined style={{ cursor: 'pointer' }} />
-                          </Tooltip>
-                        </Space>
-                      ),
-                      value: block.value
-                    }))}
-                  />
-                </Form.Item>
-
-                <Form.List name="blocks">
-                  {(fields) => (
-                    <div>
-                      {fields.map(field => {
-                        const blockType = form.getFieldValue(['blocks', field.name, 'type']);
-                        return (
-                          <Card
-                            key={field.key}
-                            title={`${blockType.charAt(0).toUpperCase() + blockType.slice(1)} Configuration`}
-                            style={{ marginBottom: '16px' }}
-                            size="small"
-                          >
-                            <Row gutter={16}>
-                              {/* 暂时注释掉 name 和 description 字段
-                              <Col span={12}>
-                                <Form.Item
-                                  {...field}
-                                  name={[field.name, 'name']}
-                                  label="Block Name"
-                                  rules={[{ required: true }]}
-                                >
-                                  <Input />
-                                </Form.Item>
-                              </Col>
-                              <Col span={12}>
-                                <Form.Item
-                                  {...field}
-                                  name={[field.name, 'description']}
-                                  label="Description"
-                                >
-                                  <Input />
-                                </Form.Item>
-                              </Col>
-                              */}
-
-                              {/* Mobility Block specific parameters */}
-                              {blockType === 'mobilityblock' && (
-                                <Col span={12}>
-                                  <Form.Item
-                                    {...field}
-                                    name={[field.name, 'params', 'search_limit']}
-                                    label="Search Limit"
-                                    rules={[{ required: true }]}
-                                  >
-                                    <InputNumber min={0.1} step={0.1} style={{ width: '100%' }} />
-                                  </Form.Item>
-                                </Col>
-                              )}
-
-                              {/* Hidden fields to store block type and ID */}
-                              <Form.Item
-                                {...field}
-                                name={[field.name, 'type']}
-                                hidden
-                              >
-                                <Input />
-                              </Form.Item>
-                              <Form.Item
-                                {...field}
-                                name={[field.name, 'id']}
-                                hidden
-                              >
-                                <Input />
-                              </Form.Item>
-                            </Row>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
-                </Form.List>
-              </Card>
+              <BlockConfiguration />
             </Col>
           </Row>
         </Form>

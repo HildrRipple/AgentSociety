@@ -6,7 +6,10 @@ import { ConfigItem } from '../../services/storageService';
 import { AgentsConfig } from '../../types/config';
 import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
+
 const AgentList: React.FC = () => {
+    const { t } = useTranslation();
     const [agents, setAgents] = useState<ConfigItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
@@ -206,50 +209,50 @@ const AgentList: React.FC = () => {
     // Table columns
     const columns = [
         {
-            title: 'Name',
+            title: t('form.common.name'),
             dataIndex: 'name',
             key: 'name',
             sorter: (a: ConfigItem, b: ConfigItem) => a.name.localeCompare(b.name)
         },
         {
-            title: 'Description',
+            title: t('form.common.description'),
             dataIndex: 'description',
             key: 'description',
             ellipsis: true
         },
         {
-            title: 'Last Updated',
+            title: t('form.common.lastUpdated'),
             dataIndex: 'updated_at',
             key: 'updated_at',
             render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
             sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updated_at).valueOf() - dayjs(b.updated_at).valueOf()
         },
         {
-            title: 'Actions',
+            title: t('form.common.actions'),
             key: 'actions',
             render: (_: any, record: ConfigItem) => (
                 <Space size="small">
                     {
                         (record.tenant_id ?? '') !== '' && (
-                            <Tooltip title="Edit">
+                            <Tooltip title={t('form.common.edit')}>
                                 <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
                             </Tooltip>
                         )
                     }
-                    <Tooltip title="Duplicate">
+                    <Tooltip title={t('form.common.duplicate')}>
                         <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
                     </Tooltip>
-                    <Tooltip title="Export">
+                    <Tooltip title={t('form.common.export')}>
                         <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
                     </Tooltip>
                     {
                         (record.tenant_id ?? '') !== '' && (
-                            <Tooltip title="Delete">
+                            <Tooltip title={t('form.common.delete')}>
                                 <Popconfirm
-                                    title="Are you sure you want to delete this agent?"
+                                    title={t('form.common.deleteConfirm')}
                                     onConfirm={() => handleDelete(record.id)}
-                                    okText="Yes"
-                                    cancelText="No"
+                                    okText={t('form.common.submit')}
+                                    cancelText={t('form.common.cancel')}
                                 >
                                     <Button icon={<DeleteOutlined />} size="small" danger />
                                 </Popconfirm>
@@ -263,11 +266,11 @@ const AgentList: React.FC = () => {
 
     return (
         <Card
-            title="Agent Configurations"
-            extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>Create New</Button>}
+            title={t('form.agent.title')}
+            extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>{t('form.agent.createNew')}</Button>}
         >
             <Input.Search
-                placeholder="Search agents"
+                placeholder={t('form.agent.searchPlaceholder')}
                 onChange={handleSearch}
                 style={{ marginBottom: 16 }}
             />
@@ -281,32 +284,32 @@ const AgentList: React.FC = () => {
             />
 
             <Modal
-                title={currentAgent ? "Edit Agent" : "Create Agent"}
+                title={currentAgent ? t('form.agent.editTitle') : t('form.agent.createTitle')}
                 open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
                 width={800}
                 destroyOnClose
             >
-                <Card title="Configuration Metadata" style={{ marginBottom: 16 }}>
+                <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 16 }}>
                     <Form
                         form={metaForm}
                         layout="vertical"
                     >
                         <Form.Item
                             name="name"
-                            label="Name"
-                            rules={[{ required: true, message: 'Please enter a name for this configuration' }]}
+                            label={t('form.common.name')}
+                            rules={[{ required: true, message: t('form.common.nameRequired') }]}
                         >
-                            <Input placeholder="Enter configuration name" />
+                            <Input placeholder={t('form.common.namePlaceholder')} />
                         </Form.Item>
                         <Form.Item
                             name="description"
-                            label="Description"
+                            label={t('form.common.description')}
                         >
                             <Input.TextArea
                                 rows={2}
-                                placeholder="Enter a description for this configuration"
+                                placeholder={t('form.common.descriptionPlaceholder')}
                             />
                         </Form.Item>
                     </Form>

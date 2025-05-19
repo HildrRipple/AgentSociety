@@ -4,6 +4,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutline
 import { Link, useNavigate } from 'react-router-dom';
 import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 
 const { TabPane } = Tabs;
 
@@ -124,12 +125,13 @@ const BLOCK_PARAMS_CONFIG = {
   }
 } as const;
 
-const AgentTemplate: React.FC = () => {
+const AgentTemplateList: React.FC = () => {
   const [templates, setTemplates] = useState<AgentTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState('1');
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // Load templates
   const loadTemplates = async () => {
@@ -243,61 +245,54 @@ const AgentTemplate: React.FC = () => {
   // Table columns
   const columns = [
     {
-      title: 'Name',
+      title: t('form.common.name'),
       dataIndex: 'name',
       key: 'name',
-      render: (text: string) => <strong>{text}</strong>
     },
     {
-      title: 'Description',
+      title: t('form.common.description'),
       dataIndex: 'description',
       key: 'description',
       ellipsis: true
     },
     {
-      title: 'Created At',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss')
-    },
-    {
-      title: 'Updated At',
+      title: t('form.common.lastUpdated'),
       dataIndex: 'updated_at',
       key: 'updated_at',
       render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss')
     },
     {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record: AgentTemplate) => (
-        <Space>
-          <Button 
-            icon={<EditOutlined />} 
-            onClick={() => navigate(`/agent-templates/edit/${record.id}`)}
-            size="small"
-          />
-          <Button 
-            icon={<CopyOutlined />} 
-            onClick={() => handleDuplicate(record)}
-            size="small"
-          />
-          <Button 
-            icon={<ExportOutlined />} 
-            onClick={() => handleExport(record)}
-            size="small"
-          />
-          <Popconfirm
-            title="Are you sure you want to delete this template?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button 
-              icon={<DeleteOutlined />} 
-              danger 
-              size="small"
-            />
-          </Popconfirm>
+      title: t('form.common.actions'),
+      key: 'action',
+      render: (_: any, record: AgentTemplate) => (
+        <Space size="small">
+          {
+            (record.tenant_id ?? '') !== '' && (
+              <Tooltip title={t('form.common.edit')}>
+                <Button icon={<EditOutlined />} size="small" onClick={() => navigate(`/agent-templates/edit/${record.id}`)} />
+              </Tooltip>
+            )
+          }
+          <Tooltip title={t('form.common.duplicate')}>
+            <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
+          </Tooltip>
+          <Tooltip title={t('form.common.export')}>
+            <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
+          </Tooltip>
+          {
+            (record.tenant_id ?? '') !== '' && (
+              <Tooltip title={t('form.common.delete')}>
+                <Popconfirm
+                  title={t('form.common.deleteConfirm')}
+                  onConfirm={() => handleDelete(record.id)}
+                  okText={t('form.common.submit')}
+                  cancelText={t('form.common.cancel')}
+                >
+                  <Button icon={<DeleteOutlined />} size="small" danger />
+                </Popconfirm>
+              </Tooltip>
+            )
+          }
         </Space>
       )
     }
@@ -305,15 +300,11 @@ const AgentTemplate: React.FC = () => {
 
   return (
     <Card
-      title="Agent Templates"
-      extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          Create Template
-        </Button>
-      }
+      title={t('form.template.title')}
+      extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/agent-templates/create')}>{t('form.template.createNew')}</Button>}
     >
       <Input.Search
-        placeholder="Search templates"
+        placeholder={t('form.template.searchPlaceholder')}
         onChange={handleSearch}
         style={{ marginBottom: 16 }}
       />
@@ -329,4 +320,4 @@ const AgentTemplate: React.FC = () => {
   );
 };
 
-export default AgentTemplate; 
+export default AgentTemplateList; 

@@ -3,6 +3,7 @@ import { Form, Input, InputNumber, Select, Card, Tabs, Button, Space, Radio, mes
 import { AgentConfig, AgentsConfig } from '../../types/config';
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import { fetchCustom } from '../../components/fetch';
+import { useTranslation } from 'react-i18next';
 
 const { TabPane } = Tabs;
 const { Option } = Select;
@@ -29,6 +30,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
   const [manualDistributions, setManualDistributions] = React.useState({});
   const [templates, setTemplates] = useState<AgentTemplate[]>([]);
   const [loading, setLoading] = useState(false);
+  const { t } = useTranslation();
 
   // Define agent type options
   const agentClassOptions = [
@@ -227,7 +229,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         {fields.map(({ key, name, ...restField }) => (
                           <Card
                             key={key}
-                            title={`Citizen Group ${name + 1}`}
+                            title={`${t('form.agent.citizenGroup')} ${name + 1}`}
                             style={{ marginBottom: 16 }}
                             extra={
                               fields.length > 1 ? (
@@ -257,7 +259,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                           block
                           icon={<PlusOutlined />}
                         >
-                          Add Citizen Group
+                          {t('form.agent.addGroup')}
                         </Button>
                       </>
                     )}
@@ -269,7 +271,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         {fields.map(({ key, name, ...restField }) => (
                           <Card
                             key={key}
-                            title={`Citizen Group ${name + 1}`}
+                            title={`${t('form.agent.citizenGroup')} ${name + 1}`}
                             style={{ marginBottom: 16 }}
                             extra={
                               fields.length > 1 ? (
@@ -280,8 +282,8 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                             <Form.Item
                               {...restField}
                               name={[name, 'number']}
-                              label="Number of Citizens"
-                              rules={[{ required: true, message: 'Please enter number of citizens' }]}
+                              label={t('form.agent.numberLabel')}
+                              rules={[{ required: true, message: t('form.agent.numberPlaceholder') }]}
                             >
                               <InputNumber min={1} style={{ width: '100%' }} />
                             </Form.Item>
@@ -290,7 +292,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                               {Object.entries(form.getFieldValue(['citizens', name, 'memory_distributions']) || {}).map(([distName, dist]) => (
                                 <Card
                                   key={distName}
-                                  title={`Distribution ${parseInt(distName.split('_')[1]) + 1}`}
+                                  title={`${t('form.agent.distributionTitle')} ${parseInt(distName.split('_')[1]) + 1}`}
                                   style={{ marginBottom: 8 }}
                                   size="small"
                                   extra={
@@ -309,15 +311,15 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                                 >
                                   <Form.Item
                                     name={['citizens', name, 'memory_distributions', distName, 'name']}
-                                    label="Attribute Name"
+                                    label={t('form.agent.attributeName')}
                                     rules={[{ required: true, message: 'Please enter attribute name' }]}
                                   >
-                                    <Input placeholder="e.g. age, income" />
+                                    <Input placeholder={t('form.agent.attributePlaceholder')} />
                                   </Form.Item>
                                   
                                   <Form.Item
                                     name={['citizens', name, 'memory_distributions', distName, 'type']}
-                                    label="Distribution Type"
+                                    label={t('form.agent.distributionType')}
                                     rules={[{ required: true, message: 'Please select distribution type' }]}
                                   >
                                     <Select
@@ -378,7 +380,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                                 size="small"
                                 style={{ marginBottom: 16 }}
                               >
-                                Add Distribution
+                                {t('form.agent.addDistribution')}
                               </Button>
                             </div>
                           </Card>
@@ -389,7 +391,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                           block
                           icon={<PlusOutlined />}
                         >
-                          Add Citizen Group
+                          {t('form.agent.addGroup')}
                         </Button>
                       </>
                     )}
@@ -406,7 +408,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                       {fields.map(({ key, name, ...restField }) => (
                         <Card
                           key={key}
-                          title={`Firm Group ${name + 1}`}
+                          title={`${t('form.agent.firmGroup')} ${name + 1}`}
                           style={{ marginBottom: 16 }}
                           extra={
                             fields.length > 1 ? (
@@ -417,8 +419,8 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                           <Form.Item
                             {...restField}
                             name={[name, 'number']}
-                            label="Number of Firms"
-                            rules={[{ required: true, message: 'Please enter number of firms' }]}
+                            label={t('form.agent.numberLabel')}
+                            rules={[{ required: true, message: t('form.agent.numberPlaceholder') }]}
                           >
                             <InputNumber min={1} style={{ width: '100%' }} />
                           </Form.Item>
@@ -430,7 +432,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         block
                         icon={<PlusOutlined />}
                       >
-                        Add Firm Group
+                        {t('form.agent.addGroup')}
                       </Button>
                     </>
                   )}
@@ -446,7 +448,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                       {fields.map(({ key, name, ...restField }) => (
                         <Card
                           key={key}
-                          title={`Government Group ${name + 1}`}
+                          title={`${t('form.agent.governmentGroup')} ${name + 1}`}
                           style={{ marginBottom: 16 }}
                           extra={
                             fields.length > 1 ? (
@@ -457,8 +459,8 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                           <Form.Item
                             {...restField}
                             name={[name, 'number']}
-                            label="Number of Government Agents"
-                            rules={[{ required: true, message: 'Please enter number of government agents' }]}
+                            label={t('form.agent.numberLabel')}
+                            rules={[{ required: true, message: t('form.agent.numberPlaceholder') }]}
                           >
                             <InputNumber min={1} style={{ width: '100%' }} />
                           </Form.Item>
@@ -470,7 +472,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         block
                         icon={<PlusOutlined />}
                       >
-                        Add Government Group
+                        {t('form.agent.addGroup')}
                       </Button>
                     </>
                   )}
@@ -486,7 +488,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                       {fields.map(({ key, name, ...restField }) => (
                         <Card
                           key={key}
-                          title={`Bank Group ${name + 1}`}
+                          title={`${t('form.agent.bankGroup')} ${name + 1}`}
                           style={{ marginBottom: 16 }}
                           extra={
                             fields.length > 1 ? (
@@ -497,8 +499,8 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                           <Form.Item
                             {...restField}
                             name={[name, 'number']}
-                            label="Number of Banks"
-                            rules={[{ required: true, message: 'Please enter number of banks' }]}
+                            label={t('form.agent.numberLabel')}
+                            rules={[{ required: true, message: t('form.agent.numberPlaceholder') }]}
                           >
                             <InputNumber min={1} style={{ width: '100%' }} />
                           </Form.Item>
@@ -510,7 +512,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         block
                         icon={<PlusOutlined />}
                       >
-                        Add Bank Group
+                        {t('form.agent.addGroup')}
                       </Button>
                     </>
                   )}
@@ -526,7 +528,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                       {fields.map(({ key, name, ...restField }) => (
                         <Card
                           key={key}
-                          title={`NBS Group ${name + 1}`}
+                          title={`${t('form.agent.nbsGroup')} ${name + 1}`}
                           style={{ marginBottom: 16 }}
                           extra={
                             fields.length > 1 ? (
@@ -537,8 +539,8 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                           <Form.Item
                             {...restField}
                             name={[name, 'number']}
-                            label="Number of NBS"
-                            rules={[{ required: true, message: 'Please enter number of NBS' }]}
+                            label={t('form.agent.numberLabel')}
+                            rules={[{ required: true, message: t('form.agent.numberPlaceholder') }]}
                           >
                             <InputNumber min={1} style={{ width: '100%' }} />
                           </Form.Item>
@@ -550,7 +552,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         block
                         icon={<PlusOutlined />}
                       >
-                        Add NBS Group
+                        {t('form.agent.addGroup')}
                       </Button>
                     </>
                   )}
@@ -566,7 +568,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                       {fields.map(({ key, name, ...restField }) => (
                         <Card
                           key={key}
-                          title={`Custom Group ${name + 1}`}
+                          title={`${t('form.agent.customGroup')} ${name + 1}`}
                           style={{ marginBottom: 16 }}
                           extra={
                             fields.length > 1 ? (
@@ -598,8 +600,8 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                           <Form.Item
                             {...restField}
                             name={[name, 'number']}
-                            label="Number of Agents"
-                            rules={[{ required: true, message: 'Please enter number of agents' }]}
+                            label={t('form.agent.numberLabel')}
+                            rules={[{ required: true, message: t('form.agent.numberPlaceholder') }]}
                           >
                             <InputNumber min={1} style={{ width: '100%' }} />
                           </Form.Item>
@@ -611,7 +613,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         block
                         icon={<PlusOutlined />}
                       >
-                        Add Custom Group
+                        {t('form.agent.addGroup')}
                       </Button>
                     </>
                   )}
