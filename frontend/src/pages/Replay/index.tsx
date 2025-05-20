@@ -33,7 +33,7 @@ const Replay: React.FC = observer(() => {
                 <Deck style={{}} />
             </div>
 
-            <div className="left">
+            <div className="agentsociety-left">
                 <InfoPanel />
             </div>
             {(store.globalPrompt ?? "") !== "" &&
@@ -51,7 +51,7 @@ const Replay: React.FC = observer(() => {
                 boxShadow: "0px 4px 10px 0px rgba(80, 80, 80, 0.1)",
             }}>
             </Row>
-            <div className="right">
+            <div className="agentsociety-right">
                 <RightPanel />
             </div>
         </>

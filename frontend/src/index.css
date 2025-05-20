@@ -81,7 +81,7 @@ body {
     z-index: 0;
 }
 
-.left {
+.agentsociety-left {
     position: absolute;
     top: calc(68px + 20px);
     left: 0px;
@@ -149,7 +149,7 @@ body {
     padding: 8px;
 }
 
-.right {
+.agentsociety-right {
     position: absolute;
     top: calc(68px + 20px);
     right: 0px;
