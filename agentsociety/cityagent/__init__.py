@@ -1,4 +1,5 @@
 from typing import Union, cast
+import copy
 from .bankagent import BankAgent
 from .firmagent import FirmAgent
 from .governmentagent import GovernmentAgent
@@ -60,14 +61,14 @@ def _fill_in_agent_class_and_memory_config(self: AgentConfig):
             if self.agent_params is not None:
                 self.agent_params = SocietyAgent.ParamsType(**self.agent_params)
             if self.memory_config_func is None:
-                self.memory_config_func = memory_config_societyagent
+                self.memory_config_func = copy.deepcopy(memory_config_societyagent)
             distributions = cast(
                 dict[str, Union[Distribution, DistributionConfig]],
                 DEFAULT_DISTRIBUTIONS,
             )
             if self.memory_distributions is not None:
                 distributions.update(self.memory_distributions)
-            self.memory_distributions = distributions
+            self.memory_distributions = copy.deepcopy(distributions)
             if self.blocks is None:
                 self.blocks = {
                     MobilityBlock: MobilityBlockParams(),
