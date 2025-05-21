@@ -267,7 +267,7 @@ class Environment:
         - **Returns**:
             - `Any`: The value of the corresponding key, or an empty string if not found.
         """
-        return self._environment_prompt.get(key, "")
+        return self._environment_prompt.get(key, "Don't know")
 
     def sense_aoi(self, aoi_id: int) -> str:
         """

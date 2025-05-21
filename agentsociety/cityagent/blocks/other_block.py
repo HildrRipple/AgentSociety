@@ -78,7 +78,7 @@ class OtherNoneBlock(Block):
         guidance_prompt (FormatPrompt): Template for generating time estimation prompts.
     """
     name = "OtherNoneBlock"
-    description = "Handles other cases"
+    description = "Handles all kinds of intentions/actions except sleep"
 
     def __init__(self, llm: LLM, agent_memory: Optional[Memory] = None):
         super().__init__(
@@ -136,7 +136,7 @@ class OtherBlock(Block):
     """
     ParamsType = OtherBlockParams
     name = "OtherBlock"
-    description = "Orchestration block for managing specialized sub-blocks (SleepBlock/OtherNoneBlock)"
+    description = "Responsible for all kinds of intentions/actions except mobility, economy, and social"
     actions = {
         "sleep": "Support the sleep action",
         "other": "Support other actions",
@@ -177,6 +177,17 @@ class OtherBlock(Block):
 
         # Select the appropriate sub-block using dispatcher
         selected_block = await self.dispatcher.dispatch(step)
+
+        if selected_block is None:
+            node_id = await self.memory.stream.add_other(
+                description=f"I {step['intention']}"
+            )
+            return {
+                "success": True,
+                "evaluation": f"Successfully {step['intention']}",
+                "consumed_time": random.randint(1, 30),
+                "node_id": node_id,
+            }
 
         # Execute the selected sub-block and get the result
         result = await selected_block.forward(step, context)

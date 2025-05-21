@@ -296,10 +296,15 @@ class Block:
         """
         pass
 
-    async def forward(self, step, context):
+    async def forward(self, *args, **kwargs):
         """
         - **Description**:
             - Each block performs a specific reasoning task. This method should be overridden by subclasses.
+            - Subclasses can define their own parameters as needed.
+
+        - **Args**:
+            - `*args`: Variable length argument list.
+            - `**kwargs`: Arbitrary keyword arguments.
 
         - **Raises**:
             - `NotImplementedError`: Subclasses must implement this method.

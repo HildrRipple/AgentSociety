@@ -8,12 +8,34 @@ import jsonc
 import numpy as np
 from pydantic import Field
 
-from ...agent import Block, FormatPrompt, BlockParams, BlockDispatcher
+from ...agent import Block, FormatPrompt, BlockParams, BlockDispatcher, param_docs
 from ...environment import EconomyClient, Environment
 from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
 from .utils import *
+
+WORKTIME_ESTIMATE_PROMPT = """As an intelligent agent's time estimation system, please estimate the time needed to complete the current action based on the overall plan and current intention.
+
+Overall plan:
+${context["plan"]}
+
+Current action: ${step["intention"]}
+
+Current emotion: ${memory.status.get("emotion_types")}
+
+Examples:
+- "Learn programming": {{"time": 120}}
+- "Watch a movie": {{"time": 150}} 
+- "Play mobile games": {{"time": 60}}
+- "Read a book": {{"time": 90}}
+- "Exercise": {{"time": 45}}
+
+Please return the result in JSON format (Do not return any other text), the time unit is [minute], example:
+{{
+    "time": 10
+}}
+"""
 
 
 def softmax(x, gamma=1.0):
@@ -42,7 +64,7 @@ class WorkBlock(Block):
     name = "WorkBlock"
     description = "Handles work-related economic activities and time tracking"
 
-    def __init__(self, llm: LLM, environment: Environment, memory: Memory, worktime_estimation_prompt: str = TIME_ESTIMATE_PROMPT):
+    def __init__(self, llm: LLM, environment: Environment, memory: Memory, worktime_estimation_prompt: str = WORKTIME_ESTIMATE_PROMPT):
         """Initialize with dependencies.
 
         Args:
@@ -55,8 +77,17 @@ class WorkBlock(Block):
             environment=environment,
             agent_memory=memory,
         )
-        self.guidance_prompt = FormatPrompt(template=worktime_estimation_prompt)
+        self.guidance_prompt = FormatPrompt(
+            template=worktime_estimation_prompt,
+            environment=environment,
+            memory=memory,
+        )
+        self.guidance_prompt.associate_with_method(self.forward)
 
+    @param_docs(
+        step="The step of the agent",
+        context="The context of the agent",
+    )
     async def forward(self, step, context):
         """Process work task and track time expenditure.
 
@@ -70,9 +101,10 @@ class WorkBlock(Block):
             Execution result with time consumption details
         """
         await self.guidance_prompt.format(
-            plan=context["plan"],
-            intention=step["intention"],
-            emotion_types=await self.memory.status.get("emotion_types"),
+            method_args={
+                "step": step,
+                "context": context,
+            }
         )
         result = await self.llm.atext_request(
             self.guidance_prompt.to_dialog(), response_format={"type": "json_object"}
@@ -234,7 +266,7 @@ class EconomyNoneBlock(Block):
         }
     
 class EconomyBlockParams(BlockParams):
-    worktime_estimation_prompt: str = Field(default=TIME_ESTIMATE_PROMPT, description="Used to determine the worktime")
+    worktime_estimation_prompt: str = Field(default=WORKTIME_ESTIMATE_PROMPT, description="Used to determine the worktime")
 
 class EconomyBlock(Block):
     """Orchestrates economic activities through specialized sub-blocks.
@@ -247,7 +279,7 @@ class EconomyBlock(Block):
     """
     ParamsType = EconomyBlockParams
     name = "EconomyBlock"
-    description = "Orchestrates economic activities through specialized actions"
+    description = "Responsible for all kinds of economic-related operations"
     actions = {
         "work": "Support the work action",
         "consume": "Support the consume action",
@@ -283,6 +315,13 @@ class EconomyBlock(Block):
         """
         self.trigger_time += 1
         selected_block = await self.dispatcher.dispatch(step)
+        if selected_block is None:
+            return {
+                "success": False,
+                "evaluation": f"Failed to {step['intention']}",
+                "consumed_time": 0,
+                "node_id": None,
+            }
         result = await selected_block.forward(step, context)
         return result
     

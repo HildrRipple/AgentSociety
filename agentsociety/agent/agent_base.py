@@ -24,7 +24,7 @@ from ..storage import AvroSaver, StorageDialog, StorageSurvey
 from ..survey.models import Survey
 from .decorator import register_get
 from .block import Block
-from .dispatcher import BlockDispatcher
+from .dispatcher import BlockDispatcher, DISPATCHER_PROMPT
 from .memory_config_generator import MemoryT
 
 __all__ = [
@@ -33,7 +33,7 @@ __all__ = [
 ]
 
 class AgentParams(BaseModel):
-    ...
+    block_dispatch_prompt: str = Field(default=DISPATCHER_PROMPT, description="The prompt used for the block dispatcher, there is a variable 'intention' in the prompt, which is the intention of the task, used to select the most appropriate block")
 
 class AgentToolbox(NamedTuple):
     """
@@ -135,9 +135,9 @@ class Agent(ABC):
             setattr(self, key, value)
 
         # register blocks
+        self.dispatcher = BlockDispatcher(self.llm, self.params.block_dispatch_prompt)
         if blocks is not None:
             self.blocks = blocks
-            self.dispatcher = BlockDispatcher(self.llm)
             self.dispatcher.register_blocks(self.blocks)
         else:
             self.blocks = []

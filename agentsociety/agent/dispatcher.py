@@ -5,6 +5,7 @@ import jsonc
 from openai.types.chat import ChatCompletionToolParam
 
 from .block import Block
+from .decorator import param_docs
 from .prompt import FormatPrompt
 from ..llm import LLM
 from ..logger import get_logger
@@ -35,7 +36,8 @@ class BlockDispatcher:
         """
         self.llm = llm
         self.blocks: dict[str, Block] = {}
-        self.prompt = FormatPrompt(selection_prompt)
+        self.dispatcher_prompt = FormatPrompt(selection_prompt)
+        self.dispatcher_prompt.associate_with_method(self.dispatch)
 
     def register_blocks(self, blocks: list[Block]) -> None:
         """Register multiple processing blocks for dispatching.
@@ -48,14 +50,14 @@ class BlockDispatcher:
             self.blocks[block_name] = block
 
     def _get_function_schema(self) -> ChatCompletionToolParam:
-        """Generate LLM function calling schema describing available blocks.
-
-        Returns:
-            Function schema dictionary compatible with OpenAI-style function calling
-
-        Structure:
-            - Defines 'select_block' function with enum of registered block names
-            - Includes block descriptions to help LLM make informed choices
+        """
+        Generate LLM function calling schema describing available blocks.
+        
+        - **Description**:
+            - Creates a schema for the LLM to select appropriate blocks or indicate no suitable block exists.
+        
+        - **Returns**:
+            - `ChatCompletionToolParam`: Function schema dictionary compatible with OpenAI-style function calling
         """
         # create block descriptions
         block_descriptions = {
@@ -66,58 +68,68 @@ class BlockDispatcher:
             "type": "function",
             "function": {
                 "name": "select_block",
-                "description": "Select the most appropriate block based on the step information",
+                "description": "Select the most appropriate block based on the step information, or indicate no suitable block exists",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "block_name": {
                             "type": "string",
-                            "enum": list(self.blocks.keys()),
-                            "description": f"Available blocks and their descriptions: {block_descriptions}",
+                            "enum": list(self.blocks.keys()) + ["no_suitable_block"],
+                            "description": f"Available blocks and their descriptions: {block_descriptions}. Use 'no_suitable_block' if none of the blocks are appropriate for the given intention.",
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Explanation for why the selected block is appropriate or why no suitable block exists"
                         }
                     },
-                    "required": ["block_name"],
+                    "required": ["block_name", "reason"],
                 },
             },
         }
 
-    async def dispatch(self, intention: str) -> Block:
-        """Route a task step to the most appropriate processing block.
-
-        Args:
-            intention: Intention of the task
-
-        Returns:
-            Selected Block instance for handling the task
-
-        Behavior:
-            - Uses LLM with function calling to make selection
-            - Falls back to random choice on failures
-            - Validates LLM's selection against registered blocks
-
-        Raises:
-            ValueError: If LLM returns unregistered block (caught internally)
+    @param_docs(
+        intention="The intention of the task, used to select the most appropriate block"
+    )
+    async def dispatch(self, intention: str) -> Block | None:
+        """
+        Route a task step to the most appropriate processing block.
+        
+        - **Description**:
+            - Uses LLM to select the best block for handling the given task intention.
+            - Can return None if no suitable block is found.
+        
+        - **Args**:
+            - `intention` (str): Intention of the task
+        
+        - **Returns**:
+            - `Block | None`: Selected Block instance for handling the task, or None if no suitable block exists
         """
         try:
             function_schema = self._get_function_schema()
-            await self.prompt.format(intention=intention)
+            await self.dispatcher_prompt.format(method_args={"intention": intention})
 
             # Call LLM with tools schema
             response = await self.llm.atext_request(
-                self.prompt.to_dialog(),
+                self.dispatcher_prompt.to_dialog(),
                 tools=[function_schema],
                 tool_choice={"type": "function", "function": {"name": "select_block"}},
             )
             function_args = jsonc.loads(response.choices[0].message.tool_calls[0].function.arguments)
             selected_block = function_args.get("block_name")
+            reason = function_args.get("reason", "No reason provided")
 
+            if selected_block == "no_suitable_block":
+                get_logger().debug(f"No suitable block found for intention. Reason: {reason}")
+                return None
+            
             if selected_block not in self.blocks:
                 raise ValueError(
                     f"Selected block '{selected_block}' not found in registered blocks"
                 )
 
+            get_logger().debug(f"Dispatched intention to block: {selected_block}. Reason: {reason}")
             return self.blocks[selected_block]
 
         except Exception as e:
             get_logger().warning(f"Failed to dispatch block: {e}")
-            return random.choice(list(self.blocks.values()))
+            return None

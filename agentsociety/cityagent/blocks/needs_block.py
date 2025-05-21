@@ -266,7 +266,8 @@ class NeedsBlock(Block):
             social_satisfaction=await self.memory.status.get("social_satisfaction"),
         )
         response = await self.llm.atext_request(
-            self.reflection_prompt.to_dialog(), response_format={"type": "json_object"}
+            self.reflection_prompt.to_dialog(), 
+            response_format={"type": "json_object"}
         )
         try:
             reflection = jsonc.loads(clean_json_response(response))  #

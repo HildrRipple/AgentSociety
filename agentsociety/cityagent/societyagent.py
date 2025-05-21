@@ -140,6 +140,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         )
 
         self.plan_block = PlanBlock(
+            agent=self,
             llm=self.llm, 
             environment=self.environment, 
             agent_memory=self.memory,
@@ -162,7 +163,44 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
             return current_plan.get("intention", "None")
         else:
             return "None"
-
+        
+    @register_get("Get agent's current position")
+    async def get_current_position(self):
+        """Get agent's current position"""
+        position_now = await self.memory.status.get("position")
+        home_location = await self.memory.status.get("home")
+        work_location = await self.memory.status.get("work")
+        current_location = "Outside"
+        if (
+            "aoi_position" in position_now
+            and position_now["aoi_position"] == home_location["aoi_position"]
+        ):
+            current_location = "At home"
+        elif (
+            "aoi_position" in position_now
+            and position_now["aoi_position"] == work_location["aoi_position"]
+        ):
+            current_location = "At workplace"
+        return current_location
+    
+    @register_get("Get weather information")
+    async def get_weather(self):
+        """Get weather information"""
+        weather_info = self.environment.sense("weather")
+        return weather_info
+    
+    @register_get("Get temperature information")
+    async def get_temperature(self):
+        """Get temperature information"""
+        temperature_info = self.environment.sense("temperature")
+        return temperature_info
+    
+    @register_get("Get other environmental information")
+    async def get_other_information(self):
+        """Get other environmental information"""
+        other_info = self.environment.sense("other_information")
+        return other_info
+    
     async def reset(self):
         """Reset the agent."""
         # reset position to home
@@ -300,7 +338,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                             )
                         except Exception as e:
                             get_logger().warning(
-                                f"Error in check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}"
+                                f"Check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}"
                             )
                     await self.memory.status.update("current_plan", current_plan)
                 return True
@@ -331,7 +369,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                         )
                     except Exception as e:
                         get_logger().warning(
-                            f"Error in check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}"
+                            f"Check_and_update_step (emotion_update): {str(e)}\nrelated_memories: {related_memories}"
                         )
                 await self.memory.status.update("current_plan", current_plan)
                 return True
@@ -525,16 +563,26 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                 current_step["position"] = position["aoi_position"]["aoi_id"]
             current_step["start_time"] = self.environment.get_tick()
             result = None
-            selected_block = await self.dispatcher.dispatch(current_step["intention"])
-            if selected_block:
-                result = await selected_block.forward(current_step, execution_context)
-                if "message" in result:
-                    await self.send_message_to_agent(result["target"], result["message"])
+            if self.blocks and len(self.blocks) > 0:
+                selected_block = await self.dispatcher.dispatch(current_step["intention"])
+                if selected_block:
+                    result = await selected_block.forward(current_step, execution_context)
+                    if "message" in result:
+                        await self.send_message_to_agent(result["target"], result["message"])
+                else:
+                    get_logger().warning(f"There is no appropriate block found for {current_step['intention']}")
+                    result = {
+                        "success": False,
+                        "evaluation": f"Failed to {current_step['intention']}",
+                        "consumed_time": random.randint(1, 100),
+                        "node_id": None,
+                    }
             else:
+                get_logger().warning(f"There is no block found for {current_step['intention']}")
                 result = {
-                    "success": False,
-                    "evaluation": f"Failed to {current_step['intention']}",
-                    "consumed_time": 0,
+                    "success": True,
+                    "evaluation": f"Successfully {current_step['intention']}",
+                    "consumed_time": random.randint(1, 100),
                     "node_id": None,
                 }
             if result != None:

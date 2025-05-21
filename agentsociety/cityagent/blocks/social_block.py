@@ -422,7 +422,7 @@ class SocialBlock(Block):
     """
     ParamsType = SocialBlockParams
     name = "SocialBlock"
-    description = "Orchestrates social interactions by dispatching to appropriate sub-blocks."
+    description = "Responsible for all kinds of social interactions"
     actions = {
         "find_person": "Support the find person action, determine the social target.",
         "message": "Support the message action, send a message to the social target.",

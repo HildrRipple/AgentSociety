@@ -70,13 +70,13 @@ Please response in json format (Do not return any other text), example:
 
 RADIUS_PROMPT = """As an intelligent decision system, please determine the maximum travel radius (in meters) based on the current emotional state.
 
-Current weather: {weather}
-Current temperature: {temperature}
-Your current emotion: {emotion_types}
-Your current thought: {thought}
+Current weather: ${environment.sence("weather")}
+Current temperature: ${environment.sence("temperature")}
+Your current emotion: ${memory.status.get("emotion_types")}
+Your current thought: ${memory.status.get("thought")}
 Other information: 
 -------------------------
-{other_info}
+${environment.sence("other_information")}
 -------------------------
 
 Please analyze how these emotions would affect travel willingness and return only a single integer number between 3000-200000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
@@ -177,7 +177,11 @@ class PlaceSelectionBlock(Block):
         self.secondTypeSelectionPrompt = FormatPrompt(
             PLACE_SECOND_TYPE_SELECTION_PROMPT
         )
-        self.radiusPrompt = FormatPrompt(RADIUS_PROMPT)
+        self.radiusPrompt = FormatPrompt(
+            RADIUS_PROMPT,
+            environment=environment,
+            memory=agent_memory,
+        )
         self.search_limit = search_limit  # Default config value
 
     async def forward(self, step, context):
@@ -480,7 +484,7 @@ class MobilityBlock(Block):
     """
     ParamsType = MobilityBlockParams
     name = "MobilityBlock"
-    description = "Main mobility coordination block"
+    description = "Responsible for all kinds of mobility-related operations"
     actions = {
         "place_selection": "Support the place selection action",
         "move": "Support the move action",
@@ -516,7 +520,13 @@ class MobilityBlock(Block):
         self.trigger_time += 1
         # Select the appropriate sub-block using dispatcher
         selected_block = await self.dispatcher.dispatch(step)
-
+        if selected_block is None:
+            return {
+                "success": False,
+                "evaluation": f"Failed to {step['intention']}",
+                "consumed_time": random.randint(1, 30),
+                "node_id": None,
+            }
         # Execute the selected sub-block and get the result
         result = await selected_block.forward(step, context)  #
 
