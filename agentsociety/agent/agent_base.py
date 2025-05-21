@@ -258,12 +258,6 @@ class Agent(ABC):
                 f"Stream access before assignment, please `set_memory` first!"
             )
         return self.memory.stream
-    
-    @register_get("Get the current time in the format of HH:MM:SS")
-    async def get_nowtime(self):
-        """Get the current time"""
-        now_time = self.environment.get_datetime(format_time=True)
-        return now_time[1]
 
     @abstractmethod
     async def reset(self):
@@ -880,6 +874,10 @@ class Agent(ABC):
             - It is intended to be overridden by subclasses to define specific behaviors.
         """
         raise NotImplementedError
+    
+    async def final(self):
+        """Execute when the agent is deleted or the simulation is finished."""
+        pass
     
     async def before_forward(self):
         """

@@ -5,7 +5,7 @@ import jsonc
 from typing import Optional, Any
 
 from pydantic import Field
-from ..agent import AgentToolbox, Block, CitizenAgentBase, AgentParams, FormatPrompt
+from ..agent import AgentToolbox, Block, CitizenAgentBase, AgentParams, FormatPrompt, register_get
 from ..logger import get_logger
 from ..memory import Memory
 from .blocks import (CognitionBlock, NeedsBlock, PlanBlock)
@@ -154,6 +154,15 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         self.step_count = -1
         self.cognition_update = -1
 
+    @register_get("Get my current action intention")
+    async def get_current_intention(self):
+        """Get my current action intention"""
+        current_plan = await self.memory.status.get("current_plan")
+        if current_plan:
+            return current_plan.get("intention", "None")
+        else:
+            return "None"
+
     async def reset(self):
         """Reset the agent."""
         # reset position to home
@@ -183,7 +192,10 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         """Reflect to the environment"""
         aoi_info = await self.get_aoi_info()
         if aoi_info:
-            reflection = self.environment_reflection_prompt.format(self)
+            await self.environment_reflection_prompt.format(self)
+            reflection = await self.llm.atext_request(
+                self.environment_reflection_prompt.to_dialog()
+            )
             await self.save_agent_thought(reflection)
 
     # Main workflow

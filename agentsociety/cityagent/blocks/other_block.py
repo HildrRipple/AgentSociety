@@ -40,7 +40,7 @@ class SleepBlock(Block):
         Returns:
             Dictionary with execution status, evaluation, time consumed, and node ID.
         """
-        self.guidance_prompt.format(
+        await self.guidance_prompt.format(
             plan=context["plan"],
             intention=step["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),
@@ -88,7 +88,7 @@ class OtherNoneBlock(Block):
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
     async def forward(self, step, context):
-        self.guidance_prompt.format(
+        await self.guidance_prompt.format(
             plan=context["plan"],
             intention=step["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),

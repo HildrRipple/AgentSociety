@@ -194,7 +194,7 @@ class NeedsBlock(Block):
 
         if not self.initialized:
             _, t_format = self.environment.get_datetime(format_time=True)
-            self.initial_prompt.format(
+            await self.initial_prompt.format(
                 gender=await self.memory.status.get("gender"),
                 education=await self.memory.status.get("education"),
                 consumption=await self.memory.status.get("consumption"),
@@ -257,7 +257,7 @@ class NeedsBlock(Block):
             if current_action["intention"] != ""
             else "None"
         )
-        self.reflection_prompt.format(
+        await self.reflection_prompt.format(
             intervention_message=intervention,
             current_action=action_message,
             hunger_satisfaction=await self.memory.status.get("hunger_satisfaction"),
@@ -482,7 +482,7 @@ class NeedsBlock(Block):
 
         # Use LLM for evaluation
         current_need = await self.memory.status.get("current_need")
-        self.evaluation_prompt.format(
+        await self.evaluation_prompt.format(
             current_need=current_need,
             plan_target=completed_plan["target"],
             evaluation_results=evaluation_results,

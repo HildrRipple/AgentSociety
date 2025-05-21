@@ -683,16 +683,14 @@ class AgentGroup:
     async def filter(
         self,
         types: Optional[tuple[type[Agent]]] = None,
-        keys: Optional[list[str]] = None,
-        values: Optional[list[Any]] = None,
+        memory_kv: Optional[dict[str, Any]] = None,
     ) -> list[int]:
         """
         Filters agents based on type and/or key-value pairs in their status.
 
         - **Args**:
             - `types` (Optional[List[Type[Agent]]]): A list of agent types to filter by.
-            - `keys` (Optional[List[str]]): A list of keys to check in the agent's status.
-            - `values` (Optional[List[Any]]): The corresponding values for each key in the `keys` list.
+            - `memory_kv` (Optional[Dict[str, Any]]): A dictionary of key-value pairs to check in the agent's status.
 
         - **Returns**:
             - `List[int]`: A list of agent IDs for agents that match the filter criteria.
@@ -702,23 +700,41 @@ class AgentGroup:
             add = True
             if types:
                 if isinstance(agent, types):
-                    if keys:
-                        for key in keys:
-                            assert values is not None
-                            if agent.status.get(key) != values[keys.index(key)]:
+                    if memory_kv:
+                        for key in memory_kv:
+                            if isinstance(memory_kv[key], list):
+                                if agent.status.get(key) not in memory_kv[key]:
+                                    add = False
+                                    break
+                            else:
+                                if agent.status.get(key) != memory_kv[key]:
+                                    add = False
+                                    break
+                    if add:
+                        filtered_ids.append(agent.id)
+            else:
+                if memory_kv:
+                    for key in memory_kv:
+                        if isinstance(memory_kv[key], list):
+                            if agent.status.get(key) not in memory_kv[key]:
+                                add = False
+                                break
+                        else:
+                            if agent.status.get(key) != memory_kv[key]:
                                 add = False
                                 break
                     if add:
                         filtered_ids.append(agent.id)
-            elif keys:
-                for key in keys:
-                    assert values is not None
-                    if agent.status.get(key) != values[keys.index(key)]:
-                        add = False
-                        break
-                if add:
-                    filtered_ids.append(agent.id)
         return filtered_ids
+    
+    async def final(self):
+        """
+        Finalize the agent group.
+        """
+        tasks = []
+        for agent in self._agents:
+            tasks.append(agent.final())
+        await asyncio.gather(*tasks)
 
     async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None):
         """
@@ -746,3 +762,34 @@ class AgentGroup:
                 if agent.id in target_agent_ids:
                     results[agent.id] = await agent.status.get(content)
         return results
+    
+    async def delete_agents(self, target_agent_ids: list[int]):
+        """
+        Deletes the specified agents from the agent group.
+        
+        - **Description**:
+            - Removes agents with the specified IDs from both the agents list and the ID-to-agent mapping.
+            - Handles cases where specified agent IDs might not exist in the group.
+        
+        - **Args**:
+            - `target_agent_ids` (list[int]): List of agent IDs to be deleted.
+            
+        - **Returns**:
+            - None
+        """
+        # Finalize the agents that are being deleted
+        agents_to_delete = [agent for agent in self._agents if agent.id in target_agent_ids]
+        final_tasks = []
+        for agent in agents_to_delete:
+            final_tasks.append(agent.final())
+        await asyncio.gather(*final_tasks)
+
+        # Create a new list with agents that should be kept
+        self._agents = [agent for agent in self._agents if agent.id not in target_agent_ids]
+        
+        # Remove from the id-to-agent mapping
+        for agent_id in target_agent_ids:
+            if agent_id in self._id2agent:
+                del self._id2agent[agent_id]
+            else:
+                get_logger().warning(f"Attempted to delete non-existent agent with ID {agent_id}")

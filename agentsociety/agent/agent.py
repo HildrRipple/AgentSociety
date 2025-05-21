@@ -176,7 +176,13 @@ class CitizenAgentBase(Agent):
             parent_id = position["aoi_position"]["aoi_id"]
             return self.environment.sense_aoi(parent_id)
         else:
-            return "Nothing"
+            return None
+        
+    @register_get("Get the current time in the format of HH:MM:SS")
+    async def get_nowtime(self):
+        """Get the current time"""
+        now_time = self.environment.get_datetime(format_time=True)
+        return now_time[1]
 
     async def before_forward(self):
         """

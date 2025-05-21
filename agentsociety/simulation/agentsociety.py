@@ -7,7 +7,7 @@ import inspect
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Literal, Optional, cast
+from typing import Any, Callable, Literal, Optional, Union, cast
 
 import ray
 import ray.util.queue
@@ -22,6 +22,7 @@ from ..configs import (
     MetricExtractorConfig,
     MetricType,
     WorkflowType,
+    AgentFilterConfig,
 )
 from ..environment import EnvironmentStarter
 from ..logger import get_logger, set_logger_level
@@ -667,12 +668,23 @@ class AgentSociety:
         assert self._mlflow is not None, "mlflow is not initialized"
         return self._mlflow
 
+    async def _extract_target_agent_ids(self, target_agent: Optional[Union[list[int], AgentFilterConfig]] = None) -> list[int]:
+        if target_agent is None:
+            raise ValueError("target_agent is required")
+        elif isinstance(target_agent, list):
+            return target_agent
+        elif isinstance(target_agent, AgentFilterConfig):
+            return await self.filter(target_agent.agent_class, target_agent.memory_kv)
+        else:
+            raise ValueError("target_agent must be a list of int or AgentFilterConfig")
+
     async def gather(
         self,
         content: str,
         target_agent_ids: Optional[list[int]] = None,
         flatten: bool = False,
-    ):
+        keep_id: bool = False,
+    ) -> Union[dict[int, Any], list[Any]]:
         """
         Collect specific information from agents.
 
@@ -683,7 +695,8 @@ class AgentSociety:
             - `content` (str): The information to collect from the agents.
             - `target_agent_ids` (Optional[List[int]], optional): A list of agent IDs to target. Defaults to None, meaning all agents are targeted.
             - `flatten` (bool, optional): Whether to flatten the result. Defaults to False.
-
+            - `keep_id` (bool, optional): Whether to keep the agent IDs in the result. Defaults to False.
+        
         - **Returns**:
             - Result of the gathering process as returned by each group's `gather` method.
         """
@@ -694,43 +707,46 @@ class AgentSociety:
             )
         results = await asyncio.gather(*gather_tasks)
         if flatten:
-            data_flatten = []
-            for group_data in results:
-                for _, data in group_data.items():
-                    data_flatten.append(data)
-            return data_flatten
+            if not keep_id:
+                data_flatten = []
+                for group_data in results:
+                    for _, data in group_data.items():
+                        data_flatten.append(data)
+                return data_flatten
+            else:
+                data_flatten = {}
+                for group_data in results:
+                    for id, data in group_data.items():
+                        data_flatten[id] = data
+                return data_flatten
         else:
             return results
 
     async def filter(
         self,
         types: Optional[tuple[type[Agent]]] = None,
-        keys: Optional[list[str]] = None,
-        values: Optional[list[Any]] = None,
+        memory_kv: Optional[dict[str, Any]] = None,
     ) -> list[int]:
         """
         Filter out agents of specified types or with matching key-value pairs.
 
         - **Args**:
             - `types` (Optional[Tuple[Type[Agent]]], optional): Types of agents to filter for. Defaults to None.
-            - `keys` (Optional[List[str]], optional): Keys to match in agent attributes. Defaults to None.
-            - `values` (Optional[List[Any]], optional): Values corresponding to keys for matching. Defaults to None.
+            - `memory_kv` (Optional[Dict[str, Any]], optional): Key-value pairs to match in agent attributes. Defaults to None.
 
         - **Raises**:
-            - `ValueError`: If neither types nor keys and values are provided, or if the lengths of keys and values do not match.
+            - `ValueError`: If neither types nor memory_kv are provided.
 
         - **Returns**:
             - `List[int]`: A list of filtered agent UUIDs.
         """
-        if not types and not keys and not values:
+        if not types and not memory_kv:
             return list(self._agent_ids)
         filtered_ids = []
-        if keys:
-            if values is None or len(keys) != len(values):
-                raise ValueError("the length of key and value does not match")
+        if memory_kv:
             for group in self._groups.values():
                 filtered_ids.extend(
-                    await group.filter.remote(types, keys, values)  # type:ignore
+                    await group.filter.remote(types, memory_kv)  # type:ignore
                 )
             return filtered_ids
         else:
@@ -989,6 +1005,24 @@ class AgentSociety:
             worker: ray.ObjectRef = self._pgsql_writers[0]
             await worker.write_global_prompt.remote(prompt_info)  # type:ignore
 
+    async def delete_agents(self, target_agent_ids: list[int]):
+        """
+        Delete the specified agents.
+
+        - **Args**:
+            - `target_agent_ids` (list[int]): The IDs of the agents to delete.
+        """
+        tasks = []
+        groups_to_delete = {}
+        for id in target_agent_ids:
+            group = self._agent_id2group[id]
+            if group not in groups_to_delete:
+                groups_to_delete[group] = []
+            groups_to_delete[group].append(id)
+        for group in groups_to_delete.keys():
+            tasks.append(group.delete_agents.remote(groups_to_delete[group]))  # type:ignore
+        await asyncio.gather(*tasks)
+
     async def next_round(self):
         """
         Proceed to the next round of the simulation.
@@ -1170,11 +1204,13 @@ class AgentSociety:
                     interview_message = step.interview_message
                     assert interview_message is not None
                     assert target_agents is not None
-                    await self.send_interview_message(interview_message, target_agents)
+                    target_agent_ids = await self._extract_target_agent_ids(target_agents)
+                    await self.send_interview_message(interview_message, target_agent_ids)
                 elif step.type == WorkflowType.SURVEY:
                     assert step.target_agent is not None
                     assert step.survey is not None
-                    await self.send_survey(step.survey, step.target_agent)
+                    target_agent_ids = await self._extract_target_agent_ids(step.target_agent)
+                    await self.send_survey(step.survey, target_agent_ids)
                 elif step.type == WorkflowType.ENVIRONMENT_INTERVENE:
                     assert step.key is not None
                     assert step.value is not None
@@ -1183,29 +1219,42 @@ class AgentSociety:
                     assert step.key is not None
                     assert step.value is not None
                     assert step.target_agent is not None
-                    await self.update(step.target_agent, step.key, step.value)
+                    target_agent_ids = await self._extract_target_agent_ids(step.target_agent)
+                    await self.update(target_agent_ids, step.key, step.value)
                 elif step.type == WorkflowType.MESSAGE_INTERVENE:
                     assert step.intervene_message is not None
                     assert step.target_agent is not None
+                    target_agent_ids = await self._extract_target_agent_ids(step.target_agent)
                     await self.send_intervention_message(
-                        step.intervene_message, step.target_agent
+                        step.intervene_message, target_agent_ids
                     )
                 elif step.type == WorkflowType.NEXT_ROUND:
                     await self.next_round()
+                elif step.type == WorkflowType.DELETE_AGENT:
+                    assert step.target_agent is not None
+                    target_agent_ids = await self._extract_target_agent_ids(step.target_agent)
+                    await self.delete_agents(target_agent_ids)
                 elif step.type == WorkflowType.INTERVENE:
                     get_logger().warning(
                         "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congnition of target agents"
                     )
                     assert step.target_agent is not None
                     assert step.intervene_message is not None
+                    target_agent_ids = await self._extract_target_agent_ids(step.target_agent)
                     await self.send_intervention_message(
-                        step.intervene_message, step.target_agent
+                        step.intervene_message, target_agent_ids
                     )
                 elif step.type == WorkflowType.FUNCTION:
                     assert step.func is not None
                     await step.func(self)
                 else:
                     raise ValueError(f"Unknown workflow type: {step.type}")
+            # Finalize the agents
+            tasks = []
+            for group in self._groups.values():
+                tasks.append(group.final.remote())  # type:ignore
+            await asyncio.gather(*tasks)
+            
         except Exception as e:
             import traceback
 

@@ -69,7 +69,7 @@ class WorkBlock(Block):
         Returns:
             Execution result with time consumption details
         """
-        self.guidance_prompt.format(
+        await self.guidance_prompt.format(
             plan=context["plan"],
             intention=step["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),

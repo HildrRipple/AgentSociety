@@ -56,7 +56,7 @@ class CognitionBlock(Block):
     ParamsType = CognitionBlockParams
     name = "CognitionBlock"
     description = "Handles daily updates of attitudes, thoughts, and emotions"
-    actions = None
+    actions = {}
 
     def __init__(self, llm: LLM, environment: Environment, agent_memory: Memory, block_params: Optional[CognitionBlockParams] = None):
         """Initialize CognitionBlock with dependencies.
@@ -157,7 +157,7 @@ class CognitionBlock(Block):
             prompt_data["anger"] = anger
             prompt_data["surprise"] = surprise
 
-            question_prompt.format(**prompt_data)
+            await question_prompt.format(**prompt_data)
             evaluation = True
             response: dict = {}
             for retry in range(10):
@@ -228,7 +228,7 @@ class CognitionBlock(Block):
         disgust = emotion["disgust"]
         anger = emotion["anger"]
         surprise = emotion["surprise"]
-        question_prompt.format(
+        await question_prompt.format(
             gender=await self.memory.status.get("gender"),
             age=await self.memory.status.get("age"),
             race=await self.memory.status.get("race"),
@@ -351,7 +351,7 @@ class CognitionBlock(Block):
         disgust = emotion["disgust"]
         anger = emotion["anger"]
         surprise = emotion["surprise"]
-        question_prompt.format(
+        await question_prompt.format(
             gender=await self.memory.status.get("gender"),
             age=await self.memory.status.get("age"),
             race=await self.memory.status.get("race"),

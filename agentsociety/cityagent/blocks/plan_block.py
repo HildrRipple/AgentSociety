@@ -208,7 +208,7 @@ class PlanBlock(Block):
         options = self.guidance_options.get(current_need, [])
         if len(options) == 0:
             options = "Do things that can satisfy your needs or actions."
-        self.guidance_prompt.format(
+        await self.guidance_prompt.format(
             weather=self.environment.sense("weather"),
             temperature=self.environment.sense("temperature"),
             other_info=self.environment.environment.get("other_information", "None"),
@@ -274,7 +274,7 @@ class PlanBlock(Block):
         ):
             current_location = "At workplace"
         day, current_time = self.environment.get_datetime(format_time=True)
-        self.detail_prompt.format(
+        await self.detail_prompt.format(
             weather=self.environment.sense("weather"),
             temperature=self.environment.sense("temperature"),
             other_info=self.environment.environment.get("other_information", "None"),

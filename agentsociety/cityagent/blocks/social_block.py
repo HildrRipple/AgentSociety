@@ -52,7 +52,7 @@ class MessagePromptManager:
 
         # Format prompt
         format_prompt = FormatPrompt(template)
-        format_prompt.format(
+        await format_prompt.format(
             gender=await memory.status.get("gender") or "",
             education=await memory.status.get("education") or "",
             personality=await memory.status.get("personality") or "",
@@ -95,7 +95,7 @@ class SocialNoneBlock(Block):
         Returns:
             A result dictionary indicating success/failure, time consumed, and execution details.
         """
-        self.guidance_prompt.format(
+        await self.guidance_prompt.format(
             plan=context["plan"],
             intention=step["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),
@@ -224,7 +224,7 @@ class FindPersonBlock(Block):
 
             # Format the prompt
             formatted_prompt = FormatPrompt(self.prompt)
-            formatted_prompt.format(
+            await formatted_prompt.format(
                 gender=str(await self.memory.status.get("gender")),
                 education=str(await self.memory.status.get("education")),
                 personality=str(await self.memory.status.get("personality")),

@@ -184,7 +184,7 @@ class PlaceSelectionBlock(Block):
         """Execute the destination selection workflow"""
         # Stage 1: Select primary POI category
         poi_cate = self.environment.get_poi_cate()
-        self.typeSelectionPrompt.format(
+        await self.typeSelectionPrompt.format(
             plan=context["plan"],
             intention=step["intention"],
             poi_category=list(poi_cate.keys()),
@@ -205,7 +205,7 @@ class PlaceSelectionBlock(Block):
 
         # Stage 2: Select sub-category
         try:
-            self.secondTypeSelectionPrompt.format(
+            await self.secondTypeSelectionPrompt.format(
                 plan=context["plan"],
                 intention=step["intention"],
                 poi_category=sub_category,
@@ -224,7 +224,7 @@ class PlaceSelectionBlock(Block):
 
         # Get travel radius from LLM
         try:
-            self.radiusPrompt.format(
+            await self.radiusPrompt.format(
                 emotion_types=await self.memory.status.get("emotion_types"),
                 thought=await self.memory.status.get("thought"),
                 weather=self.environment.sense("weather"),
@@ -291,7 +291,7 @@ class MoveBlock(Block):
         place_knowledge = await self.memory.status.get("location_knowledge")
         known_places = list(place_knowledge.keys())
         places = ["home", "workplace"] + known_places + ["other"]
-        self.placeAnalysisPrompt.format(
+        await self.placeAnalysisPrompt.format(
             plan=context["plan"],
             intention=step["intention"],
             place_list=places,

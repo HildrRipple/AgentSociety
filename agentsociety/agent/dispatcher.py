@@ -1,6 +1,7 @@
 import logging
 import random
 
+import jsonc
 from openai.types.chat import ChatCompletionToolParam
 
 from .block import Block
@@ -99,15 +100,15 @@ class BlockDispatcher:
         """
         try:
             function_schema = self._get_function_schema()
-            self.prompt.format(intention=intention)
+            await self.prompt.format(intention=intention)
 
             # Call LLM with tools schema
-            function_args = await self.llm.atext_request(
+            response = await self.llm.atext_request(
                 self.prompt.to_dialog(),
                 tools=[function_schema],
                 tool_choice={"type": "function", "function": {"name": "select_block"}},
             )
-
+            function_args = jsonc.loads(response.choices[0].message.tool_calls[0].function.arguments)
             selected_block = function_args.get("block_name")
 
             if selected_block not in self.blocks:

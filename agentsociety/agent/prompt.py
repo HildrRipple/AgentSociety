@@ -40,7 +40,7 @@ class FormatPrompt:
         """
         return re.findall(r"\{(\w+)\}", self.template)
 
-    def format(self, agent: Optional[Any] = None, block: Optional[Any] = None, **kwargs) -> str:
+    async def format(self, agent: Optional[Any] = None, block: Optional[Any] = None, **kwargs) -> str:
         """
         - **Description**:
             - Formats the template string using the provided agent, block, or keyword arguments.
@@ -64,14 +64,19 @@ class FormatPrompt:
             # Add agent attributes that match template variables
             for var in self.variables:
                 if var in agent.__class__.get_functions:
-                    format_vars[var] = agent._getx(var)
+                    format_vars[var] = await agent._getx(var)
+                else:
+                    try:
+                        format_vars[var] = await agent.memory.status.get(var)
+                    except Exception as e:
+                        pass
         
         # Extract variables from block if provided
         if block is not None:
             # Add block attributes that match template variables
             for var in self.variables:
                 if var in block.__class__.get_functions:
-                    format_vars[var] = block._getx(var)
+                    format_vars[var] = await block._getx(var)
         
         # Add any explicitly provided kwargs, these take precedence
         for key, value in kwargs.items():

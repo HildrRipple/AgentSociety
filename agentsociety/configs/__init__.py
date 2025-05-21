@@ -15,6 +15,7 @@ from .exp import (
     MetricType,
     WorkflowStepConfig,
     WorkflowType,
+    AgentFilterConfig,
 )
 from .utils import load_config_from_file
 
@@ -31,6 +32,7 @@ __all__ = [
     "AgentClassType",
     "MetricType",
     "WorkflowType",
+    "AgentFilterConfig",
 ]
 
 

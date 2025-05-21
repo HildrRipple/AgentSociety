@@ -8,6 +8,7 @@ from typing import Any, List, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from ..environment import EnvironmentConfig
+from ..agent import Agent
 from ..message.message_interceptor import MessageBlockBase, MessageBlockListenerBase
 from ..survey import Survey
 
@@ -19,6 +20,7 @@ __all__ = [
     "ExpConfig",
     "WorkflowType",
     "MetricType",
+    "AgentFilterConfig",
 ]
 
 
@@ -37,6 +39,7 @@ class WorkflowType(str, Enum):
         - `UPDATE_STATE_INTERVENE`: Directly updates the state information of the specified agent.
         - `MESSAGE_INTERVENE`: Influences the agent's behavior and state by sending a message.
         - `NEXT_ROUND`: Proceed to the next round of the simulation —— reset agents but keep the memory.
+        - `DELETE_AGENT`: Delete the specified agents.
         - `INTERVENE`: Represents other intervention methods driven by code.
         - `FUNCTION`: Represents function-based intervention methods.
     """
@@ -49,8 +52,25 @@ class WorkflowType(str, Enum):
     UPDATE_STATE_INTERVENE = "update_state"
     MESSAGE_INTERVENE = "message"
     NEXT_ROUND = "next_round"
+    DELETE_AGENT = "delete_agent"
     INTERVENE = "other"
     FUNCTION = "function"
+
+
+class AgentFilterConfig(BaseModel):
+    """Configuration for filtering agents."""
+
+    agent_class: Optional[tuple[type[Agent]]] = None
+    """The class of the agent to filter"""
+
+    memory_kv: Optional[dict[str, Any]] = None
+    """The key-value pairs of the agent to filter"""
+
+    @model_validator(mode="after")
+    def validate_func(self):
+        if self.agent_class is None and self.memory_kv is None:
+            raise ValueError("Please provide at least one of agent_class or memory_kv for AgentFilterConfig")
+        return self
 
 
 class WorkflowStepConfig(BaseModel):
@@ -73,8 +93,8 @@ class WorkflowStepConfig(BaseModel):
     ticks_per_step: int = 300
     """Number of ticks per step - used for [RUN, STEP] type. For example, if it is 300, then the step will run 300 ticks in the environment."""
 
-    target_agent: Optional[list[int]] = None
-    """List specifying the agents targeted by this step - used for [INTERVIEW, SURVEY, UPDATE_STATE_INTERVENE, MESSAGE_INTERVENE] type"""
+    target_agent: Optional[Union[list[int], AgentFilterConfig]] = None
+    """List specifying the agents targeted by this step - used for [INTERVIEW, SURVEY, UPDATE_STATE_INTERVENE, MESSAGE_INTERVENE, DELETE_AGENT] type"""
 
     interview_message: Optional[str] = None
     """Optional message used for interviews during this step - used for [INTERVIEW] type"""
@@ -145,6 +165,9 @@ class WorkflowStepConfig(BaseModel):
         elif self.type == WorkflowType.FUNCTION:
             if self.func is None:
                 raise ValueError("func is required for FUNCTION step")
+        elif self.type == WorkflowType.DELETE_AGENT:
+            if self.target_agent is None:
+                raise ValueError("target_agent is required for DELETE_AGENT step")
         else:
             raise ValueError(f"Unknown workflow type: {self.type} in custom validator")
         return self
