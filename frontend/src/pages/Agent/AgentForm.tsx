@@ -114,7 +114,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
   const renderDistributionForm = (type, basePath) => {
     switch (type) {
       case 'choice':
-        return (
+      return (
           <Form.Item
             name={[...basePath, 'params', 'choices']}
             label="Choices (comma separated)"
@@ -122,50 +122,50 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
           >
             <Input placeholder="e.g. option1, option2, option3" />
           </Form.Item>
-        );
+      );
       case 'uniform_int':
       case 'uniform_float':
-        return (
+      return (
           <>
-            <Form.Item
+          <Form.Item
               name={[...basePath, 'params', 'low']}
-              label="Minimum Value"
+                  label="Minimum Value"
               rules={[{ required: true, message: 'Please enter minimum value' }]}
               initialValue={0}
-            >
+                >
               <InputNumber style={{ width: '100%' }} step={0.1} />
-            </Form.Item>
-            <Form.Item
+                </Form.Item>
+                <Form.Item
               name={[...basePath, 'params', 'high']}
-              label="Maximum Value"
+                  label="Maximum Value"
               rules={[{ required: true, message: 'Please enter maximum value' }]}
               initialValue={1}
-            >
+                >
               <InputNumber style={{ width: '100%' }} step={0.1} />
-            </Form.Item>
+                </Form.Item>
           </>
         );
       case 'normal':
         return (
           <>
-            <Form.Item
+                <Form.Item
               name={[...basePath, 'params', 'loc']}
-              label="Mean"
+                  label="Mean"
               rules={[{ required: true, message: 'Please enter mean value' }]}
               initialValue={0}
-            >
+                >
               <InputNumber style={{ width: '100%' }} step={0.1} />
-            </Form.Item>
-            <Form.Item
+                </Form.Item>
+                <Form.Item
               name={[...basePath, 'params', 'scale']}
-              label="Standard Deviation"
+                  label="Standard Deviation"
               rules={[{ required: true, message: 'Please enter standard deviation' }]}
               initialValue={1}
-            >
+                >
               <InputNumber style={{ width: '100%' }} step={0.1} min={0} />
-            </Form.Item>
+                </Form.Item>
           </>
-        );
+      );
       case 'constant':
         return (
           <Form.Item
@@ -194,18 +194,135 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
             governments: [{ number: 1, agent_class: 'government' }],
             banks: [{ number: 1, agent_class: 'bank' }],
             nbs: [{ number: 1, agent_class: 'nbs' }],
+            customs: []
           }}
-          onValuesChange={(_, allValues) => {
-            // 确保每个列表至少有一个元素
+          onValuesChange={async (_, allValues) => {
+            // 处理自定义模板
+            const customAgents = allValues.customs || [];
+            const citizenAgents = allValues.citizens || [];
+            
+            console.log('原始表单数据:', JSON.stringify(allValues, null, 2));
+            console.log('自定义模板数据:', JSON.stringify(customAgents, null, 2));
+            console.log('公民数据:', JSON.stringify(citizenAgents, null, 2));
+            
+            // 获取所有自定义模板的数据
+            const customCitizens = await Promise.all(
+              customAgents.map(async (custom) => {
+                if (custom.templateId) {
+                  try {
+                    const response = await fetchCustom(`/api/agent-templates/${custom.templateId}`);
+                    if (response.ok) {
+                      const template = (await response.json()).data;
+                      console.log('获取到的模板数据:', JSON.stringify(template, null, 2));
+
+                      // 转换blocks格式
+                      const convertedBlocks = {};
+                      Object.entries(template.blocks).forEach(([key, value]) => {
+                        // 确保block key是小写的
+                        const blockKey = key.toLowerCase();
+                        convertedBlocks[blockKey] = value;
+                      });
+
+                      // 转换memory_distributions格式
+                      const convertedDistributions = {};
+                      Object.entries(template.memory_distributions).forEach(([key, value]: [string, any]) => {
+                        if (value.type === 'choice') {
+                          convertedDistributions[key] = {
+                            dist_type: 'choice',
+                            choices: value.choices || value.params?.choices,
+                            weights: value.weights || value.params?.weights
+                          };
+                        } else if (value.type === 'uniform_int') {
+                          convertedDistributions[key] = {
+                            dist_type: 'uniform_int',
+                            min_value: value.min_value || value.params?.min_value,
+                            max_value: value.max_value || value.params?.max_value
+                          };
+                        } else if (value.type === 'normal') {
+                          convertedDistributions[key] = {
+                            dist_type: 'normal',
+                            mean: value.mean || value.params?.mean,
+                            std: value.std || value.params?.std
+                          };
+                        }
+                      });
+
+                      return {
+                        number: custom.number,
+                        agent_class: 'citizen',
+                        memory_distributions: convertedDistributions,
+                        agent_params: template.agent_params,
+                        blocks: convertedBlocks
+                      };
+                    }
+                  } catch (error) {
+                    console.error('Error fetching template:', error);
+                  }
+                }
+                return null;
+              })
+            );
+
+            // 过滤掉空值并合并到citizens中
+            const validCustomCitizens = customCitizens.filter(Boolean);
+            console.log('处理后的自定义公民数据:', JSON.stringify(validCustomCitizens, null, 2));
+            
+            // 转换现有citizens的memory_distributions格式
+            const convertedCitizens = citizenAgents.map(citizen => {
+              if (!citizen.memory_distributions) return citizen;
+
+              const convertedDistributions = {};
+              Object.entries(citizen.memory_distributions).forEach(([key, value]: [string, any]) => {
+                if (value.type === 'choice') {
+                  convertedDistributions[key] = {
+                    dist_type: 'choice',
+                    choices: value.choices,
+                    weights: value.weights
+                  };
+                } else if (value.type === 'uniform_int') {
+                  convertedDistributions[key] = {
+                    dist_type: 'uniform_int',
+                    min_value: value.min_value,
+                    max_value: value.max_value
+                  };
+                } else if (value.type === 'normal') {
+                  convertedDistributions[key] = {
+                    dist_type: 'normal',
+                    mean: value.mean,
+                    std: value.std
+                  };
+                }
+              });
+
+              // 转换blocks格式
+              const convertedBlocks = {};
+              if (citizen.blocks) {
+                Object.entries(citizen.blocks).forEach(([key, value]) => {
+                  const blockKey = key.toLowerCase();
+                  convertedBlocks[blockKey] = value;
+                });
+              }
+
+              return {
+                ...citizen,
+                memory_distributions: convertedDistributions,
+                blocks: convertedBlocks
+              };
+            });
+            
+            // 构造最终的数据
             const transformedValues = {
-              citizens: (allValues.citizens?.length ? allValues.citizens : [{ number: 10, agent_class: 'citizen', memory_distributions: {} }])
-                .map(({ memory_distributions, ...rest }) => rest), // 移除 memory_distributions 字段
+              citizens: [
+                ...convertedCitizens,
+                ...validCustomCitizens
+              ],
               firms: allValues.firms?.length ? allValues.firms : [{ number: 1, agent_class: 'firm' }],
               governments: allValues.governments?.length ? allValues.governments : [{ number: 1, agent_class: 'government' }],
               banks: allValues.banks?.length ? allValues.banks : [{ number: 1, agent_class: 'bank' }],
               nbs: allValues.nbs?.length ? allValues.nbs : [{ number: 1, agent_class: 'nbs' }],
             };
             
+            console.log('最终提交的数据:', JSON.stringify(transformedValues, null, 2));
             onChange(transformedValues);
           }}
         >

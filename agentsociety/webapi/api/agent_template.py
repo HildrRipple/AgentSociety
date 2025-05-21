@@ -51,15 +51,14 @@ async def list_agent_templates(
             
             api_templates = []
             for template in templates:
-                # 将数据库中的分布配置转换为对应的分布对象
-                profile_dict = {}
+                # Convert distribution configuration from database to corresponding distribution objects
+                memory_distributions_dict = {}
                 for key, value in template.profile.items():
                     if isinstance(value, dict):
                         dist_type = value.get('type')
                         if dist_type == 'choice':
                             if 'params' in value:
-                                # Distribution 格式
-                                profile_dict[key] = ChoiceDistribution(
+                                memory_distributions_dict[key] = ChoiceDistribution(
                                     type='choice',
                                     params={
                                         'choices': value['params']['choices'],
@@ -67,15 +66,14 @@ async def list_agent_templates(
                                     }
                                 )
                             else:
-                                # DistributionConfig 格式
-                                profile_dict[key] = ChoiceDistributionConfig(
+                                memory_distributions_dict[key] = ChoiceDistributionConfig(
                                     type='choice',
                                     choices=value['choices'],
                                     weights=value['weights']
                                 )
                         elif dist_type == 'uniform_int':
                             if 'params' in value:
-                                profile_dict[key] = UniformIntDistribution(
+                                memory_distributions_dict[key] = UniformIntDistribution(
                                     type='uniform_int',
                                     params={
                                         'min_value': value['params']['min_value'],
@@ -83,14 +81,14 @@ async def list_agent_templates(
                                     }
                                 )
                             else:
-                                profile_dict[key] = UniformIntDistributionConfig(
+                                memory_distributions_dict[key] = UniformIntDistributionConfig(
                                     type='uniform_int',
                                     min_value=value['min_value'],
                                     max_value=value['max_value']
                                 )
                         elif dist_type == 'normal':
                             if 'params' in value:
-                                profile_dict[key] = NormalDistribution(
+                                memory_distributions_dict[key] = NormalDistribution(
                                     type='normal',
                                     params={
                                         'mean': value['params']['mean'],
@@ -98,7 +96,7 @@ async def list_agent_templates(
                                     }
                                 )
                             else:
-                                profile_dict[key] = NormalDistributionConfig(
+                                memory_distributions_dict[key] = NormalDistributionConfig(
                                     type='normal',
                                     mean=value['mean'],
                                     std=value['std']
@@ -109,11 +107,9 @@ async def list_agent_templates(
                     id=template.id,
                     name=template.name,
                     description=template.description,
-                    profile=profile_dict,
-                    base=BaseConfig(**template.base),
-                    states=StatesConfig(**template.states),
+                    memory_distributions=memory_distributions_dict,
                     agent_params=AgentParams(**template.agent_params),
-                    blocks=[TemplateBlock(**block) for block in template.blocks],
+                    blocks=template.blocks,
                     created_at=template.created_at.isoformat() if template.created_at else None,
                     updated_at=template.updated_at.isoformat() if template.updated_at else None
                 )
@@ -153,14 +149,14 @@ async def get_agent_template(
                     detail="Template not found"
                 )
             
-            # 将数据库中的分布配置转换为对应的分布对象
-            profile_dict = {}
+            # Convert distribution configuration from database to corresponding distribution objects
+            memory_distributions_dict = {}
             for key, value in template.profile.items():
                 if isinstance(value, dict):
                     dist_type = value.get('type')
                     if dist_type == 'choice':
                         if 'params' in value:
-                            profile_dict[key] = ChoiceDistribution(
+                            memory_distributions_dict[key] = ChoiceDistribution(
                                 type='choice',
                                 params={
                                     'choices': value['params']['choices'],
@@ -168,14 +164,14 @@ async def get_agent_template(
                                 }
                             )
                         else:
-                            profile_dict[key] = ChoiceDistributionConfig(
+                            memory_distributions_dict[key] = ChoiceDistributionConfig(
                                 type='choice',
                                 choices=value['choices'],
                                 weights=value['weights']
                             )
                     elif dist_type == 'uniform_int':
                         if 'params' in value:
-                            profile_dict[key] = UniformIntDistribution(
+                            memory_distributions_dict[key] = UniformIntDistribution(
                                 type='uniform_int',
                                 params={
                                     'min_value': value['params']['min_value'],
@@ -183,14 +179,14 @@ async def get_agent_template(
                                 }
                             )
                         else:
-                            profile_dict[key] = UniformIntDistributionConfig(
+                            memory_distributions_dict[key] = UniformIntDistributionConfig(
                                 type='uniform_int',
                                 min_value=value['min_value'],
                                 max_value=value['max_value']
                             )
                     elif dist_type == 'normal':
                         if 'params' in value:
-                            profile_dict[key] = NormalDistribution(
+                            memory_distributions_dict[key] = NormalDistribution(
                                 type='normal',
                                 params={
                                     'mean': value['params']['mean'],
@@ -198,7 +194,7 @@ async def get_agent_template(
                                 }
                             )
                         else:
-                            profile_dict[key] = NormalDistributionConfig(
+                            memory_distributions_dict[key] = NormalDistributionConfig(
                                 type='normal',
                                 mean=value['mean'],
                                 std=value['std']
@@ -209,11 +205,9 @@ async def get_agent_template(
                 id=template.id,
                 name=template.name,
                 description=template.description,
-                profile=profile_dict,  # 使用转换后的分布对象
-                base=BaseConfig(**template.base),
-                states=StatesConfig(**template.states),
+                memory_distributions=memory_distributions_dict,
                 agent_params=AgentParams(**template.agent_params),
-                blocks=[TemplateBlock(**block) for block in template.blocks],
+                blocks=template.blocks,
                 created_at=template.created_at.isoformat() if template.created_at else None,
                 updated_at=template.updated_at.isoformat() if template.updated_at else None
             )
@@ -245,14 +239,30 @@ async def create_agent_template(
         tenant_id = await request.app.state.get_tenant_id(request)
         template_id = str(uuid.uuid4())
         
-        # 将 profile 中的分布对象转换为字典
+        # Convert memory_distributions to serializable dictionary format
         profile_dict = {}
-        for key, value in template.profile.items():
-            if isinstance(value, (ChoiceDistribution, UniformIntDistribution, NormalDistribution,
-                                ChoiceDistributionConfig, UniformIntDistributionConfig, NormalDistributionConfig)):
+        for key, value in template.memory_distributions.items():
+            if isinstance(value, (ChoiceDistributionConfig, UniformIntDistributionConfig, NormalDistributionConfig)):
+                # 如果是Config类型，直接转换为字典
+                profile_dict[key] = value.dict()
+            elif isinstance(value, (ChoiceDistribution, UniformIntDistribution, NormalDistribution)):
+                # 如果是Distribution类型，保持params结构
                 profile_dict[key] = value.dict()
             else:
+                # 如果已经是字典格式，直接使用
                 profile_dict[key] = value
+        
+        # Create default base configuration
+        base_config = {
+            "home": {"aoi_position": {"aoi_id": 0}},
+            "work": {"aoi_position": {"aoi_id": 0}}
+        }
+        
+        # Create default states configuration
+        states_config = {
+            "needs": "str",
+            "plan": "dict"
+        }
         
         async with request.app.state.get_db() as db:
             db = cast(AsyncSession, db)
@@ -262,28 +272,28 @@ async def create_agent_template(
                 id=template_id,
                 name=template.name,
                 description=template.description,
-                profile=profile_dict,  # 使用转换后的字典
-                base=template.base.dict(),
-                states=template.states.dict(),
+                profile=profile_dict,
+                base=base_config,
+                states=states_config,
                 agent_params=template.agent_params.dict(),
-                blocks=[block.dict() for block in template.blocks]
+                blocks=template.blocks
             )
             
             db.add(new_template)
             await db.commit()
             await db.refresh(new_template)
             
-            # 构造返回数据时需要将字典转回分布对象
+            # Construct response data
             response_template = ApiAgentTemplate(
                 tenant_id=new_template.tenant_id,
                 id=new_template.id,
                 name=new_template.name,
                 description=new_template.description,
-                profile=new_template.profile,  # 数据库中存储的是字典格式
-                base=BaseConfig(**new_template.base),
-                states=StatesConfig(**new_template.states),
+                memory_distributions=new_template.profile,
+                base=new_template.base,
+                states=new_template.states,
                 agent_params=AgentParams(**new_template.agent_params),
-                blocks=[TemplateBlock(**block) for block in new_template.blocks],
+                blocks=new_template.blocks,
                 created_at=new_template.created_at.isoformat(),
                 updated_at=new_template.updated_at.isoformat()
             )
@@ -291,7 +301,7 @@ async def create_agent_template(
             return ApiResponseWrapper(data=response_template)
             
     except Exception as e:
-        print(f"Error details: {str(e)}")  # 添加详细错误日志
+        print(f"Error details: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create template: {str(e)}"
@@ -320,11 +330,9 @@ async def update_agent_template(
         ).values(
             name=template.name,
             description=template.description,
-            profile=template.profile,
-            base=template.base,
-            states=template.states,
-            agent_params=template.agent_params,
-            blocks=[block.dict() for block in template.blocks]
+            profile=template.memory_distributions,
+            agent_params=template.agent_params.dict(),
+            blocks=template.blocks
         )
         
         result = await db.execute(stmt)

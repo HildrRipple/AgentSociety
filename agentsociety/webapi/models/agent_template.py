@@ -64,11 +64,17 @@ class AgentTemplateDB(Base):
     id: Mapped[str] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column()
     description: Mapped[Optional[str]] = mapped_column()
-    profile: Mapped[Dict] = mapped_column(type_=JSONB)  # 使用 JSONB 类型
-    base: Mapped[Dict] = mapped_column(type_=JSONB)
-    states: Mapped[Dict] = mapped_column(type_=JSONB)
+    profile: Mapped[Dict] = mapped_column(type_=JSONB)
+    base: Mapped[Dict] = mapped_column(type_=JSONB, default=lambda: {
+        "home": {"aoi_position": {"aoi_id": 0}},
+        "work": {"aoi_position": {"aoi_id": 0}}
+    })
+    states: Mapped[Dict] = mapped_column(type_=JSONB, default=lambda: {
+        "needs": "str",
+        "plan": "dict"
+    })
     agent_params: Mapped[Dict] = mapped_column(type_=JSONB)
-    blocks: Mapped[List] = mapped_column(type_=JSONB)  # 修改为 JSONB
+    blocks: Mapped[Dict] = mapped_column(type_=JSONB)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.now, onupdate=datetime.now)
 
@@ -111,14 +117,29 @@ class ApiAgentTemplate(BaseModel):
     id: Optional[str] = None
     name: str = Field(..., description="Template name")
     description: Optional[str] = Field(None, description="Template description")
-    profile: Dict[str, Union[Distribution, DistributionConfig]] = Field(
+    memory_distributions: Dict[str, Union[Distribution, DistributionConfig]] = Field(
         ..., 
-        description="Profile configuration with distributions"
+        description="Memory distributions configuration"
     )
-    base: BaseConfig = Field(default_factory=BaseConfig)
-    states: StatesConfig = Field(default_factory=StatesConfig)
+    base: Dict[str, Dict[str, Any]] = Field(
+        default_factory=lambda: {
+            "home": {"aoi_position": {"aoi_id": 0}},
+            "work": {"aoi_position": {"aoi_id": 0}}
+        },
+        description="Base location configuration"
+    )
+    states: Dict[str, str] = Field(
+        default_factory=lambda: {
+            "needs": "str",
+            "plan": "dict"
+        },
+        description="Agent states configuration"
+    )
     agent_params: AgentParams = Field(default_factory=AgentParams)
-    blocks: List[TemplateBlock] = Field(default_factory=list)
+    blocks: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Block configurations with block type as key"
+    )
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -128,26 +149,16 @@ class ApiAgentTemplate(BaseModel):
             "example": {
                 "name": "Example Template",
                 "description": "A template example",
-                "profile": {
-                    "fields": {
-                        "name": "string",
-                        "age": "number",
-                        "occupation": "string"
-                    }
-                },
-                "base": {
-                    "fields": {
-                        "home": {
-                            "aoi_position": {
-                                "aoi_id": "string"
-                            }
-                        }
-                    }
-                },
-                "states": {
-                    "fields": {
-                        "health": "number",
-                        "happiness": "number"
+                "memory_distributions": {
+                    "name": {
+                        "dist_type": "choice",
+                        "choices": ["张三", "李四", "王五"],
+                        "weights": [0.3, 0.3, 0.4]
+                    },
+                    "age": {
+                        "dist_type": "uniform_int",
+                        "min_value": 18,
+                        "max_value": 60
                     }
                 },
                 "agent_params": {
@@ -158,16 +169,11 @@ class ApiAgentTemplate(BaseModel):
                     "time_diff": 1.0,
                     "max_plan_steps": 5
                 },
-                "blocks": [
-                    {
-                        "id": "block1",
-                        "name": "Mobility Block",
-                        "type": "mobilityblock",
-                        "description": "Handles agent movement",
-                        "params": {
-                            "search_limit": 50
-                        }
+                "blocks": {
+                    "mobilityblock": {
+                        "search_limit": 50,
+                        "radius_prompt": "xxx"
                     }
-                ]
+                }
             }
         } 

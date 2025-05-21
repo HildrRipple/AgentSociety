@@ -24,15 +24,16 @@ interface AgentTemplate {
   id: string;
   name: string;
   description: string;
-  profile: {
-    fields: Record<string, string>;
-  };
-  base: {
-    fields: Record<string, string>;
-  };
-  states: {
-    fields: Record<string, string>;
-    selfDefine?: string;
+  memory_distributions: {
+    [key: string]: {
+      dist_type: 'choice' | 'uniform_int' | 'normal';
+      choices?: string[];
+      weights?: number[];
+      min_value?: number;
+      max_value?: number;
+      mean?: number;
+      std?: number;
+    };
   };
   agent_params: {
     enable_cognition: boolean;
@@ -46,7 +47,11 @@ interface AgentTemplate {
     need_reflection_prompt?: string;
     plan_generation_prompt?: string;
   };
-  blocks: TemplateBlock[];
+  blocks: {
+    [key: string]: {
+      params?: Record<string, any>;
+    };
+  };
   created_at: string;
   updated_at: string;
   tenant_id?: string;
@@ -884,23 +889,23 @@ const BlockConfiguration: React.FC = () => {
                   <Typography.Text strong>Parameters:</Typography.Text>
                   <div style={{ marginTop: 8 }}>
                     {Object.entries(blockInfo.params).map(([paramName, param]) => (
-                      <Form.Item
-                        key={paramName}
-                        name={['blocks', blockName, 'params', paramName]}
-                        label={
-                          <Space>
-                            {paramName}
-                            {param.description && (
-                              <Tooltip title={param.description}>
-                                <QuestionCircleOutlined />
-                              </Tooltip>
-                            )}
-                          </Space>
-                        }
+                        <Form.Item
+                          key={paramName}
+                          name={['blocks', blockName, 'params', paramName]}
+                          label={
+                            <Space>
+                              {paramName}
+                              {param.description && (
+                                <Tooltip title={param.description}>
+                                  <QuestionCircleOutlined />
+                                </Tooltip>
+                              )}
+                            </Space>
+                          }
                         initialValue={param.default}
-                      >
+                        >
                         {renderParamField(param, blockName, paramName)}
-                      </Form.Item>
+                        </Form.Item>
                     ))}
                   </div>
                 </div>
@@ -930,18 +935,13 @@ const AgentTemplateForm: React.FC = () => {
           setCurrentTemplate(template);
 
           // Extract block types from template
-          const blockTypes = template.blocks.map(block => block.type);
+          const blockTypes = Object.keys(template.blocks);
           setSelectedBlocks(blockTypes);
 
           form.setFieldsValue({
             name: template.name,
             description: template.description,
-            profile: template.profile.fields,
-            base: template.base.fields,
-            states: {
-              ...template.states.fields,
-              selfDefine: template.states.selfDefine || ''
-            },
+            profile: template.memory_distributions,
             agent_params: template.agent_params,
             blocks: template.blocks
           });
@@ -953,12 +953,6 @@ const AgentTemplateForm: React.FC = () => {
         name: 'General Social Agent',
         description: '',
         profile: defaultProfileFields,
-        base: defaultBaseFields,
-        states: {
-          needs: 'str',
-          plan: 'dict',
-          selfDefine: ''
-        },
         agent_params: {
           enable_cognition: true,
           UBI: 1000,
@@ -967,7 +961,7 @@ const AgentTemplateForm: React.FC = () => {
           time_diff: 2592000,
           max_plan_steps: 6
         },
-        blocks: []
+        blocks: {}
       });
     }
   }, [id]);
@@ -976,74 +970,70 @@ const AgentTemplateForm: React.FC = () => {
     setSelectedBlocks(values);
 
     // Update form blocks based on selected types
-    const existingBlocks = form.getFieldValue('blocks') || [];
+    const existingBlocks = form.getFieldValue('blocks') || {};
 
     // Keep blocks that are still selected
-    const remainingBlocks = existingBlocks.filter(block => values.includes(block.type));
+    const remainingBlocks = Object.fromEntries(Object.entries(existingBlocks).filter(([key]) => values.includes(key)));
 
     // Add new blocks for newly selected types
-    const newBlockTypes = values.filter(type =>
-      !existingBlocks.some(block => block.type === type)
-    );
+    const newBlockTypes = values.filter(type => !Object.keys(existingBlocks).includes(type));
 
     const newBlocks = newBlockTypes.map(type => ({
-      id: `${type}_${Date.now()}`,
-      name: type.charAt(0).toUpperCase() + type.slice(1),
-      type: type,
-      description: `${type} for agent`,
-      dependencies: {},
-      params: type === 'mobilityblock' ? { speed: 1.0 } : {}
+      [type]: {}
     }));
 
     form.setFieldsValue({
-      blocks: [...remainingBlocks, ...newBlocks]
+      blocks: { ...remainingBlocks, ...newBlocks }
     });
   };
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      console.log('Form values before submission:', JSON.stringify(values, null, 2));
+      console.log('Original form data:', JSON.stringify(values, null, 2));
 
-      // 转换表单数据为期望的格式
-      const profile: Record<string, Distribution | DistributionConfig> = {};
-      
+      // 转换profile数据为memory_distributions格式
+      const memory_distributions: Record<string, any> = {};
       Object.entries(values.profile).forEach(([key, value]: [string, any]) => {
         if (value.type === 'choice') {
-          profile[key] = {
-            type: 'choice',
-            params: {
-              choices: value.choices,
-              weights: value.weights
-            }
+          memory_distributions[key] = {
+            dist_type: 'choice',
+            choices: value.choices,
+            weights: value.weights
           };
         } else if (value.type === 'uniform_int') {
-          profile[key] = {
-            type: 'uniform_int',
+          memory_distributions[key] = {
+            dist_type: 'uniform_int',
             min_value: value.min_value,
             max_value: value.max_value
           };
         } else if (value.type === 'normal') {
-          profile[key] = {
-            type: 'normal',
+          memory_distributions[key] = {
+            dist_type: 'normal',
             mean: value.mean,
             std: value.std
           };
         }
       });
 
+      // 处理blocks数据
+      const blocksData: Record<string, any> = {};
+      if (values.blocks) {
+        Object.entries(values.blocks).forEach(([key, block]: [string, any]) => {
+          if (block.params) {
+            blocksData[key] = block.params;
+          } else {
+            blocksData[key] = {};
+          }
+        });
+      }
+      console.log('Converted blocks data:', JSON.stringify(blocksData, null, 2));
+
       // 构造模板数据
       const templateData = {
-        name: values.name,
-        description: values.description,
-        profile,
-        base: {
-          fields: values.base || {}
-        },
-        states: {
-          fields: values.states || {},
-          selfDefine: values.states?.selfDefine || ''
-        },
+        name: values.name || 'Default Template Name',
+        description: values.description || '',
+        memory_distributions,
         agent_params: {
           enable_cognition: values.agent_params?.enable_cognition ?? true,
           UBI: values.agent_params?.UBI ?? 0,
@@ -1051,22 +1041,16 @@ const AgentTemplateForm: React.FC = () => {
           productivity_per_labor: values.agent_params?.productivity_per_labor ?? 1.0,
           time_diff: values.agent_params?.time_diff ?? 1.0,
           max_plan_steps: values.agent_params?.max_plan_steps ?? 5,
+          environment_reflection_prompt: values.agent_params?.environment_reflection_prompt,
           need_initialization_prompt: values.agent_params?.need_initialization_prompt,
           need_evaluation_prompt: values.agent_params?.need_evaluation_prompt,
           need_reflection_prompt: values.agent_params?.need_reflection_prompt,
           plan_generation_prompt: values.agent_params?.plan_generation_prompt
         },
-        blocks: (values.blocks || []).map(block => ({
-          id: block.id,
-          name: block.name,
-          type: block.type,
-          description: block.description,
-          dependencies: block.dependencies || {},
-          params: block.params || {}
-        }))
+        blocks: blocksData
       };
 
-      console.log('Template data to be sent:', JSON.stringify(templateData, null, 2));
+      console.log('Final submission data:', JSON.stringify(templateData, null, 2));
 
       const res = await fetchCustom('/api/agent-templates', {
         method: 'POST',
@@ -1078,7 +1062,7 @@ const AgentTemplateForm: React.FC = () => {
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error('API error response:', JSON.stringify(errorData, null, 2));
+        console.log('API error response:', JSON.stringify(errorData, null, 2));
         throw new Error(errorData.detail || 'Failed to create template');
       }
 
@@ -1087,7 +1071,7 @@ const AgentTemplateForm: React.FC = () => {
       message.success('Template created successfully');
       navigate('/agent-templates');
     } catch (error) {
-      console.error('Error in handleSubmit:', error);
+      console.log('Error occurred during form submission:', error);
       message.error(error.message || 'Failed to create template');
     }
   };
