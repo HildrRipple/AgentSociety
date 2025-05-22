@@ -49,7 +49,7 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
         - `agents`: A list of tuples, each containing an agent class, a memory config generator, and an index.
     """
     agent_class: type[Agent] = agent_config.agent_class  # type: ignore
-    n = agent_config.number
+    n:int = agent_config.number # type: ignore
     # memory config function
     memory_config_func = cast(
         Callable[
@@ -280,8 +280,8 @@ class AgentSociety:
                 if agent_config.memory_from_file is not None:
                     # Create generator
                     generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func,
-                        agent_config.agent_class.memory_config,
+                        agent_config.memory_config_func, # type: ignore
+                        agent_config.agent_class.memory_config, # type: ignore
                         agent_config.memory_from_file,
                         {},
                         self._config.env.s3,
@@ -300,7 +300,8 @@ class AgentSociety:
                                         agent_config.agent_class,
                                         generator,
                                         idx,
-                                        agent_config.param_config,
+                                        agent_config.agent_params,
+                                        agent_config.blocks,
                                     )
                                 )
                                 next_id = max(next_id, agent_id + 1)
@@ -329,8 +330,8 @@ class AgentSociety:
             for agent_config in self._config.agents.banks:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func,
-                        agent_config.agent_class.memory_config,
+                        agent_config.memory_config_func, # type: ignore
+                        agent_config.agent_class.memory_config, # type: ignore
                         agent_config.memory_from_file,
                         {},
                         self._config.env.s3,
@@ -346,7 +347,8 @@ class AgentSociety:
                                     agent_config.agent_class,
                                     generator,
                                     agent_data.index(agent_datum),
-                                    agent_config.param_config,
+                                    agent_config.agent_params,
+                                    agent_config.blocks,
                                 )
                             )
                             next_id = max(next_id, agent_id + 1)
@@ -364,8 +366,8 @@ class AgentSociety:
             for agent_config in self._config.agents.nbs:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func,
-                        agent_config.agent_class.memory_config,
+                        agent_config.memory_config_func, # type: ignore
+                        agent_config.agent_class.memory_config, # type: ignore
                         agent_config.memory_from_file,
                         {},
                         self._config.env.s3,
@@ -381,7 +383,8 @@ class AgentSociety:
                                     agent_config.agent_class,
                                     generator,
                                     agent_data.index(agent_datum),
-                                    agent_config.param_config,
+                                    agent_config.agent_params,
+                                    agent_config.blocks,
                                 )
                             )
                             next_id = max(next_id, agent_id + 1)
@@ -399,8 +402,8 @@ class AgentSociety:
             for agent_config in self._config.agents.governments:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func,
-                        agent_config.agent_class.memory_config,
+                        agent_config.memory_config_func, # type: ignore
+                        agent_config.agent_class.memory_config, # type: ignore
                         agent_config.memory_from_file,
                         {},
                         self._config.env.s3,
@@ -416,7 +419,8 @@ class AgentSociety:
                                     agent_config.agent_class,
                                     generator,
                                     agent_data.index(agent_datum),
-                                    agent_config.param_config,
+                                    agent_config.agent_params,
+                                    agent_config.blocks,
                                 )
                             )
                             next_id = max(next_id, agent_id + 1)
@@ -436,8 +440,8 @@ class AgentSociety:
             for agent_config in self._config.agents.citizens:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func,
-                        agent_config.agent_class.memory_config,
+                        agent_config.memory_config_func, # type: ignore
+                        agent_config.agent_class.memory_config, # type: ignore
                         agent_config.memory_from_file,
                         {},
                         self._config.env.s3,
@@ -453,7 +457,8 @@ class AgentSociety:
                                     agent_config.agent_class,
                                     generator,
                                     agent_data.index(agent_datum),
-                                    agent_config.param_config,
+                                    agent_config.agent_params,
+                                    agent_config.blocks,
                                 )
                             )
                             next_id = max(next_id, agent_id + 1)
