@@ -3,25 +3,17 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
-import time
-from typing import (
-    Any,
-    NamedTuple,
-    Optional,
-    Union,
-    get_type_hints,
-    List,
-    TypeVar,
-    Generic,
-)
-from pydantic import BaseModel, Field
+from typing import (Any, Generic, List, NamedTuple, Optional, TypeVar, Union,
+                    get_type_hints)
 
 import jsonc
 import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
+from pydantic import BaseModel, Field
 
 from ..environment import Environment
 from ..llm import LLM
@@ -31,9 +23,9 @@ from ..message import Messager
 from ..metrics import MlflowClient
 from ..storage import AvroSaver, StorageDialog, StorageSurvey
 from ..survey.models import Survey
-from .decorator import register_get
 from .block import Block
-from .dispatcher import BlockDispatcher, DISPATCHER_PROMPT
+from .decorator import register_get
+from .dispatcher import DISPATCHER_PROMPT, BlockDispatcher
 from .memory_config_generator import MemoryT
 
 __all__ = [
@@ -392,6 +384,13 @@ class Agent(ABC):
                     [storage_survey]
                 )
             )
+        # status memory
+        await self.memory.status.update(
+            "survey_responses",
+            survey_response,
+            mode="merge",
+            protect_llm_read_only_fields=False,
+        )
         await self.messager.send_message(
             self.messager.get_user_payback_channel(), {"count": 1}
         )

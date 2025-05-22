@@ -37,6 +37,7 @@ STATE_ATTRIBUTES = {
     "direction": float(),
     "activity": str(),
     "l": float(),
+    "survey_responses": list(),
 }
 
 SELF_DEFINE_PREFIX = "self_define_"
