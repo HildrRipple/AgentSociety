@@ -455,6 +455,25 @@ class AgentSociety:
             # Process citizens
             for agent_config in self._config.agents.citizens:
                 if agent_config.memory_from_file is not None:
+                    # Add distributions for citizens as before
+                    if agent_config.memory_distributions is None:
+                        agent_config.memory_distributions = {}
+                    # Add required distributions
+                    for key, ids in [
+                        ("firm_id", firm_ids),
+                        ("bank_id", bank_ids),
+                        ("nbs_id", nbs_ids),
+                        ("government_id", government_ids),
+                        ("home_aoi_id", aoi_ids),
+                        ("work_aoi_id", aoi_ids),
+                    ]:
+                        assert (
+                            key not in agent_config.memory_distributions
+                        ), f"{key} is not allowed to be set in memory_distributions because it will be generated in the initialization"
+                        agent_config.memory_distributions[key] = DistributionConfig(
+                            dist_type=DistributionType.CHOICE,
+                            choices=list(ids),
+                        )
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,  # type: ignore
                         agent_config.agent_class.memory_config,  # type: ignore
