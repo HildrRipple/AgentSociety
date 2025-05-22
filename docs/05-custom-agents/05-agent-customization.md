@@ -28,13 +28,27 @@ class CustomAgent(CitizenAgentBase):
         name: str,
         toolbox: AgentToolbox,
         memory: Memory,
+        agent_params: Optional[Any] = None,
+        blocks: Optional[list[Block]] = None,
     ) -> None:
         super().__init__(
             id=id,
             name=name,
             toolbox=toolbox,
             memory=memory,
+            agent_params=agent_params,
+            blocks=blocks,
         )
+
+    async def before_forward(self):
+        # If your agent has some specific logic before forward, you can implement it here.
+        await super().before_forward()
+        print(f"CustomAgent before forward at {self.environment.get_tick()}")
+
+    async def after_forward(self):
+        # If your agent has some specific logic after forward, you can implement it here.
+        await super().after_forward()
+        print(f"CustomAgent after forward at {self.environment.get_tick()}")
 
     async def forward(self):
         await self.update_motion()
@@ -92,13 +106,13 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## 2. Implement Your Logic with `Block`
+## 2. Enhance Your Agent with `Block`
 
 For complex behaviors, you can use `Block` to organize logic.
 
 ### What is a `Block`?
 
-A `Block` is a foundational component that encapsulates modular functionality, similar to a layer in PyTorch. Each Block has:
+A `Block` is a foundational component that encapsulates modular functionality, idealy represents a specific functional behavior. Each Block has:
 
 - Configurable fields with default values and descriptions
 - Access to core tools like LLM, Memory, and Environment
