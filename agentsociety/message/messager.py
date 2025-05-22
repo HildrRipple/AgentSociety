@@ -312,7 +312,7 @@ class Messager:
     async def forward(
         self,
         validation_dict: Optional[MessageIdentifier] = None,
-        persuasion_messages: Optional[dict[int, str]] = None,
+        persuasion_messages: Optional[list[dict[str, Any]]] = None,
     ):
         """
         Forward the message to the channel if the message is valid.
@@ -356,9 +356,9 @@ class Messager:
                     )
             self._wait_for_send_message = []
             if persuasion_messages is not None:
-                for agent_id, message in persuasion_messages.items():
+                for msg in persuasion_messages:
                     await self.client.publish(
-                        self.get_agent_chat_channel(agent_id), message
+                        self.get_agent_chat_channel(msg["agent_id"]), msg["message"]
                     )
         elif self.forward_strategy == "inner_control":
             # do nothing
