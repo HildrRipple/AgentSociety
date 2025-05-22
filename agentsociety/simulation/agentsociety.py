@@ -49,7 +49,7 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
         - `agents`: A list of tuples, each containing an agent class, a memory config generator, and an index.
     """
     agent_class: type[Agent] = agent_config.agent_class  # type: ignore
-    n:int = agent_config.number # type: ignore
+    n: int = agent_config.number  # type: ignore
     # memory config function
     memory_config_func = cast(
         Callable[
@@ -280,10 +280,14 @@ class AgentSociety:
                 if agent_config.memory_from_file is not None:
                     # Create generator
                     generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func, # type: ignore
-                        agent_config.agent_class.memory_config, # type: ignore
+                        agent_config.memory_config_func,  # type: ignore
+                        agent_config.agent_class.memory_config,  # type: ignore
                         agent_config.memory_from_file,
-                        {},
+                        (
+                            agent_config.memory_distributions
+                            if agent_config.memory_distributions is not None
+                            else {}
+                        ),
                         self._config.env.s3,
                     )
                     # Get agent data from file
@@ -330,10 +334,14 @@ class AgentSociety:
             for agent_config in self._config.agents.banks:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func, # type: ignore
-                        agent_config.agent_class.memory_config, # type: ignore
+                        agent_config.memory_config_func,  # type: ignore
+                        agent_config.agent_class.memory_config,  # type: ignore
                         agent_config.memory_from_file,
-                        {},
+                        (
+                            agent_config.memory_distributions
+                            if agent_config.memory_distributions is not None
+                            else {}
+                        ),
                         self._config.env.s3,
                     )
                     agent_data = generator.get_agent_data_from_file()
@@ -366,10 +374,14 @@ class AgentSociety:
             for agent_config in self._config.agents.nbs:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func, # type: ignore
-                        agent_config.agent_class.memory_config, # type: ignore
+                        agent_config.memory_config_func,  # type: ignore
+                        agent_config.agent_class.memory_config,  # type: ignore
                         agent_config.memory_from_file,
-                        {},
+                        (
+                            agent_config.memory_distributions
+                            if agent_config.memory_distributions is not None
+                            else {}
+                        ),
                         self._config.env.s3,
                     )
                     agent_data = generator.get_agent_data_from_file()
@@ -402,10 +414,14 @@ class AgentSociety:
             for agent_config in self._config.agents.governments:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func, # type: ignore
-                        agent_config.agent_class.memory_config, # type: ignore
+                        agent_config.memory_config_func,  # type: ignore
+                        agent_config.agent_class.memory_config,  # type: ignore
                         agent_config.memory_from_file,
-                        {},
+                        (
+                            agent_config.memory_distributions
+                            if agent_config.memory_distributions is not None
+                            else {}
+                        ),
                         self._config.env.s3,
                     )
                     agent_data = generator.get_agent_data_from_file()
@@ -440,10 +456,14 @@ class AgentSociety:
             for agent_config in self._config.agents.citizens:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func, # type: ignore
-                        agent_config.agent_class.memory_config, # type: ignore
+                        agent_config.memory_config_func,  # type: ignore
+                        agent_config.agent_class.memory_config,  # type: ignore
                         agent_config.memory_from_file,
-                        {},
+                        (
+                            agent_config.memory_distributions
+                            if agent_config.memory_distributions is not None
+                            else {}
+                        ),
                         self._config.env.s3,
                     )
                     agent_data = generator.get_agent_data_from_file()
@@ -1211,16 +1231,21 @@ class AgentSociety:
                     ), "Governance function must be set when using `outer_control` strategy"
                     # the logic of outer control
                     current_round_dict = await interceptor.get_validation_dict.remote()  # type: ignore
-                    validation_dict, blocked_agent_ids, blocked_social_edges, persuasion_messages = (
-                        await governance_func(
-                            list(current_round_dict.keys()), self._llm
-                        )
+                    (
+                        validation_dict,
+                        blocked_agent_ids,
+                        blocked_social_edges,
+                        persuasion_messages,
+                    ) = await governance_func(
+                        list(current_round_dict.keys()), self._llm
                     )
                     interceptor.update_blocked_agent_ids.remote(blocked_agent_ids)  # type: ignore
                     interceptor.update_blocked_social_edges.remote(blocked_social_edges)  # type: ignore
                     # modify validation_dict based on blocked_agent_ids and blocked_social_edges
                     validation_dict = await interceptor.modify_validation_dict.remote(validation_dict)  # type: ignore
-                    message_tasks = [self.messager.forward(validation_dict, persuasion_messages)]
+                    message_tasks = [
+                        self.messager.forward(validation_dict, persuasion_messages)
+                    ]
                     message_tasks.extend(
                         [
                             group.forward_message.remote(validation_dict)  # type: ignore
