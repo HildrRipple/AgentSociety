@@ -91,3 +91,10 @@ class S3Client:
                 return False
             else:
                 raise e
+
+    def delete(self, remote_path: str):
+        """
+        Delete a file from S3
+        """
+        s3_path = self._get_s3_path(remote_path)
+        self.client.delete_object(Bucket=self.config.bucket, Key=s3_path)

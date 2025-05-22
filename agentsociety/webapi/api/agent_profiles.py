@@ -24,8 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...agent.distribution import (
     ChoiceDistribution,
     ConstantDistribution,
-    Distribution,
-    DistributionType,
     NormalDistribution,
     UniformFloatDistribution,
     UniformIntDistribution,
@@ -34,11 +32,7 @@ from ...configs import EnvConfig
 from ...s3 import S3Client
 from ..models import ApiResponseWrapper
 from ..models.agent_profiles import (
-    AgentProfile,
     AgentProfileData,
-    ApiAgentProfile,
-    ApiAgentProfileData,
-    ApiDistribution,
     ApiMemoryDistribution,
 )
 from .const import DEMO_USER_ID
@@ -260,6 +254,10 @@ async def upload_agent_profile(
 
     # Parse file based on extension
     filename = file.filename
+    if filename is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File name is required"
+        )
     file_ext = filename.split(".")[-1].lower()
 
     try:
