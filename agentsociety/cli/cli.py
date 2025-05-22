@@ -161,7 +161,7 @@ def ui(config: str, config_base64: str):
 
         app = create_app(
             pg_dsn=pg_dsn,
-            mlflow_url="", # 商业版不暴露mlflow
+            mlflow_url="",  # 商业版不暴露mlflow
             read_only=c.read_only,
             env=c.env,
             get_tenant_id=get_tenant_id,
@@ -331,12 +331,12 @@ def check(config: str, config_base64: str):
 
 @cli.command()
 @common_options
-@click.option("--tenant-id", help="Specify tenant ID")
+@click.option("--tenant-id", default="default", help="Specify tenant ID")
 @click.option("--callback-url", help="Specify callback URL (POST)")
 def run(
     config: str,
     config_base64: str,
-    tenant_id: str = "default",
+    tenant_id: str,
     callback_url: str = "",
 ):
     """Run the simulation"""
@@ -380,11 +380,11 @@ def repo_init(local: str, remote: str):
     if not local:
         click.echo("Local repository path is not specified, use default path: ./repo")
         local = "./repo"
-    
+
     click.echo(f"Initializing repository with local path: {local}")
     if remote:
         click.echo(f"Remote repository URL: {remote}")
-    
+
     # TODO: Implement repository initialization logic
 
 

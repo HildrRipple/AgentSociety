@@ -13,9 +13,17 @@ __all__ = ["NBSAgent"]
 
 class NBSAgentConfig(AgentParams):
     """Configuration for NBSAgent."""
-    time_diff: int = Field(default=30 * 24 * 60 * 60, description="Time difference between each forward, day * hour * minute * second")
-    num_labor_hours: int = Field(default=168, description="Number of labor hours per week")
-    productivity_per_labor: float = Field(default=1, description="Productivity per labor hour")
+
+    time_diff: int = Field(
+        default=30 * 24 * 60 * 60,
+        description="Time difference between each forward, day * hour * minute * second",
+    )
+    num_labor_hours: int = Field(
+        default=168, description="Number of labor hours per week"
+    )
+    productivity_per_labor: float = Field(
+        default=1, description="Productivity per labor hour"
+    )
 
 
 class NBSAgent(NBSAgentBase):
@@ -25,6 +33,7 @@ class NBSAgent(NBSAgentBase):
     agents in a simulated environment. Handles monthly economic metrics calculations including
     GDP, labor statistics, prices, and citizen welfare indicators.
     """
+
     ParamsType = NBSAgentConfig
     description: str = """
 The National Bureau of Statistics Agent simulating economic data collection and analysis.

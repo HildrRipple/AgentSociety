@@ -167,7 +167,13 @@ class PlaceSelectionBlock(Block):
     name = "PlaceSelectionBlock"
     description = "Selects destinations for unknown locations (excluding home/work)"
 
-    def __init__(self, llm: LLM, environment: Environment, agent_memory: Memory, search_limit: int = 50):
+    def __init__(
+        self,
+        llm: LLM,
+        environment: Environment,
+        agent_memory: Memory,
+        search_limit: int = 50,
+    ):
         super().__init__(
             llm=llm,
             environment=environment,
@@ -271,6 +277,7 @@ class PlaceSelectionBlock(Block):
 
 class MoveBlock(Block):
     """Block for executing mobility operations (home/work/other)"""
+
     name = "MoveBlock"
     description = "Executes mobility operations between locations"
 
@@ -443,6 +450,7 @@ class MobilityNoneBlock(Block):
     """
     MobilityNoneBlock
     """
+
     name = "MobilityNoneBlock"
     description = "Handles other mobility operations"
 
@@ -464,16 +472,22 @@ class MobilityNoneBlock(Block):
             "node_id": node_id,
         }
 
+
 class MobilityBlockParams(BlockParams):
     # PlaceSelection
-    radius_prompt: str = Field(default=RADIUS_PROMPT, description="Used to determine the maximum travel radius")
-    search_limit: int = Field(default=50, description="Number of POIs to retrieve from map service")
+    radius_prompt: str = Field(
+        default=RADIUS_PROMPT, description="Used to determine the maximum travel radius"
+    )
+    search_limit: int = Field(
+        default=50, description="Number of POIs to retrieve from map service"
+    )
 
 
 class MobilityBlock(Block):
     """
     Main mobility coordination block.
     """
+
     ParamsType = MobilityBlockParams
     name = "MobilityBlock"
     description = "Responsible for all kinds of mobility-related operations"
@@ -484,17 +498,22 @@ class MobilityBlock(Block):
     }
 
     def __init__(
-            self, 
-            llm: LLM, 
-            environment: Environment, 
-            agent_memory: Memory, 
-            block_params: Optional[MobilityBlockParams] = None
-        ):
+        self,
+        llm: LLM,
+        environment: Environment,
+        agent_memory: Memory,
+        block_params: Optional[MobilityBlockParams] = None,
+    ):
         super().__init__(
-            llm=llm, environment=environment, agent_memory=agent_memory, block_params=block_params
+            llm=llm,
+            environment=environment,
+            agent_memory=agent_memory,
+            block_params=block_params,
         )
         # initialize all blocks
-        self.place_selection_block = PlaceSelectionBlock(llm, environment, agent_memory, self.params.search_limit)
+        self.place_selection_block = PlaceSelectionBlock(
+            llm, environment, agent_memory, self.params.search_limit
+        )
         self.move_block = MoveBlock(llm, environment, agent_memory)
         self.mobility_none_block = MobilityNoneBlock(llm, agent_memory)
         self.trigger_time = 0  # Block invocation counter

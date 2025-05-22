@@ -5,6 +5,7 @@ A clear version of the simulation.
 import asyncio
 import inspect
 import time
+import traceback
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Literal, Optional, Union, cast
@@ -51,7 +52,7 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     - **Returns**:
         - `agents`: A list of tuples, each containing an agent class, a memory config generator, and an index.
     """
-    agent_class: type[Agent] = agent_config.agent_class # type: ignore
+    agent_class: type[Agent] = agent_config.agent_class  # type: ignore
     n = agent_config.number
     # memory config function
     memory_config_func = cast(
@@ -176,6 +177,8 @@ class AgentSociety:
                 blocks=self._config.exp.message_intercept.blocks,  # type: ignore
                 llm_config=self._config.llm,
                 queue=queue,
+                public_network=self._config.exp.message_intercept.public_network,
+                private_network=self._config.exp.message_intercept.private_network,
                 black_set=set(),
             )
             await self._message_interceptor.init.remote()  # type: ignore
@@ -191,6 +194,7 @@ class AgentSociety:
         self._messager = Messager(
             config=self._config.env.redis,
             exp_id=self.exp_id,
+            message_interceptor=self._message_interceptor,
         )
         await self._messager.init()
         await self._messager.subscribe_and_start_listening(
@@ -252,20 +256,20 @@ class AgentSociety:
         government_ids = set()
         firm_ids = set()
         aoi_ids = self._environment.get_aoi_ids()
-        
+
         # Check if any agent config uses memory_from_file
         using_file_based_ids = any(
-            agent_config.memory_from_file is not None 
+            agent_config.memory_from_file is not None
             for agent_configs in [
-                self._config.agents.firms, 
-                self._config.agents.banks, 
-                self._config.agents.nbs, 
-                self._config.agents.governments, 
-                self._config.agents.citizens
-            ] 
+                self._config.agents.firms,
+                self._config.agents.banks,
+                self._config.agents.nbs,
+                self._config.agents.governments,
+                self._config.agents.citizens,
+            ]
             for agent_config in agent_configs
         )
-        
+
         # If using file-based IDs, we need to extract IDs from files first
         if using_file_based_ids:
             get_logger().info("Using file-based agent IDs")
@@ -275,6 +279,7 @@ class AgentSociety:
                     # Create generator
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,
+                        agent_config.agent_class.memory_config,
                         agent_config.memory_from_file,
                         {},
                         self._config.env.s3,
@@ -287,7 +292,15 @@ class AgentSociety:
                             agent_id = agent_datum.get("id")
                             if agent_id is not None:
                                 firm_ids.add(agent_id)
-                                agents.append((agent_id, agent_config.agent_class, generator, idx, agent_config.param_config))
+                                agents.append(
+                                    (
+                                        agent_id,
+                                        agent_config.agent_class,
+                                        generator,
+                                        idx,
+                                        agent_config.param_config,
+                                    )
+                                )
                                 next_id = max(next_id, agent_id + 1)
                 else:
                     # Handle distribution-based configuration as before
@@ -302,18 +315,20 @@ class AgentSociety:
                     )
                     firm_classes = _init_agent_class(agent_config, self._config.env.s3)
                     firms = [
-                        (next_id + i, *firm_class) for i, firm_class in enumerate(firm_classes)
+                        (next_id + i, *firm_class)
+                        for i, firm_class in enumerate(firm_classes)
                     ]
                     firm_ids.update([firm[0] for firm in firms])
                     agents += firms
                     next_id += len(firms)
-                    
+
             # Similar process for banks, nbs, governments, and citizens
             # Process banks
             for agent_config in self._config.agents.banks:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,
+                        agent_config.agent_class.memory_config,
                         agent_config.memory_from_file,
                         {},
                         self._config.env.s3,
@@ -323,22 +338,32 @@ class AgentSociety:
                         agent_id = agent_datum.get("id")
                         if agent_id is not None:
                             bank_ids.add(agent_id)
-                            agents.append((agent_id, agent_config.agent_class, generator, agent_data.index(agent_datum), agent_config.param_config))
+                            agents.append(
+                                (
+                                    agent_id,
+                                    agent_config.agent_class,
+                                    generator,
+                                    agent_data.index(agent_datum),
+                                    agent_config.param_config,
+                                )
+                            )
                             next_id = max(next_id, agent_id + 1)
                 else:
                     bank_classes = _init_agent_class(agent_config, self._config.env.s3)
                     banks = [
-                        (next_id + i, *bank_class) for i, bank_class in enumerate(bank_classes)
+                        (next_id + i, *bank_class)
+                        for i, bank_class in enumerate(bank_classes)
                     ]
                     bank_ids.update([bank[0] for bank in banks])
                     agents += banks
                     next_id += len(banks)
-                    
+
             # Process nbs
             for agent_config in self._config.agents.nbs:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,
+                        agent_config.agent_class.memory_config,
                         agent_config.memory_from_file,
                         {},
                         self._config.env.s3,
@@ -348,20 +373,32 @@ class AgentSociety:
                         agent_id = agent_datum.get("id")
                         if agent_id is not None:
                             nbs_ids.add(agent_id)
-                            agents.append((agent_id, agent_config.agent_class, generator, agent_data.index(agent_datum), agent_config.param_config))
+                            agents.append(
+                                (
+                                    agent_id,
+                                    agent_config.agent_class,
+                                    generator,
+                                    agent_data.index(agent_datum),
+                                    agent_config.param_config,
+                                )
+                            )
                             next_id = max(next_id, agent_id + 1)
                 else:
                     nbs_classes = _init_agent_class(agent_config, self._config.env.s3)
-                    nbs = [(next_id + i, *nbs_class) for i, nbs_class in enumerate(nbs_classes)]
+                    nbs = [
+                        (next_id + i, *nbs_class)
+                        for i, nbs_class in enumerate(nbs_classes)
+                    ]
                     nbs_ids.update([nbs[0] for nbs in nbs])
                     agents += nbs
                     next_id += len(nbs)
-                    
+
             # Process governments
             for agent_config in self._config.agents.governments:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,
+                        agent_config.agent_class.memory_config,
                         agent_config.memory_from_file,
                         {},
                         self._config.env.s3,
@@ -371,10 +408,20 @@ class AgentSociety:
                         agent_id = agent_datum.get("id")
                         if agent_id is not None:
                             government_ids.add(agent_id)
-                            agents.append((agent_id, agent_config.agent_class, generator, agent_data.index(agent_datum), agent_config.param_config))
+                            agents.append(
+                                (
+                                    agent_id,
+                                    agent_config.agent_class,
+                                    generator,
+                                    agent_data.index(agent_datum),
+                                    agent_config.param_config,
+                                )
+                            )
                             next_id = max(next_id, agent_id + 1)
                 else:
-                    government_classes = _init_agent_class(agent_config, self._config.env.s3)
+                    government_classes = _init_agent_class(
+                        agent_config, self._config.env.s3
+                    )
                     governments = [
                         (next_id + i, *government_class)
                         for i, government_class in enumerate(government_classes)
@@ -382,12 +429,13 @@ class AgentSociety:
                     government_ids.update([government[0] for government in governments])
                     agents += governments
                     next_id += len(governments)
-                    
+
             # Process citizens
             for agent_config in self._config.agents.citizens:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,
+                        agent_config.agent_class.memory_config,
                         agent_config.memory_from_file,
                         {},
                         self._config.env.s3,
@@ -397,7 +445,15 @@ class AgentSociety:
                         agent_id = agent_datum.get("id")
                         if agent_id is not None:
                             citizen_ids.add(agent_id)
-                            agents.append((agent_id, agent_config.agent_class, generator, agent_data.index(agent_datum), agent_config.param_config))
+                            agents.append(
+                                (
+                                    agent_id,
+                                    agent_config.agent_class,
+                                    generator,
+                                    agent_data.index(agent_datum),
+                                    agent_config.param_config,
+                                )
+                            )
                             next_id = max(next_id, agent_id + 1)
                 else:
                     # Add distributions for citizens as before
@@ -419,7 +475,9 @@ class AgentSociety:
                             dist_type=DistributionType.CHOICE,
                             choices=list(ids),
                         )
-                    citizen_classes = _init_agent_class(agent_config, self._config.env.s3)
+                    citizen_classes = _init_agent_class(
+                        agent_config, self._config.env.s3
+                    )
                     citizens = [
                         (next_id + i, *citizen_class)
                         for i, citizen_class in enumerate(citizen_classes)
@@ -441,7 +499,8 @@ class AgentSociety:
                 )
                 firm_classes = _init_agent_class(agent_config, self._config.env.s3)
                 firms = [
-                    (next_id + i, *firm_class) for i, firm_class in enumerate(firm_classes)
+                    (next_id + i, *firm_class)
+                    for i, firm_class in enumerate(firm_classes)
                 ]
                 firm_ids.update([firm[0] for firm in firms])
                 agents += firms
@@ -449,19 +508,24 @@ class AgentSociety:
             for agent_config in self._config.agents.banks:
                 bank_classes = _init_agent_class(agent_config, self._config.env.s3)
                 banks = [
-                    (next_id + i, *bank_class) for i, bank_class in enumerate(bank_classes)
+                    (next_id + i, *bank_class)
+                    for i, bank_class in enumerate(bank_classes)
                 ]
                 bank_ids.update([bank[0] for bank in banks])
                 agents += banks
                 next_id += len(banks)
             for agent_config in self._config.agents.nbs:
                 nbs_classes = _init_agent_class(agent_config, self._config.env.s3)
-                nbs = [(next_id + i, *nbs_class) for i, nbs_class in enumerate(nbs_classes)]
+                nbs = [
+                    (next_id + i, *nbs_class) for i, nbs_class in enumerate(nbs_classes)
+                ]
                 nbs_ids.update([nbs[0] for nbs in nbs])
                 agents += nbs
                 next_id += len(nbs)
             for agent_config in self._config.agents.governments:
-                government_classes = _init_agent_class(agent_config, self._config.env.s3)
+                government_classes = _init_agent_class(
+                    agent_config, self._config.env.s3
+                )
                 governments = [
                     (next_id + i, *government_class)
                     for i, government_class in enumerate(government_classes)
@@ -523,7 +587,7 @@ class AgentSociety:
                 citizen_ids.update([citizen[0] for citizen in citizens])
                 next_id += len(citizens)
                 agents += citizens
-        
+
         get_logger().info(
             f"agents: len(citizens)={len(citizen_ids)}, len(firms)={len(firm_ids)}, len(banks)={len(bank_ids)}, len(nbs)={len(nbs_ids)}, len(governments)={len(government_ids)}"
         )
@@ -668,7 +732,9 @@ class AgentSociety:
         assert self._mlflow is not None, "mlflow is not initialized"
         return self._mlflow
 
-    async def _extract_target_agent_ids(self, target_agent: Optional[Union[list[int], AgentFilterConfig]] = None) -> list[int]:
+    async def _extract_target_agent_ids(
+        self, target_agent: Optional[Union[list[int], AgentFilterConfig]] = None
+    ) -> list[int]:
         if target_agent is None:
             raise ValueError("target_agent is required")
         elif isinstance(target_agent, list):
@@ -696,7 +762,7 @@ class AgentSociety:
             - `target_agent_ids` (Optional[List[int]], optional): A list of agent IDs to target. Defaults to None, meaning all agents are targeted.
             - `flatten` (bool, optional): Whether to flatten the result. Defaults to False.
             - `keep_id` (bool, optional): Whether to keep the agent IDs in the result. Defaults to False.
-        
+
         - **Returns**:
             - Result of the gathering process as returned by each group's `gather` method.
         """
@@ -1020,7 +1086,9 @@ class AgentSociety:
                 groups_to_delete[group] = []
             groups_to_delete[group].append(id)
         for group in groups_to_delete.keys():
-            tasks.append(group.delete_agents.remote(groups_to_delete[group]))  # type:ignore
+            tasks.append(
+                group.delete_agents.remote(groups_to_delete[group])
+            )  # type:ignore
         await asyncio.gather(*tasks)
 
     async def next_round(self):
@@ -1067,7 +1135,7 @@ class AgentSociety:
             for group in self._groups.values():
                 tasks.append(group.step.remote(tick))  # type:ignore
             logs: list[Logs] = await asyncio.gather(*tasks)
-            
+
             get_logger().debug(f"({day}-{t}) Finished agent forward steps")
             # ======================
             # log the simulation results
@@ -1121,6 +1189,39 @@ class AgentSociety:
                     await self.extract_metric(to_execute_metric)
                 get_logger().debug(f"({day}-{t}) Finished extracting metrics")
             # ======================
+            # forward message
+            # ======================
+            message_intercept_config = self.config.exp.message_intercept
+            if message_intercept_config is not None:
+                if message_intercept_config.forward_strategy == "outer_control":
+                    interceptor = self._message_interceptor
+                    assert (
+                        interceptor is not None
+                    ), "Message interceptor must be set when using `outer_control` strategy"
+                    validation_dict = await interceptor.get_validation_dict.remote()  # type: ignore
+                    # TODO(yanjunbo): implement the logic of outer control
+                    validation_dict, blocked_agent_ids, blocked_social_edges = None, None, None  # type: ignore
+                    interceptor.update_blocked_agent_ids.remote(blocked_agent_ids)  # type: ignore
+                    interceptor.update_blocked_social_edges.remote(blocked_social_edges)  # type: ignore
+                    # TODO(yanjunbo): modify validation_dict based on blocked_agent_ids and blocked_social_edges
+                    message_tasks = [self.messager.forward(validation_dict)]
+                    message_tasks.extend(
+                        [
+                            group.forward_message.remote(validation_dict)  # type: ignore
+                            for group in self._groups.values()
+                        ]
+                    )
+                    await asyncio.gather(*message_tasks)
+            else:
+                message_tasks = [self.messager.forward()]
+                message_tasks.extend(
+                    [
+                        group.forward_message.remote(None)  # type: ignore
+                        for group in self._groups.values()
+                    ]
+                )
+                await asyncio.gather(*message_tasks)
+            # ======================
             # go to next step
             # ======================
             self._total_steps += 1
@@ -1128,8 +1229,6 @@ class AgentSociety:
             get_logger().debug(f"({day}-{t}) Finished simulator sync")
             return all_logs
         except Exception as e:
-            import traceback
-
             get_logger().error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e
 
@@ -1204,12 +1303,18 @@ class AgentSociety:
                     interview_message = step.interview_message
                     assert interview_message is not None
                     assert target_agents is not None
-                    target_agent_ids = await self._extract_target_agent_ids(target_agents)
-                    await self.send_interview_message(interview_message, target_agent_ids)
+                    target_agent_ids = await self._extract_target_agent_ids(
+                        target_agents
+                    )
+                    await self.send_interview_message(
+                        interview_message, target_agent_ids
+                    )
                 elif step.type == WorkflowType.SURVEY:
                     assert step.target_agent is not None
                     assert step.survey is not None
-                    target_agent_ids = await self._extract_target_agent_ids(step.target_agent)
+                    target_agent_ids = await self._extract_target_agent_ids(
+                        step.target_agent
+                    )
                     await self.send_survey(step.survey, target_agent_ids)
                 elif step.type == WorkflowType.ENVIRONMENT_INTERVENE:
                     assert step.key is not None
@@ -1219,12 +1324,16 @@ class AgentSociety:
                     assert step.key is not None
                     assert step.value is not None
                     assert step.target_agent is not None
-                    target_agent_ids = await self._extract_target_agent_ids(step.target_agent)
+                    target_agent_ids = await self._extract_target_agent_ids(
+                        step.target_agent
+                    )
                     await self.update(target_agent_ids, step.key, step.value)
                 elif step.type == WorkflowType.MESSAGE_INTERVENE:
                     assert step.intervene_message is not None
                     assert step.target_agent is not None
-                    target_agent_ids = await self._extract_target_agent_ids(step.target_agent)
+                    target_agent_ids = await self._extract_target_agent_ids(
+                        step.target_agent
+                    )
                     await self.send_intervention_message(
                         step.intervene_message, target_agent_ids
                     )
@@ -1232,7 +1341,9 @@ class AgentSociety:
                     await self.next_round()
                 elif step.type == WorkflowType.DELETE_AGENT:
                     assert step.target_agent is not None
-                    target_agent_ids = await self._extract_target_agent_ids(step.target_agent)
+                    target_agent_ids = await self._extract_target_agent_ids(
+                        step.target_agent
+                    )
                     await self.delete_agents(target_agent_ids)
                 elif step.type == WorkflowType.INTERVENE:
                     get_logger().warning(
@@ -1240,7 +1351,9 @@ class AgentSociety:
                     )
                     assert step.target_agent is not None
                     assert step.intervene_message is not None
-                    target_agent_ids = await self._extract_target_agent_ids(step.target_agent)
+                    target_agent_ids = await self._extract_target_agent_ids(
+                        step.target_agent
+                    )
                     await self.send_intervention_message(
                         step.intervene_message, target_agent_ids
                     )
@@ -1254,10 +1367,8 @@ class AgentSociety:
             for group in self._groups.values():
                 tasks.append(group.final.remote())  # type:ignore
             await asyncio.gather(*tasks)
-            
-        except Exception as e:
-            import traceback
 
+        except Exception as e:
             get_logger().error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
             self._exp_info.status = ExperimentStatus.ERROR.value
             self._exp_info.error = str(e)

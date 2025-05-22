@@ -8,10 +8,10 @@ import ray
 from ..agent import (
     Agent,
     AgentParams,
-    Block,
-    BlockParams,
     AgentToolbox,
     BankAgentBase,
+    Block,
+    BlockParams,
     CitizenAgentBase,
     FirmAgentBase,
     GovernmentAgentBase,
@@ -23,7 +23,7 @@ from ..environment import Environment
 from ..llm import LLM, init_embedding, monitor_requests
 from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
-from ..message import Messager
+from ..message import Messager, MessageIdentifier
 from ..metrics import MlflowClient
 from ..storage import AvroSaver
 from ..storage.type import StorageProfile, StorageStatus
@@ -99,7 +99,7 @@ class AgentGroup:
             get_logger().debug(f"MLflow run ID set: {mlflow_run_id}")
             self._agent_config_file = agent_config_file
             get_logger().debug(f"Agent config file loaded")
-            
+
             get_logger().info("Initializing embedding model...")
             self._embedding_model = init_embedding(config.advanced.embedding_model)
             get_logger().debug(f"Embedding model initialized")
@@ -121,6 +121,7 @@ class AgentGroup:
         except Exception as e:
             get_logger().error(f"Error in AgentGroup.__init__: {str(e)}")
             import traceback
+
             get_logger().error(f"Traceback: {traceback.format_exc()}")
             raise
 
@@ -188,7 +189,9 @@ class AgentGroup:
         # Initialize messager
         # ====================
         get_logger().info(f"Initializing messager...")
-        self._messager = Messager(self._config.env.redis, self._exp_id)
+        self._messager = Messager(
+            self._config.env.redis, self._exp_id, self._message_interceptor
+        )
         await self._messager.init()
         get_logger().info(f"Messager initialized")
 
@@ -465,7 +468,9 @@ class AgentGroup:
                         agent_id = payload["agent_id"]
                         operation = payload["type"]
                         if operation == "aoi_message_register":
-                            self.environment.register_aoi_message(agent_id, aoi_id, payload)
+                            self.environment.register_aoi_message(
+                                agent_id, aoi_id, payload
+                            )
                         elif operation == "aoi_message_cancel":
                             self.environment.cancel_aoi_message(agent_id, aoi_id)
             except Exception as e:
@@ -726,7 +731,7 @@ class AgentGroup:
                     if add:
                         filtered_ids.append(agent.id)
         return filtered_ids
-    
+
     async def final(self):
         """
         Finalize the agent group.
@@ -762,34 +767,46 @@ class AgentGroup:
                 if agent.id in target_agent_ids:
                     results[agent.id] = await agent.status.get(content)
         return results
-    
+
     async def delete_agents(self, target_agent_ids: list[int]):
         """
         Deletes the specified agents from the agent group.
-        
+
         - **Description**:
             - Removes agents with the specified IDs from both the agents list and the ID-to-agent mapping.
             - Handles cases where specified agent IDs might not exist in the group.
-        
+
         - **Args**:
             - `target_agent_ids` (list[int]): List of agent IDs to be deleted.
-            
+
         - **Returns**:
             - None
         """
         # Finalize the agents that are being deleted
-        agents_to_delete = [agent for agent in self._agents if agent.id in target_agent_ids]
+        agents_to_delete = [
+            agent for agent in self._agents if agent.id in target_agent_ids
+        ]
         final_tasks = []
         for agent in agents_to_delete:
             final_tasks.append(agent.final())
         await asyncio.gather(*final_tasks)
 
         # Create a new list with agents that should be kept
-        self._agents = [agent for agent in self._agents if agent.id not in target_agent_ids]
-        
+        self._agents = [
+            agent for agent in self._agents if agent.id not in target_agent_ids
+        ]
+
         # Remove from the id-to-agent mapping
         for agent_id in target_agent_ids:
             if agent_id in self._id2agent:
                 del self._id2agent[agent_id]
             else:
-                get_logger().warning(f"Attempted to delete non-existent agent with ID {agent_id}")
+                get_logger().warning(
+                    f"Attempted to delete non-existent agent with ID {agent_id}"
+                )
+
+    async def forward_message(self, validation_dict: MessageIdentifier):
+        """
+        Forward the message to the channel if the message is valid.
+        """
+        await self.messager.forward(validation_dict)

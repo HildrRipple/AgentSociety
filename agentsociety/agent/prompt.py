@@ -7,6 +7,7 @@ from typing import Any, Optional, Union, overload, Callable, Dict, List, Type
 from openai.types.chat import ChatCompletionMessageParam
 from ..logger import get_logger
 
+
 class FormatPrompt:
     """
     A class to handle the formatting of prompts based on a template,
@@ -20,7 +21,9 @@ class FormatPrompt:
         - `bound_objects` (Dict[str, Any]): Dictionary of objects bound to the prompt for use in expressions.
     """
 
-    def __init__(self, template: str, system_prompt: Optional[str] = None, **bound_objects) -> None:
+    def __init__(
+        self, template: str, system_prompt: Optional[str] = None, **bound_objects
+    ) -> None:
         """
         - **Description**:
             - Initializes the FormatPrompt with a template, an optional system prompt, and bound objects.
@@ -38,7 +41,7 @@ class FormatPrompt:
         self._method_params = []  # To store method parameters
         self.bound_objects = bound_objects  # Store bound objects
 
-    def bind(self, **objects) -> 'FormatPrompt':
+    def bind(self, **objects) -> "FormatPrompt":
         """
         - **Description**:
             - Binds additional objects to the prompt for use in expressions.
@@ -64,7 +67,7 @@ class FormatPrompt:
         """
         return re.findall(r"\{(\w+)\}", self.template)
 
-    def associate_with_method(self, method: Callable) -> 'FormatPrompt':
+    def associate_with_method(self, method: Callable) -> "FormatPrompt":
         """
         - **Description**:
             - Associates this FormatPrompt instance with a class method.
@@ -81,17 +84,16 @@ class FormatPrompt:
         sig = inspect.signature(method)
         # Skip 'self' parameter for instance methods
         self._method_params = [
-            param.name for param in sig.parameters.values() 
-            if param.name != 'self'
+            param.name for param in sig.parameters.values() if param.name != "self"
         ]
-        
+
         # Store parameter documentation if available
         self._param_docs = {}
         if hasattr(method, "__param_docs__"):
             self._param_docs = method.__param_docs__
-            
+
         return self
-    
+
     def get_available_variables(self) -> Dict[str, List[str]]:
         """
         - **Description**:
@@ -108,17 +110,17 @@ class FormatPrompt:
             if self._associated_method and var in self._method_params:
                 method_name = self._associated_method.__name__
                 source = f"method parameter: {method_name}({var})"
-                
+
                 # Add documentation if available
                 if var in getattr(self, "_param_docs", {}) and self._param_docs[var]:
                     source += f" - {self._param_docs[var]}"
-                    
+
                 sources.append(source)
-            
+
             # Add bound objects as possible sources
             if var in self.bound_objects:
                 sources.append(f"bound object: {var}")
-                
+
             result[var] = sources
         return result
 
@@ -148,28 +150,36 @@ class FormatPrompt:
         """
         try:
             # Parse the expression into an AST
-            tree = ast.parse(expr, mode='eval')
-            
+            tree = ast.parse(expr, mode="eval")
+
             # Define a visitor to check for unsafe operations
             class SafetyVisitor(ast.NodeVisitor):
                 def __init__(self):
                     self.is_safe = True
-                
+
                 def visit_Call(self, node):
                     # Check function name
                     if isinstance(node.func, ast.Name):
                         # Blacklist of unsafe functions
-                        unsafe_funcs = ['eval', 'exec', 'compile', 'open', '__import__', 'globals', 'locals']
+                        unsafe_funcs = [
+                            "eval",
+                            "exec",
+                            "compile",
+                            "open",
+                            "__import__",
+                            "globals",
+                            "locals",
+                        ]
                         if node.func.id in unsafe_funcs:
                             self.is_safe = False
                     self.generic_visit(node)
-                
+
                 def visit_Import(self, node):
                     self.is_safe = False
-                
+
                 def visit_ImportFrom(self, node):
                     self.is_safe = False
-            
+
             # Check the expression
             visitor = SafetyVisitor()
             visitor.visit(tree)
@@ -195,7 +205,7 @@ class FormatPrompt:
         try:
             # Evaluate the expression
             result = eval(expr, {"__builtins__": {}}, context)
-            
+
             # If the result is awaitable, await it
             if inspect.isawaitable(result):
                 return await result
@@ -206,11 +216,11 @@ class FormatPrompt:
                 # Create a temporary async function to evaluate the expression
                 # This allows us to use await inside the expression
                 exec_globals = {"__builtins__": {}, "asyncio": asyncio}
-                
+
                 # Add all context variables to the globals
                 for key, value in context.items():
                     exec_globals[key] = value
-                
+
                 # Create an async function that will execute the expression
                 exec_code = f"""
 async def _temp_eval_func():
@@ -218,15 +228,20 @@ async def _temp_eval_func():
 """
                 # Compile and execute the function definition
                 exec(exec_code, exec_globals)
-                
+
                 # Call the function and await its result
                 result = await exec_globals["_temp_eval_func"]()
                 return result
             except Exception as e2:
                 raise ValueError(f"Error evaluating expression '{expr}': {str(e2)}")
 
-    async def format(self, agent: Optional[Any] = None, block: Optional[Any] = None, 
-                    method_args: Optional[dict] = None, **kwargs) -> str:
+    async def format(
+        self,
+        agent: Optional[Any] = None,
+        block: Optional[Any] = None,
+        method_args: Optional[dict] = None,
+        **kwargs,
+    ) -> str:
         """
         - **Description**:
             - Formats the template string using the provided agent, block, method arguments, or keyword arguments.
@@ -256,13 +271,13 @@ async def _temp_eval_func():
         """
         # Create a dictionary to hold all formatting variables
         format_vars = {}
-        
+
         # First try to get values from method arguments if provided
         if method_args is not None and self._associated_method is not None:
             for var in self.variables:
                 if var in self._method_params and var in method_args:
                     format_vars[var] = method_args[var]
-        
+
         # Then try to get values from agent if provided
         if agent is not None:
             for var in self.variables:
@@ -281,7 +296,7 @@ async def _temp_eval_func():
                     except Exception as e:
                         # Log the error but continue
                         print(f"Error getting variable '{var}' from agent: {str(e)}")
-        
+
         # Then try to get values from block if provided
         if block is not None:
             for var in self.variables:
@@ -290,45 +305,45 @@ async def _temp_eval_func():
                         format_vars[var] = await block._getx(var)
                     except Exception as e:
                         print(f"Error getting variable '{var}' from block: {str(e)}")
-        
+
         # Then try to get values from bound objects
         for var in self.variables:
             if var not in format_vars and var in self.bound_objects:
                 format_vars[var] = self.bound_objects[var]
-        
+
         # Finally add explicitly provided kwargs, these take highest precedence
         for key, value in kwargs.items():
             if key in self.variables:
                 format_vars[key] = value
 
         eval_context = {
-            'agent': agent,
-            'block': block,
+            "agent": agent,
+            "block": block,
             **self.bound_objects,  # Include bound objects in the context
             **(method_args if method_args else {}),
             **kwargs,
         }
-        
+
         # Handle complex expressions in the template using ${expression} syntax
         complex_pattern = r"\$\{([^}]+?)\}"
         result = self.template
-        
+
         # Find all complex expressions
         matches = re.finditer(complex_pattern, self.template)
         for match in matches:
             expr = match.group(1).strip()
             full_match = match.group(0)
-            
+
             if not self._is_safe_expression(expr):
                 raise ValueError(f"Unsafe expression detected: {expr}")
-            
+
             try:
                 eval_result = await self._eval_async_expr(expr, eval_context)
                 result = result.replace(full_match, str(eval_result))
             except Exception as e:
                 print(f"Error evaluating expression '{expr}': {str(e)}")
                 # Keep the original expression
-        
+
         # Then format simple variables using {var} syntax
         try:
             self.formatted_string = result.format(**format_vars)

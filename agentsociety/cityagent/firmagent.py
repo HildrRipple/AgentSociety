@@ -16,9 +16,17 @@ __all__ = ["FirmAgent"]
 
 class FirmAgentConfig(AgentParams):
     """Configuration for FirmAgent."""
-    time_diff: int = Field(default=30 * 24 * 60 * 60, description="Time difference between each forward, day * hour * minute * second")
-    max_price_inflation: float = Field(default=0.05, description="Maximum price inflation rate")
-    max_wage_inflation: float = Field(default=0.05, description="Maximum wage inflation rate")
+
+    time_diff: int = Field(
+        default=30 * 24 * 60 * 60,
+        description="Time difference between each forward, day * hour * minute * second",
+    )
+    max_price_inflation: float = Field(
+        default=0.05, description="Maximum price inflation rate"
+    )
+    max_wage_inflation: float = Field(
+        default=0.05, description="Maximum wage inflation rate"
+    )
 
 
 class FirmAgent(FirmAgentBase):
@@ -28,6 +36,7 @@ class FirmAgent(FirmAgentBase):
     inventory control, and employee skill development.
     Inherits from InstitutionAgent and extends its economic behaviors.
     """
+
     ParamsType = FirmAgentConfig
     description: str = """
 The firm agent that manages economic activities including price adjustments, wage policies, inventory control, and employee skill development.

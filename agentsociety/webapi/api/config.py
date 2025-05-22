@@ -4,7 +4,17 @@ from typing import Any, List, Optional, cast
 
 from pydantic import BaseModel
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Body, HTTPException, Query, Request, Response, status, File, UploadFile
+from fastapi import (
+    APIRouter,
+    Body,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+    File,
+    UploadFile,
+)
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import delete, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -252,10 +262,9 @@ async def upload_map_file(
     tenant_id = await request.app.state.get_tenant_id(request)
     env: EnvConfig = request.app.state.env
     # Validate file extension
-    if not file.filename or not file.filename.endswith('.pb'):
+    if not file.filename or not file.filename.endswith(".pb"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only .pb files are allowed"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Only .pb files are allowed"
         )
     # Generate a unique map ID
     map_id = str(uuid.uuid4())
@@ -264,8 +273,7 @@ async def upload_map_file(
 
     if not env.s3.enabled:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="S3 is not enabled"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="S3 is not enabled"
         )
 
     # Upload to S3

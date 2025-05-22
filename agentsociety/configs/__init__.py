@@ -158,7 +158,9 @@ class Config(BaseModel):
             self.agents.nbs,
             self.agents.governments,
         ]:
-            num_agents += sum(agent.number for agent in agents)
+            num_agents += sum(
+                agent.number for agent in agents if agent.number is not None
+            )
 
         cpu_count = psutil.cpu_count()
         memory_gb = psutil.virtual_memory().available / (1024 * 1024 * 1024)

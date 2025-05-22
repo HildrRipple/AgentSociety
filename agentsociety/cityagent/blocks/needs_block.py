@@ -118,14 +118,14 @@ class NeedsBlock(Block):
     """
 
     def __init__(
-            self, 
-            llm: LLM, 
-            environment: Environment, 
-            agent_memory: Memory,
-            evaluation_prompt: str = EVALUATION_PROMPT,
-            reflection_prompt: str = REFLECTION_PROMPT,
-            initial_prompt: str = INITIAL_NEEDS_PROMPT,
-        ):
+        self,
+        llm: LLM,
+        environment: Environment,
+        agent_memory: Memory,
+        evaluation_prompt: str = EVALUATION_PROMPT,
+        reflection_prompt: str = REFLECTION_PROMPT,
+        initial_prompt: str = INITIAL_NEEDS_PROMPT,
+    ):
         """
         Initialize needs management system.
 
@@ -266,8 +266,7 @@ class NeedsBlock(Block):
             social_satisfaction=await self.memory.status.get("social_satisfaction"),
         )
         response = await self.llm.atext_request(
-            self.reflection_prompt.to_dialog(), 
-            response_format={"type": "json_object"}
+            self.reflection_prompt.to_dialog(), response_format={"type": "json_object"}
         )
         try:
             reflection = jsonc.loads(clean_json_response(response))  #

@@ -17,11 +17,16 @@ __all__ = ["GovernmentAgent"]
 
 class GovernmentAgentConfig(AgentParams):
     """Configuration for GovernmentAgent."""
-    time_diff: int = Field(default=30 * 24 * 60 * 60, description="Time difference between each forward, day * hour * minute * second")
+
+    time_diff: int = Field(
+        default=30 * 24 * 60 * 60,
+        description="Time difference between each forward, day * hour * minute * second",
+    )
 
 
 class GovernmentAgent(GovernmentAgentBase):
     """A government institution agent that handles periodic economic operations such as tax collection."""
+
     ParamsType = GovernmentAgentConfig
     description: str = """
 A government institution agent that handles periodic economic operations such as tax collection.

@@ -37,10 +37,12 @@ def extract_json(output_str):
     except (ValueError, jsonc.JSONDecodeError) as e:
         get_logger().warning(f"Failed to extract JSON: {e}")
         return None
-    
+
 
 class CognitionBlockParams(BlockParams):
-    top_k: int = Field(default=20, description="Number of most relevant memories to return")
+    top_k: int = Field(
+        default=20, description="Number of most relevant memories to return"
+    )
 
 
 class CognitionBlock(Block):
@@ -53,12 +55,19 @@ class CognitionBlock(Block):
         top_k: Number of most relevant memories retrieved for processing.
         last_check_time: Timestamp tracker for daily update cycles.
     """
+
     ParamsType = CognitionBlockParams
     name = "CognitionBlock"
     description = "Handles daily updates of attitudes, thoughts, and emotions"
     actions = {}
 
-    def __init__(self, llm: LLM, environment: Environment, agent_memory: Memory, block_params: Optional[CognitionBlockParams] = None):
+    def __init__(
+        self,
+        llm: LLM,
+        environment: Environment,
+        agent_memory: Memory,
+        block_params: Optional[CognitionBlockParams] = None,
+    ):
         """Initialize CognitionBlock with dependencies.
 
         Args:
@@ -67,7 +76,10 @@ class CognitionBlock(Block):
             memory: Memory system to store/retrieve agent status and experiences.
         """
         super().__init__(
-            llm=llm, environment=environment, agent_memory=agent_memory, block_params=block_params
+            llm=llm,
+            environment=environment,
+            agent_memory=agent_memory,
+            block_params=block_params,
         )
         self.last_check_day = 0
 

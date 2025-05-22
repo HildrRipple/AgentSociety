@@ -7,7 +7,16 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
 import time
-from typing import Any, NamedTuple, Optional, Union, get_type_hints, List, TypeVar, Generic
+from typing import (
+    Any,
+    NamedTuple,
+    Optional,
+    Union,
+    get_type_hints,
+    List,
+    TypeVar,
+    Generic,
+)
 from pydantic import BaseModel, Field
 
 import jsonc
@@ -32,8 +41,13 @@ __all__ = [
     "AgentType",
 ]
 
+
 class AgentParams(BaseModel):
-    block_dispatch_prompt: str = Field(default=DISPATCHER_PROMPT, description="The prompt used for the block dispatcher, there is a variable 'intention' in the prompt, which is the intention of the task, used to select the most appropriate block")
+    block_dispatch_prompt: str = Field(
+        default=DISPATCHER_PROMPT,
+        description="The prompt used for the block dispatcher, there is a variable 'intention' in the prompt, which is the intention of the task, used to select the most appropriate block",
+    )
+
 
 class AgentToolbox(NamedTuple):
     """
@@ -93,10 +107,13 @@ class Agent(ABC):
     """
     Agent base class
     """
+
     ParamsType = AgentParams  # Determine agent parameters
     description: str = ""  # Agent description: How this agent works
     memory_config: dict[str, MemoryT] = {}  # Memory configuration
-    get_functions: dict[str, dict[str, Any]] = {}  # GET functions: What this agent can do
+    get_functions: dict[str, dict[str, Any]] = (
+        {}
+    )  # GET functions: What this agent can do
 
     def __init__(
         self,
@@ -145,42 +162,42 @@ class Agent(ABC):
     @classmethod
     def default_params(cls) -> ParamsType:
         return cls.ParamsType()
-    
+
     @classmethod
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         # Create a new dictionary that inherits from parent
-        cls.get_functions = dict(cls.__base__.get_functions) if hasattr(cls.__base__, 'get_functions') else {} # type: ignore
-        
+        cls.get_functions = dict(cls.__base__.get_functions) if hasattr(cls.__base__, "get_functions") else {}  # type: ignore
+
         # Register all methods with _register_info
         for name, method in cls.__dict__.items():
-            if hasattr(method, '_get_info'):
+            if hasattr(method, "_get_info"):
                 info = method._get_info
                 cls.get_functions[info["function_name"]] = info
 
     async def _getx(self, function_name: str, *args, **kwargs):
         """
         Calls a registered function by name.
-        
+
         - **Description**:
             - Calls a registered function by its function_name.
-        
+
         - **Args**:
             - `function_name` (str): The name of the function to call.
             - `*args`: Variable length argument list to pass to the function.
             - `**kwargs`: Arbitrary keyword arguments to pass to the function.
-        
+
         - **Returns**:
             - The result of the called function.
-        
+
         - **Raises**:
             - `ValueError`: If the function_name is not registered.
         """
         if function_name not in self.__class__.get_functions:
             raise ValueError(f"GET function '{function_name}' is not registered")
-        
+
         func_info = self.__class__.get_functions[function_name]
-        if func_info.get('is_async', False):
+        if func_info.get("is_async", False):
             result = await func_info["original_method"](self, *args, **kwargs)
         else:
             result = func_info["original_method"](self, *args, **kwargs)
@@ -678,7 +695,9 @@ class Agent(ABC):
                 }
             )
 
-    async def gather_messages(self, agent_ids: list[int], target: Union[str, list[str]]) -> list[Any]:
+    async def gather_messages(
+        self, agent_ids: list[int], target: Union[str, list[str]]
+    ) -> list[Any]:
         """
         Gather messages from multiple agents.
 
@@ -699,7 +718,7 @@ class Agent(ABC):
         futures = {}
         for agent_id in agent_ids:
             futures[agent_id] = asyncio.Future()
-            self._gather_responses[agent_id] = futures[agent_id]  
+            self._gather_responses[agent_id] = futures[agent_id]
 
         # Send gather requests
         payload = {
@@ -801,7 +820,9 @@ class Agent(ABC):
                 )
             )
 
-    async def register_aoi_message(self, target_aoi: Union[int, list[int]], content: str):
+    async def register_aoi_message(
+        self, target_aoi: Union[int, list[int]], content: str
+    ):
         """
         Register a message to target aoi
 
@@ -822,7 +843,9 @@ class Agent(ABC):
                 "day": day,
                 "t": t,
             }
-            await self.messager.send_message(self.messager.get_aoi_channel(target_aoi), payload)
+            await self.messager.send_message(
+                self.messager.get_aoi_channel(target_aoi), payload
+            )
         else:
             for aoi in target_aoi:
                 payload = {
@@ -833,7 +856,9 @@ class Agent(ABC):
                     "day": day,
                     "t": t,
                 }
-                await self.messager.send_message(self.messager.get_aoi_channel(aoi), payload)
+                await self.messager.send_message(
+                    self.messager.get_aoi_channel(aoi), payload
+                )
 
     async def cancel_aoi_message(self, target_aoi: Union[int, list[int]]):
         """
@@ -848,7 +873,9 @@ class Agent(ABC):
                 "day": day,
                 "t": t,
             }
-            await self.messager.send_message(self.messager.get_aoi_channel(target_aoi), payload)
+            await self.messager.send_message(
+                self.messager.get_aoi_channel(target_aoi), payload
+            )
         else:
             for aoi in target_aoi:
                 payload = {
@@ -858,7 +885,9 @@ class Agent(ABC):
                     "day": day,
                     "t": t,
                 }
-                await self.messager.send_message(self.messager.get_aoi_channel(aoi), payload)
+                await self.messager.send_message(
+                    self.messager.get_aoi_channel(aoi), payload
+                )
 
     # Agent logic
     @abstractmethod
@@ -874,11 +903,11 @@ class Agent(ABC):
             - It is intended to be overridden by subclasses to define specific behaviors.
         """
         raise NotImplementedError
-    
+
     async def final(self):
         """Execute when the agent is deleted or the simulation is finished."""
         pass
-    
+
     async def before_forward(self):
         """
         Before forward

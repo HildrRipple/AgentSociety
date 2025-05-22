@@ -18,6 +18,7 @@ __all__ = ["Bill", "ApiBill", "Account", "ApiAccount", "ItemEnum"]
 
 class ItemEnum(str, Enum):
     """账单项目枚举"""
+
     RECHARGE = "recharge"
     LLM_INPUT_TOKEN = "llm_input_token"
     LLM_OUTPUT_TOKEN = "llm_output_token"

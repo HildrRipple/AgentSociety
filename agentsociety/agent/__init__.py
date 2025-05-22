@@ -6,7 +6,13 @@ from .agent import (
     NBSAgentBase,
 )
 from .agent_base import Agent, AgentToolbox, AgentType, AgentParams
-from .block import Block, BlockParams, log_and_check, log_and_check_with_memory, trigger_class
+from .block import (
+    Block,
+    BlockParams,
+    log_and_check,
+    log_and_check_with_memory,
+    trigger_class,
+)
 from .dispatcher import BlockDispatcher
 from .prompt import FormatPrompt
 from .trigger import EventTrigger, MemoryChangeTrigger, TimeTrigger

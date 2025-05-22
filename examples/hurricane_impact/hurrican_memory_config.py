@@ -21,7 +21,8 @@ index_lock = threading.Lock()
 
 
 def memory_config_societyagent_hurrican(
-    distributions: dict[str, Distribution], class_config: Optional[dict[str, MemoryT]] = None
+    distributions: dict[str, Distribution],
+    class_config: Optional[dict[str, MemoryT]] = None,
 ) -> tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]]:
     if not hasattr(memory_config_societyagent_hurrican, "profile_list"):
         with open("profiles_with_aoi.json", "r") as f:

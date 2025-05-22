@@ -14,9 +14,10 @@ __all__ = [
     "CasdoorConfig",
 ]
 
-ROLE = None # "agentsociety:user"
+ROLE = None  # "agentsociety:user"
 DEMO_USER_TOKEN = "DEMO_USER_TOKEN"
 DEMO_USER_ID = "DEMO"
+
 
 class CasdoorConfig(BaseModel):
     enabled: bool = False
@@ -80,9 +81,8 @@ class Casdoor:
                 self._cache_expiry[user_id] = now + timedelta(seconds=5)
                 return data["data"]
 
-async def auth_bearer_token(
-    request: Request
-):
+
+async def auth_bearer_token(request: Request):
     casdoor: Casdoor = request.app.state.casdoor
     if not casdoor.enabled:
         return "dev"

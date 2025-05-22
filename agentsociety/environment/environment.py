@@ -210,8 +210,10 @@ class Environment:
     def get_aoi_ids(self):
         aois = self._map.get_all_aois()
         return [aoi["id"] for aoi in aois]
-    
-    def register_aoi_message(self, agent_id: int, target_aoi: Union[int, list[int]], content: str):
+
+    def register_aoi_message(
+        self, agent_id: int, target_aoi: Union[int, list[int]], content: str
+    ):
         """
         Register aoi message
 
@@ -723,6 +725,7 @@ class EnvironmentStarter(Environment):
         for _ in range(n):
             await self.syncer.step()
             self._tick += 1
+
 
 def _generate_yaml_config(map_file) -> str:
     config_dict = {

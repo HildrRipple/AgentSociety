@@ -52,10 +52,10 @@ class BlockDispatcher:
     def _get_function_schema(self) -> ChatCompletionToolParam:
         """
         Generate LLM function calling schema describing available blocks.
-        
+
         - **Description**:
             - Creates a schema for the LLM to select appropriate blocks or indicate no suitable block exists.
-        
+
         - **Returns**:
             - `ChatCompletionToolParam`: Function schema dictionary compatible with OpenAI-style function calling
         """
@@ -79,8 +79,8 @@ class BlockDispatcher:
                         },
                         "reason": {
                             "type": "string",
-                            "description": "Explanation for why the selected block is appropriate or why no suitable block exists"
-                        }
+                            "description": "Explanation for why the selected block is appropriate or why no suitable block exists",
+                        },
                     },
                     "required": ["block_name", "reason"],
                 },
@@ -93,14 +93,14 @@ class BlockDispatcher:
     async def dispatch(self, intention: str) -> Block | None:
         """
         Route a task step to the most appropriate processing block.
-        
+
         - **Description**:
             - Uses LLM to select the best block for handling the given task intention.
             - Can return None if no suitable block is found.
-        
+
         - **Args**:
             - `intention` (str): Intention of the task
-        
+
         - **Returns**:
             - `Block | None`: Selected Block instance for handling the task, or None if no suitable block exists
         """
@@ -114,20 +114,26 @@ class BlockDispatcher:
                 tools=[function_schema],
                 tool_choice={"type": "function", "function": {"name": "select_block"}},
             )
-            function_args = jsonc.loads(response.choices[0].message.tool_calls[0].function.arguments)
+            function_args = jsonc.loads(
+                response.choices[0].message.tool_calls[0].function.arguments
+            )
             selected_block = function_args.get("block_name")
             reason = function_args.get("reason", "No reason provided")
 
             if selected_block == "no_suitable_block":
-                get_logger().debug(f"No suitable block found for intention. Reason: {reason}")
+                get_logger().debug(
+                    f"No suitable block found for intention. Reason: {reason}"
+                )
                 return None
-            
+
             if selected_block not in self.blocks:
                 raise ValueError(
                     f"Selected block '{selected_block}' not found in registered blocks"
                 )
 
-            get_logger().debug(f"Dispatched intention to block: {selected_block}. Reason: {reason}")
+            get_logger().debug(
+                f"Dispatched intention to block: {selected_block}. Reason: {reason}"
+            )
             return self.blocks[selected_block]
 
         except Exception as e:

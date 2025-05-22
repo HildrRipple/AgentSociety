@@ -35,11 +35,15 @@ class Question(BaseModel):
                     if "text" in item:
                         choices.append(item["text"])
                     else:
-                        raise ValueError("choices must be a list of strings or dictionaries")
+                        raise ValueError(
+                            "choices must be a list of strings or dictionaries"
+                        )
                 elif isinstance(item, str):
                     choices.append(item)
                 else:
-                    raise ValueError("choices must be a list of strings or dictionaries")
+                    raise ValueError(
+                        "choices must be a list of strings or dictionaries"
+                    )
             return choices
         else:
             raise ValueError("choices must be a list")
@@ -67,7 +71,7 @@ class Survey(BaseModel):
     """Dictionary mapping response IDs to their data"""
     created_at: datetime = Field(default_factory=datetime.now)
     """Timestamp of when the survey was created"""
-    
+
     def to_prompt(self) -> str:
         """
         Convert the questionnaire dictionary into a format that can be processed question by question by the LLM, using English prompts.
@@ -94,7 +98,9 @@ Please answer each question in the following format:
                     prompt += "You can select MULTIPLE options\n"
 
                 elif question.type == QuestionType.RATING:
-                    prompt += f"Rating range: {question.min_rating} - {question.max_rating}\n"
+                    prompt += (
+                        f"Rating range: {question.min_rating} - {question.max_rating}\n"
+                    )
                     prompt += "Please provide a rating within the range\n"
 
                 elif question.type == QuestionType.MATRIX:

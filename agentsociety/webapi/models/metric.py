@@ -55,6 +55,7 @@ class MLflowMetric(BaseNoInit):
 
 # API Models
 
+
 class ApiMLflowMetric(BaseModel):
     """MLflow metric model for API"""
 

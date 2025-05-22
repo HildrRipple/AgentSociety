@@ -82,7 +82,7 @@ class MemoryConfigGenerator:
         else:
             memory_data = {}
         return _memory_config_merge(memory_data, extra_attrs, profile, base)
-    
+
     def get_agent_data_from_file(self) -> List[dict]:
         """
         Get agent data from file.
@@ -99,10 +99,12 @@ class MemoryConfigGenerator:
         """
         if self._file_path is None:
             raise ValueError("No file was specified during initialization")
-        
+
         if self._memory_data is None:
-            self._memory_data = _memory_config_load_file(self._file_path, self._s3config)
-            
+            self._memory_data = _memory_config_load_file(
+                self._file_path, self._s3config
+            )
+
         return self._memory_data
 
 

@@ -14,6 +14,7 @@ __all__ = [
     "AgentConfig",
 ]
 
+
 # TODO: 同BlockClassType
 class AgentClassType(str, Enum):
     """
@@ -26,6 +27,7 @@ class AgentClassType(str, Enum):
     BANK = "bank"
     NBS = "nbs"
 
+
 class BlockClassType(str, Enum):
     """
     Defines the types of block class types.
@@ -35,6 +37,7 @@ class BlockClassType(str, Enum):
     ECONOMYBLOCK = "economyblock"
     SOCIALBLOCK = "socialblock"
     OTHERBLOCK = "otherblock"
+
 
 class AgentConfig(BaseModel):
     """Configuration for different types of agents in the simulation."""
@@ -73,22 +76,24 @@ class AgentConfig(BaseModel):
     ] = None
     """Memory distributions. Required when using number, ignored when using memory_from_file."""
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_configuration(self):
         """Validate configuration options to ensure the user selects the correct combination"""
         memory_from_file = self.memory_from_file
         number = self.number
         memory_distributions = self.memory_distributions
-        
+
         if memory_from_file is not None:
             # When using file method, number and memory_distributions should not be set
             if number is not None or memory_distributions is not None:
-                raise ValueError("When using memory_from_file, number and memory_distributions should not be set")
+                raise ValueError(
+                    "When using memory_from_file, number and memory_distributions should not be set"
+                )
         else:
             # When not using file method, both number and memory_distributions must be set
             if number is None:
                 raise ValueError("When not using memory_from_file, number must be set")
-        
+
         return self
 
     @field_serializer("agent_class")

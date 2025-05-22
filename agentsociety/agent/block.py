@@ -23,6 +23,7 @@ __all__ = [
     "trigger_class",
 ]
 
+
 class BlockParams(BaseModel):
     block_memory: Optional[dict[str, Any]] = None
 
@@ -164,6 +165,7 @@ class Block:
     """
     A foundational component similar to a layer in PyTorch, used for building complex systems.
     """
+
     ParamsType = BlockParams
     name: str = ""
     description: str = ""
@@ -205,42 +207,42 @@ class Block:
     @classmethod
     def default_params(cls) -> ParamsType:
         return cls.ParamsType()
-    
+
     @classmethod
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         # Create a new dictionary that inherits from parent
-        cls.get_functions = dict(cls.__base__.get_functions) if hasattr(cls.__base__, 'get_functions') else {} # type: ignore
-        
+        cls.get_functions = dict(cls.__base__.get_functions) if hasattr(cls.__base__, "get_functions") else {}  # type: ignore
+
         # Register all methods with _register_info
         for name, method in cls.__dict__.items():
-            if hasattr(method, '_register_info'):
+            if hasattr(method, "_register_info"):
                 info = method._register_info
                 cls.get_functions[info["function_name"]] = info
 
     async def _getx(self, function_name: str, *args, **kwargs):
         """
         Calls a registered function by name.
-        
+
         - **Description**:
             - Calls a registered function by its function_name.
-        
+
         - **Args**:
             - `function_name` (str): The name of the function to call.
             - `*args`: Variable length argument list to pass to the function.
             - `**kwargs`: Arbitrary keyword arguments to pass to the function.
-        
+
         - **Returns**:
             - The result of the called function.
-        
+
         - **Raises**:
             - `ValueError`: If the function_name is not registered.
         """
         if function_name not in self.__class__.get_functions:
             raise ValueError(f"GET function '{function_name}' is not registered")
-        
+
         func_info = self.__class__.get_functions[function_name]
-        if func_info.get('is_async', False):
+        if func_info.get("is_async", False):
             result = await func_info["original_method"](self, *args, **kwargs)
         else:
             result = func_info["original_method"](self, *args, **kwargs)
@@ -251,7 +253,7 @@ class Block:
         if self._llm is None:
             raise RuntimeError(f"LLM access before assignment, please `set_llm` first!")
         return self._llm
-    
+
     @property
     def memory(self) -> Memory:
         if self._agent_memory is None:
@@ -267,7 +269,7 @@ class Block:
                 f"Memory access before assignment, please `set_memory` first!"
             )
         return self._agent_memory
-    
+
     @property
     def block_memory(self) -> StateMemory:
         if self._block_memory is None:
@@ -283,7 +285,7 @@ class Block:
                 f"Environment access before assignment, please `set_environment` first!"
             )
         return self._environment
-    
+
     async def before_forward(self):
         """
         Before forward

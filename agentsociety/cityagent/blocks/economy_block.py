@@ -61,10 +61,17 @@ class WorkBlock(Block):
     Attributes:
         guidance_prompt: Template for time estimation queries
     """
+
     name = "WorkBlock"
     description = "Handles work-related economic activities and time tracking"
 
-    def __init__(self, llm: LLM, environment: Environment, memory: Memory, worktime_estimation_prompt: str = WORKTIME_ESTIMATE_PROMPT):
+    def __init__(
+        self,
+        llm: LLM,
+        environment: Environment,
+        memory: Memory,
+        worktime_estimation_prompt: str = WORKTIME_ESTIMATE_PROMPT,
+    ):
         """Initialize with dependencies.
 
         Args:
@@ -134,9 +141,7 @@ class WorkBlock(Block):
                 "node_id": node_id,
             }
         except Exception as e:
-            get_logger().warning(
-                f"Error in parsing: {str(e)}, raw: {result}"
-            )
+            get_logger().warning(f"Error in parsing: {str(e)}, raw: {result}")
             time = random.randint(1, 3) * 60
             day, start_time = self.environment.get_datetime(format_time=True)
             await self.memory.status.update(
@@ -167,6 +172,7 @@ class ConsumptionBlock(Block):
         economy_client: Interface to economic simulation
         forward_times: Counter for execution attempts
     """
+
     name = "ConsumptionBlock"
     description = "Used to determine the consumption amount, and items"
 
@@ -245,13 +251,12 @@ class EconomyNoneBlock(Block):
     """
     Fallback block for non-economic/non-specified activities.
     """
+
     name = "EconomyNoneBlock"
     description = "Fallback block for other activities"
 
     def __init__(self, llm: LLM, memory: Memory):
-        super().__init__(
-            llm=llm, agent_memory=memory
-        )
+        super().__init__(llm=llm, agent_memory=memory)
 
     async def forward(self, step, context):
         """Log generic activities in economy stream."""
@@ -264,9 +269,13 @@ class EconomyNoneBlock(Block):
             "consumed_time": 0,
             "node_id": node_id,
         }
-    
+
+
 class EconomyBlockParams(BlockParams):
-    worktime_estimation_prompt: str = Field(default=WORKTIME_ESTIMATE_PROMPT, description="Used to determine the worktime")
+    worktime_estimation_prompt: str = Field(
+        default=WORKTIME_ESTIMATE_PROMPT, description="Used to determine the worktime"
+    )
+
 
 class EconomyBlock(Block):
     """Orchestrates economic activities through specialized sub-blocks.
@@ -277,6 +286,7 @@ class EconomyBlock(Block):
         consumption_block: Consumption manager
         none_block: Fallback activities
     """
+
     ParamsType = EconomyBlockParams
     name = "EconomyBlock"
     description = "Responsible for all kinds of economic-related operations"
@@ -294,9 +304,14 @@ class EconomyBlock(Block):
         block_params: Optional[EconomyBlockParams] = None,
     ):
         super().__init__(
-            llm=llm, environment=environment, agent_memory=agent_memory, block_params=block_params
+            llm=llm,
+            environment=environment,
+            agent_memory=agent_memory,
+            block_params=block_params,
         )
-        self.work_block = WorkBlock(llm, environment, agent_memory, self.params.worktime_estimation_prompt)
+        self.work_block = WorkBlock(
+            llm, environment, agent_memory, self.params.worktime_estimation_prompt
+        )
         self.consumption_block = ConsumptionBlock(llm, environment, agent_memory)
         self.none_block = EconomyNoneBlock(llm, agent_memory)
         self.trigger_time = 0
@@ -324,7 +339,7 @@ class EconomyBlock(Block):
             }
         result = await selected_block.forward(step, context)
         return result
-    
+
 
 class MonthEconomyPlanBlock(Block):
     """Manages monthly economic planning and mental health assessment.
@@ -345,9 +360,7 @@ class MonthEconomyPlanBlock(Block):
         productivity_per_labor: float = 1,
         time_diff: int = 30 * 24 * 60 * 60,
     ):
-        super().__init__(
-            llm=llm, environment=environment, agent_memory=agent_memory
-        )
+        super().__init__(llm=llm, environment=environment, agent_memory=agent_memory)
         self.llm_error = 0
         self.last_time_trigger = None
         self.forward_times = 0

@@ -76,13 +76,12 @@ class SocialNoneBlock(Block):
     """
     NoneBlock
     """
+
     name = "SocialNoneBlock"
     description = "Handle all other cases"
 
     def __init__(self, llm: LLM, agent_memory: Memory):
-        super().__init__(
-            llm=llm, agent_memory=agent_memory
-        )
+        super().__init__(llm=llm, agent_memory=agent_memory)
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
     async def forward(self, step, context):
@@ -134,6 +133,7 @@ class FindPersonBlock(Block):
     """
     Block for selecting an appropriate agent to socialize with based on relationship strength and context.
     """
+
     name = "FindPersonBlock"
     description = "Find a suitable person to socialize with"
 
@@ -191,8 +191,10 @@ class FindPersonBlock(Block):
         """
         try:
             # Get friends list and relationship strength
-            friends = await self.memory.status.get("friends") or []
-            relationships = await self.memory.status.get("relationships") or {}
+            private_friends = await self.memory.status.get("friends", [])
+            public_friends = await self.memory.status.get("public_friends", [])
+            friends = private_friends + public_friends
+            relationships = await self.memory.status.get("relationships", {})
 
             if not friends:
                 node_id = await self.memory.stream.add_social(
@@ -252,7 +254,8 @@ class FindPersonBlock(Block):
 
                 # Convert index to ID
                 target = index_to_id[friend_index]
-                context["target"] = target # type: ignore
+                if context is not None:
+                    context["target"] = target
             except Exception as e:
                 # If parsing fails, select the friend with the strongest relationship as the default option
                 target = (
@@ -288,6 +291,7 @@ class FindPersonBlock(Block):
 
 class MessageBlock(Block):
     """Generate and send messages"""
+
     name = "MessageBlock"
     description = "Send a message to someone"
 
@@ -350,6 +354,7 @@ class MessageBlock(Block):
         Returns:
             Result dict with message content, target, and execution status.
         """
+        target = None
         try:
             # Get target from context or find one
             target = context.get("target") if context else None
@@ -412,14 +417,14 @@ class MessageBlock(Block):
             }
 
 
-class SocialBlockParams(BlockParams):
-    ...
+class SocialBlockParams(BlockParams): ...
 
 
 class SocialBlock(Block):
     """
     Orchestrates social interactions by dispatching to appropriate sub-blocks.
     """
+
     ParamsType = SocialBlockParams
     name = "SocialBlock"
     description = "Responsible for all kinds of social interactions"
@@ -430,13 +435,18 @@ class SocialBlock(Block):
     }
 
     def __init__(
-            self, 
-            llm: LLM, 
-            environment: Environment, 
-            agent_memory: Memory, 
-            block_params: Optional[SocialBlockParams] = None
-        ):
-        super().__init__(llm=llm, environment=environment, agent_memory=agent_memory, block_params=block_params)
+        self,
+        llm: LLM,
+        environment: Environment,
+        agent_memory: Memory,
+        block_params: Optional[SocialBlockParams] = None,
+    ):
+        super().__init__(
+            llm=llm,
+            environment=environment,
+            agent_memory=agent_memory,
+            block_params=block_params,
+        )
         self.find_person_block = FindPersonBlock(llm, environment, agent_memory)
         self.message_block = MessageBlock(llm, environment, agent_memory)
         self.noneblock = SocialNoneBlock(llm, agent_memory)

@@ -38,6 +38,7 @@ class ExperimentStatus(enum.IntEnum):
     ERROR = 3  # The experiment has error and stopped
     STOPPED = 4  # The experiment is stopped by user
 
+
 class Experiment(Base):
     """Experiment model"""
 

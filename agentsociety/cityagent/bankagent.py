@@ -51,7 +51,11 @@ def calculate_inflation(prices):
 
 class BankAgentConfig(AgentParams):
     """Configuration for BankAgent."""
-    time_diff: int = Field(default=30 * 24 * 60 * 60, description="Time difference between each forward, day * hour * minute * second")
+
+    time_diff: int = Field(
+        default=30 * 24 * 60 * 60,
+        description="Time difference between each forward, day * hour * minute * second",
+    )
 
 
 class BankAgent(BankAgentBase):
@@ -66,10 +70,12 @@ class BankAgent(BankAgentBase):
     Configurable Parameters:
     - time_diff: Frequency of policy updates in simulation seconds (default: 30 days)
     """
+
     ParamsType = BankAgentConfig
     description: str = """
 The central banking agent that manages monetary policy in the simulation.
     """
+
     def __init__(
         self,
         id: int,

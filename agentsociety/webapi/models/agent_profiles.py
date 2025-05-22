@@ -8,12 +8,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ._base import TABLE_PREFIX, Base
 
 __all__ = [
-    "AgentProfile", 
-    "AgentProfileData", 
-    "ApiDistribution", 
-    "ApiMemoryDistribution", 
+    "AgentProfile",
+    "AgentProfileData",
+    "ApiDistribution",
+    "ApiMemoryDistribution",
     "ApiAgentProfile",
-    "ApiAgentProfileData"
+    "ApiAgentProfileData",
 ]
 
 
@@ -54,18 +54,24 @@ class AgentProfileData(Base):
 
 class ApiDistribution(BaseModel):
     """Distribution model for API"""
-    type: str = Field(..., description="Distribution type (choice, uniform_int, uniform_float, normal, constant)")
+
+    type: str = Field(
+        ...,
+        description="Distribution type (choice, uniform_int, uniform_float, normal, constant)",
+    )
     params: Dict[str, Any] = Field(..., description="Distribution parameters")
 
 
 class ApiMemoryDistribution(BaseModel):
     """Memory distribution model for API"""
+
     name: str = Field(..., description="Attribute name")
     distribution: ApiDistribution = Field(..., description="Distribution configuration")
 
 
 class ApiAgentProfile(BaseModel):
     """Agent profile model for API"""
+
     tenant_id: Optional[str] = None
     id: Optional[uuid.UUID] = None
     name: str
@@ -81,6 +87,7 @@ class ApiAgentProfile(BaseModel):
 
 class ApiAgentProfileData(BaseModel):
     """Agent profile data model for API"""
+
     tenant_id: Optional[str] = None
     id: Optional[uuid.UUID] = None
     name: str
@@ -92,4 +99,4 @@ class ApiAgentProfileData(BaseModel):
     updated_at: Optional[AwareDatetime] = None
 
     class Config:
-        from_attributes = True 
+        from_attributes = True

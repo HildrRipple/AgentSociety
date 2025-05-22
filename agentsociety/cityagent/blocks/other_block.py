@@ -20,6 +20,7 @@ class SleepBlock(Block):
         description (str): Human-readable block purpose.
         guidance_prompt (FormatPrompt): Template for generating time estimation prompts.
     """
+
     name = "SleepBlock"
     description = "Handles sleep-related actions"
 
@@ -77,6 +78,7 @@ class OtherNoneBlock(Block):
         description (str): Human-readable block purpose.
         guidance_prompt (FormatPrompt): Template for generating time estimation prompts.
     """
+
     name = "OtherNoneBlock"
     description = "Handles all kinds of intentions/actions except sleep"
 
@@ -118,10 +120,9 @@ class OtherNoneBlock(Block):
                 "consumed_time": random.randint(1, 180),
                 "node_id": node_id,
             }
-        
 
-class OtherBlockParams(BlockParams):
-    ...
+
+class OtherBlockParams(BlockParams): ...
 
 
 class OtherBlock(Block):
@@ -134,6 +135,7 @@ class OtherBlock(Block):
         token_consumption (int): Accumulated LLM token usage.
         dispatcher (BlockDispatcher): Router for selecting appropriate sub-blocks.
     """
+
     ParamsType = OtherBlockParams
     name = "OtherBlock"
     description = "Responsible for all kinds of intentions/actions except mobility, economy, and social"
@@ -143,12 +145,12 @@ class OtherBlock(Block):
     }
 
     def __init__(
-            self, 
-            llm: LLM,
-            environment: Optional[Environment] = None,
-            agent_memory: Optional[Memory] = None,
-            block_params: Optional[OtherBlockParams] = None
-        ):
+        self,
+        llm: LLM,
+        environment: Optional[Environment] = None,
+        agent_memory: Optional[Memory] = None,
+        block_params: Optional[OtherBlockParams] = None,
+    ):
         super().__init__(llm=llm, agent_memory=agent_memory, block_params=block_params)
         # init all blocks
         self.sleep_block = SleepBlock(llm, agent_memory)

@@ -5,10 +5,17 @@ import jsonc
 from typing import Optional, Any
 
 from pydantic import Field
-from ..agent import AgentToolbox, Block, CitizenAgentBase, AgentParams, FormatPrompt, register_get
+from ..agent import (
+    AgentToolbox,
+    Block,
+    CitizenAgentBase,
+    AgentParams,
+    FormatPrompt,
+    register_get,
+)
 from ..logger import get_logger
 from ..memory import Memory
-from .blocks import (CognitionBlock, NeedsBlock, PlanBlock)
+from .blocks import CognitionBlock, NeedsBlock, PlanBlock
 from .blocks.economy_block import MonthEconomyPlanBlock
 from .blocks.needs_block import INITIAL_NEEDS_PROMPT
 from .blocks.plan_block import DETAILED_PLAN_PROMPT
@@ -28,21 +35,39 @@ What's your feeling about those environmental information?
 
 class SocialAgentConfig(AgentParams):
     """Configuration for social agent."""
-    enable_cognition: bool = Field(default=True, description="Whether to enable cognition")
+
+    enable_cognition: bool = Field(
+        default=True, description="Whether to enable cognition"
+    )
     UBI: float = Field(default=0, description="Universal Basic Income")
-    num_labor_hours: int = Field(default=168, description="Number of labor hours per month")
-    productivity_per_labor: float = Field(default=1, description="Productivity per labor hour")
-    time_diff: int = Field(default=30 * 24 * 60 * 60, description="Time difference between two triggers")
+    num_labor_hours: int = Field(
+        default=168, description="Number of labor hours per month"
+    )
+    productivity_per_labor: float = Field(
+        default=1, description="Productivity per labor hour"
+    )
+    time_diff: int = Field(
+        default=30 * 24 * 60 * 60, description="Time difference between two triggers"
+    )
 
     # Environment Reflection
-    environment_reflection_prompt: str = Field(default=ENVIRONMENT_REFLECTION_PROMPT, description="Environment reflection prompt")
+    environment_reflection_prompt: str = Field(
+        default=ENVIRONMENT_REFLECTION_PROMPT,
+        description="Environment reflection prompt",
+    )
 
     # Maxlow's Needs
-    need_initialization_prompt: str = Field(default=INITIAL_NEEDS_PROMPT, description="Initial needs prompt")
+    need_initialization_prompt: str = Field(
+        default=INITIAL_NEEDS_PROMPT, description="Initial needs prompt"
+    )
 
     # Planned-Behavior
-    max_plan_steps: int = Field(default=6, description="Maximum number of steps in a plan")
-    plan_generation_prompt: str = Field(default=DETAILED_PLAN_PROMPT, description="Plan generation prompt")
+    max_plan_steps: int = Field(
+        default=6, description="Maximum number of steps in a plan"
+    )
+    plan_generation_prompt: str = Field(
+        default=DETAILED_PLAN_PROMPT, description="Plan generation prompt"
+    )
 
 
 class SocietyAgent(CitizenAgentBase):
@@ -103,6 +128,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
 """
 
     """Agent implementation with configurable cognitive/behavioral modules and social interaction capabilities."""
+
     def __init__(
         self,
         id: int,
@@ -123,8 +149,8 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         )
 
         self.month_plan_block = MonthEconomyPlanBlock(
-            llm=self.llm, 
-            environment=self.environment, 
+            llm=self.llm,
+            environment=self.environment,
             agent_memory=self.memory,
             ubi=self.params.UBI,
             num_labor_hours=self.params.num_labor_hours,
@@ -133,16 +159,16 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         )
 
         self.needs_block = NeedsBlock(
-            llm=self.llm, 
-            environment=self.environment, 
+            llm=self.llm,
+            environment=self.environment,
             agent_memory=self.memory,
             initial_prompt=self.params.need_initialization_prompt,
         )
 
         self.plan_block = PlanBlock(
             agent=self,
-            llm=self.llm, 
-            environment=self.environment, 
+            llm=self.llm,
+            environment=self.environment,
             agent_memory=self.memory,
             max_plan_steps=self.params.max_plan_steps,
             detailed_plan_prompt=self.params.plan_generation_prompt,
@@ -151,7 +177,9 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         self.cognition_block = CognitionBlock(
             llm=self.llm, agent_memory=self.memory, environment=self.environment
         )
-        self.environment_reflection_prompt = FormatPrompt(self.params.environment_reflection_prompt)
+        self.environment_reflection_prompt = FormatPrompt(
+            self.params.environment_reflection_prompt
+        )
         self.step_count = -1
         self.cognition_update = -1
 
@@ -163,7 +191,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
             return current_plan.get("intention", "None")
         else:
             return "None"
-        
+
     @register_get("Get agent's current position")
     async def get_current_position(self):
         """Get agent's current position"""
@@ -182,25 +210,25 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         ):
             current_location = "At workplace"
         return current_location
-    
+
     @register_get("Get weather information")
     async def get_weather(self):
         """Get weather information"""
         weather_info = self.environment.sense("weather")
         return weather_info
-    
+
     @register_get("Get temperature information")
     async def get_temperature(self):
         """Get temperature information"""
         temperature_info = self.environment.sense("temperature")
         return temperature_info
-    
+
     @register_get("Get other environmental information")
     async def get_other_information(self):
         """Get other environmental information"""
         other_info = self.environment.sense("other_information")
         return other_info
-    
+
     async def reset(self):
         """Reset the agent."""
         # reset position to home
@@ -225,7 +253,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                 await self.plan_block.forward()
             )  # Delegate to PlanBlock for plan creation
         return cognition
-    
+
     async def reflect_to_environment(self):
         """Reflect to the environment"""
         aoi_info = await self.get_aoi_info()
@@ -327,10 +355,8 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                                 current_plan["stream_nodes"]
                             )
                             incident = f"You have successfully completed the plan: {related_memories}"
-                            conclusion = (
-                                await self.cognition_block.emotion_update(
-                                    incident
-                                )
+                            conclusion = await self.cognition_block.emotion_update(
+                                incident
                             )
                             await self.save_agent_thought(conclusion)
                             await self.memory.stream.add_cognition_to_memory(
@@ -358,11 +384,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                         incident = (
                             f"You have failed to complete the plan: {related_memories}"
                         )
-                        conclusion = (
-                            await self.cognition_block.emotion_update(
-                                incident
-                            )
-                        )
+                        conclusion = await self.cognition_block.emotion_update(incident)
                         await self.save_agent_thought(conclusion)
                         await self.memory.stream.add_cognition_to_memory(
                             current_plan["stream_nodes"], conclusion
@@ -528,15 +550,11 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
     async def react_to_intervention(self, intervention_message: str):
         """React to an intervention"""
         # cognition
-        conclusion = await self.cognition_block.emotion_update(
-            intervention_message
-        )
+        conclusion = await self.cognition_block.emotion_update(intervention_message)
         await self.save_agent_thought(conclusion)
         await self.memory.stream.add_cognition(description=conclusion)
         # needs
-        await self.needs_block.reflect_to_intervention(
-            intervention_message
-        )
+        await self.needs_block.reflect_to_intervention(intervention_message)
 
     async def reset_position(self):
         """Reset the position of the agent."""
@@ -564,13 +582,21 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
             current_step["start_time"] = self.environment.get_tick()
             result = None
             if self.blocks and len(self.blocks) > 0:
-                selected_block = await self.dispatcher.dispatch(current_step["intention"])
+                selected_block = await self.dispatcher.dispatch(
+                    current_step["intention"]
+                )
                 if selected_block:
-                    result = await selected_block.forward(current_step, execution_context)
+                    result = await selected_block.forward(
+                        current_step, execution_context
+                    )
                     if "message" in result:
-                        await self.send_message_to_agent(result["target"], result["message"])
+                        await self.send_message_to_agent(
+                            result["target"], result["message"]
+                        )
                 else:
-                    get_logger().warning(f"There is no appropriate block found for {current_step['intention']}")
+                    get_logger().warning(
+                        f"There is no appropriate block found for {current_step['intention']}"
+                    )
                     result = {
                         "success": False,
                         "evaluation": f"Failed to {current_step['intention']}",
@@ -578,7 +604,9 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                         "node_id": None,
                     }
             else:
-                get_logger().warning(f"There is no block found for {current_step['intention']}")
+                get_logger().warning(
+                    f"There is no block found for {current_step['intention']}"
+                )
                 result = {
                     "success": True,
                     "evaluation": f"Successfully {current_step['intention']}",
