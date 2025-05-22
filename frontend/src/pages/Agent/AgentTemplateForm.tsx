@@ -1068,11 +1068,11 @@ const AgentTemplateForm: React.FC = () => {
 
       const data = await res.json();
       console.log('API success response:', JSON.stringify(data, null, 2));
-      message.success('Template created successfully');
+      message.success(t('form.template.messages.createSuccess'));
       navigate('/agent-templates');
     } catch (error) {
       console.log('Error occurred during form submission:', error);
-      message.error(error.message || 'Failed to create template');
+      message.error(error.message || t('form.template.messages.createFailed'));
     }
   };
 

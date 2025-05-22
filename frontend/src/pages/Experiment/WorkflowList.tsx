@@ -249,7 +249,7 @@ const WorkflowList: React.FC = () => {
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
                 width={800}
-                destroyOnClose
+                destroyOnHidden
             >
                 <Card title="Configuration Metadata" style={{ marginBottom: 16 }}>
                     <Form

@@ -149,14 +149,9 @@ async def get_agent_profile(
 
         # Get the file from S3
         env: EnvConfig = request.app.state.env
-        if not env.s3.enabled:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="S3 is not enabled"
-            )
-
-        client = S3Client(env.s3)
+        fs_client = env.webui_fs_client
         try:
-            content = client.download(profile.file_path)
+            content = fs_client.download(profile.file_path)
             data = json.loads(content)
             return ApiResponseWrapper(data=data)
         except Exception as e:
@@ -200,15 +195,14 @@ async def delete_agent_profile(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found"
             )
 
-        # Delete the file from S3
+        # Delete the file from webui storage
         env: EnvConfig = request.app.state.env
-        if env.s3.enabled:
-            client = S3Client(env.s3)
-            try:
-                client.delete(profile.file_path)
-            except Exception as e:
-                # Log error but continue with database deletion
-                print(f"Error deleting file from S3: {str(e)}")
+        fs_client = env.webui_fs_client
+        try:
+            fs_client.delete(profile.file_path)
+        except Exception as e:
+            # Log error but continue with database deletion
+            print(f"Error deleting file from S3: {str(e)}")
 
         # Delete from database
         stmt = delete(AgentProfileData).where(
@@ -243,11 +237,7 @@ async def upload_agent_profile(
         )
 
     env: EnvConfig = request.app.state.env
-
-    if not env.s3.enabled:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="S3 is not enabled"
-        )
+    fs_client = env.webui_fs_client
 
     # Read file content
     content = await file.read()
@@ -282,9 +272,8 @@ async def upload_agent_profile(
         s3_path = f"agent_profiles/{tenant_id}/{file_id}.json"
 
         # Convert to JSON and upload to S3
-        client = S3Client(env.s3)
         data_json = json.dumps(data)
-        client.upload(data_json.encode("utf-8"), s3_path)
+        fs_client.upload(data_json.encode("utf-8"), s3_path)
 
         # Use provided name or filename
         profile_name = name if name else os.path.splitext(filename)[0]
@@ -389,34 +378,23 @@ async def generate_agent_profiles(
     tenant_id = await request.app.state.get_tenant_id(request)
     env: EnvConfig = request.app.state.env
 
-    if env.s3.enabled:
-        client = S3Client(env.s3)
-        s3_path = f"agent_profiles_temp/{tenant_id}/{preview_id}.json"
+    fs_client = env.webui_fs_client
+    path = f"agent_profiles_temp/{tenant_id}/{preview_id}.json"
 
-        # Convert to JSON and upload to S3
-        data_json = json.dumps(preview_data)
-        client.upload(data_json.encode("utf-8"), s3_path)
+    # Convert to JSON and upload to S3
+    data_json = json.dumps(preview_data)
+    fs_client.upload(data_json.encode("utf-8"), path)
 
-        return ApiResponseWrapper(
-            data={
-                "preview_id": preview_id,
-                "file_path": s3_path,
-                "count": len(preview_data),
-                "data": preview_data[
-                    :10
-                ],  # Return first 10 items for immediate preview
-            }
-        )
-    else:
-        return ApiResponseWrapper(
-            data={
-                "preview_id": preview_id,
-                "count": len(preview_data),
-                "data": preview_data[
-                    :10
-                ],  # Return first 10 items for immediate preview
-            }
-        )
+    return ApiResponseWrapper(
+        data={
+            "preview_id": preview_id,
+            "file_path": path,
+            "count": len(preview_data),
+            "data": preview_data[
+                :10
+            ],  # Return first 10 items for immediate preview
+        }
+    )
 
 
 @router.post("/agent-profiles")
@@ -440,11 +418,6 @@ async def save_agent_profile(
 
     env: EnvConfig = request.app.state.env
 
-    if not env.s3.enabled:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="S3 is not enabled"
-        )
-
     # Security check: ensure the file path belongs to the tenant
     expected_prefix = f"agent_profiles_temp/{tenant_id}/"
     if not profile_req.file_path.startswith(expected_prefix):
@@ -453,9 +426,9 @@ async def save_agent_profile(
         )
 
     # Download the temporary file from S3
-    client = S3Client(env.s3)
+    fs_client = env.webui_fs_client
     try:
-        content = client.download(profile_req.file_path)
+        content = fs_client.download(profile_req.file_path)
         data = json.loads(content)
         record_count = len(data)
 
@@ -464,7 +437,7 @@ async def save_agent_profile(
         permanent_path = f"agent_profiles/{tenant_id}/{file_id}.json"
 
         # Upload to permanent location
-        client.upload(content, permanent_path)
+        fs_client.upload(content, permanent_path)
 
         # Save metadata to database
         async with request.app.state.get_db() as db:
@@ -488,7 +461,7 @@ async def save_agent_profile(
 
             # Delete the temporary file
             try:
-                client.delete(profile_req.file_path)
+                fs_client.delete(profile_req.file_path)
             except Exception as e:
                 # Log error but continue
                 print(f"Error deleting temporary file: {str(e)}")
@@ -508,345 +481,3 @@ async def save_agent_profile(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error saving profile: {str(e)}",
         )
-
-
-# @router.get("/agent-profiles/file/{file_path:path}")
-# async def get_agent_profiles(
-#     request: Request,
-#     file_path: str,
-#     offset: int = Query(0, description="Pagination offset"),
-#     limit: int = Query(100, description="Pagination limit")
-# ):
-#     """Get agent profiles from a file with pagination"""
-#     tenant_id = await request.app.state.get_tenant_id(request)
-#     env: EnvConfig = request.app.state.env
-
-#     # Security check: ensure the file path belongs to the tenant
-#     valid_prefixes = [
-#         f"agent_profiles_temp/{tenant_id}/",
-#         f"agent_profiles/{tenant_id}/"
-#     ]
-
-#     if not any(file_path.startswith(prefix) for prefix in valid_prefixes):
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Access denied to this file"
-#         )
-
-#     if not env.s3.enabled:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="S3 is not enabled"
-#         )
-
-#     # Download from S3
-#     client = S3Client(env.s3)
-#     try:
-#         content = client.download(file_path)
-#         data = json.loads(content)
-
-#         # Get total count
-#         total_count = len(data)
-
-#         # Apply pagination
-#         paginated_data = data[offset:offset+limit]
-
-#         return ApiResponseWrapper(data={
-#             "profiles": paginated_data,
-#             "total": total_count,
-#             "offset": offset,
-#             "limit": limit
-#         })
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail=f"File not found or error reading file: {str(e)}"
-#         )
-
-
-# @router.put("/agent-profiles/file/{file_path:path}")
-# async def update_agent_profiles(
-#     request: Request,
-#     file_path: str,
-#     edit_req: EditProfileRequest = Body(...),
-# ):
-#     """Update agent profiles in a file"""
-#     if request.app.state.read_only:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Server is in read-only mode"
-#         )
-
-#     tenant_id = await request.app.state.get_tenant_id(request)
-#     env: EnvConfig = request.app.state.env
-
-#     # Security check: ensure the file path belongs to the tenant
-#     valid_prefixes = [
-#         f"agent_profiles_temp/{tenant_id}/",
-#         f"agent_profiles/{tenant_id}/"
-#     ]
-
-#     if not any(file_path.startswith(prefix) for prefix in valid_prefixes):
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Access denied to this file"
-#         )
-
-#     if not env.s3.enabled:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="S3 is not enabled"
-#         )
-
-#     # Ensure the file path in the request matches the URL
-#     if edit_req.file_path != file_path:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="File path in request body does not match URL"
-#         )
-
-#     # Upload updated data to S3
-#     client = S3Client(env.s3)
-#     try:
-#         data_json = json.dumps(edit_req.agents)
-#         client.upload(data_json.encode("utf-8"), file_path)
-
-#         return ApiResponseWrapper(data={
-#             "message": "Profiles updated successfully",
-#             "file_path": file_path,
-#             "record_count": len(edit_req.agents)
-#         })
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=f"Error updating profiles: {str(e)}"
-#         )
-
-
-# @router.post("/agent-profiles/upload-file")
-# async def upload_agent_profile_file(
-#     request: Request,
-#     file: UploadFile = File(...),
-# ):
-#     """Upload an agent profile file to S3"""
-#     if request.app.state.read_only:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN, detail="Server is in read-only mode"
-#         )
-
-#     tenant_id = await request.app.state.get_tenant_id(request)
-#     env: EnvConfig = request.app.state.env
-
-#     # Validate file extension
-#     if not file.filename or not (file.filename.endswith('.json') or file.filename.endswith('.jsonl')):
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Only .json or .jsonl files are allowed"
-#         )
-
-#     # Generate a unique profile ID
-#     profile_id = str(uuid.uuid4())
-
-#     # Construct S3 path
-#     s3_path = f"agent_profiles/{tenant_id}/{profile_id}{file.filename[file.filename.rfind('.'):]}"
-
-#     if not env.s3.enabled:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="S3 is not enabled"
-#         )
-
-#     # Upload to S3
-#     client = S3Client(env.s3)
-#     content = await file.read()
-
-#     # Validate JSON format
-#     try:
-#         if file.filename.endswith('.json'):
-#             data = json.loads(content)
-#             record_count = len(data) if isinstance(data, list) else 1
-#         elif file.filename.endswith('.jsonl'):
-#             lines = [line for line in content.decode('utf-8').splitlines() if line.strip()]
-#             for line in lines:
-#                 json.loads(line)
-#             record_count = len(lines)
-#     except json.JSONDecodeError:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Invalid JSON format"
-#         )
-
-#     client.upload(content, s3_path)
-
-#     # Extract filename without extension
-#     filename = os.path.splitext(file.filename)[0]
-
-#     # Save metadata to database
-#     async with request.app.state.get_db() as db:
-#         db = cast(AsyncSession, db)
-
-#         # Create new profile data entry
-#         new_profile = AgentProfileData(
-#             tenant_id=tenant_id,
-#             id=uuid.uuid4(),
-#             name=filename,
-#             description=f"Uploaded file: {file.filename}",
-#             agent_type="unknown",  # Default type, can be updated later
-#             file_path=s3_path,
-#             record_count=record_count
-#         )
-
-#         db.add(new_profile)
-#         await db.commit()
-
-#         return ApiResponseWrapper(data={
-#             "file_path": s3_path,
-#             "profile_id": str(new_profile.id),
-#             "record_count": record_count
-#         })
-
-
-# @router.get("/agent-profiles/file/{file_path:path}")
-# async def get_agent_profile_file(
-#     request: Request,
-#     file_path: str,
-# ):
-#     """Get agent profile file content from S3"""
-#     tenant_id = await request.app.state.get_tenant_id(request)
-#     env: EnvConfig = request.app.state.env
-
-#     # Security check: ensure the file path belongs to the tenant
-#     expected_prefix = f"agent_profiles/{tenant_id}/"
-#     if not file_path.startswith(expected_prefix):
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Access denied to this file"
-#         )
-
-#     if not env.s3.enabled:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="S3 is not enabled"
-#         )
-
-#     # Download from S3
-#     client = S3Client(env.s3)
-#     try:
-#         content = client.download(file_path)
-
-#         # Parse the content based on file extension
-#         if file_path.endswith('.json'):
-#             data = json.loads(content)
-#         elif file_path.endswith('.jsonl'):
-#             data = [json.loads(line) for line in content.decode('utf-8').splitlines() if line.strip()]
-#         else:
-#             raise HTTPException(
-#                 status_code=status.HTTP_400_BAD_REQUEST,
-#                 detail="Unsupported file format"
-#             )
-
-#         return ApiResponseWrapper(data=data)
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail=f"File not found or error reading file: {str(e)}"
-#         )
-
-
-# @router.delete("/agent-profiles/file/{file_path:path}")
-# async def delete_agent_profile_file(
-#     request: Request,
-#     file_path: str,
-# ):
-#     """Delete agent profile file from S3 without removing database entry"""
-#     if request.app.state.read_only:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN, detail="Server is in read-only mode"
-#         )
-
-#     tenant_id = await request.app.state.get_tenant_id(request)
-
-#     if tenant_id == DEMO_USER_ID:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Demo user is not allowed to delete files"
-#         )
-
-#     env: EnvConfig = request.app.state.env
-
-#     # Security check: ensure the file path belongs to the tenant
-#     expected_prefix = f"agent_profiles/{tenant_id}/"
-#     if not file_path.startswith(expected_prefix):
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Access denied to this file"
-#         )
-
-#     if not env.s3.enabled:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="S3 is not enabled"
-#         )
-
-#     # Delete from S3
-#     client = S3Client(env.s3)
-#     try:
-#         client.delete(file_path)
-
-#         # Also delete any database entries that reference this file
-#         async with request.app.state.get_db() as db:
-#             db = cast(AsyncSession, db)
-
-#             stmt = delete(AgentProfileData).where(
-#                 AgentProfileData.tenant_id == tenant_id,
-#                 AgentProfileData.file_path == file_path
-#             )
-#             await db.execute(stmt)
-#             await db.commit()
-
-#         return ApiResponseWrapper(data={"message": "File deleted successfully"})
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail=f"File not found or error deleting file: {str(e)}"
-#         )
-
-
-# @router.get("/agent-profiles/files")
-# async def list_agent_profile_files(
-#     request: Request,
-# ):
-#     """List all agent profile files for the tenant (raw files, not database entries)"""
-#     tenant_id = await request.app.state.get_tenant_id(request)
-#     env: EnvConfig = request.app.state.env
-
-#     if not env.s3.enabled:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="S3 is not enabled"
-#         )
-
-#     # List files from S3
-#     client = S3Client(env.s3)
-#     prefix = f"agent_profiles/{tenant_id}/"
-
-#     try:
-#         files = client.list_objects(prefix)
-
-#         # Format the response
-#         file_list = []
-#         for file_path in files:
-#             # Extract filename from path
-#             filename = file_path.split('/')[-1]
-#             file_list.append({
-#                 "file_path": file_path,
-#                 "filename": filename,
-#                 "url": f"/api/agent-profiles/file/{file_path}"
-#             })
-
-#         return ApiResponseWrapper(data=file_list)
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=f"Error listing files: {str(e)}"
-#         )

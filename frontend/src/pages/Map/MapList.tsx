@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
-import { 
-  PlusOutlined, 
-  EditOutlined, 
-  DeleteOutlined, 
-  CopyOutlined, 
-  ExportOutlined, 
-  EyeOutlined, 
-  DownloadOutlined 
+import {
+    PlusOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    CopyOutlined,
+    ExportOutlined,
+    EyeOutlined,
+    DownloadOutlined
 } from '@ant-design/icons';
 import MapForm from './MapForm';
 import { ConfigItem } from '../../services/storageService';
@@ -115,7 +115,7 @@ const MapList: React.FC = () => {
                 name: `${map.name} (Copy)`,
                 id: undefined,
             };
-            
+
             const res = await fetchCustom('/api/map-configs', {
                 method: 'POST',
                 headers: {
@@ -134,18 +134,6 @@ const MapList: React.FC = () => {
             message.error(`Failed to duplicate map: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         }
-    };
-
-    // Handle export map
-    const handleExport = (map: ConfigItem) => {
-        const dataStr = JSON.stringify(map, null, 2);
-        const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
-        const exportFileDefaultName = `${map.name.replace(/\s+/g, '_')}_map.json`;
-        
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', exportFileDefaultName);
-        linkElement.click();
     };
 
     // Handle modal OK
@@ -226,12 +214,56 @@ const MapList: React.FC = () => {
                             </Tooltip>
                         )
                     }
-                    <Tooltip title={t('form.common.duplicate')}>
-                        <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
+                    <Tooltip title={t('form.common.view')}>
+                        <Button icon={<EyeOutlined />} size="small" onClick={async () => {
+                            // get token
+                            const url = `/api/map-configs/${record.id}/temp-link`
+                            try {
+                                const res = await fetchCustom(url, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({ expire_seconds: 600 }),
+                                })
+                                if (!res.ok) {
+                                    throw new Error(await res.text());
+                                }
+                                const data = await res.json();
+                                const token = data.data.token;
+                                // create temp-link url
+                                // format: ${window.location.origin}/api/map-configs/{config_id}/temp-link?token=${token}
+                                const tempLinkUrl = `${window.location.origin}/api/map-configs/${record.id}/temp-link?token=${token}`;
+                                // open in new tab
+                                // format: https://moss.fiblab.net/tools/map-editor?dataSource=${tempLinkUrl}
+                                window.open(`https://moss.fiblab.net/tools/map-editor?dataSource=${tempLinkUrl}`, '_blank');
+                            } catch (error) {
+                                message.error(`Failed to get temp link: ${JSON.stringify(error.message)}`, 3);
+                                console.error(error);
+                            }
+                        }} />
                     </Tooltip>
                     <Tooltip title={t('form.common.export')}>
-                        <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
+                        <Button icon={<DownloadOutlined />} size="small" onClick={() => {
+                            const token = getAccessToken();
+                            if (!token) {
+                                message.error('No token found, please login');
+                                return;
+                            }
+                            const authorization = `Bearer ${token}`;
+                            const url = `/api/map-configs/${record.id}/export`
+                            // use form post to download the file
+                            const form = document.createElement('form');
+                            form.action = url;
+                            form.method = 'POST';
+                            form.target = '_blank';
+                            form.innerHTML = '<input type="hidden" name="authorization" value="' + authorization + '">';
+                            document.body.appendChild(form);
+                            form.submit();
+                            document.body.removeChild(form);
+                        }} />
                     </Tooltip>
+
                     {
                         (record.tenant_id ?? '') !== '' && (
                             <Tooltip title={t('form.common.delete')}>
@@ -276,7 +308,7 @@ const MapList: React.FC = () => {
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
                 width={800}
-                destroyOnClose
+                destroyOnHidden
             >
                 <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 16 }}>
                     <Form

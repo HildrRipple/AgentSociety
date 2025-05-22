@@ -303,7 +303,7 @@ i18n
                             settingsTitle: "Map Settings",
                             uploadTitle: "New Map File",
                             uploadHint: "Click or drag map file to this area to upload",
-                            uploadDescription: "Support for a single .pb file upload. The file will be stored in S3."
+                            uploadDescription: "Please upload a single .pb file."
                         },
                         common: {
                             name: "Name",
@@ -319,7 +319,9 @@ i18n
                             lastUpdated: "Last Updated",
                             actions: "Actions",
                             submit: "Submit",
-                            cancel: "Cancel"
+                            cancel: "Cancel",
+                            metadataTitle: "Basic Information",
+                            view: "View"
                         },
                         template: {
                             title: "Agent Templates",
@@ -333,7 +335,14 @@ i18n
                             profileSection: "Profile Configuration",
                             baseSection: "Base Configuration",
                             agentConfig: "Agent Configuration",
-                            blockConfig: "Block Configuration"
+                            blockConfig: "Block Configuration",
+                            messages: {
+                                createSuccess: "Template created successfully",
+                                createFailed: "Failed to create template",
+                                updateSuccess: "Template updated successfully",
+                                updateFailed: "Failed to update template",
+                                fetchFailed: "Failed to fetch template"
+                            }
                         }
                     }
                 }
@@ -605,8 +614,8 @@ i18n
                             providerTitle: "LLM提供商",
                             providerLabel: "提供商",
                             providerPlaceholder: "选择LLM提供商",
-                            baseUrl: "基础URL",
-                            baseUrlPlaceholder: "如使用自定义端点请输入基础URL",
+                            baseUrl: "Base URL",
+                            baseUrlPlaceholder: "如使用自定义端点请输入Base URL",
                             apiKey: "API密钥",
                             apiKeyPlaceholder: "请输入API密钥",
                             model: "模型",
@@ -624,7 +633,7 @@ i18n
                             settingsTitle: "地图设置",
                             uploadTitle: "新地图文件",
                             uploadHint: "点击或拖拽地图文件到此区域上传",
-                            uploadDescription: "支持上传单个.pb文件。文件将存储在S3中。"
+                            uploadDescription: "上传单个.pb文件。"
                         },
                         common: {
                             name: "名称",
@@ -640,7 +649,9 @@ i18n
                             lastUpdated: "最后更新时间",
                             actions: "操作",
                             submit: "提交",
-                            cancel: "取消"
+                            cancel: "取消",
+                            metadataTitle: "基本信息",
+                            view: "查看"
                         },
                         template: {
                             title: "智能体模板",
@@ -654,7 +665,14 @@ i18n
                             profileSection: "配置文件配置",
                             baseSection: "基础配置",
                             agentConfig: "智能体配置",
-                            blockConfig: "区块配置"
+                            blockConfig: "区块配置",
+                            messages: {
+                                createSuccess: "模板创建成功",
+                                createFailed: "模板创建失败",
+                                updateSuccess: "模板更新成功",
+                                updateFailed: "模板更新失败",
+                                fetchFailed: "获取模板失败"
+                            }
                         }
                     }
                 }

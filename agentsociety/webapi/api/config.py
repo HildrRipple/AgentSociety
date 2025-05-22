@@ -269,19 +269,14 @@ async def upload_map_file(
     # Generate a unique map ID
     map_id = str(uuid.uuid4())
     # Construct S3 path
-    s3_path = f"maps/{tenant_id}/{map_id}.pb"
-
-    if not env.s3.enabled:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="S3 is not enabled"
-        )
+    path = f"maps/{tenant_id}/{map_id}.pb"
 
     # Upload to S3
-    client = S3Client(env.s3)
+    fs_client = env.webui_fs_client
     content = await file.read()
-    client.upload(content, s3_path)
+    fs_client.upload(content, path)
 
-    return ApiResponseWrapper(data={"file_path": s3_path})
+    return ApiResponseWrapper(data={"file_path": path})
 
 
 @router.post("/map-configs", status_code=status.HTTP_201_CREATED)
@@ -402,28 +397,14 @@ async def export_map_config(
     # Get map file path from config
     map_path = config.file_path
 
-    if env.s3.enabled:
-        # download map file from s3
-        client = S3Client(env.s3)
-        file_content = client.download(map_path)
-    else:
-        # get map file from local
-
-        # Check if file exists
-        if not os.path.exists(map_path):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Map file not found",
-            )
-
-        # Read file content
-        with open(map_path, "rb") as f:
-            file_content = f.read()
+    fs_client = env.webui_fs_client
+    # download map file from s3
+    file_content = fs_client.download(map_path)
 
     # Create response with file
-    return Response(
-        content=file_content,
-        media_type="application/zip",
+    return StreamingResponse(
+        content=iter([file_content]),
+        media_type="application/octet-stream",
         headers={
             "Content-Disposition": f"attachment; filename={os.path.basename(map_path)}"
         },
@@ -478,6 +459,7 @@ async def create_temp_download_link(
     await client.set(
         f"agentsociety:map:{config_id}:token:{token}", "1", ex=body.expire_seconds
     )
+    await client.close()
 
     return ApiResponseWrapper(data=CreateTempDownloadLinkResponse(token=token))
 
@@ -501,7 +483,7 @@ async def download_map_by_token(
         single_connection_client=True,
     )
     res = await client.get(f"agentsociety:map:{config_id}:token:{token}")
-    print(f"res: {res}")
+    await client.close()
 
     if res is None:
         raise HTTPException(
@@ -523,17 +505,8 @@ async def download_map_by_token(
     config = RealMapConfig.model_validate(row.config)
     map_path = config.file_path
 
-    if env.s3.enabled:
-        client = S3Client(env.s3)
-        file_content = client.download(map_path)
-    else:
-        if not os.path.exists(map_path):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Map file not found",
-            )
-        with open(map_path, "rb") as f:
-            file_content = f.read()
+    fs_client = env.webui_fs_client
+    file_content = fs_client.download(map_path)
 
     return StreamingResponse(
         content=iter([file_content]),

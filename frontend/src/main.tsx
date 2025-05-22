@@ -181,7 +181,7 @@ const App = () => {
     return (
         <ConfigProvider 
             theme={theme} 
-            locale={i18n.language === 'zh' ? zhCN : enUS}
+            locale={i18n.language === 'en' ? enUS : zhCN}
         >
             <RouterProvider router={router} />
         </ConfigProvider>

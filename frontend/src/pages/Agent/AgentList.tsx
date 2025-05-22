@@ -289,7 +289,7 @@ const AgentList: React.FC = () => {
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
                 width={800}
-                destroyOnClose
+                destroyOnHidden
             >
                 <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 16 }}>
                     <Form
