@@ -21,6 +21,7 @@ from ..agent.memory_config_generator import MemoryConfigGenerator, MemoryT
 from ..configs import (AgentConfig, AgentFilterConfig, Config,
                        MetricExtractorConfig, MetricType, WorkflowType)
 from ..environment import EnvironmentStarter
+from ..llm import LLM, monitor_requests
 from ..logger import get_logger, set_logger_level
 from ..message import MessageInterceptor, Messager
 from ..message.message_interceptor import MessageBlockListenerBase
@@ -148,6 +149,13 @@ class AgentSociety:
 
     async def init(self):
         """Initialize all the components"""
+        # ====================
+        # Initialize the LLM
+        # ====================
+        get_logger().info(f"Initializing LLM...")
+        self._llm = LLM(self._config.llm)
+        asyncio.create_task(monitor_requests(self._llm))
+        get_logger().info(f"LLM initialized")
 
         # ====================
         # Initialize the environment
@@ -172,8 +180,6 @@ class AgentSociety:
                 blocks=self._config.exp.message_intercept.blocks,  # type: ignore
                 llm_config=self._config.llm,
                 queue=queue,
-                public_network=self._config.exp.message_intercept.public_network,
-                private_network=self._config.exp.message_intercept.private_network,
                 black_set=set(),
             )
             await self._message_interceptor.init.remote()  # type: ignore
@@ -1200,7 +1206,9 @@ class AgentSociety:
                     # the logic of outer control
                     current_round_dict = await interceptor.get_validation_dict.remote()  # type: ignore
                     validation_dict, blocked_agent_ids, blocked_social_edges = (
-                        await governance_func(list(current_round_dict.keys()))
+                        await governance_func(
+                            list(current_round_dict.keys()), self._llm
+                        )
                     )
                     interceptor.update_blocked_agent_ids.remote(blocked_agent_ids)  # type: ignore
                     interceptor.update_blocked_social_edges.remote(blocked_social_edges)  # type: ignore
