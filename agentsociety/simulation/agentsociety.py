@@ -183,15 +183,16 @@ class AgentSociety:
                 black_set=set(),
             )
             await self._message_interceptor.init.remote()  # type: ignore
-            assert (
-                self._config.exp.message_intercept.listener is not None
-            ), "listener is not set"
-            self._message_interceptor_listener = (
-                self._config.exp.message_intercept.listener(
-                    queue=queue,
+            if self._config.exp.message_intercept.forward_strategy == "inner_control":
+                assert (
+                    self._config.exp.message_intercept.listener is not None
+                ), "listener is not set"
+                self._message_interceptor_listener = (
+                    self._config.exp.message_intercept.listener(
+                        queue=queue,
+                    )
                 )
-            )
-            self._message_interceptor_listener.init()
+                self._message_interceptor_listener.init()
         self._messager = Messager(
             config=self._config.env.redis,
             exp_id=self.exp_id,
