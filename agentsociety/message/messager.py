@@ -321,23 +321,31 @@ class Messager:
                 validation_dict is not None
             ), "Validation dict must be set when using `outer_control` strategy"
             for _wait_for_send_message in self._wait_for_send_message:
+                from_id, to_id, message, channel = (
+                    _wait_for_send_message["from_id"],
+                    _wait_for_send_message["to_id"],
+                    _wait_for_send_message["message"],
+                    _wait_for_send_message["channel"],
+                )
                 is_valid = validation_dict.get(
                     (
-                        _wait_for_send_message["from_id"],
-                        _wait_for_send_message["to_id"],
-                        _wait_for_send_message["message"],
+                        from_id,
+                        to_id,
+                        message,
                     ),
                     True,
                 )
                 if is_valid:
-                    await self.client.publish(
-                        _wait_for_send_message["channel"],
-                        _wait_for_send_message["message"],
-                    )
+                    await self.client.publish(channel, message)
                 else:
-                    get_logger().info(
-                        f"Message not sent to {_wait_for_send_message['channel']}: {_wait_for_send_message['message']} due to interceptor"
+                    await self.client.publish(
+                        channel.replace(to_id, from_id),
+                        f"Your message `{message}` is blocked by the interceptor.",
                     )
+                    get_logger().debug(
+                        f"Message not sent to {channel}: {message} due to interceptor"
+                    )
+            self._wait_for_send_message = []
         elif self.forward_strategy == "inner_control":
             # do nothing
             pass

@@ -15,16 +15,11 @@ import ray.util.queue
 import yaml
 
 from ..agent import Agent
-from ..agent.distribution import Distribution, DistributionConfig, DistributionType
+from ..agent.distribution import (Distribution, DistributionConfig,
+                                  DistributionType)
 from ..agent.memory_config_generator import MemoryConfigGenerator, MemoryT
-from ..configs import (
-    AgentConfig,
-    Config,
-    MetricExtractorConfig,
-    MetricType,
-    WorkflowType,
-    AgentFilterConfig,
-)
+from ..configs import (AgentConfig, AgentFilterConfig, Config,
+                       MetricExtractorConfig, MetricType, WorkflowType)
 from ..environment import EnvironmentStarter
 from ..logger import get_logger, set_logger_level
 from ..message import MessageInterceptor, Messager
@@ -1198,12 +1193,19 @@ class AgentSociety:
                     assert (
                         interceptor is not None
                     ), "Message interceptor must be set when using `outer_control` strategy"
-                    validation_dict = await interceptor.get_validation_dict.remote()  # type: ignore
-                    # TODO(yanjunbo): implement the logic of outer control
-                    validation_dict, blocked_agent_ids, blocked_social_edges = None, None, None  # type: ignore
+                    governance_func = message_intercept_config.governance_func
+                    assert (
+                        governance_func is not None
+                    ), "Governance function must be set when using `outer_control` strategy"
+                    # the logic of outer control
+                    current_round_dict = await interceptor.get_validation_dict.remote()  # type: ignore
+                    validation_dict, blocked_agent_ids, blocked_social_edges = (
+                        await governance_func(list(current_round_dict.keys()))
+                    )
                     interceptor.update_blocked_agent_ids.remote(blocked_agent_ids)  # type: ignore
                     interceptor.update_blocked_social_edges.remote(blocked_social_edges)  # type: ignore
-                    # TODO(yanjunbo): modify validation_dict based on blocked_agent_ids and blocked_social_edges
+                    # modify validation_dict based on blocked_agent_ids and blocked_social_edges
+                    validation_dict = await interceptor.modify_validation_dict.remote(validation_dict)  # type: ignore
                     message_tasks = [self.messager.forward(validation_dict)]
                     message_tasks.extend(
                         [
@@ -1212,6 +1214,7 @@ class AgentSociety:
                         ]
                     )
                     await asyncio.gather(*message_tasks)
+                    await interceptor.clear_validation_dict.remote()  # type: ignore
             else:
                 message_tasks = [self.messager.forward()]
                 message_tasks.extend(
