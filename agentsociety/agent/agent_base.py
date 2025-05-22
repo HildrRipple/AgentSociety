@@ -344,7 +344,8 @@ class Agent(ABC):
             import traceback
 
             traceback.print_exc()
-            raise Exception("Failed to generate survey response")
+            get_logger().error("Failed to generate survey response")
+            json_str = ""
         return json_str
 
     async def _process_survey(self, survey: Survey):
