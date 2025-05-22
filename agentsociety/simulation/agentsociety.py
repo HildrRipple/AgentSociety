@@ -1205,7 +1205,7 @@ class AgentSociety:
                     ), "Governance function must be set when using `outer_control` strategy"
                     # the logic of outer control
                     current_round_dict = await interceptor.get_validation_dict.remote()  # type: ignore
-                    validation_dict, blocked_agent_ids, blocked_social_edges = (
+                    validation_dict, blocked_agent_ids, blocked_social_edges, persuasion_messages = (
                         await governance_func(
                             list(current_round_dict.keys()), self._llm
                         )
@@ -1214,7 +1214,7 @@ class AgentSociety:
                     interceptor.update_blocked_social_edges.remote(blocked_social_edges)  # type: ignore
                     # modify validation_dict based on blocked_agent_ids and blocked_social_edges
                     validation_dict = await interceptor.modify_validation_dict.remote(validation_dict)  # type: ignore
-                    message_tasks = [self.messager.forward(validation_dict)]
+                    message_tasks = [self.messager.forward(validation_dict, persuasion_messages)]
                     message_tasks.extend(
                         [
                             group.forward_message.remote(validation_dict)  # type: ignore

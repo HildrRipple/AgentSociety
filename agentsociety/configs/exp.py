@@ -265,7 +265,7 @@ class MessageInterceptConfig(BaseModel):
     forward_strategy: Literal["outer_control", "inner_control"] = "inner_control"
     """Forward strategy for message interception"""
     
-    governance_func: Optional[Callable[[Any,Any], Awaitable[tuple[Any, Any, Any]]]] = None
+    governance_func: Optional[Callable[[Any,Any], Awaitable[tuple[Any, Any, Any, Any]]]] = None
     """Governance functions for message interception, the two arguments are the current_round_messages and the LLM"""
 
     # When serialize to json, change blocks and listener to their class name

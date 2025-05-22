@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import List, Optional, Any, Literal
+from typing import Any, List, Literal, Optional
 
 import jsonc
 import ray
@@ -312,6 +312,7 @@ class Messager:
     async def forward(
         self,
         validation_dict: Optional[MessageIdentifier] = None,
+        persuasion_messages: Optional[dict[int, str]] = None,
     ):
         """
         Forward the message to the channel if the message is valid.
@@ -346,6 +347,11 @@ class Messager:
                         f"Message not sent to {channel}: {message} due to interceptor"
                     )
             self._wait_for_send_message = []
+            if persuasion_messages is not None:
+                for agent_id, message in persuasion_messages.items():
+                    await self.client.publish(
+                        self.get_agent_chat_channel(agent_id), message
+                    )
         elif self.forward_strategy == "inner_control":
             # do nothing
             pass
