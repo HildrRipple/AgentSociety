@@ -339,9 +339,16 @@ class Messager:
                 if is_valid:
                     await self.client.publish(channel, message)
                 else:
+                    persuasion_payload = {
+                        "content": f"Your message `{message}` is blocked by the interceptor.",
+                        "type": "persuasion",
+                    }
                     await self.client.publish(
                         channel.replace(to_id, from_id),
-                        f"Your message `{message}` is blocked by the interceptor.",
+                        jsonc.dumps(
+                            persuasion_payload,
+                            default=str,
+                        ),
                     )
                     get_logger().debug(
                         f"Message not sent to {channel}: {message} due to interceptor"
