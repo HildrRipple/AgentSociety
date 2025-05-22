@@ -70,13 +70,13 @@ Please response in json format (Do not return any other text), example:
 
 RADIUS_PROMPT = """As an intelligent decision system, please determine the maximum travel radius (in meters) based on the current emotional state.
 
-Current weather: ${environment.sence("weather")}
-Current temperature: ${environment.sence("temperature")}
+Current weather: ${environment.sense("weather")}
+Current temperature: ${environment.sense("temperature")}
 Your current emotion: ${memory.status.get("emotion_types")}
 Your current thought: ${memory.status.get("thought")}
 Other information: 
 -------------------------
-${environment.sence("other_information")}
+${environment.sense("other_information")}
 -------------------------
 
 Please analyze how these emotions would affect travel willingness and return only a single integer number between 3000-200000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
@@ -228,15 +228,7 @@ class PlaceSelectionBlock(Block):
 
         # Get travel radius from LLM
         try:
-            await self.radiusPrompt.format(
-                emotion_types=await self.memory.status.get("emotion_types"),
-                thought=await self.memory.status.get("thought"),
-                weather=self.environment.sense("weather"),
-                temperature=self.environment.sense("temperature"),
-                other_info=self.environment.environment.get(
-                    "other_information", "None"
-                ),
-            )
+            await self.radiusPrompt.format()
             radius = await self.llm.atext_request(
                 self.radiusPrompt.to_dialog(), response_format={"type": "json_object"}
             )
