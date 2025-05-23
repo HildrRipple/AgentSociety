@@ -158,27 +158,40 @@ class FormatPrompt:
         complex_pattern = r"\$\{([^}]+?)\}"
         result = self.template
 
-        # Find all complex expressions
-        matches = re.finditer(complex_pattern, self.template)
-        for match in matches:
-            expr = match.group(1).strip()
-            full_match = match.group(0)
+        # First, protect all ${...} expressions with a temporary marker
+        protected_expressions = {}
+        counter = 0
+        
+        def protect_expression(match):
+            nonlocal counter
+            placeholder = f"__EXPR_{counter}__"
+            protected_expressions[placeholder] = match.group(0)
+            counter += 1
+            return placeholder
 
-            try:
-                eval_result = await self._eval_expr(expr, eval_context)
-                result = result.replace(full_match, str(eval_result) if eval_result is not None else "")
-            except Exception as e:
-                print(f"Error evaluating expression '{expr}': {str(e)}")
-                # Keep the original expression in case of error
+        # Replace all ${...} expressions with placeholders
+        result = re.sub(complex_pattern, protect_expression, result)
 
-        # Then format simple variables using {var} syntax
+        # Format simple variables
         try:
-            self.formatted_string = result.format(**format_vars)
-            return self.formatted_string
+            result = result.format(**format_vars)
         except KeyError as e:
             raise KeyError(f"Missing required variable in template: {e}")
         except Exception as e:
             raise ValueError(f"Error formatting template: {e}")
+
+        # Now evaluate and replace the protected expressions
+        for placeholder, original_expr in protected_expressions.items():
+            expr = original_expr[2:-1].strip()  # Remove ${ and }
+            try:
+                eval_result = await self._eval_expr(expr, eval_context)
+                result = result.replace(placeholder, str(eval_result) if eval_result is not None else "")
+            except Exception as e:
+                print(f"Error evaluating expression '{expr}': {str(e)}")
+                result = result.replace(placeholder, original_expr)
+
+        self.formatted_string = result
+        return self.formatted_string
 
     def to_dialog(self) -> list[ChatCompletionMessageParam]:
         """
