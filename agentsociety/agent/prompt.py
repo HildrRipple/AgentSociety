@@ -148,6 +148,7 @@ class FormatPrompt:
         """
         - **Description**:
             - Evaluates expressions in the format ${profile.xxx}, ${status.xxx}, or ${context.xxx}.
+            - Supports nested dictionary access using dot notation or square brackets.
             - Retrieves values from memory or context dictionary.
 
         - **Args**:
@@ -161,23 +162,72 @@ class FormatPrompt:
         if expr.startswith("profile."):
             key = expr[len("profile."):]
             if self.memory:
-                return await self.memory.status.get(key)
+                return await self._get_nested_value(self.memory.status, key)
             else:
                 return "Don't know"
         elif expr.startswith("status."):
             key = expr[len("status."):]
             if self.memory:
-                return await self.memory.status.get(key)
+                return await self._get_nested_value(self.memory.status, key)
             else:
                 return "Don't know"
         elif expr.startswith("context."):
             key = expr[len("context."):]
             if context:
-                return context.get(key)
+                return await self._get_nested_value(context, key)
             else:
                 return "Don't know"
         else:
             raise ValueError(f"Invalid expression format: {expr}. Must be one of: profile.xxx, status.xxx, context.xxx")
+
+    async def _get_nested_value(self, obj: Any, key: str) -> Any:
+        """
+        - **Description**:
+            - Gets a nested value from an object using dot notation or square brackets.
+            - Supports both dictionary access methods: dot notation and square brackets.
+
+        - **Args**:
+            - `obj` (Any): The object to get the value from.
+            - `key` (str): The key to access, can include nested access.
+
+        - **Returns**:
+            - `Any`: The value at the specified key.
+        """
+        # Split the key by dots and square brackets
+        parts = []
+        current = ""
+        in_brackets = False
+        
+        for char in key:
+            if char == '[':
+                if current:
+                    parts.append(current)
+                current = ""
+                in_brackets = True
+            elif char == ']':
+                if current:
+                    parts.append(current.strip('"\' '))
+                current = ""
+                in_brackets = False
+            elif char == '.' and not in_brackets:
+                if current:
+                    parts.append(current)
+                current = ""
+            else:
+                current += char
+        
+        if current:
+            parts.append(current)
+
+        # Navigate through the object
+        result = obj
+        for part in parts:
+            if isinstance(result, dict):
+                result = result.get(part)
+            else:
+                return None
+        
+        return result
 
     async def format(
         self,
