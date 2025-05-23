@@ -74,6 +74,8 @@ class FormatPrompt:
             - Evaluates expressions using eval with safety checks.
             - Supports expressions like profile.xxx, status.xxx, context.xxx
             - Also supports square bracket notation like profile.xxx["yyy"]
+            - For profile and status, uses async get method from memory
+            - Supports nested dictionary access with square brackets
 
         - **Args**:
             - `expr` (str): The expression to evaluate.
@@ -94,7 +96,25 @@ class FormatPrompt:
             raise ValueError(f"Unsafe expression: {expr}")
         
         try:
-            return eval(expr, {"__builtins__": {}}, eval_context)
+            # Parse the expression to handle profile and status differently
+            if expr.startswith(('profile.', 'status.')):
+                # Get the base value using async get method
+                base_key = expr.split('.', 1)[1].split('[')[0]
+                base_value = await self.memory.status.get(base_key) if self.memory else None
+                
+                # If there's no square bracket notation, return the base value
+                if '[' not in expr:
+                    return base_value
+                
+                # Extract the square bracket expression
+                bracket_expr = expr[expr.find('['):]
+                # Create a safe evaluation context with the base value
+                safe_context = {'value': base_value}
+                # Evaluate the bracket expression
+                return eval(f"value{bracket_expr}", {"__builtins__": {}}, safe_context)
+            else:
+                # For other expressions, use regular eval
+                return eval(expr, {"__builtins__": {}}, eval_context)
         except Exception as e:
             print(f"Error evaluating expression '{expr}': {str(e)}")
             return "Don't know"
