@@ -39,7 +39,6 @@ i18n
                         demoUser: 'Demo User',
                         bill: 'Billing',
                         profiles: 'Profiles',
-                        profileGeneration: 'Generate Profiles',
                     },
                     home: {
                         whatsNew: "What's New",
@@ -369,7 +368,6 @@ i18n
                         demoUser: '示例用户',
                         bill: '账单',
                         profiles: '智能体配置',
-                        profileGeneration: '生成配置',
                     },
                     home: {
                         whatsNew: "最新动态",

@@ -51,11 +51,6 @@ const RootMenu = ({ selectedKey, style }: {
             label: <Link to="/profiles">{t('menu.profiles')}</Link>,
             icon: <TeamOutlined />,
         },
-        {
-            key: '/profile-generation',
-            label: <Link to="/profile-generation">{t('menu.profileGeneration')}</Link>,
-            icon: <PlusOutlined />,
-        },
     ];
 
     const menuItems: MenuProps['items'] = [

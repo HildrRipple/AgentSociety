@@ -13,7 +13,6 @@ import WorkflowList from './pages/Experiment/WorkflowList'
 import MapList from './pages/Map/MapList'
 import CreateExperiment from './pages/Experiment/CreateExperiment'
 import ProfileList from './pages/Agent/ProfileList'
-import ProfileGeneration from './pages/Agent/ProfileGeneration'
 import AgentTemplate from './pages/Agent/AgentTemplateList'
 import Home from './pages/Home'
 import zhCN from 'antd/locale/zh_CN'
@@ -83,14 +82,6 @@ const router = createBrowserRouter([
         element: (
             <AuthProvider sdkConfig={sdkConfig}>
                 <RootLayout selectedKey='/profiles'><ProfileList /></RootLayout>
-            </AuthProvider>
-        ),
-    },
-    {
-        path: "/profile-generation",
-        element: (
-            <AuthProvider sdkConfig={sdkConfig}>
-                <RootLayout selectedKey='/profile-generation'><ProfileGeneration /></RootLayout>
             </AuthProvider>
         ),
     },
