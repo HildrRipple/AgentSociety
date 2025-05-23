@@ -3,13 +3,13 @@ import importlib.metadata
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 from urllib.parse import urlsplit
 
 import click
 from fastapi import APIRouter
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 version_string_of_agentsociety = importlib.metadata.version("agentsociety")
 
@@ -69,23 +69,6 @@ def common_options(f):
     return f
 
 
-def repo_options(f):
-    """
-    Repository configuration options decorator
-    - **Description**:
-        - Adds common repository-related options to CLI commands
-
-    - **Args**:
-        - `f` (function): The function to decorate
-
-    - **Returns**:
-        - function: The decorated function
-    """
-    f = click.option("--local", "-l", help="Local repository path")(f)
-    f = click.option("--remote", "-r", help="Remote repository URL")(f)
-    return f
-
-
 @click.group(context_settings=CONTEXT_SETTINGS)
 @click.version_option(version=version_string_of_agentsociety, prog_name="AgentSociety")
 def cli():
@@ -105,7 +88,7 @@ def ui(config: str, config_base64: str):
     from ..logger import get_logger, set_logger_level
     from ..webapi.app import create_app, empty_get_tenant_id
     from ..casdoor.api import CasdoorConfig, Casdoor, login_router, auth_bearer_token
-    from ..kubernetes import load_kube_config
+    from ..executor import KubernetesExecutor, ProcessExecutor
 
     class WebUIConfig(BaseModel):
         addr: str = Field(default="127.0.0.1:8080")
@@ -127,6 +110,16 @@ def ui(config: str, config_base64: str):
         read_only: bool = Field(default=False)
         debug: bool = Field(default=False)
         logging_level: str = Field(default="INFO")
+        executor: Literal["kubernetes", "process"] = Field(default="kubernetes")
+
+        @model_validator(mode="after")
+        def validate_executor(self):
+            if self.executor == "kubernetes":
+                if not self.env.s3.enabled:
+                    raise ValueError(
+                        "S3 must be enabled when using kubernetes executor"
+                    )
+            return self
 
     async def _main():
         c = WebUIConfig.model_validate(config_data)
@@ -140,11 +133,16 @@ def ui(config: str, config_base64: str):
         pg_dsn = c.env.pgsql.dsn
         if pg_dsn.startswith("postgresql://"):
             pg_dsn = pg_dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
-
+        executor = (
+            KubernetesExecutor([])
+            if c.executor == "kubernetes"
+            else ProcessExecutor(c.env.webui_home_dir)
+        )
         # ================= 【商业版】 =================
         get_tenant_id = empty_get_tenant_id
         more_state: Dict[str, Any] = {
             "callback_url": c.callback_url,
+            "executor": executor,
         }
         more_router = None
         if c.casdoor.enabled:
@@ -153,10 +151,12 @@ def ui(config: str, config_base64: str):
             more_state["casdoor"] = casdoor
             more_router = APIRouter(prefix="/api")
             more_router.include_router(login_router)
-        try:
-            await load_kube_config()
-        except Exception as e:
-            get_logger().error(f"Failed to load Kubernetes config: {e}")
+        if c.executor == "kubernetes":
+            try:
+                assert isinstance(executor, KubernetesExecutor)
+                await executor.init()
+            except Exception as e:
+                get_logger().error(f"Failed to load Kubernetes config: {e}")
         # ================= 【商业版】 =================
 
         app = create_app(
@@ -363,67 +363,6 @@ def run(
     import asyncio
 
     asyncio.run(_run())
-
-
-@cli.group(name="repo")
-def repo_command():
-    """Repository management commands"""
-    pass
-
-
-@repo_command.command(name="init")
-@repo_options
-def repo_init(local: str, remote: str):
-    """
-    Initialize repository configuration
-    """
-    if not local:
-        click.echo("Local repository path is not specified, use default path: ./repo")
-        local = "./repo"
-
-    click.echo(f"Initializing repository with local path: {local}")
-    if remote:
-        click.echo(f"Remote repository URL: {remote}")
-
-    # TODO: Implement repository initialization logic
-
-
-@repo_command.command(name="agents")
-def repo_agent():
-    """
-    List agents in the repository
-    """
-    click.echo("Listing agents in repository...")
-    # TODO: Implement agent listing logic
-
-
-@repo_command.command(name="blocks")
-def repo_block():
-    """
-    List blocks in the repository
-    """
-    click.echo("Listing blocks in repository...")
-    # TODO: Implement block listing logic
-
-
-@repo_command.command(name="install")
-@click.argument("source")
-def repo_install(source: str):
-    """
-    Install agent/block from local path or remote URL
-    """
-    click.echo(f"Installing from source: {source}")
-    # TODO: Implement installation logic
-
-
-@repo_command.command(name="push")
-@click.argument("name")
-def repo_push(name: str):
-    """
-    Push agent/block to remote repository
-    """
-    click.echo(f"Pushing {name} to remote repository")
-    # TODO: Implement push logic
 
 
 if __name__ == "__main__":

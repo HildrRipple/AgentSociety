@@ -108,7 +108,6 @@ class MemoryConfigGenerator:
         return self._memory_data
 
 
-# TODO: TEST THIS in V1.3
 def _memory_config_load_file(file_path: str, s3config: S3Config):
     """
     Loads the memory configuration from the given file.

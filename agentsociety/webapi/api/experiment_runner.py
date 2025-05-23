@@ -4,18 +4,21 @@ from decimal import Decimal, localcontext
 import json
 import logging
 import uuid
-from typing import Any, Dict, cast
+from typing import Any, Dict, Union, cast
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request, status
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agentsociety.configs.env import EnvConfig
-
-from ...cli.pod_runner import run_experiment_in_pod
-from ...configs import Config
-from ...kubernetes import delete_pod, get_pod_logs, get_pod_status
+from ...configs import (
+    Config,
+    EnvConfig,
+    MapConfig as SimMapConfig,
+    AgentsConfig as SimAgentsConfig,
+)
+from ...filesystem import FileSystemClient
+from ...executor import ProcessExecutor, KubernetesExecutor
 from ..models import ApiResponseWrapper
 from ..models.config import AgentConfig, LLMConfig, MapConfig, WorkflowConfig
 from ..models.experiment import Experiment, ExperimentStatus, RunningExperiment
@@ -88,6 +91,7 @@ async def run_experiment(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied",
         )
+    webui_fs_client = request.app.state.env.webui_fs_client
     # get config from db
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
@@ -103,6 +107,7 @@ async def run_experiment(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient balance"
             )
+        # ===== LLM config =====
         stmt = select(LLMConfig.config).where(
             LLMConfig.tenant_id == config.llm.tenant_id,
             LLMConfig.id == config.llm.id,
@@ -112,6 +117,7 @@ async def run_experiment(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="LLM config not found"
             )
+        # ===== Agent config =====
         stmt = select(AgentConfig.config).where(
             AgentConfig.tenant_id == config.agents.tenant_id,
             AgentConfig.id == config.agents.id,
@@ -121,6 +127,22 @@ async def run_experiment(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Agent config not found"
             )
+        sim_agent_config = SimAgentsConfig.model_validate(agent_config)
+        if isinstance(webui_fs_client, FileSystemClient):
+            for agent_list in [
+                sim_agent_config.citizens,
+                sim_agent_config.firms,
+                sim_agent_config.banks,
+                sim_agent_config.nbs,
+                sim_agent_config.governments,
+            ]:
+                for one in agent_list:
+                    if one.memory_from_file is not None:
+                        one.memory_from_file = webui_fs_client.get_absolute_path(
+                            one.memory_from_file
+                        )
+        agent_config = sim_agent_config.model_dump()
+        # ===== Map config =====
         stmt = select(MapConfig.config).where(
             MapConfig.tenant_id == config.map.tenant_id,
             MapConfig.id == config.map.id,
@@ -130,6 +152,18 @@ async def run_experiment(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Map config not found"
             )
+        # change map_config to pydantic model
+        sim_map_config = SimMapConfig.model_validate(map_config)
+        if isinstance(webui_fs_client, FileSystemClient):
+            sim_map_config.file_path = webui_fs_client.get_absolute_path(
+                sim_map_config.file_path
+            )
+            if sim_map_config.cache_path is not None:
+                sim_map_config.cache_path = webui_fs_client.get_absolute_path(
+                    sim_map_config.cache_path
+                )
+        map_config = sim_map_config.model_dump()
+        # ===== Workflow config =====
         stmt = select(WorkflowConfig.config).where(
             WorkflowConfig.tenant_id == config.workflow.tenant_id,
             WorkflowConfig.id == config.workflow.id,
@@ -183,8 +217,11 @@ async def run_experiment(
         await db.execute(stmt)
         await db.commit()
 
+    executor = cast(
+        Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
+    )
     task = asyncio.create_task(
-        run_experiment_in_pod(
+        executor.create(
             config_base64=config_base64,
             tenant_id=tenant_id,
             callback_url=request.app.state.callback_url,
@@ -227,8 +264,10 @@ async def delete_experiment(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Demo user is not allowed to delete experiments",
         )
-
-    await delete_pod(tenant_id, exp_id)
+    executor = cast(
+        Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
+    )
+    await executor.delete(tenant_id, exp_id)
 
     # update experiment status to STOPPED
     async with request.app.state.get_db() as db:
@@ -267,8 +306,10 @@ async def get_experiment_logs(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Demo user is not allowed to view experiment logs",
         )
-
-    logs = await get_pod_logs(exp_id, tenant_id)
+    executor = cast(
+        Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
+    )
+    logs = await executor.get_logs(tenant_id, exp_id)
     return logs
 
 
@@ -284,7 +325,10 @@ async def get_experiment_status(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Demo user is not allowed to view experiment status",
         )
-    pod_status = await get_pod_status(exp_id, tenant_id)
+    executor = cast(
+        Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
+    )
+    pod_status = await executor.get_status(tenant_id, exp_id)
     return ApiResponseWrapper(
         data=pod_status,
     )
