@@ -12,6 +12,7 @@ from ..agent import (
     CitizenAgentBase,
     AgentParams,
     FormatPrompt,
+    StatusAttribute,
     register_get,
 )
 from ..logger import get_logger
@@ -41,45 +42,34 @@ class SocietyAgent(CitizenAgentBase):
     ParamsType = SocietyAgentConfig
     BlockOutputType = SocietyAgentBlockOutput
     ContextType = SocietyAgentContext
-    memory_config = {
+    memory_config = [
         # Needs Model
-        "hunger_satisfaction": (float, 0.9, False),  # hunger satisfaction
-        "energy_satisfaction": (float, 0.9, False),  # energy satisfaction
-        "safety_satisfaction": (float, 0.4, False),  # safety satisfaction
-        "social_satisfaction": (float, 0.6, False),  # social satisfaction
-        "current_need": (str, "none", False),
+        StatusAttribute(name="hunger_satisfaction",type=float,default=0.9,description="agent's hunger satisfaction, 0-1"),
+        StatusAttribute(name="energy_satisfaction",type=float,default=0.9,description="agent's energy satisfaction, 0-1"),
+        StatusAttribute(name="safety_satisfaction",type=float,default=0.4,description="agent's safety satisfaction, 0-1"),
+        StatusAttribute(name="social_satisfaction",type=float,default=0.6,description="agent's social satisfaction, 0-1"),
+        StatusAttribute(name="current_need",type=str,default="none",description="agent's current need"),
         # cognition
-        "emotion": (
-            dict,
-            {
-                "sadness": 5,
-                "joy": 5,
-                "fear": 5,
-                "disgust": 5,
-                "anger": 5,
-                "surprise": 5,
-            },
-            False,
-        ),
-        "thought": (str, "Currently nothing good or bad is happening", True),
-        "emotion_types": (str, "Relief", True),
-        "firm_id": (int, 0, False),
-        "government_id": (int, 0, False),
-        "bank_id": (int, 0, False),
-        "nbs_id": (int, 0, False),
-        "depression": (float, 0.0, False),
-        "working_experience": (list, [], False),
-        "work_hour_month": (float, 160, False),
-        "work_hour_finish": (float, 0, False),
+        StatusAttribute(name="emotion",type=dict,default={"sadness": 5, "joy": 5, "fear": 5, "disgust": 5, "anger": 5, "surprise": 5},description="agent's emotion, 0-10"),
+        StatusAttribute(name="thought",type=str,default="Currently nothing good or bad is happening",description="agent's thought",whether_embedding=True),
+        StatusAttribute(name="emotion_types",type=str,default="Relief",description="agent's emotion types",whether_embedding=True),
+        StatusAttribute(name="firm_id",type=int,default=0,description="agent's firm id"),
+        StatusAttribute(name="government_id",type=int,default=0,description="agent's government id"),
+        StatusAttribute(name="bank_id",type=int,default=0,description="agent's bank id"),
+        StatusAttribute(name="nbs_id",type=int,default=0,description="agent's nbs id"),
+        StatusAttribute(name="depression",type=float,default=0.0,description="agent's depression, 0-1"),
+        StatusAttribute(name="working_experience",type=list,default=[],description="agent's working experience"),
+        StatusAttribute(name="work_hour_month",type=float,default=160,description="agent's work hour per month"),
+        StatusAttribute(name="work_hour_finish",type=float,default=0,description="agent's work hour finished"),
         # social
-        "friends": (list, [], False),  # friends list
-        "relationships": (dict, {}, False),  # relationship strength with each friend
-        "relation_types": (dict, {}, False),
-        "chat_histories": (dict, {}, False),  # all chat histories
-        "interactions": (dict, {}, False),  # all interaction records
+        StatusAttribute(name="friends",type=list,default=[],description="agent's friends list"),
+        StatusAttribute(name="relationships",type=dict,default={},description="agent's relationship strength with each friend"),
+        StatusAttribute(name="relation_types",type=dict,default={},description="agent's relation types with each friend"),
+        StatusAttribute(name="chat_histories",type=dict,default={},description="all chat histories"),
+        StatusAttribute(name="interactions",type=dict,default={},description="all interaction records"),
         # mobility
-        "number_poi_visited": (int, 1, False),
-    }
+        StatusAttribute(name="number_poi_visited",type=int,default=1,description="agent's number of poi visited"),
+    ]
     description: str = """
 A social agent that can interact with other agents and the environment.
 The main workflow includes:

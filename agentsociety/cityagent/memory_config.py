@@ -15,6 +15,7 @@ from ..agent.distribution import (
     sample_field_value,
 )
 from ..agent.memory_config_generator import MemoryT
+from ..agent.agent_base import StatusAttribute
 from ..environment.economy import EconomyEntityType
 
 pareto_param = 8
@@ -130,7 +131,7 @@ DEFAULT_DISTRIBUTIONS: dict[str, Distribution] = {
 
 def memory_config_societyagent(
     distributions: dict[str, Distribution],
-    class_config: Optional[dict[str, MemoryT]] = None,
+    class_config: Optional[list[StatusAttribute]] = None,
 ) -> tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]]:
     EXTRA_ATTRIBUTES: dict[str, MemoryT] = {
         "type": (str, "citizen"),
@@ -204,8 +205,15 @@ def memory_config_societyagent(
         "location_knowledge": (dict, {}, False),  # location knowledge
     }
 
+    # extra attributes from class config
     if class_config:
-        EXTRA_ATTRIBUTES.update(class_config)
+        for attr in class_config:
+            if attr.name in EXTRA_ATTRIBUTES:
+                continue
+            if attr.embedding_template:
+                EXTRA_ATTRIBUTES[attr.name] = (attr.type, attr.default, attr.whether_embedding, attr.embedding_template)
+            else:
+                EXTRA_ATTRIBUTES[attr.name] = (attr.type, attr.default, attr.whether_embedding)
 
     PROFILE = {
         "name": (str, sample_field_value(distributions, "name"), True),

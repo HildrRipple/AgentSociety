@@ -575,7 +575,7 @@ class StatusMemory:
         except:
             return "dynamic"
 
-    def set_semantic_templates(self, templates: Dict[str, str]):
+    def set_semantic_templates(self, templates: dict[str, str]):
         """
         Set the semantic templates for generating embedding text.
 
@@ -1047,6 +1047,7 @@ class Memory:
             dynamic=self._dynamic,
         )
         self._status.set_embedding_fields(self._embedding_fields)
+        self._status.set_semantic_templates(self._semantic_templates)
 
         # Add StreamMemory
         self._stream = StreamMemory(

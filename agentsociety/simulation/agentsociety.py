@@ -14,7 +14,7 @@ import ray
 import ray.util.queue
 import yaml
 
-from ..agent import Agent
+from ..agent import Agent, StatusAttribute
 from ..agent.distribution import (Distribution, DistributionConfig,
                                   DistributionType)
 from ..agent.memory_config_generator import MemoryConfigGenerator, MemoryT
@@ -53,7 +53,7 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     # memory config function
     memory_config_func = cast(
         Callable[
-            [dict[str, Distribution], Optional[dict[str, MemoryT]]],
+            [dict[str, Distribution], Optional[list[StatusAttribute]]],
             tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
         ],
         agent_config.memory_config_func,

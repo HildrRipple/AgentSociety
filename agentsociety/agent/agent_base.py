@@ -26,7 +26,7 @@ from .context import AgentContext, context_to_dot_dict
 from .block import Block
 from .decorator import register_get
 from .dispatcher import DISPATCHER_PROMPT, BlockDispatcher
-from .memory_config_generator import MemoryT
+from .memory_config_generator import MemoryT, StatusAttribute
 
 __all__ = [
     "Agent",
@@ -104,7 +104,7 @@ class Agent(ABC):
     Context = AgentContext  # Agent Context for information retrieval
     BlockOutputType = None  # Block output
     description: str = ""  # Agent description: How this agent works
-    memory_config: dict[str, MemoryT] = {}  # Memory configuration
+    memory_config: list[StatusAttribute] = []  # Memory configuration
 
     def __init__(
         self,
