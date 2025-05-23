@@ -60,7 +60,7 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     )
     generator = MemoryConfigGenerator(
         memory_config_func,
-        agent_class.memory_config,
+        agent_class.StatusAttributes,
         agent_config.memory_from_file,
         (
             agent_config.memory_distributions
@@ -281,7 +281,7 @@ class AgentSociety:
                     # Create generator
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,  # type: ignore
-                        agent_config.agent_class.memory_config,  # type: ignore
+                        agent_config.agent_class.StatusAttributes,  # type: ignore
                         agent_config.memory_from_file,
                         (
                             agent_config.memory_distributions
@@ -335,7 +335,7 @@ class AgentSociety:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,  # type: ignore
-                        agent_config.agent_class.memory_config,  # type: ignore
+                        agent_config.agent_class.StatusAttributes,  # type: ignore
                         agent_config.memory_from_file,
                         (
                             agent_config.memory_distributions
@@ -375,7 +375,7 @@ class AgentSociety:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,  # type: ignore
-                        agent_config.agent_class.memory_config,  # type: ignore
+                        agent_config.agent_class.StatusAttributes,  # type: ignore
                         agent_config.memory_from_file,
                         (
                             agent_config.memory_distributions
@@ -415,7 +415,7 @@ class AgentSociety:
                 if agent_config.memory_from_file is not None:
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,  # type: ignore
-                        agent_config.agent_class.memory_config,  # type: ignore
+                        agent_config.agent_class.StatusAttributes,  # type: ignore
                         agent_config.memory_from_file,
                         (
                             agent_config.memory_distributions
@@ -476,7 +476,7 @@ class AgentSociety:
                         )
                     generator = MemoryConfigGenerator(
                         agent_config.memory_config_func,  # type: ignore
-                        agent_config.agent_class.memory_config,  # type: ignore
+                        agent_config.agent_class.StatusAttributes,  # type: ignore
                         agent_config.memory_from_file,
                         (
                             agent_config.memory_distributions

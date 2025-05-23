@@ -41,8 +41,8 @@ What's your feeling about those environmental information?
 class SocietyAgent(CitizenAgentBase):
     ParamsType = SocietyAgentConfig
     BlockOutputType = SocietyAgentBlockOutput
-    ContextType = SocietyAgentContext
-    memory_config = [
+    Context = SocietyAgentContext
+    StatusAttributes = [
         # Needs Model
         StatusAttribute(name="hunger_satisfaction",type=float,default=0.9,description="agent's hunger satisfaction, 0-1"),
         StatusAttribute(name="energy_satisfaction",type=float,default=0.9,description="agent's energy satisfaction, 0-1"),

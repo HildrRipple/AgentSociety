@@ -73,8 +73,8 @@ RADIUS_PROMPT = """As an intelligent decision system, please determine the maxim
 
 Current weather: ${context.weather}
 Current temperature: ${context.temperature}
-Your current emotion: ${status.current_emotion}
-Your current thought: ${status.current_thought}
+Your current emotion: ${context.current_emotion}
+Your current thought: ${context.current_thought}
 Other information: 
 -------------------------
 ${context.other_information}

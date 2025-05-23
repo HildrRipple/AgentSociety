@@ -103,8 +103,8 @@ class Agent(ABC):
     ParamsType = AgentParams  # Determine agent parameters
     Context = AgentContext  # Agent Context for information retrieval
     BlockOutputType = None  # Block output
+    StatusAttributes: list[StatusAttribute] = []  # Memory configuration
     description: str = ""  # Agent description: How this agent works
-    memory_config: list[StatusAttribute] = []  # Memory configuration
 
     def __init__(
         self,
