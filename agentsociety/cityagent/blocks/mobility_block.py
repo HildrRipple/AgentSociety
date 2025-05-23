@@ -9,12 +9,13 @@ import numpy as np
 from pydantic import Field
 import ray
 
-from ...agent import Block, FormatPrompt, BlockParams
+from ...agent import Block, FormatPrompt, BlockParams, DotDict, BlockContext
 from ...environment import Environment
 from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
 from ...agent.dispatcher import BlockDispatcher
+from ..sharing_params import SocietyAgentBlockOutput
 from .utils import clean_json_response
 
 # Prompt templates for LLM interactions
@@ -70,13 +71,13 @@ Please response in json format (Do not return any other text), example:
 
 RADIUS_PROMPT = """As an intelligent decision system, please determine the maximum travel radius (in meters) based on the current emotional state.
 
-Current weather: ${environment.sense("weather")}
-Current temperature: ${environment.sense("temperature")}
-Your current emotion: ${memory.status.get("emotion_types")}
-Your current thought: ${memory.status.get("thought")}
+Current weather: ${context.weather}
+Current temperature: ${context.temperature}
+Your current emotion: ${status.current_emotion}
+Your current thought: ${status.current_thought}
 Other information: 
 -------------------------
-${environment.sense("other_information")}
+${context.other_information}
 -------------------------
 
 Please analyze how these emotions would affect travel willingness and return only a single integer number between 3000-200000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
@@ -185,18 +186,17 @@ class PlaceSelectionBlock(Block):
         )
         self.radiusPrompt = FormatPrompt(
             RADIUS_PROMPT,
-            environment=environment,
             memory=agent_memory,
         )
         self.search_limit = search_limit  # Default config value
 
-    async def forward(self, step, context):
+    async def forward(self, context: DotDict):
         """Execute the destination selection workflow"""
         # Stage 1: Select primary POI category
         poi_cate = self.environment.get_poi_cate()
         await self.typeSelectionPrompt.format(
-            plan=context["plan"],
-            intention=step["intention"],
+            plan=context["plan_context"]["plan"],
+            intention=context["current_step"]["intention"],
             poi_category=list(poi_cate.keys()),
             other_info=self.environment.environment.get("other_information", "None"),
         )
@@ -216,8 +216,8 @@ class PlaceSelectionBlock(Block):
         # Stage 2: Select sub-category
         try:
             await self.secondTypeSelectionPrompt.format(
-                plan=context["plan"],
-                intention=step["intention"],
+                plan=context["plan_context"]["plan"],
+                intention=context["current_step"]["intention"],
                 poi_category=sub_category,
                 other_info=self.environment.environment.get(
                     "other_information", "None"
@@ -234,7 +234,7 @@ class PlaceSelectionBlock(Block):
 
         # Get travel radius from LLM
         try:
-            await self.radiusPrompt.format()
+            await self.radiusPrompt.format(context=context)
             radius = await self.llm.atext_request(
                 self.radiusPrompt.to_dialog(), response_format={"type": "json_object"}
             )
@@ -265,7 +265,7 @@ class PlaceSelectionBlock(Block):
 
         context["next_place"] = next_place
         node_id = await self.memory.stream.add_mobility(
-            description=f"For {step['intention']}, selected: {next_place}"
+            description=f"For {context['current_step']['intention']}, selected: {next_place}"
         )
         return {
             "success": True,
@@ -289,14 +289,14 @@ class MoveBlock(Block):
         )
         self.placeAnalysisPrompt = FormatPrompt(PLACE_ANALYSIS_PROMPT)
 
-    async def forward(self, step, context):
+    async def forward(self, context: DotDict):
         agent_id = await self.memory.status.get("id")
         place_knowledge = await self.memory.status.get("location_knowledge")
         known_places = list(place_knowledge.keys())
         places = ["home", "workplace"] + known_places + ["other"]
         await self.placeAnalysisPrompt.format(
-            plan=context["plan"],
-            intention=step["intention"],
+            plan=context["plan_context"]["plan"],
+            intention=context["current_step"]["intention"],
             place_list=places,
             other_info=self.environment.environment.get("other_information", "None"),
         )
@@ -460,14 +460,14 @@ class MobilityNoneBlock(Block):
             agent_memory=agent_memory,
         )
 
-    async def forward(self, step, context):
+    async def forward(self, context: DotDict):
         """Log completion without action"""
         node_id = await self.memory.stream.add_mobility(
-            description=f"I finished {step['intention']}"
+            description=f"I finished {context['current_step']['intention']}"
         )
         return {
             "success": True,
-            "evaluation": f"Finished executing {step['intention']}",
+            "evaluation": f"Finished executing {context['current_step']['intention']}",
             "consumed_time": 0,
             "node_id": node_id,
         }
@@ -483,12 +483,18 @@ class MobilityBlockParams(BlockParams):
     )
 
 
+class MobilityBlockContext(BlockContext):
+    next_place: Optional[tuple[str, int]] = Field(default=None, description="The next place to go")
+
+
 class MobilityBlock(Block):
     """
     Main mobility coordination block.
     """
 
     ParamsType = MobilityBlockParams
+    OutputType = SocietyAgentBlockOutput
+    ContextType = MobilityBlockContext
     name = "MobilityBlock"
     description = "Responsible for all kinds of mobility-related operations"
     actions = {
@@ -520,25 +526,26 @@ class MobilityBlock(Block):
         self.token_consumption = 0  # LLM token tracker
 
         # Initialize block routing system
-        self.dispatcher = BlockDispatcher(llm)
+        self.dispatcher = BlockDispatcher(llm, agent_memory)
         # register all blocks
         self.dispatcher.register_blocks(
             [self.place_selection_block, self.move_block, self.mobility_none_block]
         )
 
-    async def forward(self, step, context):
+    async def forward(self, agent_context: DotDict) -> SocietyAgentBlockOutput:
         """Main entry point - delegates to sub-blocks"""
         self.trigger_time += 1
+        context = agent_context | self.context
         # Select the appropriate sub-block using dispatcher
-        selected_block = await self.dispatcher.dispatch(step)
+        selected_block = await self.dispatcher.dispatch(context)
         if selected_block is None:
-            return {
-                "success": False,
-                "evaluation": f"Failed to {step['intention']}",
-                "consumed_time": random.randint(1, 30),
-                "node_id": None,
-            }
+            return self.OutputType(
+                success=False,
+                evaluation=f"Failed to {agent_context['current_step']['intention']}",
+                consumed_time=random.randint(1, 30),
+                node_id=None,
+            )
         # Execute the selected sub-block and get the result
-        result = await selected_block.forward(step, context)  #
+        result = await selected_block.forward(context)  #
 
-        return result
+        return self.OutputType(**result)

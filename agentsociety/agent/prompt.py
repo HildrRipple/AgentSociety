@@ -2,11 +2,11 @@ import re
 import inspect
 import ast
 import asyncio
-from typing import Any, Optional, Union, overload, Callable, Dict, List, Type
+from typing import Any, Optional, Callable, Dict
 
 from openai.types.chat import ChatCompletionMessageParam
 from ..logger import get_logger
-
+from ..memory import Memory
 
 class FormatPrompt:
     """
@@ -22,7 +22,7 @@ class FormatPrompt:
     """
 
     def __init__(
-        self, template: str, system_prompt: Optional[str] = None, **bound_objects
+        self, template: str, format_prompt: Optional[str] = None, system_prompt: Optional[str] = None, memory: Optional[Memory] = None
     ) -> None:
         """
         - **Description**:
@@ -34,27 +34,13 @@ class FormatPrompt:
             - `**bound_objects`: Named objects to bind to the prompt for use in expressions.
         """
         self.template = template
+        self.format_prompt = format_prompt  # Store the format prompt
         self.system_prompt = system_prompt  # Store the system prompt
         self.variables = self._extract_variables()
         self.formatted_string = ""  # To store the formatted string
         self._associated_method = None  # To store associated method
         self._method_params = []  # To store method parameters
-        self.bound_objects = bound_objects  # Store bound objects
-
-    def bind(self, **objects) -> "FormatPrompt":
-        """
-        - **Description**:
-            - Binds additional objects to the prompt for use in expressions.
-            - These objects will be available in the template by their given names.
-
-        - **Args**:
-            - `**objects`: Named objects to bind to the prompt.
-
-        - **Returns**:
-            - `FormatPrompt`: Self, for method chaining.
-        """
-        self.bound_objects.update(objects)
-        return self
+        self.memory = memory  # Store memory
 
     def _extract_variables(self) -> list[str]:
         """
@@ -93,36 +79,6 @@ class FormatPrompt:
             self._param_docs = method.__param_docs__
 
         return self
-
-    def get_available_variables(self) -> Dict[str, List[str]]:
-        """
-        - **Description**:
-            - Returns information about available variables and their possible sources.
-            - Includes parameter documentation if available.
-            - Now also includes bound objects as possible sources.
-
-        - **Returns**:
-            - `Dict[str, List[str]]`: A dictionary mapping variable names to their possible sources and documentation.
-        """
-        result = {}
-        for var in self.variables:
-            sources = []
-            if self._associated_method and var in self._method_params:
-                method_name = self._associated_method.__name__
-                source = f"method parameter: {method_name}({var})"
-
-                # Add documentation if available
-                if var in getattr(self, "_param_docs", {}) and self._param_docs[var]:
-                    source += f" - {self._param_docs[var]}"
-
-                sources.append(source)
-
-            # Add bound objects as possible sources
-            if var in self.bound_objects:
-                sources.append(f"bound object: {var}")
-
-            result[var] = sources
-        return result
 
     def get_param_documentation(self) -> Dict[str, str]:
         """
@@ -188,11 +144,11 @@ class FormatPrompt:
             # If we can't parse it, it's not safe
             return False
 
-    async def _eval_async_expr(self, expr: str, context: dict) -> Any:
+    async def _eval_expr(self, expr: str, context: dict) -> Any:
         """
         - **Description**:
-            - Evaluates an expression that might contain async calls.
-            - Directly checks if methods are coroutine functions and awaits them if needed.
+            - Evaluates expressions in the format ${profile.xxx}, ${status.xxx}, or ${context.xxx}.
+            - Retrieves values from memory or context dictionary.
 
         - **Args**:
             - `expr` (str): The expression to evaluate.
@@ -201,65 +157,44 @@ class FormatPrompt:
         - **Returns**:
             - `Any`: The result of the expression evaluation.
         """
-        # First try direct evaluation for simple expressions
-        try:
-            # Evaluate the expression
-            result = eval(expr, {"__builtins__": {}}, context)
-
-            # If the result is awaitable, await it
-            if inspect.isawaitable(result):
-                return await result
-            return result
-        except Exception as e:
-            # If direct evaluation fails, try more complex approach
-            try:
-                # Create a temporary async function to evaluate the expression
-                # This allows us to use await inside the expression
-                exec_globals = {"__builtins__": {}, "asyncio": asyncio}
-
-                # Add all context variables to the globals
-                for key, value in context.items():
-                    exec_globals[key] = value
-
-                # Create an async function that will execute the expression
-                exec_code = f"""
-async def _temp_eval_func():
-    return {expr}
-"""
-                # Compile and execute the function definition
-                exec(exec_code, exec_globals)
-
-                # Call the function and await its result
-                result = await exec_globals["_temp_eval_func"]()
-                return result
-            except Exception as e2:
-                raise ValueError(f"Error evaluating expression '{expr}': {str(e2)}")
+        # Parse the expression to determine which type it is
+        if expr.startswith("profile."):
+            key = expr[len("profile."):]
+            if self.memory:
+                return await self.memory.status.get(key)
+            else:
+                return "Don't know"
+        elif expr.startswith("status."):
+            key = expr[len("status."):]
+            if self.memory:
+                return await self.memory.status.get(key)
+            else:
+                return "Don't know"
+        elif expr.startswith("context."):
+            key = expr[len("context."):]
+            if context:
+                return context.get(key)
+            else:
+                return "Don't know"
+        else:
+            raise ValueError(f"Invalid expression format: {expr}. Must be one of: profile.xxx, status.xxx, context.xxx")
 
     async def format(
         self,
-        agent: Optional[Any] = None,
-        block: Optional[Any] = None,
-        method_args: Optional[dict] = None,
+        context: Optional[dict] = None,
         **kwargs,
     ) -> str:
         """
         - **Description**:
-            - Formats the template string using the provided agent, block, method arguments, or keyword arguments.
-            - Supports both simple variables {var} for direct substitution.
-            - Supports complex expressions ${expression} for evaluation.
-            - Automatically detects and awaits async functions in expressions.
-            - Can use bound objects in expressions (e.g., ${environment.get("weather")}).
-            - Attempts to find variable values from multiple sources in order of precedence:
-              1. Explicitly provided kwargs
-              2. Method arguments (if associated method and method_args provided)
-              3. Agent attributes or memory
-              4. Block attributes
-              5. Bound objects
+            - Formats the template string using the provided context and keyword arguments.
+            - Supports simple variables {var} for direct substitution.
+            - Supports complex expressions ${expression} in three formats:
+              - ${profile.xxx}: Retrieves values from memory.profile
+              - ${status.xxx}: Retrieves values from memory.status
+              - ${context.xxx}: Retrieves values from the provided context dictionary
 
         - **Args**:
-            - `agent` (Optional[Any]): Agent object containing attributes to format the template.
-            - `block` (Optional[Any]): Block object containing attributes to format the template.
-            - `method_args` (Optional[dict]): Arguments passed to the associated method.
+            - `context` (Optional[dict]): Dictionary containing context values.
             - `**kwargs`: Variable names and their corresponding values to format the template.
 
         - **Returns**:
@@ -267,62 +202,17 @@ async def _temp_eval_func():
 
         - **Raises**:
             - `KeyError`: If a placeholder in the template does not have a corresponding key in kwargs.
-            - `ValueError`: If an expression is deemed unsafe or evaluation fails.
+            - `ValueError`: If an expression has an invalid format.
         """
         # Create a dictionary to hold all formatting variables
         format_vars = {}
 
-        # First try to get values from method arguments if provided
-        if method_args is not None and self._associated_method is not None:
-            for var in self.variables:
-                if var in self._method_params and var in method_args:
-                    format_vars[var] = method_args[var]
-
-        # Then try to get values from agent if provided
-        if agent is not None:
-            for var in self.variables:
-                if var not in format_vars:  # Only try if not already found
-                    try:
-                        # Try to get from agent functions first
-                        if var in agent.__class__.get_functions:
-                            format_vars[var] = await agent._getx(var)
-                        # Then try agent memory
-                        else:
-                            try:
-                                format_vars[var] = await agent.memory.status.get(var)
-                            except Exception:
-                                # Just continue if not found in memory
-                                pass
-                    except Exception as e:
-                        # Log the error but continue
-                        print(f"Error getting variable '{var}' from agent: {str(e)}")
-
-        # Then try to get values from block if provided
-        if block is not None:
-            for var in self.variables:
-                if var not in format_vars and var in block.__class__.get_functions:
-                    try:
-                        format_vars[var] = await block._getx(var)
-                    except Exception as e:
-                        print(f"Error getting variable '{var}' from block: {str(e)}")
-
-        # Then try to get values from bound objects
-        for var in self.variables:
-            if var not in format_vars and var in self.bound_objects:
-                format_vars[var] = self.bound_objects[var]
-
-        # Finally add explicitly provided kwargs, these take highest precedence
+        # First add explicitly provided kwargs, these take highest precedence
         for key, value in kwargs.items():
             if key in self.variables:
                 format_vars[key] = value
 
-        eval_context = {
-            "agent": agent,
-            "block": block,
-            **self.bound_objects,  # Include bound objects in the context
-            **(method_args if method_args else {}),
-            **kwargs,
-        }
+        eval_context = context if context else {}
 
         # Handle complex expressions in the template using ${expression} syntax
         complex_pattern = r"\$\{([^}]+?)\}"
@@ -334,15 +224,12 @@ async def _temp_eval_func():
             expr = match.group(1).strip()
             full_match = match.group(0)
 
-            if not self._is_safe_expression(expr):
-                raise ValueError(f"Unsafe expression detected: {expr}")
-
             try:
-                eval_result = await self._eval_async_expr(expr, eval_context)
-                result = result.replace(full_match, str(eval_result))
+                eval_result = await self._eval_expr(expr, eval_context)
+                result = result.replace(full_match, str(eval_result) if eval_result is not None else "")
             except Exception as e:
                 print(f"Error evaluating expression '{expr}': {str(e)}")
-                # Keep the original expression
+                # Keep the original expression in case of error
 
         # Then format simple variables using {var} syntax
         try:
@@ -366,9 +253,14 @@ async def _temp_eval_func():
             dialog.append(
                 {"role": "system", "content": self.system_prompt}
             )  # Add system prompt if it exists
-        dialog.append(
-            {"role": "user", "content": self.formatted_string}
-        )  # Add user content
+        if self.format_prompt:
+            dialog.append(
+                {"role": "user", "content": self.formatted_string + "\n" + self.format_prompt}
+            )
+        else:
+            dialog.append(
+                {"role": "user", "content": self.formatted_string}
+            )  # Add user content
         return dialog
 
     def log(self) -> None:
@@ -377,7 +269,8 @@ async def _temp_eval_func():
             - Logs the details of the FormatPrompt instance, including the template,
               system prompt, extracted variables, and formatted string.
         """
-        print(f"FormatPrompt: {self.template}")
+        print(f"Prompt Template: {self.template}")
+        print(f"Format Prompt: {self.format_prompt}")
         print(f"System Prompt: {self.system_prompt}")  # Log the system prompt
         print(f"Variables: {self.variables}")
         print(f"Formatted String: {self.formatted_string}")  # Log the formatted string

@@ -8,21 +8,22 @@ import jsonc
 import numpy as np
 from pydantic import Field
 
-from ...agent import Block, FormatPrompt, BlockParams, BlockDispatcher, param_docs
+from ...agent import Block, FormatPrompt, BlockParams, BlockDispatcher, DotDict, BlockContext
 from ...environment import EconomyClient, Environment
 from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
+from ..sharing_params import SocietyAgentBlockOutput
 from .utils import *
 
 WORKTIME_ESTIMATE_PROMPT = """As an intelligent agent's time estimation system, please estimate the time needed to complete the current action based on the overall plan and current intention.
 
 Overall plan:
-${context["plan"]}
+${context.plan_context["plan"]}
 
-Current action: ${step["intention"]}
+Current action: ${context.current_step["intention"]}
 
-Current emotion: ${memory.status.get("emotion_types")}
+Current emotion: ${status.emotion_types}
 
 Examples:
 - "Learn programming": {{"time": 120}}
@@ -86,16 +87,10 @@ class WorkBlock(Block):
         )
         self.guidance_prompt = FormatPrompt(
             template=worktime_estimation_prompt,
-            environment=environment,
             memory=memory,
         )
-        self.guidance_prompt.associate_with_method(self.forward)
 
-    @param_docs(
-        step="The step of the agent",
-        context="The context of the agent",
-    )
-    async def forward(self, step, context):
+    async def forward(self, context: DotDict):
         """Process work task and track time expenditure.
 
         Workflow:
@@ -107,12 +102,7 @@ class WorkBlock(Block):
         Returns:
             Execution result with time consumption details
         """
-        await self.guidance_prompt.format(
-            method_args={
-                "step": step,
-                "context": context,
-            }
-        )
+        await self.guidance_prompt.format(context=context)
         result = await self.llm.atext_request(
             self.guidance_prompt.to_dialog(), response_format={"type": "json_object"}
         )
@@ -124,19 +114,19 @@ class WorkBlock(Block):
             await self.memory.status.update(
                 "working_experience",
                 [
-                    f"Start from {start_time}, worked {time} minutes on {step['intention']}"
+                    f"Start from {start_time}, worked {time} minutes on {context['current_step']['intention']}"
                 ],
                 mode="merge",
             )
             work_hour_finish = await self.memory.status.get("work_hour_finish")
             work_hour_finish += float(time / 60)
             node_id = await self.memory.stream.add_economy(
-                description=f"I worked {time} minutes on {step['intention']}"
+                description=f"I worked {time} minutes on {context['current_step']['intention']}"
             )
             await self.memory.status.update("work_hour_finish", work_hour_finish)
             return {
                 "success": True,
-                "evaluation": f'work: {step["intention"]}',
+                "evaluation": f'work: {context["current_step"]["intention"]}',
                 "consumed_time": time,
                 "node_id": node_id,
             }
@@ -147,19 +137,19 @@ class WorkBlock(Block):
             await self.memory.status.update(
                 "working_experience",
                 [
-                    f"Start from {start_time}, worked {time} minutes on {step['intention']}"
+                    f"Start from {start_time}, worked {time} minutes on {context['current_step']['intention']}"
                 ],
                 mode="merge",
             )
             work_hour_finish = await self.memory.status.get("work_hour_finish")
             node_id = await self.memory.stream.add_economy(
-                description=f"I worked {time} minutes on {step['intention']}"
+                description=f"I worked {time} minutes on {context['current_step']['intention']}"
             )
             work_hour_finish += float(time / 60)
             await self.memory.status.update("work_hour_finish", work_hour_finish)
             return {
                 "success": True,
-                "evaluation": f'work: {step["intention"]}',
+                "evaluation": f'work: {context["current_step"]["intention"]}',
                 "consumed_time": time,
                 "node_id": node_id,
             }
@@ -194,7 +184,7 @@ class ConsumptionBlock(Block):
         )
         self.forward_times = 0
 
-    async def forward(self, step, context):
+    async def forward(self, context: DotDict):
         """Execute consumption decision-making.
 
         Workflow:
@@ -209,7 +199,7 @@ class ConsumptionBlock(Block):
         self.forward_times += 1
         agent_id = await self.memory.status.get("id")  # agent_id
         firms_id = await self.environment.economy_client.get_firm_ids()
-        intention = step["intention"]
+        intention = context["current_step"]["intention"]
         month_consumption = await self.memory.status.get("to_consumption_currency")
         consumption_currency = await self.environment.economy_client.get(
             agent_id, "consumption"
@@ -258,14 +248,14 @@ class EconomyNoneBlock(Block):
     def __init__(self, llm: LLM, memory: Memory):
         super().__init__(llm=llm, agent_memory=memory)
 
-    async def forward(self, step, context):
+    async def forward(self, context: DotDict):
         """Log generic activities in economy stream."""
         node_id = await self.memory.stream.add_economy(
-            description=f"I {step['intention']}"
+            description=f"I {context['current_step']['intention']}"
         )
         return {
             "success": True,
-            "evaluation": f'Finished{step["intention"]}',
+            "evaluation": f'Finished{context["current_step"]["intention"]}',
             "consumed_time": 0,
             "node_id": node_id,
         }
@@ -275,6 +265,9 @@ class EconomyBlockParams(BlockParams):
     worktime_estimation_prompt: str = Field(
         default=WORKTIME_ESTIMATE_PROMPT, description="Used to determine the worktime"
     )
+
+class EconomyBlockContext(BlockContext):
+    ...
 
 
 class EconomyBlock(Block):
@@ -288,6 +281,9 @@ class EconomyBlock(Block):
     """
 
     ParamsType = EconomyBlockParams
+    OutputType = SocietyAgentBlockOutput
+    ContextType = EconomyBlockContext
+    NeedAgent = True
     name = "EconomyBlock"
     description = "Responsible for all kinds of economic-related operations"
     actions = {
@@ -316,12 +312,12 @@ class EconomyBlock(Block):
         self.none_block = EconomyNoneBlock(llm, agent_memory)
         self.trigger_time = 0
         self.token_consumption = 0
-        self.dispatcher = BlockDispatcher(llm)
+        self.dispatcher = BlockDispatcher(llm, agent_memory)
         self.dispatcher.register_blocks(
             [self.work_block, self.consumption_block, self.none_block]
         )
 
-    async def forward(self, step, context):
+    async def forward(self, agent_context: DotDict) -> SocietyAgentBlockOutput:
         """Coordinate economic activity execution.
 
         Workflow:
@@ -329,16 +325,18 @@ class EconomyBlock(Block):
             2. Delegate execution to selected block
         """
         self.trigger_time += 1
-        selected_block = await self.dispatcher.dispatch(step)
+        context = agent_context | self.context
+        intention = context["current_step"]["intention"]
+        selected_block = await self.dispatcher.dispatch(context)
         if selected_block is None:
-            return {
-                "success": False,
-                "evaluation": f"Failed to {step['intention']}",
-                "consumed_time": 0,
-                "node_id": None,
-            }
-        result = await selected_block.forward(step, context)
-        return result
+            return self.OutputType(
+                success=False,
+                evaluation=f"Failed to {intention}",
+                consumed_time=0,
+                node_id=None,
+            )
+        result = await selected_block.forward(context)
+        return self.OutputType(**result)
 
 
 class MonthEconomyPlanBlock(Block):

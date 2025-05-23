@@ -9,6 +9,7 @@ from .agent_base import Agent, AgentToolbox, AgentType, AgentParams
 from .block import (
     Block,
     BlockParams,
+    BlockOutput,
     log_and_check,
     log_and_check_with_memory,
     trigger_class,
@@ -17,6 +18,7 @@ from .dispatcher import BlockDispatcher
 from .prompt import FormatPrompt
 from .trigger import EventTrigger, MemoryChangeTrigger, TimeTrigger
 from .decorator import register_get, param_docs
+from .context import AgentContext, BlockContext, DotDict, context_to_dot_dict, auto_deepcopy_dotdict
 
 __all__ = [
     "Agent",
@@ -33,6 +35,7 @@ __all__ = [
     "EventTrigger",
     "Block",
     "BlockParams",
+    "BlockOutput",
     "log_and_check",
     "log_and_check_with_memory",
     "FormatPrompt",
@@ -40,4 +43,9 @@ __all__ = [
     "BlockDispatcher",
     "register_get",
     "param_docs",
+    "AgentContext",
+    "BlockContext",
+    "context_to_dot_dict",
+    "DotDict",
+    "auto_deepcopy_dotdict",
 ]

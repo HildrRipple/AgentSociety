@@ -20,6 +20,11 @@ from .message_intercept import (DoNothingListener, EdgeMessageBlock,
                                 PointMessageBlock)
 from .nbsagent import NBSAgent
 from .societyagent import SocietyAgent
+from .sharing_params import (
+    SocietyAgentConfig,
+    SocietyAgentBlockOutput,
+    SocietyAgentContext,
+)
 
 __all__ = [
     "default",
@@ -33,6 +38,9 @@ __all__ = [
     "memory_config_firm",
     "memory_config_bank",
     "memory_config_nbs",
+    "SocietyAgentConfig",
+    "SocietyAgentBlockOutput",
+    "SocietyAgentContext",
 ]
 
 

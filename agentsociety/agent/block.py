@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Callable, Coroutine
 from typing import Any, Optional, Union, cast
 from pydantic import BaseModel, Field
 
@@ -12,8 +12,7 @@ from ..llm import LLM
 from ..memory import Memory
 from ..memory.state import StateMemory
 from ..utils.decorators import record_call_aio
-from .trigger import EventTrigger
-
+from .context import DotDict, BlockContext, context_to_dot_dict, auto_deepcopy_dotdict
 TRIGGER_INTERVAL = 1
 
 __all__ = [
@@ -26,6 +25,9 @@ __all__ = [
 
 class BlockParams(BaseModel):
     block_memory: Optional[dict[str, Any]] = None
+
+class BlockOutput(BaseModel):
+    ...
 
 
 def log_and_check_with_memory(
@@ -167,9 +169,11 @@ class Block:
     """
 
     ParamsType = BlockParams
+    Context = BlockContext
+    OutputType = None
+    NeedAgent: bool = False  # Whether the block needs an agent, if True, the associated agent will be set automatically
     name: str = ""
     description: str = ""
-    get_functions: dict[str, dict[str, Any]] = {}
     actions: dict[str, str] = {}
 
     def __init__(
@@ -193,6 +197,7 @@ class Block:
         self._llm = llm
         self._agent_memory = agent_memory
         self._environment = environment
+        self._agent = None
 
         # parse block_params
         if block_params is None:
@@ -204,9 +209,17 @@ class Block:
             else:
                 setattr(self, key, value)
 
+        # initialize context
+        context = self.default_context()
+        self.context = context_to_dot_dict(context)
+
     @classmethod
     def default_params(cls) -> ParamsType:
         return cls.ParamsType()
+    
+    @classmethod
+    def default_context(cls) -> Context:
+        return cls.Context()
 
     @classmethod
     def __init_subclass__(cls, **kwargs):
@@ -219,6 +232,9 @@ class Block:
             if hasattr(method, "_register_info"):
                 info = method._register_info
                 cls.get_functions[info["function_name"]] = info
+
+    def set_agent(self, agent: Any):
+        self._agent = agent
 
     async def _getx(self, function_name: str, *args, **kwargs):
         """
@@ -247,6 +263,12 @@ class Block:
         else:
             result = func_info["original_method"](self, *args, **kwargs)
         return result
+    
+    @property
+    def agent(self) -> Any:
+        if self._agent is None:
+            raise RuntimeError(f"Agent access before assignment, please `set_agent` first!")
+        return self._agent
 
     @property
     def llm(self) -> LLM:
@@ -288,17 +310,18 @@ class Block:
 
     async def before_forward(self):
         """
-        Before forward
+        Before forward - prepare context
         """
         pass
 
     async def after_forward(self):
         """
-        After forward
+        After forward - update/clean context
         """
         pass
 
-    async def forward(self, *args, **kwargs):
+    @auto_deepcopy_dotdict
+    async def forward(self, agent_context: DotDict):
         """
         - **Description**:
             - Each block performs a specific reasoning task. This method should be overridden by subclasses.

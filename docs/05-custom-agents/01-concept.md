@@ -99,7 +99,7 @@ This modular design allows researchers to create complex behaviors by combining 
 The Block system provides a flexible way to extend agent capabilities:
 
 1. **Community Blocks**: You can leverage pre-built blocks from the community to quickly add capabilities to your agents
-2. **Custom Blocks**: Design and implement your own blocks to create specialized agent behaviors, you can refer to [Implement Custom Blocks](./04-agent-customization.md#implement-custom-blocks) for details.
+2. **Custom Blocks**: Design and implement your own blocks to create specialized agent behaviors, you can refer to [Implement Custom Blocks](./04-agent-customization.md#Implementation-Example) for details.
 3. **Block Dispatcher**: Coordinate block execution through a central dispatcher that manages block invocation
 
 By using the Block architecture, you can:

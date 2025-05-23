@@ -168,7 +168,6 @@ class CitizenAgentBase(Agent):
         }
         await self._send_message(sender_id, payload, "gather_receive")
 
-    @register_get("Get surrounding environment information - aoi information")
     async def get_aoi_info(self):
         """Get the surrounding environment information - aoi information"""
         position = await self.status.get("position")

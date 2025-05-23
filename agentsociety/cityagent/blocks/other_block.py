@@ -4,14 +4,14 @@ from typing import Optional
 
 import jsonc
 
-from ...agent import Block, FormatPrompt, BlockParams
+from ...agent import Block, FormatPrompt, BlockParams, BlockContext, DotDict
 from ...environment import Environment
 from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
 from ...agent.dispatcher import BlockDispatcher
 from .utils import TIME_ESTIMATE_PROMPT, clean_json_response
-
+from ..sharing_params import SocietyAgentBlockOutput
 
 class SleepBlock(Block):
     """Block implementation for handling sleep-related actions in an agent's workflow.
@@ -31,19 +31,18 @@ class SleepBlock(Block):
         )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
-    async def forward(self, step, context):
+    async def forward(self, context: DotDict):
         """Execute sleep action and estimate time consumption using LLM.
 
         Args:
-            step: Dictionary containing current step details (e.g., intention).
             context: Workflow context containing plan and other metadata.
 
         Returns:
             Dictionary with execution status, evaluation, time consumed, and node ID.
         """
         await self.guidance_prompt.format(
-            plan=context["plan"],
-            intention=step["intention"],
+            plan=context["plan_context"]["plan"],
+            intention=context["current_step"]["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),
         )
         result = await self.llm.atext_request(
@@ -55,7 +54,7 @@ class SleepBlock(Block):
             result = jsonc.loads(result)
             return {
                 "success": True,
-                "evaluation": f'Sleep: {step["intention"]}',
+                "evaluation": f'Sleep: {context["current_step"]["intention"]}',
                 "consumed_time": result["time"],
                 "node_id": node_id,
             }
@@ -65,7 +64,7 @@ class SleepBlock(Block):
             )
             return {
                 "success": True,
-                "evaluation": f'Sleep: {step["intention"]}',
+                "evaluation": f'Sleep: {context["current_step"]["intention"]}',
                 "consumed_time": random.randint(1, 8) * 60,
                 "node_id": node_id,
             }
@@ -89,10 +88,10 @@ class OtherNoneBlock(Block):
         )
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
 
-    async def forward(self, step, context):
+    async def forward(self, context: DotDict):
         await self.guidance_prompt.format(
-            plan=context["plan"],
-            intention=step["intention"],
+            plan=context["plan_context"]["plan"],
+            intention=context["current_step"]["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),
         )
         result = await self.llm.atext_request(
@@ -100,13 +99,13 @@ class OtherNoneBlock(Block):
         )
         result = clean_json_response(result)
         node_id = await self.memory.stream.add_other(
-            description=f"I {step['intention']}"
+            description=f"I {context['current_step']['intention']}"
         )
         try:
             result = jsonc.loads(result)
             return {
                 "success": True,
-                "evaluation": f'Finished executing {step["intention"]}',
+                "evaluation": f'Finished executing {context["current_step"]["intention"]}',
                 "consumed_time": result["time"],
                 "node_id": node_id,
             }
@@ -116,13 +115,16 @@ class OtherNoneBlock(Block):
             )
             return {
                 "success": True,
-                "evaluation": f'Finished executing {step["intention"]}',
+                "evaluation": f'Finished executing {context["current_step"]["intention"]}',
                 "consumed_time": random.randint(1, 180),
                 "node_id": node_id,
             }
 
 
 class OtherBlockParams(BlockParams): ...
+
+
+class OtherBlockContext(BlockContext): ...
 
 
 class OtherBlock(Block):
@@ -137,6 +139,8 @@ class OtherBlock(Block):
     """
 
     ParamsType = OtherBlockParams
+    OutputType = SocietyAgentBlockOutput
+    ContextType = OtherBlockContext
     name = "OtherBlock"
     description = "Responsible for all kinds of intentions/actions except mobility, economy, and social"
     actions = {
@@ -147,8 +151,8 @@ class OtherBlock(Block):
     def __init__(
         self,
         llm: LLM,
-        environment: Optional[Environment] = None,
-        agent_memory: Optional[Memory] = None,
+        environment: Environment,
+        agent_memory: Memory,
         block_params: Optional[OtherBlockParams] = None,
     ):
         super().__init__(llm=llm, agent_memory=agent_memory, block_params=block_params)
@@ -158,15 +162,14 @@ class OtherBlock(Block):
         self.trigger_time = 0
         self.token_consumption = 0
         # init dispatcher
-        self.dispatcher = BlockDispatcher(llm)
+        self.dispatcher = BlockDispatcher(llm, agent_memory)
         # register all blocks
         self.dispatcher.register_blocks([self.sleep_block, self.other_none_block])
 
-    async def forward(self, step, context):
+    async def forward(self, agent_context: DotDict) -> SocietyAgentBlockOutput:
         """Route workflow steps to appropriate sub-blocks and track resource usage.
 
         Args:
-            step: Dictionary containing current step details.
             context: Workflow context containing plan and metadata.
 
         Returns:
@@ -177,24 +180,26 @@ class OtherBlock(Block):
             self.llm.prompt_tokens_used + self.llm.completion_tokens_used
         )
 
+        context = agent_context | self.context
+
         # Select the appropriate sub-block using dispatcher
-        selected_block = await self.dispatcher.dispatch(step)
+        selected_block = await self.dispatcher.dispatch(context)
 
         if selected_block is None:
             node_id = await self.memory.stream.add_other(
-                description=f"I {step['intention']}"
+                description=f"I {context['current_step']['intention']}"
             )
-            return {
-                "success": True,
-                "evaluation": f"Successfully {step['intention']}",
-                "consumed_time": random.randint(1, 30),
-                "node_id": node_id,
-            }
+            return self.OutputType(
+                success=True,
+                evaluation=f"Successfully {context['current_step']['intention']}",
+                consumed_time=random.randint(1, 30),
+                node_id=node_id,
+            )
 
         # Execute the selected sub-block and get the result
-        result = await selected_block.forward(step, context)
+        result = await selected_block.forward(context)
 
         consumption_end = self.llm.prompt_tokens_used + self.llm.completion_tokens_used
         self.token_consumption += consumption_end - consumption_start
 
-        return result
+        return self.OutputType(**result)

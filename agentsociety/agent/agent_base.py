@@ -7,8 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
-from typing import (Any, Generic, List, NamedTuple, Optional, TypeVar, Union,
-                    get_type_hints)
+from typing import (Any, NamedTuple, Optional, Union)
 
 import jsonc
 import ray
@@ -23,6 +22,7 @@ from ..message import Messager
 from ..metrics import MlflowClient
 from ..storage import AvroSaver, StorageDialog, StorageSurvey
 from ..survey.models import Survey
+from .context import AgentContext, context_to_dot_dict
 from .block import Block
 from .decorator import register_get
 from .dispatcher import DISPATCHER_PROMPT, BlockDispatcher
@@ -101,11 +101,10 @@ class Agent(ABC):
     """
 
     ParamsType = AgentParams  # Determine agent parameters
+    Context = AgentContext  # Agent Context for information retrieval
+    BlockOutputType = None  # Block output
     description: str = ""  # Agent description: How this agent works
     memory_config: dict[str, MemoryT] = {}  # Memory configuration
-    get_functions: dict[str, dict[str, Any]] = (
-        {}
-    )  # GET functions: What this agent can do
 
     def __init__(
         self,
@@ -143,9 +142,19 @@ class Agent(ABC):
         for key, value in agent_params.model_dump().items():
             setattr(self, key, value)
 
+        # initialize context
+        context = self.default_context()
+        self.context = context_to_dot_dict(context)
+
         # register blocks
-        self.dispatcher = BlockDispatcher(self.llm, self.params.block_dispatch_prompt)
+        self.dispatcher = BlockDispatcher(self.llm, self.memory, self.params.block_dispatch_prompt)
         if blocks is not None:
+            # Block output type checking
+            for block in blocks:
+                if block.OutputType != self.BlockOutputType:
+                    raise ValueError(f"Block output type mismatch, expected {self.BlockOutputType}, got {block.OutputType}")
+                if block.NeedAgent:
+                    block.set_agent(self)
             self.blocks = blocks
             self.dispatcher.register_blocks(self.blocks)
         else:
@@ -154,6 +163,10 @@ class Agent(ABC):
     @classmethod
     def default_params(cls) -> ParamsType:
         return cls.ParamsType()
+
+    @classmethod
+    def default_context(cls) -> Context:
+        return cls.Context()
 
     @classmethod
     def __init_subclass__(cls, **kwargs):

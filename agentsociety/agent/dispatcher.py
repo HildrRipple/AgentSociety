@@ -4,6 +4,8 @@ import random
 import jsonc
 from openai.types.chat import ChatCompletionToolParam
 
+from ..memory import Memory
+from .context import DotDict
 from .block import Block
 from .decorator import param_docs
 from .prompt import FormatPrompt
@@ -15,7 +17,7 @@ Based on the task information (which describes the needs of the user), select th
 Each block has its specific functionality as described in the function schema.
         
 Task information:
-{intention}
+${context.current_intention}
 """
 
 
@@ -28,15 +30,16 @@ class BlockDispatcher:
         prompt: Formatted prompt template for LLM instructions
     """
 
-    def __init__(self, llm: LLM, selection_prompt: str = DISPATCHER_PROMPT):
+    def __init__(self, llm: LLM, memory: Memory, selection_prompt: str = DISPATCHER_PROMPT):
         """Initialize dispatcher with LLM interface.
 
         Args:
             llm: Language model for block selection decisions
         """
         self.llm = llm
+        self.memory = memory
         self.blocks: dict[str, Block] = {}
-        self.dispatcher_prompt = FormatPrompt(selection_prompt)
+        self.dispatcher_prompt = FormatPrompt(selection_prompt, memory=memory)
         self.dispatcher_prompt.associate_with_method(self.dispatch)
 
     def register_blocks(self, blocks: list[Block]) -> None:
@@ -87,10 +90,7 @@ class BlockDispatcher:
             },
         }
 
-    @param_docs(
-        intention="The intention of the task, used to select the most appropriate block"
-    )
-    async def dispatch(self, intention: str) -> Block | None:
+    async def dispatch(self, context: DotDict) -> Block | None:
         """
         Route a task step to the most appropriate processing block.
 
@@ -106,7 +106,7 @@ class BlockDispatcher:
         """
         try:
             function_schema = self._get_function_schema()
-            await self.dispatcher_prompt.format(method_args={"intention": intention})
+            await self.dispatcher_prompt.format(context=context)
 
             # Call LLM with tools schema
             response = await self.llm.atext_request(
