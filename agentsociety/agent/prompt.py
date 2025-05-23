@@ -1,8 +1,7 @@
 import re
-import inspect
 import ast
 import asyncio
-from typing import Any, Optional, Callable, Dict
+from typing import Any, Optional, Dict
 
 from openai.types.chat import ChatCompletionMessageParam
 from ..logger import get_logger
@@ -38,8 +37,6 @@ class FormatPrompt:
         self.system_prompt = system_prompt  # Store the system prompt
         self.variables = self._extract_variables()
         self.formatted_string = ""  # To store the formatted string
-        self._associated_method = None  # To store associated method
-        self._method_params = []  # To store method parameters
         self.memory = memory  # Store memory
 
     def _extract_variables(self) -> list[str]:
@@ -53,50 +50,13 @@ class FormatPrompt:
         """
         return re.findall(r"\{(\w+)\}", self.template)
 
-    def associate_with_method(self, method: Callable) -> "FormatPrompt":
-        """
-        - **Description**:
-            - Associates this FormatPrompt instance with a class method.
-            - Extracts parameter information from the method for later use.
-            - Also captures parameter documentation if available.
-
-        - **Args**:
-            - `method` (Callable): The method to associate with this prompt.
-
-        - **Returns**:
-            - `FormatPrompt`: Self, for method chaining.
-        """
-        self._associated_method = method
-        sig = inspect.signature(method)
-        # Skip 'self' parameter for instance methods
-        self._method_params = [
-            param.name for param in sig.parameters.values() if param.name != "self"
-        ]
-
-        # Store parameter documentation if available
-        self._param_docs = {}
-        if hasattr(method, "__param_docs__"):
-            self._param_docs = method.__param_docs__
-
-        return self
-
-    def get_param_documentation(self) -> Dict[str, str]:
-        """
-        - **Description**:
-            - Returns documentation for parameters of the associated method.
-
-        - **Returns**:
-            - `Dict[str, str]`: A dictionary mapping parameter names to their documentation.
-        """
-        if not hasattr(self, "_param_docs"):
-            return {}
-        return self._param_docs
-
     def _is_safe_expression(self, expr: str) -> bool:
         """
         - **Description**:
             - Checks if an expression is safe to evaluate.
-            - Prevents dangerous operations like imports, exec, eval, etc.
+            - Only allows attribute access and dictionary access.
+            - Supports both single and double quotes for dictionary keys.
+            - Supports numeric index access.
 
         - **Args**:
             - `expr` (str): The expression to check.
@@ -104,52 +64,16 @@ class FormatPrompt:
         - **Returns**:
             - `bool`: True if the expression is safe, False otherwise.
         """
-        try:
-            # Parse the expression into an AST
-            tree = ast.parse(expr, mode="eval")
-
-            # Define a visitor to check for unsafe operations
-            class SafetyVisitor(ast.NodeVisitor):
-                def __init__(self):
-                    self.is_safe = True
-
-                def visit_Call(self, node):
-                    # Check function name
-                    if isinstance(node.func, ast.Name):
-                        # Blacklist of unsafe functions
-                        unsafe_funcs = [
-                            "eval",
-                            "exec",
-                            "compile",
-                            "open",
-                            "__import__",
-                            "globals",
-                            "locals",
-                        ]
-                        if node.func.id in unsafe_funcs:
-                            self.is_safe = False
-                    self.generic_visit(node)
-
-                def visit_Import(self, node):
-                    self.is_safe = False
-
-                def visit_ImportFrom(self, node):
-                    self.is_safe = False
-
-            # Check the expression
-            visitor = SafetyVisitor()
-            visitor.visit(tree)
-            return visitor.is_safe
-        except SyntaxError:
-            # If we can't parse it, it's not safe
-            return False
+        # Support both string keys and numeric indices
+        safe_pattern = r'^(profile|status|context)(\.[a-zA-Z_][a-zA-Z0-9_]*|\[(?:[\'"][a-zA-Z0-9_][a-zA-Z0-9_]*[\'"]|\d+)\])*$'
+        return bool(re.match(safe_pattern, expr))
 
     async def _eval_expr(self, expr: str, context: dict) -> Any:
         """
         - **Description**:
-            - Evaluates expressions in the format ${profile.xxx}, ${status.xxx}, or ${context.xxx}.
-            - Supports nested dictionary access using dot notation or square brackets.
-            - Retrieves values from memory or context dictionary.
+            - Evaluates expressions using eval with safety checks.
+            - Supports expressions like profile.xxx, status.xxx, context.xxx
+            - Also supports square bracket notation like profile.xxx["yyy"]
 
         - **Args**:
             - `expr` (str): The expression to evaluate.
@@ -158,76 +82,22 @@ class FormatPrompt:
         - **Returns**:
             - `Any`: The result of the expression evaluation.
         """
-        # Parse the expression to determine which type it is
-        if expr.startswith("profile."):
-            key = expr[len("profile."):]
-            if self.memory:
-                return await self._get_nested_value(self.memory.status, key)
-            else:
-                return "Don't know"
-        elif expr.startswith("status."):
-            key = expr[len("status."):]
-            if self.memory:
-                return await self._get_nested_value(self.memory.status, key)
-            else:
-                return "Don't know"
-        elif expr.startswith("context."):
-            key = expr[len("context."):]
-            if context:
-                return await self._get_nested_value(context, key)
-            else:
-                return "Don't know"
-        else:
-            raise ValueError(f"Invalid expression format: {expr}. Must be one of: profile.xxx, status.xxx, context.xxx")
-
-    async def _get_nested_value(self, obj: Any, key: str) -> Any:
-        """
-        - **Description**:
-            - Gets a nested value from an object using dot notation or square brackets.
-            - Supports both dictionary access methods: dot notation and square brackets.
-
-        - **Args**:
-            - `obj` (Any): The object to get the value from.
-            - `key` (str): The key to access, can include nested access.
-
-        - **Returns**:
-            - `Any`: The value at the specified key.
-        """
-        # Split the key by dots and square brackets
-        parts = []
-        current = ""
-        in_brackets = False
+        # Create evaluation context
+        eval_context = {
+            'profile': self.memory.status if self.memory else {},
+            'status': self.memory.status if self.memory else {},
+            'context': context or {}
+        }
         
-        for char in key:
-            if char == '[':
-                if current:
-                    parts.append(current)
-                current = ""
-                in_brackets = True
-            elif char == ']':
-                if current:
-                    parts.append(current.strip('"\' '))
-                current = ""
-                in_brackets = False
-            elif char == '.' and not in_brackets:
-                if current:
-                    parts.append(current)
-                current = ""
-            else:
-                current += char
+        # Add safety check for the expression
+        if not self._is_safe_expression(expr):
+            raise ValueError(f"Unsafe expression: {expr}")
         
-        if current:
-            parts.append(current)
-
-        # Navigate through the object
-        result = obj
-        for part in parts:
-            if isinstance(result, dict):
-                result = result.get(part)
-            else:
-                return None
-        
-        return result
+        try:
+            return eval(expr, {"__builtins__": {}}, eval_context)
+        except Exception as e:
+            print(f"Error evaluating expression '{expr}': {str(e)}")
+            return "Don't know"
 
     async def format(
         self,

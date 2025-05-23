@@ -40,7 +40,6 @@ class BlockDispatcher:
         self.memory = memory
         self.blocks: dict[str, Block] = {}
         self.dispatcher_prompt = FormatPrompt(selection_prompt, memory=memory)
-        self.dispatcher_prompt.associate_with_method(self.dispatch)
 
     def register_blocks(self, blocks: list[Block]) -> None:
         """Register multiple processing blocks for dispatching.
