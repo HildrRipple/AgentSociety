@@ -142,7 +142,7 @@ class ProcessExecutor:
 
         # Initialize status file
         status = {
-            "status": "running",
+            "status": "Running",
             "start_time": datetime.now().isoformat(),
             "pid": None,
         }
@@ -238,7 +238,7 @@ class ProcessExecutor:
             # Update status
             lock_fd = self._acquire_file_lock(status_file)
             try:
-                status["status"] = "terminated"
+                status["status"] = "Terminated"
                 status["end_time"] = datetime.now().isoformat()
                 with open(status_file, "w") as f:
                     json.dump(status, f)
@@ -300,12 +300,12 @@ class ProcessExecutor:
             self._release_file_lock(lock_fd)
 
         # Check if process is still running
-        if status["status"] == "running" and status.get("pid"):
+        if status["status"] == "Running" and status.get("pid"):
             try:
                 os.kill(status["pid"], 0)
             except OSError:
                 # Process is no longer running
-                status["status"] = "terminated"
+                status["status"] = "Terminated"
                 status["end_time"] = datetime.now().isoformat()
 
                 # Update status file
