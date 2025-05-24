@@ -228,15 +228,6 @@ class Messager:
         }
         message = jsonc.dumps(payload, default=str)
         if self.forward_strategy == "outer_control":
-            async with self._lock:
-                self._wait_for_send_message.append(
-                    {
-                        "channel": channel,
-                        "from_id": from_id,
-                        "to_id": to_id,
-                        "message": message,
-                    }
-                )
             interceptor = self.message_interceptor
             assert (
                 interceptor is not None
@@ -247,6 +238,15 @@ class Messager:
                 # if all of from_id and to_id are not None, the message is intercepted by the message interceptor (agent-agent message)
                 interceptor.add_message.remote(from_id, to_id, message)  # type: ignore
                 # ATTENTION: the message is sent to the interceptor, but the message is not sent to the channel until forward() is called
+                async with self._lock:
+                    self._wait_for_send_message.append(
+                        {
+                            "channel": channel,
+                            "from_id": from_id,
+                            "to_id": to_id,
+                            "message": message,
+                        }
+                    )
             else:
                 await self.client.publish(channel, message)
                 log["sent"] = True
