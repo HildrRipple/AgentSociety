@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from redis.asyncio.client import PubSub
 
 from ..logger import get_logger
+from ..utils import NONE_SENDER_ID
 from ..utils.decorators import lock_decorator
 from .message_interceptor import MessageIdentifier
 
@@ -240,7 +241,9 @@ class Messager:
             assert (
                 interceptor is not None
             ), "Message interceptor must be set when using `outer_control` strategy"
-            if from_id is not None and to_id is not None:
+            if (
+                from_id is not None and to_id is not None
+            ) and from_id != NONE_SENDER_ID:
                 # if all of from_id and to_id are not None, the message is intercepted by the message interceptor (agent-agent message)
                 interceptor.add_message.remote(from_id, to_id, message)  # type: ignore
                 # ATTENTION: the message is sent to the interceptor, but the message is not sent to the channel until forward() is called
@@ -253,7 +256,12 @@ class Messager:
                     self._log_list.append(log)
         elif self.forward_strategy == "inner_control":
             interceptor = self.message_interceptor
-            if interceptor is not None and from_id is not None and to_id is not None:
+            if (
+                interceptor is not None
+                and from_id is not None
+                and to_id is not None
+                and from_id != NONE_SENDER_ID
+            ):
                 # if all of from_id and to_id are not None, the message is intercepted by the message interceptor (agent-agent message)
                 is_valid = await interceptor.check_message.remote(from_id, to_id, message)  # type: ignore
                 if is_valid:
