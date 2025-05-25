@@ -273,16 +273,12 @@ const ProfileList: React.FC = () => {
             extra={
                 <Space>
                     <Button 
+                        type="primary"
                         icon={<UploadOutlined />}
                         onClick={() => setUploadModalVisible(true)}
                     >
                         Upload Profile
                     </Button>
-                    <Link to="/profile-generation">
-                        <Button type="primary" icon={<PlusOutlined />}>
-                            Generate New Profile
-                        </Button>
-                    </Link>
                 </Space>
             }
         >
