@@ -193,7 +193,7 @@ def memory_config_societyagent_hurrican(
             ),
             True,
         ),
-        "marital_status": (
+        "marriage_status": (
             str,
             random.choice(["not married", "married", "divorced", "widowed"]),
             True,

@@ -113,7 +113,7 @@ class CognitionBlock(Block):
             "age": await self.memory.status.get("age"),
             "race": await self.memory.status.get("race"),
             "religion": await self.memory.status.get("religion"),
-            "marital_status": await self.memory.status.get("marital_status"),
+            "marriage_status": await self.memory.status.get("marriage_status"),
             "residence": await self.memory.status.get("residence"),
             "occupation": await self.memory.status.get("occupation"),
             "education": await self.memory.status.get("education"),
@@ -128,7 +128,7 @@ class CognitionBlock(Block):
         for topic in attitude:
             description_prompt = """
             You are a {gender}, aged {age}, belonging to the {race} race and identifying as {religion}. 
-            Your marital status is {marital_status}, and you currently reside in a {residence} area. 
+            Your marital status is {marriage_status}, and you currently reside in a {residence} area. 
             Your occupation is {occupation}, and your education level is {education}. 
             You are {personality}, with a consumption level of {consumption} and a family consumption level of {family_consumption}. 
             Your income is {income}, and you are skilled in {skill}.
@@ -210,7 +210,7 @@ class CognitionBlock(Block):
         """
         description_prompt = """
         You are a {gender}, aged {age}, belonging to the {race} race and identifying as {religion}. 
-        Your marital status is {marital_status}, and you currently reside in a {residence} area. 
+        Your marital status is {marriage_status}, and you currently reside in a {residence} area. 
         Your occupation is {occupation}, and your education level is {education}. 
         You are {personality}, with a consumption level of {consumption} and a family consumption level of {family_consumption}. 
         Your income is {income}, and you are skilled in {skill}.
@@ -245,7 +245,7 @@ class CognitionBlock(Block):
             age=await self.memory.status.get("age"),
             race=await self.memory.status.get("race"),
             religion=await self.memory.status.get("religion"),
-            marital_status=await self.memory.status.get("marital_status"),
+            marriage_status=await self.memory.status.get("marriage_status"),
             residence=await self.memory.status.get("residence"),
             occupation=await self.memory.status.get("occupation"),
             education=await self.memory.status.get("education"),
@@ -338,7 +338,7 @@ class CognitionBlock(Block):
         """
         description_prompt = """
         You are a {gender}, aged {age}, belonging to the {race} race and identifying as {religion}. 
-        Your marital status is {marital_status}, and you currently reside in a {residence} area. 
+        Your marital status is {marriage_status}, and you currently reside in a {residence} area. 
         Your occupation is {occupation}, and your education level is {education}. 
         You are {personality}, with a consumption level of {consumption} and a family consumption level of {family_consumption}. 
         Your income is {income}, and you are skilled in {skill}.
@@ -368,7 +368,7 @@ class CognitionBlock(Block):
             age=await self.memory.status.get("age"),
             race=await self.memory.status.get("race"),
             religion=await self.memory.status.get("religion"),
-            marital_status=await self.memory.status.get("marital_status"),
+            marriage_status=await self.memory.status.get("marriage_status"),
             residence=await self.memory.status.get("residence"),
             occupation=await self.memory.status.get("occupation"),
             education=await self.memory.status.get("education"),
