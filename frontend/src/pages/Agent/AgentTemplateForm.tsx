@@ -722,13 +722,67 @@ interface BlockInfo {
   params: Record<string, BlockParam>;
 }
 
-// Block Configuration 组件
-const BlockConfiguration: React.FC = () => {
+// 新增一个类型定义
+interface BlockContextInfo {
+  blockName: string;
+  context: Record<string, any>;
+}
+
+// 修改BlockConfiguration组件
+const BlockConfiguration: React.FC<{
+  onBlockContextChange?: (contexts: BlockContextInfo[]) => void;
+}> = ({ onBlockContextChange }) => {
   const [blocks, setBlocks] = useState<BlockInfo[]>([]);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
   const [blockParams, setBlockParams] = useState<Record<string, any>>({});
+  const [blockContexts, setBlockContexts] = useState<Record<string, any>>({});
   const context = useContext(AgentContext);
   const suggestions = context?.suggestions || [];
+
+  // 当选择block时获取对应的参数配置
+  const fetchBlockParams = async (blockType: string) => {
+    try {
+      const response = await fetchCustom(`/api/block-param/${blockType}`);
+      const data = await response.json();
+      console.log(data);
+      if (data.data) {
+        setBlockParams(prev => ({
+          ...prev,
+          [blockType]: data.data.params_type
+        }));
+        // 保存context信息
+        setBlockContexts(prev => ({
+          ...prev,
+          [blockType]: data.data.context || {}
+        }));
+        // 通知父组件context变化
+        const newContexts = selectedBlocks.map(block => ({
+          blockName: block,
+          context: data.data.context || {}
+        }));
+        onBlockContextChange?.(newContexts);
+      }
+    } catch (err) {
+      console.error(`Failed to fetch params for block ${blockType}:`, err);
+    }
+  };
+
+  const handleBlockSelect = (values: string[]) => {
+    setSelectedBlocks(values);
+    
+    // 获取新选中的blocks的参数
+    const newBlocks = values.filter(block => !blockParams[block]);
+    newBlocks.forEach(block => {
+      fetchBlockParams(block);
+    });
+
+    // 更新context信息
+    const selectedContexts = values.map(block => ({
+      blockName: block,
+      context: blockContexts[block] || {}
+    }));
+    onBlockContextChange?.(selectedContexts);
+  };
 
   useEffect(() => {
     // 获取所有可用的 blocks
@@ -744,32 +798,6 @@ const BlockConfiguration: React.FC = () => {
         setBlocks([]);
       });
   }, []);
-
-  // 当选择block时获取对应的参数配置
-  const fetchBlockParams = async (blockType: string) => {
-    try {
-      const response = await fetchCustom(`/api/block-param/${blockType}`);
-      const data = await response.json();
-      if (data.data?.params_type) {
-        setBlockParams(prev => ({
-          ...prev,
-          [blockType]: data.data.params_type
-        }));
-      }
-    } catch (err) {
-      console.error(`Failed to fetch params for block ${blockType}:`, err);
-    }
-  };
-
-  const handleBlockSelect = (values: string[]) => {
-    setSelectedBlocks(values);
-    
-    // 获取新选中的blocks的参数
-    const newBlocks = values.filter(block => !blockParams[block]);
-    newBlocks.forEach(block => {
-      fetchBlockParams(block);
-    });
-  };
 
   return (
     <Card title="Block Configuration" bordered={false}>
@@ -830,7 +858,11 @@ const BlockConfiguration: React.FC = () => {
   );
 };
 
-const AgentInfoSidebar: React.FC = () => {
+interface AgentInfoSidebarProps {
+  blockContexts?: BlockContextInfo[];
+}
+
+const AgentInfoSidebar: React.FC<AgentInfoSidebarProps> = ({ blockContexts = [] }) => {
   const context = useContext(AgentContext);
   const agentInfo = context?.agentInfo;
 
@@ -838,38 +870,64 @@ const AgentInfoSidebar: React.FC = () => {
     return <Spin />;
   }
 
+  // 通用的表格列配置
+  const commonColumns = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      width: '25%',
+    },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      width: '25%',
+    },
+    {
+      title: '描述',
+      dataIndex: 'description',
+      width: '50%',
+      render: (text: string) => text || '-'
+    }
+  ];
+
   return (
     <Tabs defaultActiveKey="context">
       <Tabs.TabPane tab="Context" key="context">
-        <Table
-          size="small"
-          pagination={false}
-          dataSource={Object.entries(agentInfo.context).map(([key, value]) => ({
-            key,
-            name: key,
-            type: value.type,
-            description: value.description,
-            default: JSON.stringify(value.default)
-          }))}
-          columns={[
-            {
-              title: '名称',
-              dataIndex: 'name',
-              width: '25%',
-            },
-            {
-              title: '类型',
-              dataIndex: 'type',
-              width: '25%',
-            },
-            {
-              title: '描述',
-              dataIndex: 'description',
-              width: '50%',
-              render: (text) => text || '-'
-            }
-          ]}
-        />
+        <Space direction="vertical" style={{ width: '100%' }}>
+          {/* Agent Context */}
+          <Card size="small" title="Agent Context">
+            <Table
+              size="small"
+              pagination={false}
+              dataSource={Object.entries(agentInfo.context).map(([key, value]) => ({
+                key,
+                name: key,
+                type: value.type,
+                description: value.description,
+                default: JSON.stringify(value.default)
+              }))}
+              columns={commonColumns}
+            />
+          </Card>
+
+          {/* Block Contexts */}
+          {blockContexts.map(({ blockName, context }) => (
+            <Card size="small" title={`${blockName} Context`} key={blockName}>
+              <Table
+                size="small"
+                pagination={false}
+                dataSource={Object.entries(context).map(([key, value]: [string, any]) => ({
+                  key,
+                  name: key,
+                  type: value.type,
+                  description: value.description,
+                  default: JSON.stringify(value.default)
+                }))}
+                columns={commonColumns}
+              />
+            </Card>
+          ))}
+        </Space>
       </Tabs.TabPane>
       <Tabs.TabPane tab="Status" key="status">
         <Table
@@ -912,6 +970,7 @@ const AgentTemplateForm: React.FC = () => {
   const [currentTemplate, setCurrentTemplate] = useState<AgentTemplate | null>(null);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
   const [searchValue, setSearchValue] = useState<string>('');
+  const [blockContexts, setBlockContexts] = useState<BlockContextInfo[]>([]);
 
   // 添加搜索数据源
   const searchOptions = [
@@ -1169,7 +1228,9 @@ const AgentTemplateForm: React.FC = () => {
                   top: 0
                 }}>
                   <AgentConfiguration />
-                  <BlockConfiguration />
+                  <BlockConfiguration 
+                    onBlockContextChange={setBlockContexts}
+                  />
                 </div>
               </Col>
 
@@ -1181,7 +1242,7 @@ const AgentTemplateForm: React.FC = () => {
                   position: 'sticky',
                   top: 0
                 }}>
-                  <AgentInfoSidebar />
+                  <AgentInfoSidebar blockContexts={blockContexts} />
                 </div>
               </Col>
             </Row>

@@ -628,10 +628,10 @@ async def get_block_param(
             }
             
         # Process Context
-        if hasattr(block_class, "Context") and hasattr(block_class.Context, "model_fields"):
+        if hasattr(block_class, "ContextType") and hasattr(block_class.ContextType, "model_fields"):
             param_data["context"] = {
                 field_name: get_field_info(field)
-                for field_name, field in block_class.Context.model_fields.items()
+                for field_name, field in block_class.ContextType.model_fields.items()
             }
         
         return ApiResponseWrapper(data=param_data)
