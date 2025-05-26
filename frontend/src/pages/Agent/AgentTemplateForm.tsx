@@ -736,29 +736,69 @@ const BlockConfiguration: React.FC<{
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
   const [blockParams, setBlockParams] = useState<Record<string, any>>({});
   const [blockContexts, setBlockContexts] = useState<Record<string, any>>({});
+  // 新增blockSuggestions状态
+  const [blockSuggestions, setBlockSuggestions] = useState<Record<string, any[]>>({});
   const context = useContext(AgentContext);
   const suggestions = context?.suggestions || [];
+
+  // 修改 generateBlockSuggestions 函数
+  const generateBlockSuggestions = (blockName: string, blockContext: Record<string, any>) => {
+    const blockContextSuggestions = Object.entries(blockContext || {}).map(([key, value]: [string, any]) => ({
+      label: key,
+      detail: value.description || `Type: ${value.type}`
+    }));
+
+    // 复制原有的suggestions
+    const newSuggestions = suggestions.map(group => {
+      // 如果是context组，添加block的context作为children
+      if (group.label === 'context') {
+        return {
+          ...group,
+          children: [
+            ...(group.children || []),
+            // 添加block的context，并标注来源
+            ...blockContextSuggestions.map(item => ({
+              ...item,
+              label: `${item.label}`,
+              detail: `[${blockName}] ${item.detail}`
+            }))
+          ]
+        };
+      }
+      return group;
+    });
+
+    return newSuggestions;
+  };
 
   // 当选择block时获取对应的参数配置
   const fetchBlockParams = async (blockType: string) => {
     try {
       const response = await fetchCustom(`/api/block-param/${blockType}`);
       const data = await response.json();
-      console.log(data);
       if (data.data) {
         setBlockParams(prev => ({
           ...prev,
           [blockType]: data.data.params_type
         }));
+        
         // 保存context信息
+        const blockContext = data.data.context || {};
         setBlockContexts(prev => ({
           ...prev,
-          [blockType]: data.data.context || {}
+          [blockType]: blockContext
         }));
+
+        // 生成并保存block专属的suggestions
+        setBlockSuggestions(prev => ({
+          ...prev,
+          [blockType]: generateBlockSuggestions(blockType, blockContext)
+        }));
+        
         // 通知父组件context变化
         const newContexts = selectedBlocks.map(block => ({
           blockName: block,
-          context: data.data.context || {}
+          context: blockContexts[block] || {}
         }));
         onBlockContextChange?.(newContexts);
       }
@@ -846,7 +886,8 @@ const BlockConfiguration: React.FC<{
                   paramInfo as ParamInfo,
                   {
                     name: ['blocks', blockName, 'params', paramName],
-                    suggestions
+                    // 使用block专属的suggestions
+                    suggestions: blockSuggestions[blockName]
                   }
                 )
               ))}
