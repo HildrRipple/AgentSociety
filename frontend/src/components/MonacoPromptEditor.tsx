@@ -8,6 +8,11 @@ interface MonacoPromptEditorProps {
   suggestions?: Array<{
     label: string;
     detail?: string;
+    children?: Array<{
+      label: string;
+      detail?: string;
+      children?: Array<any>;  // Support infinite levels
+    }>;
   }>;
   editorId?: string;
 }
@@ -19,23 +24,23 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
   suggestions = [],
   editorId = 'default'
 }) => {
-  // 使用useRef确保只注册一次提供器
+  // Use useRef to ensure provider is registered only once
   const providerRef = useRef<any>(null);
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
-  // console.log(suggestions);
-  // 注册自动完成提供器
+
+  // Register completion provider
   const registerCompletionProvider = (monaco: any) => {
-    // 如果已经注册过提供器，先移除它
+    // Remove existing provider if it exists
     if (providerRef.current) {
       providerRef.current.dispose();
       providerRef.current = null;
     }
     
-    // 使用唯一的语言ID
+    // Use unique language ID
     const uniqueLanguageId = `markdown-${editorId}`;
     
-    // 注册自定义语言
+    // Register custom language
     if (!monaco.languages.getLanguages().some((lang: any) => lang.id === uniqueLanguageId)) {
       monaco.languages.register({ 
         id: uniqueLanguageId,
@@ -45,9 +50,9 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
       });
     }
     
-    // 注册新的提供器
+    // Register new provider
     providerRef.current = monaco.languages.registerCompletionItemProvider(uniqueLanguageId, {
-      triggerCharacters: ['{', '@'],
+      triggerCharacters: ['{', '@', '.'],
       provideCompletionItems: (model: any, position: any) => {
         const textUntilPosition = model.getValueInRange({
           startLineNumber: position.lineNumber,
@@ -57,29 +62,51 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
         });
         
         const hasOpenBrace = textUntilPosition.endsWith('{');
+        const hasDot = textUntilPosition.endsWith('.');
         const word = model.getWordUntilPosition(position);
         
         const range = {
           startLineNumber: position.lineNumber,
           endLineNumber: position.lineNumber,
-          startColumn: hasOpenBrace ? position.column : word.startColumn,
+          startColumn: hasOpenBrace || hasDot ? position.column : word.startColumn,
           endColumn: position.column
         };
 
-        return {
-          suggestions: suggestions.map((item, index) => {
-            let insertText = item.label;
-            if (hasOpenBrace && insertText.startsWith('{')) {
-              insertText = insertText.substring(1);
-            }
-            
-            if (insertText.endsWith('}') && hasOpenBrace) {
-              insertText = insertText.substring(0, insertText.length - 1);
-            }
+        // Get current input path
+        const currentPath = getCurrentPath(textUntilPosition);
+        let currentSuggestions = getSuggestionsForPath(currentPath, suggestions);
 
-            // 如果是左括号触发的补全，确保添加右括号
-            if (hasOpenBrace && !insertText.endsWith('}')) {
-              insertText = `${insertText}}`; // 添加右括号
+        return {
+          suggestions: currentSuggestions.map((item, index) => {
+            let insertText = item.label;
+            
+            // Check if it's the last level (no children or empty children)
+            const isLastLevel = !item.children || item.children.length === 0;
+            const hasChildren = item.children && item.children.length > 0;
+            
+            // If triggered by dot
+            if (hasDot) {
+              if (hasChildren) {
+                // If has children, add dot
+                insertText = `${insertText}.`;
+              } else {
+                // If it's the last level, add closing brace
+                insertText = `${insertText}}`;
+              }
+            } else {
+              // If not triggered by dot
+              if (isLastLevel) {
+                if (hasOpenBrace) {
+                  // If user has already input left brace, only add right brace
+                  insertText = `${insertText}}`;
+                } else {
+                  // If user hasn't input left brace, wrap with braces
+                  insertText = `{${insertText}}`;
+                }
+              } else {
+                // Not last level, add dot
+                insertText = `${insertText}.`;
+              }
             }
             
             return {
@@ -89,7 +116,8 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
               detail: item.detail || '',
               range: range,
               sortText: `${index}`.padStart(5, '0'),
-              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              command: hasChildren ? { id: 'editor.action.triggerSuggest', title: 'Trigger Suggest' } : undefined
             };
           })
         };
@@ -97,15 +125,15 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
     });
   };
   
-  // 编辑器挂载时的处理
+  // Handle editor mount
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
     
-    // 注册自动完成提供器
+    // Register completion provider
     registerCompletionProvider(monaco);
     
-    // 配置编辑器选项
+    // Configure editor options
     editor.updateOptions({
       fontSize: 14,
       lineHeight: 20,
@@ -118,8 +146,8 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
       acceptSuggestionOnEnter: 'on',
       tabCompletion: 'on',
       wordBasedSuggestions: 'on',
-      autoClosingBrackets: 'always',  // 添加自动闭合括号的配置
-      autoClosingQuotes: 'always',    // 添加自动闭合引号的配置
+      autoClosingBrackets: 'always',  // Add auto-closing brackets configuration
+      autoClosingQuotes: 'always',    // Add auto-closing quotes configuration
       suggest: {
         showIcons: true,
         insertMode: 'insert',
@@ -138,26 +166,26 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
       }
     });
 
-    // 设置编辑器背景色
+    // Set editor background color
     monaco.editor.defineTheme('vs-gray', {
       base: 'vs',
       inherit: true,
       rules: [],
       colors: {
-        'editor.background': '#f0f0f0',  // 浅灰色背景
+        'editor.background': '#f0f0f0',  // Light gray background
       }
     });
     monaco.editor.setTheme('vs-gray');
   };
   
-  // 当suggestions变化时重新注册提供器
+  // Re-register provider when suggestions change
   useEffect(() => {
     if (monacoRef.current) {
       registerCompletionProvider(monacoRef.current);
     }
   }, [suggestions]);
   
-  // 组件卸载时清理
+  // Cleanup when component unmounts
   useEffect(() => {
     return () => {
       if (providerRef.current) {
@@ -165,6 +193,31 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
       }
     };
   }, []);
+
+  // Get current input path
+  const getCurrentPath = (textUntilPosition: string): string[] => {
+    const match = textUntilPosition.match(/[\w.]+$/);
+    return match ? match[0].split('.') : [];
+  };
+
+  // Get suggestions based on current path
+  const getSuggestionsForPath = (path: string[], suggestions: any[]): any[] => {
+    if (path.length <= 1) {
+      return suggestions;
+    }
+
+    let currentSuggestions = suggestions;
+    for (let i = 0; i < path.length - 1; i++) {
+      const currentSegment = path[i];
+      const matchingSuggestion = currentSuggestions.find(s => s.label === currentSegment);
+      if (matchingSuggestion && matchingSuggestion.children) {
+        currentSuggestions = matchingSuggestion.children;
+      } else {
+        return [];
+      }
+    }
+    return currentSuggestions;
+  };
 
   return (
     <Editor
