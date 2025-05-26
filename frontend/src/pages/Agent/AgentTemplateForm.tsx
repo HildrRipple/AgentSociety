@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { Form, Input, Card, Row, Col, Button, Switch, InputNumber, Select, Space, message, Tooltip, Table, Modal, Typography, Spin } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -217,8 +217,8 @@ const profileOptions: Record<string, ProfileField> = {
   income: {
     label: "Income",
     type: 'continuous',
-    defaultParams: { 
-      min_value: 1000, 
+    defaultParams: {
+      min_value: 1000,
       max_value: 20000,
       mean: 5000,
       std: 1000
@@ -535,17 +535,109 @@ interface FunctionInfo {
   description: string;
 }
 
-const renderAgentConfiguration = () => {
+// Add type definitions for context and status
+interface ContextItem {
+  type: string;
+  description: string | null;
+  default: any;
+}
 
-  // 从 profile 选项中提取建议
-  const profileSuggestions = Object.entries(profileOptions).map(([key, config]) => ({
-    label: `${key}`,
-    detail: `Agent's ${config.label.toLowerCase()}`
-  }));
+interface StatusAttribute {
+  name: string;
+  type: string;
+  description: string;
+  default: any;
+  // whether_embedding: boolean;
+}
 
+interface AgentInfo {
+  context: Record<string, ContextItem>;
+  status_attributes: StatusAttribute[];
+  params_type: Record<string, {
+    type: string;
+    description: string | null;
+    default: any;
+  }>;
+  block_output_type: Record<string, {
+    type: string;
+    description: string | null;
+    default: any;
+  }>;
+}
 
-  // 合并所有建议
-  const suggestions = [...profileSuggestions];
+// Create AgentContext
+const AgentContext = React.createContext<{
+  agentInfo: AgentInfo | null;
+  setAgentInfo: React.Dispatch<React.SetStateAction<AgentInfo | null>>;
+  suggestions: any[];
+} | null>(null);
+
+// Create AgentContextProvider
+const AgentContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [agentInfo, setAgentInfo] = useState<AgentInfo | null>(null);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchAgentInfo = async () => {
+      try {
+        const response = await fetchCustom('/api/agent-param');
+        const data = await response.json();
+        
+        if (data.data) {
+          setAgentInfo(data.data);
+          
+          // 生成 suggestions
+          const profileSuggestions = Object.entries(profileOptions).map(([key, config]) => ({
+            label: `${key}`,
+            detail: `Agent's ${config.label.toLowerCase()}`
+          }));
+
+          const contextSuggestions = Object.entries(data.data.context || {}).map(([key, value]: [string, any]) => ({
+            label: key,
+            detail: value.description || `Type: ${value.type}`
+          }));
+
+          const statusSuggestions = (data.data.status_attributes || []).map((attr: any) => ({
+            label: attr.name,
+            detail: attr.description || `Type: ${attr.type}`
+          }));
+
+          const newSuggestions = [
+            { label: 'profile', children: profileSuggestions },
+            { label: 'context', children: contextSuggestions },
+            { label: 'status', children: statusSuggestions }
+          ];
+
+          setSuggestions(newSuggestions);
+        }
+      } catch (err) {
+        console.error('Failed to fetch agent parameters:', err);
+      }
+    };
+
+    fetchAgentInfo();
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    agentInfo,
+    setAgentInfo,
+    suggestions
+  }), [agentInfo, suggestions]);
+
+  return (
+    <AgentContext.Provider value={contextValue}>
+      {children}
+    </AgentContext.Provider>
+  );
+};
+
+const AgentConfiguration: React.FC = () => {
+  const context = useContext(AgentContext);
+  const suggestions = context?.suggestions || [];
+
+  if (!context?.agentInfo) {
+    return <Spin />;
+  }
 
   return (
     <Card title="Agent Configuration" bordered={false}>
@@ -659,7 +751,11 @@ const renderAgentConfiguration = () => {
               </Space>
             }
           >
-            <MonacoPromptEditor height="200px" suggestions={suggestions} editorId="need_initialization_prompt" />
+            <MonacoPromptEditor 
+              height="200px" 
+              suggestions={suggestions} 
+              editorId="need_initialization_prompt"
+            />
           </Form.Item>
         </Col>
         <Col span={24}>
@@ -674,7 +770,12 @@ const renderAgentConfiguration = () => {
               </Space>
             }
           >
-            <MonacoPromptEditor height="200px" suggestions={suggestions} editorId="environment_reflection_prompt" />
+            <MonacoPromptEditor 
+              height="200px" 
+              suggestions={suggestions} 
+              editorId="environment_reflection_prompt"
+              key={`environment_reflection_prompt-${suggestions.length}`} 
+            />
           </Form.Item>
         </Col>
         <Col span={24}>
@@ -689,7 +790,12 @@ const renderAgentConfiguration = () => {
               </Space>
             }
           >
-            <MonacoPromptEditor height="200px" suggestions={suggestions} editorId="plan_generation_prompt" />
+            <MonacoPromptEditor 
+              height="200px" 
+              suggestions={suggestions} 
+              editorId="plan_generation_prompt"
+              key={`plan_generation_prompt-${suggestions.length}`}
+            />
           </Form.Item>
         </Col>
       </Row>
@@ -851,23 +957,23 @@ const BlockConfiguration: React.FC = () => {
                   <Typography.Text strong>Parameters:</Typography.Text>
                   <div style={{ marginTop: 8 }}>
                     {Object.entries(blockInfo.params).map(([paramName, param]) => (
-                        <Form.Item
-                          key={paramName}
-                          name={['blocks', blockName, 'params', paramName]}
-                          label={
-                            <Space>
-                              {paramName}
-                              {param.description && (
-                                <Tooltip title={param.description}>
-                                  <QuestionCircleOutlined />
-                                </Tooltip>
-                              )}
-                            </Space>
-                          }
+                      <Form.Item
+                        key={paramName}
+                        name={['blocks', blockName, 'params', paramName]}
+                        label={
+                          <Space>
+                            {paramName}
+                            {param.description && (
+                              <Tooltip title={param.description}>
+                                <QuestionCircleOutlined />
+                              </Tooltip>
+                            )}
+                          </Space>
+                        }
                         initialValue={param.default}
-                        >
+                      >
                         {renderParamField(param, blockName, paramName)}
-                        </Form.Item>
+                      </Form.Item>
                     ))}
                   </div>
                 </div>
@@ -880,49 +986,9 @@ const BlockConfiguration: React.FC = () => {
   );
 };
 
-// 在文件开头的接口定义部分添加以下内容
-interface AgentParamInfo {
-  params_type: Record<string, {
-    type: string;
-    description: string | null;
-    default: any;
-  }>;
-  block_output_type: Record<string, {
-    type: string;
-    description: string | null;
-    default: any;
-  }>;
-  context: Record<string, {
-    type: string;
-    description: string | null;
-    default: any;
-  }>;
-  status_attributes: Array<{
-    name: string;
-    type: string;
-    default: any;
-    description: string;
-    whether_embedding: boolean;
-  }>;
-}
-
-// 添加右侧边栏组件
 const AgentInfoSidebar: React.FC = () => {
-  const [agentInfo, setAgentInfo] = useState<AgentParamInfo | null>(null);
-
-  useEffect(() => {
-    // 获取 agent 参数信息
-    fetchCustom('/api/agent-param')
-      .then(res => res.json())
-      .then(response => {
-        if (response.data) {
-          setAgentInfo(response.data);
-        }
-      })
-      .catch(err => {
-        console.error('Failed to fetch agent parameters:', err);
-      });
-  }, []);
+  const context = useContext(AgentContext);
+  const agentInfo = context?.agentInfo;
 
   if (!agentInfo) {
     return <Spin />;
@@ -930,7 +996,7 @@ const AgentInfoSidebar: React.FC = () => {
 
   return (
     <>
-      {/* Context 信息 */}
+      {/* Context information */}
       <Card title="Context" size="small" style={{ marginBottom: 16 }}>
         <Table
           size="small"
@@ -963,7 +1029,7 @@ const AgentInfoSidebar: React.FC = () => {
         />
       </Card>
 
-      {/* Status 信息 */}
+      {/* Status information */}
       <Card title="Status Attributes" size="small">
         <Table
           size="small"
@@ -1156,97 +1222,99 @@ const AgentTemplateForm: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Card
-        title={id ? t('form.template.editTitle') : t('form.template.createTitle')}
-        extra={
-          <Space>
-            <Button onClick={() => navigate('/agent-templates')}>{t('form.common.cancel')}</Button>
-            <Button type="primary" onClick={() => form.submit()}>
-              {t('form.common.submit')}
-            </Button>
-          </Space>
-        }
-        bodyStyle={{ padding: '24px 0' }}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
+    <AgentContextProvider>
+      <div style={{ padding: '24px' }}>
+        <Card
+          title={id ? t('form.template.editTitle') : t('form.template.createTitle')}
+          extra={
+            <Space>
+              <Button onClick={() => navigate('/agent-templates')}>{t('form.common.cancel')}</Button>
+              <Button type="primary" onClick={() => form.submit()}>
+                {t('form.common.submit')}
+              </Button>
+            </Space>
+          }
+          bodyStyle={{ padding: '24px 0' }}
         >
-          <Row gutter={0}>
-            <Col span={24} style={{ padding: '0 24px', marginBottom: '24px' }}>
-              <Card 
-                title={t('form.template.basicInfo')} 
-                bordered={false}
-                bodyStyle={{ padding: '12px 24px' }}
-                headStyle={{ padding: '0 24px 8px' }}
-              >
-                <Row gutter={16} align="middle">
-                  <Col span={8}>
-                    <Form.Item
-                      name="name"
-                      label={t('form.common.name')}
-                      rules={[{ required: true }]}
-                      style={{ marginBottom: 0 }}
-                    >
-                      <Input placeholder={t('form.template.namePlaceholder')} />
-                    </Form.Item>
-                  </Col>
-                  <Col span={16}>
-                    <Form.Item
-                      name="description"
-                      label={t('form.common.description')}
-                      style={{ marginBottom: 0 }}
-                    >
-                      <Input placeholder={t('form.template.descriptionPlaceholder')} />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              </Card>
-            </Col>
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+          >
+            <Row gutter={0}>
+              <Col span={24} style={{ padding: '0 24px', marginBottom: '24px' }}>
+                <Card
+                  title={t('form.template.basicInfo')}
+                  bordered={false}
+                  bodyStyle={{ padding: '12px 24px' }}
+                  headStyle={{ padding: '0 24px 8px' }}
+                >
+                  <Row gutter={16} align="middle">
+                    <Col span={8}>
+                      <Form.Item
+                        name="name"
+                        label={t('form.common.name')}
+                        rules={[{ required: true }]}
+                        style={{ marginBottom: 0 }}
+                      >
+                        <Input placeholder={t('form.template.namePlaceholder')} />
+                      </Form.Item>
+                    </Col>
+                    <Col span={16}>
+                      <Form.Item
+                        name="description"
+                        label={t('form.common.description')}
+                        style={{ marginBottom: 0 }}
+                      >
+                        <Input placeholder={t('form.template.descriptionPlaceholder')} />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                </Card>
+              </Col>
 
-            <Col span={6} style={{ borderRight: '1px solid #f0f0f0' }}>
-              <div style={{ 
-                height: 'calc(100vh - 250px)', 
-                overflowY: 'auto', 
-                padding: '0 24px',
-                position: 'sticky',
-                top: 0
-              }}>
-                {renderProfileSection(form)}
-                {renderBaseLocation()}
-              </div>
-            </Col>
+              <Col span={6} style={{ borderRight: '1px solid #f0f0f0' }}>
+                <div style={{
+                  height: 'calc(100vh - 250px)',
+                  overflowY: 'auto',
+                  padding: '0 24px',
+                  position: 'sticky',
+                  top: 0
+                }}>
+                  {renderProfileSection(form)}
+                  {renderBaseLocation()}
+                </div>
+              </Col>
 
-            <Col span={12} style={{ borderRight: '1px solid #f0f0f0' }}>
-              <div style={{ 
-                height: 'calc(100vh - 250px)', 
-                overflowY: 'auto',
-                padding: '0 24px',
-                position: 'sticky',
-                top: 0
-              }}>
-                {renderAgentConfiguration()}
-                <BlockConfiguration />
-              </div>
-            </Col>
+              <Col span={12} style={{ borderRight: '1px solid #f0f0f0' }}>
+                <div style={{
+                  height: 'calc(100vh - 250px)',
+                  overflowY: 'auto',
+                  padding: '0 24px',
+                  position: 'sticky',
+                  top: 0
+                }}>
+                  <AgentConfiguration />
+                  <BlockConfiguration />
+                </div>
+              </Col>
 
-            <Col span={6}>
-              <div style={{ 
-                height: 'calc(100vh - 250px)', 
-                overflowY: 'auto',
-                padding: '0 24px',
-                position: 'sticky',
-                top: 0
-              }}>
-                <AgentInfoSidebar />
-              </div>
-            </Col>
-          </Row>
-        </Form>
-      </Card>
-    </div>
+              <Col span={6}>
+                <div style={{
+                  height: 'calc(100vh - 250px)',
+                  overflowY: 'auto',
+                  padding: '0 24px',
+                  position: 'sticky',
+                  top: 0
+                }}>
+                  <AgentInfoSidebar />
+                </div>
+              </Col>
+            </Row>
+          </Form>
+        </Card>
+      </div>
+    </AgentContextProvider>
   );
 };
 
