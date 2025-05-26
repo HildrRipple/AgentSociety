@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { Form, Input, Card, Row, Col, Button, Switch, InputNumber, Select, Space, message, Tooltip, Table, Modal, Typography, Spin } from 'antd';
+import { Form, Input, Card, Row, Col, Button, Switch, InputNumber, Select, Space, message, Tooltip, Table, Modal, Typography, Spin, Tabs } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCustom } from '../../components/fetch';
@@ -995,9 +995,8 @@ const AgentInfoSidebar: React.FC = () => {
   }
 
   return (
-    <>
-      {/* Context information */}
-      <Card title="Context" size="small" style={{ marginBottom: 16 }}>
+    <Tabs defaultActiveKey="context">
+      <Tabs.TabPane tab="Context" key="context">
         <Table
           size="small"
           pagination={false}
@@ -1027,10 +1026,8 @@ const AgentInfoSidebar: React.FC = () => {
             }
           ]}
         />
-      </Card>
-
-      {/* Status information */}
-      <Card title="Status Attributes" size="small">
+      </Tabs.TabPane>
+      <Tabs.TabPane tab="Status" key="status">
         <Table
           size="small"
           pagination={false}
@@ -1058,8 +1055,8 @@ const AgentInfoSidebar: React.FC = () => {
             },
           ]}
         />
-      </Card>
-    </>
+      </Tabs.TabPane>
+    </Tabs>
   );
 };
 
