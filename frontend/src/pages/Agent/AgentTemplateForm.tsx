@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Card, Row, Col, Button, Switch, InputNumber, Select, Space, message, Tooltip, Table, Modal, Typography } from 'antd';
+import { Form, Input, Card, Row, Col, Button, Switch, InputNumber, Select, Space, message, Tooltip, Table, Modal, Typography, Spin } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCustom } from '../../components/fetch';
@@ -535,24 +535,7 @@ interface FunctionInfo {
   description: string;
 }
 
-// 在 renderAgentConfiguration 函数中添加 Usable Functions 部分
 const renderAgentConfiguration = () => {
-  const [functions, setFunctions] = useState<FunctionInfo[]>([]);
-
-  useEffect(() => {
-    // 获取函数列表
-    fetchCustom('/api/agent-functions')
-      .then(res => res.json())
-      .then(response => {
-        if (response.data && Array.isArray(response.data)) {
-          setFunctions(response.data);
-        }
-      })
-      .catch(err => {
-        console.error('Failed to fetch functions:', err);
-        setFunctions([]);
-      });
-  }, []);
 
   // 从 profile 选项中提取建议
   const profileSuggestions = Object.entries(profileOptions).map(([key, config]) => ({
@@ -560,14 +543,9 @@ const renderAgentConfiguration = () => {
     detail: `Agent's ${config.label.toLowerCase()}`
   }));
 
-  // 从函数列表中提取建议
-  const functionSuggestions = functions.map(func => ({
-    label: func.function_name,
-    detail: func.description
-  }));
 
   // 合并所有建议
-  const suggestions = [...profileSuggestions, ...functionSuggestions];
+  const suggestions = [...profileSuggestions];
 
   return (
     <Card title="Agent Configuration" bordered={false}>
@@ -667,22 +645,6 @@ const renderAgentConfiguration = () => {
           >
             <InputNumber style={{ width: '100%' }} />
           </Form.Item>
-        </Col>
-
-        {/* 添加 Usable Functions 部分 */}
-        <Col span={24}>
-          <Card title="Usable Functions" size="small" style={{ marginBottom: 16 }}>
-            <Space wrap>
-              {Array.isArray(functions) && functions.map((func, index) => (
-                <span key={index}>
-                  <code>{func.function_name}</code>
-                  <Tooltip title={func.description}>
-                    <QuestionCircleOutlined style={{ marginLeft: 4 }} />
-                  </Tooltip>
-                </span>
-              ))}
-            </Space>
-          </Card>
         </Col>
 
         <Col span={24}>
@@ -918,6 +880,123 @@ const BlockConfiguration: React.FC = () => {
   );
 };
 
+// 在文件开头的接口定义部分添加以下内容
+interface AgentParamInfo {
+  params_type: Record<string, {
+    type: string;
+    description: string | null;
+    default: any;
+  }>;
+  block_output_type: Record<string, {
+    type: string;
+    description: string | null;
+    default: any;
+  }>;
+  context: Record<string, {
+    type: string;
+    description: string | null;
+    default: any;
+  }>;
+  status_attributes: Array<{
+    name: string;
+    type: string;
+    default: any;
+    description: string;
+    whether_embedding: boolean;
+  }>;
+}
+
+// 添加右侧边栏组件
+const AgentInfoSidebar: React.FC = () => {
+  const [agentInfo, setAgentInfo] = useState<AgentParamInfo | null>(null);
+
+  useEffect(() => {
+    // 获取 agent 参数信息
+    fetchCustom('/api/agent-param')
+      .then(res => res.json())
+      .then(response => {
+        if (response.data) {
+          setAgentInfo(response.data);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch agent parameters:', err);
+      });
+  }, []);
+
+  if (!agentInfo) {
+    return <Spin />;
+  }
+
+  return (
+    <>
+      {/* Context 信息 */}
+      <Card title="Context" size="small" style={{ marginBottom: 16 }}>
+        <Table
+          size="small"
+          pagination={false}
+          dataSource={Object.entries(agentInfo.context).map(([key, value]) => ({
+            key,
+            name: key,
+            type: value.type,
+            description: value.description,
+            default: JSON.stringify(value.default)
+          }))}
+          columns={[
+            {
+              title: '名称',
+              dataIndex: 'name',
+              width: '25%',
+            },
+            {
+              title: '类型',
+              dataIndex: 'type',
+              width: '25%',
+            },
+            {
+              title: '描述',
+              dataIndex: 'description',
+              width: '50%',
+              render: (text) => text || '-'
+            }
+          ]}
+        />
+      </Card>
+
+      {/* Status 信息 */}
+      <Card title="Status Attributes" size="small">
+        <Table
+          size="small"
+          pagination={false}
+          dataSource={agentInfo.status_attributes.map(attr => ({
+            key: attr.name,
+            ...attr,
+            default: JSON.stringify(attr.default)
+          }))}
+          columns={[
+            {
+              title: '名称',
+              dataIndex: 'name',
+              width: '20%',
+            },
+            {
+              title: '类型',
+              dataIndex: 'type',
+              width: '20%',
+            },
+            {
+              title: '描述',
+              dataIndex: 'description',
+              width: '40%',
+              render: (text) => text || '-'
+            },
+          ]}
+        />
+      </Card>
+    </>
+  );
+};
+
 const AgentTemplateForm: React.FC = () => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
@@ -1088,52 +1167,81 @@ const AgentTemplateForm: React.FC = () => {
             </Button>
           </Space>
         }
+        bodyStyle={{ padding: '24px 0' }}
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
         >
-          <Row gutter={[24, 24]}>
-            <Col span={24}>
-              <Card title={t('form.template.basicInfo')} bordered={false}>
-                <Row gutter={16}>
-                  <Col span={12}>
+          <Row gutter={0}>
+            <Col span={24} style={{ padding: '0 24px', marginBottom: '24px' }}>
+              <Card 
+                title={t('form.template.basicInfo')} 
+                bordered={false}
+                bodyStyle={{ padding: '12px 24px' }}
+                headStyle={{ padding: '0 24px 8px' }}
+              >
+                <Row gutter={16} align="middle">
+                  <Col span={8}>
                     <Form.Item
                       name="name"
                       label={t('form.common.name')}
                       rules={[{ required: true }]}
+                      style={{ marginBottom: 0 }}
                     >
                       <Input placeholder={t('form.template.namePlaceholder')} />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col span={16}>
                     <Form.Item
                       name="description"
                       label={t('form.common.description')}
+                      style={{ marginBottom: 0 }}
                     >
-                      <Input.TextArea rows={2} placeholder={t('form.template.descriptionPlaceholder')} />
+                      <Input placeholder={t('form.template.descriptionPlaceholder')} />
                     </Form.Item>
                   </Col>
                 </Row>
               </Card>
             </Col>
 
-            {/* Two-column layout starts */}
-            <Col span={8} style={{ position: 'sticky', top: 24, height: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-              <div style={{ paddingRight: '16px' }}>
+            <Col span={6} style={{ borderRight: '1px solid #f0f0f0' }}>
+              <div style={{ 
+                height: 'calc(100vh - 250px)', 
+                overflowY: 'auto', 
+                padding: '0 24px',
+                position: 'sticky',
+                top: 0
+              }}>
                 {renderProfileSection(form)}
-                {/* Left column: Base */}
                 {renderBaseLocation()}
               </div>
             </Col>
 
-            <Col span={16}>
-              {/* Right column: Agent Configuration */}
-              {renderAgentConfiguration()}
+            <Col span={12} style={{ borderRight: '1px solid #f0f0f0' }}>
+              <div style={{ 
+                height: 'calc(100vh - 250px)', 
+                overflowY: 'auto',
+                padding: '0 24px',
+                position: 'sticky',
+                top: 0
+              }}>
+                {renderAgentConfiguration()}
+                <BlockConfiguration />
+              </div>
+            </Col>
 
-              {/* Right column: Block Configuration */}
-              <BlockConfiguration />
+            <Col span={6}>
+              <div style={{ 
+                height: 'calc(100vh - 250px)', 
+                overflowY: 'auto',
+                padding: '0 24px',
+                position: 'sticky',
+                top: 0
+              }}>
+                <AgentInfoSidebar />
+              </div>
             </Col>
           </Row>
         </Form>

@@ -576,7 +576,7 @@ async def get_agent_param(
                 "type": simplify_type(attr.type),
                 "default": None if str(attr.default.__class__).endswith("PydanticUndefinedType'>") else attr.default,
                 "description": attr.description,
-                "whether_embedding": attr.whether_embedding if hasattr(attr, "whether_embedding") else False
+                # "whether_embedding": attr.whether_embedding if hasattr(attr, "whether_embedding") else False
             }
             for attr in SocietyAgent.StatusAttributes
         ]
