@@ -74,15 +74,6 @@ DEFAULT_DISTRIBUTIONS: dict[str, Distribution] = {
     "education": ChoiceDistribution(
         choices=["Doctor", "Master", "Bachelor", "College", "High School"]
     ),
-    "skill": ChoiceDistribution(
-        choices=[
-            "Good at problem-solving",
-            "Good at communication",
-            "Good at creativity",
-            "Good at teamwork",
-            "Other",
-        ]
-    ),
     "occupation": ChoiceDistribution(
         choices=[
             "Student",
@@ -95,33 +86,6 @@ DEFAULT_DISTRIBUTIONS: dict[str, Distribution] = {
             "Athlete",
             "Other",
         ]
-    ),
-    "family_consumption": ChoiceDistribution(choices=["low", "medium", "high"]),
-    "consumption": ChoiceDistribution(
-        choices=["low", "slightly low", "medium", "slightly high", "high"]
-    ),
-    "personality": ChoiceDistribution(
-        choices=["outgoint", "introvert", "ambivert", "extrovert"]
-    ),
-    "income": UniformIntDistribution(min_value=1000, max_value=20000),
-    "currency": UniformIntDistribution(min_value=1000, max_value=100000),
-    "residence": ChoiceDistribution(choices=["city", "suburb", "rural"]),
-    "city": ConstantDistribution(value="New York"),
-    "race": ChoiceDistribution(
-        choices=[
-            "Chinese",
-            "American",
-            "British",
-            "French",
-            "German",
-            "Japanese",
-            "Korean",
-            "Russian",
-            "Other",
-        ]
-    ),
-    "religion": ChoiceDistribution(
-        choices=["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]
     ),
     "marriage_status": ChoiceDistribution(
         choices=["not married", "married", "divorced", "widowed"]
@@ -220,26 +184,18 @@ def memory_config_societyagent(
         "gender": (str, sample_field_value(distributions, "gender"), True),
         "age": (int, sample_field_value(distributions, "age"), True),
         "education": (str, sample_field_value(distributions, "education"), True),
-        "skill": (str, sample_field_value(distributions, "skill"), True),
+        "skill": (str, "unknown", True),
         "occupation": (str, sample_field_value(distributions, "occupation"), True),
-        "family_consumption": (
-            str,
-            sample_field_value(distributions, "family_consumption"),
-            True,
-        ),
-        "consumption": (str, sample_field_value(distributions, "consumption"), True),
-        "personality": (str, sample_field_value(distributions, "personality"), True),
-        "income": (float, sample_field_value(distributions, "income"), True),
-        "currency": (float, sample_field_value(distributions, "currency"), True),
-        "residence": (str, sample_field_value(distributions, "residence"), True),
-        "city": (str, sample_field_value(distributions, "city"), True),
-        "race": (str, sample_field_value(distributions, "race"), True),
-        "religion": (str, sample_field_value(distributions, "religion"), True),
-        "marriage_status": (
-            str,
-            sample_field_value(distributions, "marriage_status"),
-            True,
-        ),
+        "family_consumption": (str, "unknown", True),
+        "consumption": (str, "unknown", True),
+        "personality": (str, "unknown", True),
+        "income": (float, 5000, True),
+        "currency": (float, 30000, True),
+        "residence": (str, "unknown", True),
+        "city": (str, "unknown", True),
+        "race": (str, "unknown", True),
+        "religion": (str, "unknown", True),
+        "marriage_status": (str, sample_field_value(distributions, "marriage_status"), True),
         "background_story": (str, "No background story", True),
     }
 
