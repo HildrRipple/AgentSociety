@@ -52,7 +52,7 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
     
     // Register new provider
     providerRef.current = monaco.languages.registerCompletionItemProvider(uniqueLanguageId, {
-      triggerCharacters: ['{', '@', '.'],
+      triggerCharacters: ['$', '.'],
       provideCompletionItems: (model: any, position: any) => {
         const textUntilPosition = model.getValueInRange({
           startLineNumber: position.lineNumber,
@@ -61,14 +61,14 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
           endColumn: position.column
         });
         
-        const hasOpenBrace = textUntilPosition.endsWith('{');
+        const hasDollar = textUntilPosition.endsWith('$');
         const hasDot = textUntilPosition.endsWith('.');
         const word = model.getWordUntilPosition(position);
         
         const range = {
           startLineNumber: position.lineNumber,
           endLineNumber: position.lineNumber,
-          startColumn: hasOpenBrace || hasDot ? position.column : word.startColumn,
+          startColumn: hasDollar || hasDot ? position.column : word.startColumn,
           endColumn: position.column
         };
 
@@ -94,18 +94,13 @@ const MonacoPromptEditor: React.FC<MonacoPromptEditorProps> = ({
                 insertText = `${insertText}}`;
               }
             } else {
-              // If not triggered by dot
+              // If triggered by $ or other
               if (isLastLevel) {
-                if (hasOpenBrace) {
-                  // If user has already input left brace, only add right brace
-                  insertText = `${insertText}}`;
-                } else {
-                  // If user hasn't input left brace, wrap with braces
-                  insertText = `{${insertText}}`;
-                }
+                // Always wrap with braces for last level
+                insertText = `{${insertText}}`;
               } else {
                 // Not last level, add dot
-                insertText = `${insertText}.`;
+                insertText = `{${insertText}.`;
               }
             }
             
