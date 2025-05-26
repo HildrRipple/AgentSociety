@@ -594,6 +594,83 @@ const AgentContextProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
+// 在文件开头添加新的类型定义
+interface ParamInfo {
+  type: string;
+  description: string | null;
+  default: any;
+}
+
+// 创建一个公共的渲染函数
+const renderDynamicFormItem = (
+  paramName: string, 
+  paramInfo: ParamInfo,
+  formItemProps: {
+    name: (string | number)[],
+    suggestions?: any[],
+  }
+) => {
+  const baseProps = {
+    name: formItemProps.name,
+    label: (
+      <Space>
+        {paramName}
+        <Tooltip title={paramInfo.description || ''}>
+          <QuestionCircleOutlined />
+        </Tooltip>
+      </Space>
+    ),
+    initialValue: paramInfo.default,
+    rules: [{ required: true, message: `请输入${paramName}` }]
+  };
+
+  switch (paramInfo.type.toLowerCase()) {
+    case 'bool':
+      return (
+        <Form.Item
+          {...baseProps}
+          valuePropName="checked"
+        >
+          <Switch defaultChecked={paramInfo.default} />
+        </Form.Item>
+      );
+    case 'int':
+    case 'float':
+      return (
+        <Form.Item {...baseProps}>
+          <InputNumber 
+            style={{ width: '100%' }} 
+            step={paramInfo.type === 'int' ? 1 : 0.1}
+          />
+        </Form.Item>
+      );
+    case 'str':
+      if (paramName.toLowerCase().includes('prompt')) {
+        return (
+          <Form.Item {...baseProps}>
+            <MonacoPromptEditor 
+              height="200px" 
+              suggestions={formItemProps.suggestions} 
+              editorId={paramName}
+              key={`${paramName}-${formItemProps.suggestions?.length}`}
+            />
+          </Form.Item>
+        );
+      }
+      return (
+        <Form.Item {...baseProps}>
+          <Input />
+        </Form.Item>
+      );
+    default:
+      return (
+        <Form.Item {...baseProps}>
+          <Input />
+        </Form.Item>
+      );
+  }
+};
+
 const AgentConfiguration: React.FC = () => {
   const context = useContext(AgentContext);
   const suggestions = context?.suggestions || [];
@@ -603,68 +680,6 @@ const AgentConfiguration: React.FC = () => {
     return <Spin />;
   }
 
-  const renderFormItem = (paramName: string, paramInfo: any) => {
-    const baseProps = {
-      name: ['agent_params', paramName],
-      label: (
-        <Space>
-          {paramName}
-          <Tooltip title={paramInfo.description || ''}>
-            <QuestionCircleOutlined />
-          </Tooltip>
-        </Space>
-      ),
-      initialValue: paramInfo.default,
-      rules: [{ required: true, message: `请输入${paramName}` }]
-    };
-
-    switch (paramInfo.type) {
-      case 'bool':
-        return (
-          <Form.Item
-            {...baseProps}
-            valuePropName="checked"
-          >
-            <Switch defaultChecked={paramInfo.default} />
-          </Form.Item>
-        );
-      case 'int':
-      case 'float':
-        return (
-          <Form.Item {...baseProps}>
-            <InputNumber 
-              style={{ width: '100%' }} 
-              step={paramInfo.type === 'int' ? 1 : 0.1}
-            />
-          </Form.Item>
-        );
-      case 'str':
-        if (paramName.toLowerCase().includes('prompt')) {
-          return (
-            <Form.Item {...baseProps}>
-              <MonacoPromptEditor 
-                height="200px" 
-                suggestions={suggestions} 
-                editorId={paramName}
-                key={`${paramName}-${suggestions.length}`}
-              />
-            </Form.Item>
-          );
-        }
-        return (
-          <Form.Item {...baseProps}>
-            <Input />
-          </Form.Item>
-        );
-      default:
-        return (
-          <Form.Item {...baseProps}>
-            <Input />
-          </Form.Item>
-        );
-    }
-  };
-
   return (
     <Card title="Agent Configuration" bordered={false}>
       <Row gutter={[16, 16]}>
@@ -673,7 +688,14 @@ const AgentConfiguration: React.FC = () => {
             key={paramName} 
             span={paramName.toLowerCase().includes('prompt') ? 24 : 12}
           >
-            {renderFormItem(paramName, paramInfo)}
+            {renderDynamicFormItem(
+              paramName,
+              paramInfo,
+              {
+                name: ['agent_params', paramName],
+                suggestions
+              }
+            )}
           </Col>
         ))}
       </Row>
@@ -700,55 +722,13 @@ interface BlockInfo {
   params: Record<string, BlockParam>;
 }
 
-// 渲染参数表单项的函数
-const renderParamField = (param: BlockParam, blockName: string, paramName: string) => {
-  switch (param.type) {
-    case 'str':
-      if (param.description?.toLowerCase().includes('prompt')) {
-        return (
-          <MonacoPromptEditor
-            value={param.default}
-            height="200px"
-            editorId={`${blockName}_${paramName}`}
-          />
-        );
-      }
-      return (
-        <Input
-          placeholder={param.description || ''}
-          defaultValue={param.default}
-        />
-      );
-    case 'int':
-    case 'float':
-      return (
-        <InputNumber
-          style={{ width: '100%' }}
-          placeholder={param.description || ''}
-          defaultValue={param.default}
-        />
-      );
-    case 'bool':
-      return (
-        <Switch
-          defaultChecked={param.default}
-        />
-      );
-    default:
-      return (
-        <Input
-          placeholder={param.description || ''}
-          defaultValue={param.default}
-        />
-      );
-  }
-};
-
 // Block Configuration 组件
 const BlockConfiguration: React.FC = () => {
   const [blocks, setBlocks] = useState<BlockInfo[]>([]);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
-  const [form] = Form.useForm();
+  const [blockParams, setBlockParams] = useState<Record<string, any>>({});
+  const context = useContext(AgentContext);
+  const suggestions = context?.suggestions || [];
 
   useEffect(() => {
     // 获取所有可用的 blocks
@@ -765,8 +745,30 @@ const BlockConfiguration: React.FC = () => {
       });
   }, []);
 
+  // 当选择block时获取对应的参数配置
+  const fetchBlockParams = async (blockType: string) => {
+    try {
+      const response = await fetchCustom(`/api/block-param/${blockType}`);
+      const data = await response.json();
+      if (data.data?.params_type) {
+        setBlockParams(prev => ({
+          ...prev,
+          [blockType]: data.data.params_type
+        }));
+      }
+    } catch (err) {
+      console.error(`Failed to fetch params for block ${blockType}:`, err);
+    }
+  };
+
   const handleBlockSelect = (values: string[]) => {
     setSelectedBlocks(values);
+    
+    // 获取新选中的blocks的参数
+    const newBlocks = values.filter(block => !blockParams[block]);
+    newBlocks.forEach(block => {
+      fetchBlockParams(block);
+    });
   };
 
   return (
@@ -799,7 +801,9 @@ const BlockConfiguration: React.FC = () => {
         {/* 已选中 Block 的配置 */}
         {selectedBlocks.map(blockName => {
           const blockInfo = blocks.find(b => b.block_name === blockName);
-          if (!blockInfo) return null;
+          const params = blockParams[blockName];
+          
+          if (!blockInfo || !params) return null;
 
           return (
             <Card
@@ -808,33 +812,16 @@ const BlockConfiguration: React.FC = () => {
               size="small"
               style={{ marginBottom: 16 }}
             >
-              {/* 参数配置 */}
-              {blockInfo.params && Object.keys(blockInfo.params).length > 0 && (
-                <div>
-                  <Typography.Text strong>Parameters:</Typography.Text>
-                  <div style={{ marginTop: 8 }}>
-                    {Object.entries(blockInfo.params).map(([paramName, param]) => (
-                      <Form.Item
-                        key={paramName}
-                        name={['blocks', blockName, 'params', paramName]}
-                        label={
-                          <Space>
-                            {paramName}
-                            {param.description && (
-                              <Tooltip title={param.description}>
-                                <QuestionCircleOutlined />
-                              </Tooltip>
-                            )}
-                          </Space>
-                        }
-                        initialValue={param.default}
-                      >
-                        {renderParamField(param, blockName, paramName)}
-                      </Form.Item>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {Object.entries(params).map(([paramName, paramInfo]) => (
+                renderDynamicFormItem(
+                  paramName,
+                  paramInfo as ParamInfo,
+                  {
+                    name: ['blocks', blockName, 'params', paramName],
+                    suggestions
+                  }
+                )
+              ))}
             </Card>
           );
         })}

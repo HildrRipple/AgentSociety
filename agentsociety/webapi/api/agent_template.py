@@ -624,6 +624,7 @@ async def get_block_param(
             param_data["params_type"] = {
                 field_name: get_field_info(field)
                 for field_name, field in block_class.ParamsType.model_fields.items()
+                if field_name != "block_memory"  # 排除 block_memory 字段
             }
             
         # Process Context
