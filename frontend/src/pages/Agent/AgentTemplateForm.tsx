@@ -808,27 +808,6 @@ const BlockConfiguration: React.FC = () => {
               size="small"
               style={{ marginBottom: 16 }}
             >
-              {/* <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                {blockInfo.description}
-              </Typography.Text> */}
-
-              {/* 显示可用函数 */}
-              <div style={{ marginBottom: 16 }}>
-                <Typography.Text strong>Available Functions:</Typography.Text>
-                <div style={{ marginTop: 8 }}>
-                  <Space wrap>
-                    {blockInfo.functions.map((func, index) => (
-                      <span key={index}>
-                        <code>{func.function_name}</code>
-                        <Tooltip title={func.description}>
-                          <QuestionCircleOutlined style={{ marginLeft: 4 }} />
-                        </Tooltip>
-                      </span>
-                    ))}
-                  </Space>
-                </div>
-              </div>
-
               {/* 参数配置 */}
               {blockInfo.params && Object.keys(blockInfo.params).length > 0 && (
                 <div>
