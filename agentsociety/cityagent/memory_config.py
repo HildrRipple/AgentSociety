@@ -123,7 +123,7 @@ DEFAULT_DISTRIBUTIONS: dict[str, Distribution] = {
     "religion": ChoiceDistribution(
         choices=["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]
     ),
-    "marital_status": ChoiceDistribution(
+    "marriage_status": ChoiceDistribution(
         choices=["not married", "married", "divorced", "widowed"]
     ),
 }
@@ -235,11 +235,12 @@ def memory_config_societyagent(
         "city": (str, sample_field_value(distributions, "city"), True),
         "race": (str, sample_field_value(distributions, "race"), True),
         "religion": (str, sample_field_value(distributions, "religion"), True),
-        "marital_status": (
+        "marriage_status": (
             str,
-            sample_field_value(distributions, "marital_status"),
+            sample_field_value(distributions, "marriage_status"),
             True,
         ),
+        "background_story": (str, "No background story", True),
     }
 
     BASE = {

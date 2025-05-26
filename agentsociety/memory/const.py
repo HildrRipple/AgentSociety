@@ -16,7 +16,8 @@ PROFILE_ATTRIBUTES = {
     "race": str(),
     "city": str(),
     "religion": str(),
-    "marital_status": str(),
+    "marriage_status": str(),
+    "background_story": str(),
 }
 
 STATE_ATTRIBUTES = {
