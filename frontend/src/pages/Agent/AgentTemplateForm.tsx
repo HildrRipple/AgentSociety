@@ -1067,6 +1067,19 @@ const AgentTemplateForm: React.FC = () => {
   const { id } = useParams(); // Get template ID from URL
   const [currentTemplate, setCurrentTemplate] = useState<AgentTemplate | null>(null);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
+  const [searchValue, setSearchValue] = useState<string>('');
+
+  // 添加搜索数据源
+  const searchOptions = [
+    { value: 'societyagent', label: 'Society Agent' },
+  ];
+
+  // 处理搜索
+  const handleSearch = (value: string) => {
+    setSearchValue(value);
+    // 这里可以添加实际的搜索逻辑
+
+  };
 
   // Load template data
   useEffect(() => {
@@ -1247,7 +1260,7 @@ const AgentTemplateForm: React.FC = () => {
                   headStyle={{ padding: '0 24px 8px' }}
                 >
                   <Row gutter={16} align="middle">
-                    <Col span={8}>
+                    <Col span={6}>
                       <Form.Item
                         name="name"
                         label={t('form.common.name')}
@@ -1257,13 +1270,33 @@ const AgentTemplateForm: React.FC = () => {
                         <Input placeholder={t('form.template.namePlaceholder')} />
                       </Form.Item>
                     </Col>
-                    <Col span={16}>
+                    <Col span={12}>
                       <Form.Item
                         name="description"
                         label={t('form.common.description')}
                         style={{ marginBottom: 0 }}
                       >
                         <Input placeholder={t('form.template.descriptionPlaceholder')} />
+                      </Form.Item>
+                    </Col>
+                    <Col span={6}>
+                      <Form.Item
+                        label="Template Type"
+                        style={{ marginBottom: 0 }}
+                      >
+                        <Select
+                          showSearch
+                          value={searchValue}
+                          placeholder="Enter search keywords"
+                          style={{ width: '100%' }}
+                          defaultActiveFirstOption={false}
+                          showArrow={false}
+                          filterOption={false}
+                          onSearch={handleSearch}
+                          onChange={handleSearch}
+                          notFoundContent={null}
+                          options={searchOptions}
+                        />
                       </Form.Item>
                     </Col>
                   </Row>
