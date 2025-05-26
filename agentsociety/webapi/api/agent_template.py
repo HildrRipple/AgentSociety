@@ -420,34 +420,34 @@ async def delete_agent_template(
         return ApiResponseWrapper(data={"message": "Template deleted successfully"})
 
 
-@router.get("/agent-functions")
-async def get_agent_functions(
-    request: Request,
-) -> ApiResponseWrapper[List[Dict[str, str]]]:
-    """Get available functions for agent"""
-    try:
-        functions_map = SocietyAgent.get_functions
-        functions = [
-            {
-                "function_name": func_info["function_name"],
-                "description": func_info["description"],
-            }
-            for func_info in functions_map.values()
-        ]
-        return ApiResponseWrapper(data=functions)
-    except Exception as e:
-        print(f"Error in get_agent_functions: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get agent functions: {str(e)}",
-        )
+# @router.get("/agent-functions")
+# async def get_agent_functions(
+#     request: Request,
+# ) -> ApiResponseWrapper[List[Dict[str, str]]]:
+#     """Get available functions for agent"""
+#     try:
+#         functions_map = SocietyAgent.get_functions
+#         functions = [
+#             {
+#                 "function_name": func_info["function_name"],
+#                 "description": func_info["description"],
+#             }
+#             for func_info in functions_map.values()
+#         ]
+#         return ApiResponseWrapper(data=functions)
+#     except Exception as e:
+#         print(f"Error in get_agent_functions: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=f"Failed to get agent functions: {str(e)}",
+#         )
 
 
 @router.get("/agent-blocks")
 async def get_agent_blocks(
     request: Request,
 ) -> ApiResponseWrapper[List[Dict[str, Any]]]:
-    """Get available blocks and their functions for agent"""
+    """Get available blocks basic information including name and description"""
     try:
         block_classes = [
             # CognitionBlock,
@@ -459,36 +459,9 @@ async def get_agent_blocks(
 
         blocks = []
         for block_class in block_classes:
-            # 获取参数类的字段信息
-            params = {}
-            if hasattr(block_class, "ParamsType"):
-                for field_name, field in block_class.ParamsType.__fields__.items():
-                    if field_name == "block_memory":
-                        continue
-                    type_name = (
-                        field.annotation.__name__
-                        if hasattr(field.annotation, "__name__")
-                        else str(field.annotation)
-                    )
-                    params[field_name] = {
-                        "description": (
-                            field.description if hasattr(field, "description") else None
-                        ),
-                        "default": field.default,
-                        "type": type_name,
-                    }
-
             block_info = {
                 "block_name": block_class.name,
                 "description": block_class.description,
-                "functions": [
-                    {
-                        "function_name": func_info["function_name"],
-                        "description": func_info["description"],
-                    }
-                    for func_info in block_class.get_functions.values()
-                ],
-                "params": params,
             }
             blocks.append(block_info)
 
@@ -498,4 +471,174 @@ async def get_agent_blocks(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get agent blocks: {str(e)}",
+        )
+
+
+def simplify_type(type_annotation):
+    """Convert type annotation to a simplified string format"""
+    type_str = str(type_annotation)
+    
+    # Handle class format
+    if type_str.startswith("<class '") and type_str.endswith("'>"):
+        return type_str[8:-2]
+        
+    # Handle typing.Optional
+    if type_str.startswith("typing.Optional["):
+        inner_type = type_str[len("typing.Optional["):-1]
+        return f"{simplify_type(inner_type)}?"
+        
+    # Handle typing.List
+    if type_str.startswith("typing.List["):
+        inner_type = type_str[len("typing.List["):-1]
+        return f"List<{simplify_type(inner_type)}>"
+        
+    # Handle typing.Dict
+    if type_str.startswith("typing.Dict["):
+        # Extract key and value types
+        inner_types = type_str[len("typing.Dict["):-1].split(", ")
+        if len(inner_types) == 2:
+            key_type = simplify_type(inner_types[0])
+            value_type = simplify_type(inner_types[1])
+            return f"Dict<{key_type}, {value_type}>"
+        
+    # Handle Union type
+    if type_str.startswith("typing.Union["):
+        inner_types = type_str[len("typing.Union["):-1].split(", ")
+        return " | ".join(simplify_type(t) for t in inner_types)
+        
+    return type_str.replace("typing.", "")
+
+
+def get_field_info(field):
+    """Helper function to safely get field information"""
+    try:
+        default_value = None
+        if hasattr(field, "default") and field.default is not None:
+            # Handle Pydantic Undefined type
+            if str(field.default.__class__).endswith("PydanticUndefinedType'>"):
+                default_value = None
+            else:
+                default_value = field.default
+        
+        return {
+            "type": simplify_type(field.annotation),
+            "description": field.description if hasattr(field, "description") else None,
+            "default": default_value
+        }
+    except Exception as e:
+        print(f"Error processing field: {str(e)}")
+        return {
+            "type": "unknown",
+            "description": None,
+            "default": None
+        }
+
+
+@router.get("/agent-param")
+async def get_agent_param(
+    request: Request,
+) -> ApiResponseWrapper[Dict[str, Any]]:
+    """Get SocietyAgent's parameters including ParamsType, BlockOutputType, Context and StatusAttributes"""
+    try:
+        # Get SocietyAgent parameters information
+        param_data = {
+            "params_type": {},
+            "block_output_type": {},
+            "context": {},
+            "status_attributes": []
+        }
+        
+        # Process ParamsType
+        if hasattr(SocietyAgent.ParamsType, "model_fields"):
+            param_data["params_type"] = {
+                field_name: get_field_info(field)
+                for field_name, field in SocietyAgent.ParamsType.model_fields.items()
+            }
+            
+        # Process BlockOutputType
+        if hasattr(SocietyAgent.BlockOutputType, "model_fields"):
+            param_data["block_output_type"] = {
+                field_name: get_field_info(field)
+                for field_name, field in SocietyAgent.BlockOutputType.model_fields.items()
+            }
+            
+        # Process Context
+        if hasattr(SocietyAgent.Context, "model_fields"):
+            param_data["context"] = {
+                field_name: get_field_info(field)
+                for field_name, field in SocietyAgent.Context.model_fields.items()
+            }
+            
+        # Process StatusAttributes
+        param_data["status_attributes"] = [
+            {
+                "name": attr.name,
+                "type": simplify_type(attr.type),
+                "default": None if str(attr.default.__class__).endswith("PydanticUndefinedType'>") else attr.default,
+                "description": attr.description,
+                "whether_embedding": attr.whether_embedding if hasattr(attr, "whether_embedding") else False
+            }
+            for attr in SocietyAgent.StatusAttributes
+        ]
+        
+        return ApiResponseWrapper(data=param_data)
+    except Exception as e:
+        print(f"Error in get_agent_param: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get agent parameters: {str(e)}",
+        )
+
+
+@router.get("/block-param/{block_type}")
+async def get_block_param(
+    request: Request,
+    block_type: str,
+) -> ApiResponseWrapper[Dict[str, Any]]:
+    """Get Block's parameters including ParamsType and Context for specified block type"""
+    try:
+        # Map block type string to block class
+        block_map = {
+            "EconomyBlock": EconomyBlock,
+            "MobilityBlock": MobilityBlock,
+            "OtherBlock": OtherBlock,
+            "SocialBlock": SocialBlock,
+        }
+        
+        if block_type not in block_map:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid block type. Available types: {', '.join(block_map.keys())}"
+            )
+            
+        block_class = block_map[block_type]
+        
+        # Get Block parameters information
+        param_data = {
+            "params_type": {},
+            "context": {},
+        }
+        
+        # Process ParamsType
+        if hasattr(block_class, "ParamsType") and hasattr(block_class.ParamsType, "model_fields"):
+            param_data["params_type"] = {
+                field_name: get_field_info(field)
+                for field_name, field in block_class.ParamsType.model_fields.items()
+            }
+            
+        # Process Context
+        if hasattr(block_class, "Context") and hasattr(block_class.Context, "model_fields"):
+            param_data["context"] = {
+                field_name: get_field_info(field)
+                for field_name, field in block_class.Context.model_fields.items()
+            }
+        
+        return ApiResponseWrapper(data=param_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_block_param: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get block parameters: {str(e)}",
         )
