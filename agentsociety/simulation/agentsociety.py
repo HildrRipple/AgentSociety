@@ -501,6 +501,12 @@ class AgentSociety:
                                 )
                             )
                             next_id = max(next_id, agent_id + 1)
+                        else:
+                            citizen_ids.add(next_id)
+                            agents.append(
+                                (next_id, agent_config.agent_class, generator, agent_data.index(agent_datum), agent_config.agent_params, agent_config.blocks)
+                            )
+                            next_id += 1
                 else:
                     # Add distributions for citizens as before
                     if agent_config.memory_distributions is None:
