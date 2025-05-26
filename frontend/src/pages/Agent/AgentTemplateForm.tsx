@@ -468,7 +468,7 @@ const renderProfileSection = (form: FormInstance) => (
   <Card title="Profile" bordered={false} style={{ marginBottom: '24px' }}>
     <Row gutter={[16, 16]}>
       {Object.entries(profileOptions).map(([key, config]) => (
-        <Col span={12} key={key}>
+        <Col span={24} key={key}>
           <Card size="small" title={config.label}>
             {config.type === 'discrete' ? (
               <>
@@ -1120,10 +1120,12 @@ const AgentTemplateForm: React.FC = () => {
             </Col>
 
             {/* Two-column layout starts */}
-            <Col span={8}>
-              {renderProfileSection(form)}
-              {/* Left column: Base */}
-              {renderBaseLocation()}
+            <Col span={8} style={{ position: 'sticky', top: 24, height: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+              <div style={{ paddingRight: '16px' }}>
+                {renderProfileSection(form)}
+                {/* Left column: Base */}
+                {renderBaseLocation()}
+              </div>
             </Col>
 
             <Col span={16}>

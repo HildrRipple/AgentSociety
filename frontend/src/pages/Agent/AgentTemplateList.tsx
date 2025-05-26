@@ -6,18 +6,6 @@ import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 
-interface TemplateBlock {
-  id: string;
-  name: string;
-  type: string;
-  description: string;
-  dependencies?: {
-    needs?: string;
-    satisfaction?: string;
-  };
-  params?: Record<string, any>;
-}
-
 interface AgentTemplate {
   id: string;
   name: string;
