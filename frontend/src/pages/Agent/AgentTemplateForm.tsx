@@ -261,39 +261,7 @@ const profileOptions: Record<string, ProfileField> = {
   }
 };
 
-// Add block types based on BLOCK_MAPPING
-const BLOCK_TYPES = [
-  {
-    label: "Mobility Block",
-    value: "mobilityblock",
-    description: "移动模块用于控制代理的移动行为，包括路径规划、速度控制等功能。"
-  },
-  {
-    label: "Economy Block",
-    value: "economyblock",
-    description: "经济模块处理代理的经济活动，如收入、支出、交易等行为。"
-  },
-  {
-    label: "Social Block",
-    value: "socialblock",
-    description: "社交模块管理代理之间的社交互动，包括社交关系网络和交流行为。"
-  },
-  {
-    label: "Other Block",
-    value: "otherblock",
-    description: "其他功能模块，可用于扩展代理的特定行为。"
-  },
-];
 
-// 修改分布类型定义
-const DISCRETE_DISTRIBUTIONS = [
-  { label: 'Random Choice', value: 'choice' }
-];
-
-const CONTINUOUS_DISTRIBUTIONS = [
-  { label: 'Uniform Distribution', value: 'uniform_int' },
-  { label: 'Normal Distribution', value: 'normal' }
-];
 
 // 首先添加新的类型定义
 interface Distribution {
@@ -529,11 +497,6 @@ const renderBaseLocation = () => (
   </Card>
 );
 
-// 首先添加一个接口定义
-interface FunctionInfo {
-  function_name: string;
-  description: string;
-}
 
 // Add type definitions for context and status
 interface ContextItem {
@@ -634,170 +597,85 @@ const AgentContextProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 const AgentConfiguration: React.FC = () => {
   const context = useContext(AgentContext);
   const suggestions = context?.suggestions || [];
+  const agentInfo = context?.agentInfo;
 
   if (!context?.agentInfo) {
     return <Spin />;
   }
 
+  const renderFormItem = (paramName: string, paramInfo: any) => {
+    const baseProps = {
+      name: ['agent_params', paramName],
+      label: (
+        <Space>
+          {paramName}
+          <Tooltip title={paramInfo.description || ''}>
+            <QuestionCircleOutlined />
+          </Tooltip>
+        </Space>
+      ),
+      initialValue: paramInfo.default,
+      rules: [{ required: true, message: `请输入${paramName}` }]
+    };
+
+    switch (paramInfo.type) {
+      case 'bool':
+        return (
+          <Form.Item
+            {...baseProps}
+            valuePropName="checked"
+          >
+            <Switch defaultChecked={paramInfo.default} />
+          </Form.Item>
+        );
+      case 'int':
+      case 'float':
+        return (
+          <Form.Item {...baseProps}>
+            <InputNumber 
+              style={{ width: '100%' }} 
+              step={paramInfo.type === 'int' ? 1 : 0.1}
+            />
+          </Form.Item>
+        );
+      case 'str':
+        if (paramName.toLowerCase().includes('prompt')) {
+          return (
+            <Form.Item {...baseProps}>
+              <MonacoPromptEditor 
+                height="200px" 
+                suggestions={suggestions} 
+                editorId={paramName}
+                key={`${paramName}-${suggestions.length}`}
+              />
+            </Form.Item>
+          );
+        }
+        return (
+          <Form.Item {...baseProps}>
+            <Input />
+          </Form.Item>
+        );
+      default:
+        return (
+          <Form.Item {...baseProps}>
+            <Input />
+          </Form.Item>
+        );
+    }
+  };
+
   return (
     <Card title="Agent Configuration" bordered={false}>
       <Row gutter={[16, 16]}>
-        <Col span={12}>
-          <Form.Item
-            name={['agent_params', 'enable_cognition']}
-            label={
-              <Space>
-                Enable Cognition
-                <Tooltip title="Whether to enable cognition">
-                  <QuestionCircleOutlined />
-                </Tooltip>
-              </Space>
-            }
-            valuePropName="checked"
+        {Object.entries(agentInfo.params_type).map(([paramName, paramInfo]) => (
+          <Col 
+            key={paramName} 
+            span={paramName.toLowerCase().includes('prompt') ? 24 : 12}
           >
-            <Switch />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name={['agent_params', 'UBI']}
-            label={
-              <Space>
-                UBI
-                <Tooltip title="Universal Basic Income">
-                  <QuestionCircleOutlined />
-                </Tooltip>
-              </Space>
-            }
-            rules={[{ required: true }]}
-          >
-            <InputNumber style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name={['agent_params', 'num_labor_hours']}
-            label={
-              <span>
-                Labor Hours&nbsp;
-                <Tooltip title="Number of labor hours per month">
-                  <QuestionCircleOutlined />
-                </Tooltip>
-              </span>
-            }
-            rules={[{ required: true }]}
-          >
-            <InputNumber style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name={['agent_params', 'productivity_per_labor']}
-            label={
-              <span>
-                Productivity per Labor&nbsp;
-                <Tooltip title="Productivity per labor hour">
-                  <QuestionCircleOutlined />
-                </Tooltip>
-              </span>
-            }
-            rules={[{ required: true }]}
-          >
-            <InputNumber style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name={['agent_params', 'time_diff']}
-            label={
-              <span>
-                Time Difference&nbsp;
-                <Tooltip title="Time difference between two triggers">
-                  <QuestionCircleOutlined />
-                </Tooltip>
-              </span>
-            }
-            rules={[{ required: true }]}
-          >
-            <InputNumber style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name={['agent_params', 'max_plan_steps']}
-            label={
-              <span>
-                Max Plan Steps&nbsp;
-                <Tooltip title="Maximum number of steps in a plan">
-                  <QuestionCircleOutlined />
-                </Tooltip>
-              </span>
-            }
-            rules={[{ required: true }]}
-          >
-            <InputNumber style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
-
-        <Col span={24}>
-          <Form.Item
-            name={['agent_params', 'need_initialization_prompt']}
-            label={
-              <Space>
-                Need Initialization Prompt
-                <Tooltip title="Initial needs prompt">
-                  <QuestionCircleOutlined />
-                </Tooltip>
-              </Space>
-            }
-          >
-            <MonacoPromptEditor 
-              height="200px" 
-              suggestions={suggestions} 
-              editorId="need_initialization_prompt"
-            />
-          </Form.Item>
-        </Col>
-        <Col span={24}>
-          <Form.Item
-            name={['agent_params', 'environment_reflection_prompt']}
-            label={
-              <Space>
-                Environment Reflection Prompt
-                <Tooltip title="Environment reflection prompt">
-                  <QuestionCircleOutlined />
-                </Tooltip>
-              </Space>
-            }
-          >
-            <MonacoPromptEditor 
-              height="200px" 
-              suggestions={suggestions} 
-              editorId="environment_reflection_prompt"
-              key={`environment_reflection_prompt-${suggestions.length}`} 
-            />
-          </Form.Item>
-        </Col>
-        <Col span={24}>
-          <Form.Item
-            name={['agent_params', 'plan_generation_prompt']}
-            label={
-              <Space>
-                Plan Generation Prompt
-                <Tooltip title="Plan generation prompt">
-                  <QuestionCircleOutlined />
-                </Tooltip>
-              </Space>
-            }
-          >
-            <MonacoPromptEditor 
-              height="200px" 
-              suggestions={suggestions} 
-              editorId="plan_generation_prompt"
-              key={`plan_generation_prompt-${suggestions.length}`}
-            />
-          </Form.Item>
-        </Col>
+            {renderFormItem(paramName, paramInfo)}
+          </Col>
+        ))}
       </Row>
     </Card>
   );
