@@ -8,17 +8,17 @@ import MonacoPromptEditor from '../../components/MonacoPromptEditor';
 import { useTranslation } from 'react-i18next';
 
 // Import required interfaces and constants
-interface TemplateBlock {
-  id: string;
-  name: string;
-  type: string;
-  description: string;
-  dependencies?: {
-    needs?: string;
-    satisfaction?: string;
-  };
-  params?: Record<string, any>;
-}
+// interface TemplateBlock {
+//   id: string;
+//   name: string;
+//   type: string;
+//   description: string;
+//   dependencies?: {
+//     needs?: string;
+//     satisfaction?: string;
+//   };
+//   params?: Record<string, any>;
+// }
 
 interface AgentTemplate {
   id: string;
@@ -36,16 +36,16 @@ interface AgentTemplate {
     };
   };
   agent_params: {
-    enable_cognition: boolean;
-    UBI: number;
-    num_labor_hours: number;
-    productivity_per_labor: number;
-    time_diff: number;
-    max_plan_steps: number;
-    need_initialization_prompt?: string;
-    need_evaluation_prompt?: string;
-    need_reflection_prompt?: string;
-    plan_generation_prompt?: string;
+    // enable_cognition: boolean;
+    // UBI: number;
+    // num_labor_hours: number;
+    // productivity_per_labor: number;
+    // time_diff: number;
+    // max_plan_steps: number;
+    // need_initialization_prompt?: string;
+    // need_evaluation_prompt?: string;
+    // need_reflection_prompt?: string;
+    // plan_generation_prompt?: string;
   };
   blocks: {
     [key: string]: {
@@ -263,27 +263,27 @@ const profileOptions: Record<string, ProfileField> = {
 
 
 
-// 首先添加新的类型定义
-interface Distribution {
-  type: 'choice' | 'uniform_int' | 'normal';
-  params: {
-    choices?: string[];
-    weights?: number[];
-    min_value?: number;
-    max_value?: number;
-    mean?: number;
-    std?: number;
-  };
-}
+// // 首先添加新的类型定义
+// interface Distribution {
+//   type: 'choice' | 'uniform_int' | 'normal';
+//   params: {
+//     choices?: string[];
+//     weights?: number[];
+//     min_value?: number;
+//     max_value?: number;
+//     mean?: number;
+//     std?: number;
+//   };
+// }
 
-interface DistributionConfig {
-  type: 'choice' | 'uniform_int' | 'normal';
-  choices?: string[];
-  min_value?: number;
-  max_value?: number;
-  mean?: number;
-  std?: number;
-}
+// interface DistributionConfig {
+//   type: 'choice' | 'uniform_int' | 'normal';
+//   choices?: string[];
+//   min_value?: number;
+//   max_value?: number;
+//   mean?: number;
+//   std?: number;
+// }
 
 // Modify the distribution form rendering function
 const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, form: FormInstance) => {
@@ -710,15 +710,15 @@ interface BlockParam {
   type: string;
 }
 
-interface BlockFunction {
-  function_name: string;
-  description: string;
-}
+// interface BlockFunction {
+//   function_name: string;
+//   description: string;
+// }
 
 interface BlockInfo {
   block_name: string;
   description: string;
-  functions: BlockFunction[];
+  // functions: BlockFunction[];
   params: Record<string, BlockParam>;
 }
 
@@ -1003,15 +1003,48 @@ const AgentInfoSidebar: React.FC<AgentInfoSidebarProps> = ({ blockContexts = [] 
   );
 };
 
+const validateFormData = (values: any, agentInfo: AgentInfo) => {
+  // 验证 agent_params
+  for (const [key, paramInfo] of Object.entries(agentInfo.params_type)) {
+    if (paramInfo.type === 'bool' && typeof values.agent_params?.[key] !== 'boolean') {
+      throw new Error(`参数 ${key} 必须是布尔值`);
+    }
+    if ((paramInfo.type === 'int' || paramInfo.type === 'float') && 
+        typeof values.agent_params?.[key] !== 'number') {
+      throw new Error(`参数 ${key} 必须是数字`);
+    }
+    // 可以添加更多类型验证
+  }
+
+  // // 验证 blocks
+  // if (values.blocks) {
+  //   Object.entries(values.blocks).forEach(([blockName, block]: [string, any]) => {
+  //     if (block.params) {
+  //       Object.entries(block.params).forEach(([paramKey, paramValue]) => {
+  //         const paramType = agentInfo.block_output_type[paramKey]?.type;
+  //         if (!paramType) {
+  //           throw new Error(`未知的块参数: ${blockName}.${paramKey}`);
+  //         }
+  //         // 可以添加更多参数验证
+  //       });
+  //     }
+  //   });
+  // }
+};
+
 const AgentTemplateForm: React.FC = () => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
   const navigate = useNavigate();
-  const { id } = useParams(); // Get template ID from URL
+  const { id } = useParams();
   const [currentTemplate, setCurrentTemplate] = useState<AgentTemplate | null>(null);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
   const [searchValue, setSearchValue] = useState<string>('');
   const [blockContexts, setBlockContexts] = useState<BlockContextInfo[]>([]);
+  
+  // 将 context 移到组件顶层
+  const context = useContext(AgentContext);
+  const agentInfo = context?.agentInfo;
 
   // 添加搜索数据源
   const searchOptions = [
@@ -1052,15 +1085,15 @@ const AgentTemplateForm: React.FC = () => {
         name: 'General Social Agent',
         description: '',
         profile: defaultProfileFields,
-        agent_params: {
-          enable_cognition: true,
-          UBI: 1000,
-          num_labor_hours: 168,
-          productivity_per_labor: 1,
-          time_diff: 2592000,
-          max_plan_steps: 6
-        },
-        blocks: {}
+        // agent_params: {
+        //   enable_cognition: true,
+        //   UBI: 1000,
+        //   num_labor_hours: 168,
+        //   productivity_per_labor: 1,
+        //   time_diff: 2592000,
+        //   max_plan_steps: 6
+        // },
+        // blocks: {}
       });
     }
   }, [id]);
@@ -1089,11 +1122,18 @@ const AgentTemplateForm: React.FC = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      console.log('Original form data:', JSON.stringify(values, null, 2));
+      
+      if (!agentInfo) {
+        message.error('缺少必要的配置信息');
+        return;
+      }
 
-      // 转换profile数据为memory_distributions格式
+      // 验证表单数据
+      validateFormData(values, agentInfo);
+      
+      // 构造 memory_distributions
       const memory_distributions: Record<string, any> = {};
-      Object.entries(values.profile).forEach(([key, value]: [string, any]) => {
+      Object.entries(values.profile || {}).forEach(([key, value]: [string, any]) => {
         if (value.type === 'choice') {
           memory_distributions[key] = {
             dist_type: 'choice',
@@ -1115,37 +1155,37 @@ const AgentTemplateForm: React.FC = () => {
         }
       });
 
-      // 处理blocks数据
+      // 构造 agent_params
+      const agent_params: Record<string, any> = {};
+      Object.entries(agentInfo.params_type).forEach(([key, paramInfo]) => {
+        const value = values.agent_params?.[key];
+        agent_params[key] = value ?? paramInfo.default;
+      });
+
+      // 构造 blocks
       const blocksData: Record<string, any> = {};
       if (values.blocks) {
-        Object.entries(values.blocks).forEach(([key, block]: [string, any]) => {
+        Object.entries(values.blocks).forEach(([blockName, block]: [string, any]) => {
           if (block.params) {
-            blocksData[key] = block.params;
+            // 确保每个参数都有值，如果没有则使用默认值
+            const blockParams = {};
+            Object.entries(block.params).forEach(([paramKey, paramValue]) => {
+              blockParams[paramKey] = paramValue;
+            });
+            blocksData[blockName] = blockParams;
           } else {
-            blocksData[key] = {};
+            blocksData[blockName] = {};
           }
         });
       }
       console.log('Converted blocks data:', JSON.stringify(blocksData, null, 2));
 
-      // 构造模板数据
+      // 构造最终提交的数据
       const templateData = {
         name: values.name || 'Default Template Name',
         description: values.description || '',
         memory_distributions,
-        agent_params: {
-          enable_cognition: values.agent_params?.enable_cognition ?? true,
-          UBI: values.agent_params?.UBI ?? 0,
-          num_labor_hours: values.agent_params?.num_labor_hours ?? 8,
-          productivity_per_labor: values.agent_params?.productivity_per_labor ?? 1.0,
-          time_diff: values.agent_params?.time_diff ?? 1.0,
-          max_plan_steps: values.agent_params?.max_plan_steps ?? 5,
-          environment_reflection_prompt: values.agent_params?.environment_reflection_prompt,
-          need_initialization_prompt: values.agent_params?.need_initialization_prompt,
-          need_evaluation_prompt: values.agent_params?.need_evaluation_prompt,
-          need_reflection_prompt: values.agent_params?.need_reflection_prompt,
-          plan_generation_prompt: values.agent_params?.plan_generation_prompt
-        },
+        agent_params,
         blocks: blocksData
       };
 
@@ -1294,4 +1334,8 @@ const AgentTemplateForm: React.FC = () => {
   );
 };
 
-export default AgentTemplateForm; 
+export default () => (
+  <AgentContextProvider>
+    <AgentTemplateForm />
+  </AgentContextProvider>
+); 
