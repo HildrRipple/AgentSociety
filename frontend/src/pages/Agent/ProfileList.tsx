@@ -50,45 +50,45 @@ const ProfileList: React.FC = () => {
     );
 
     // Handle profile preview
-    const handlePreview = async (profileId) => {
-        try {
-            setPreviewLoading(true);
-            setCurrentProfileId(profileId);
+    // const handlePreview = async (profileId) => {
+    //     try {
+    //         setPreviewLoading(true);
+    //         setCurrentProfileId(profileId);
             
-            // Call the API to get profile data
-            const response = await fetch(`/api/agent-profiles/${profileId}`);
+    //         // Call the API to get profile data
+    //         const response = await fetchCustom(`/api/agent-profiles/${profileId}`);
             
-            if (!response.ok) {
-                throw new Error(`Failed to fetch profile: ${response.statusText}`);
-            }
+    //         if (!response.ok) {
+    //             throw new Error(`Failed to fetch profile: ${response.statusText}`);
+    //         }
             
-            const data = await response.json();
+    //         const data = await response.json();
             
-            if (data && data.data) {
-                // Prepare data for table display
-                const previewData = data.data.slice(0, 100); // Limit to first 100 records
+    //         if (data && data.data) {
+    //             // Prepare data for table display
+    //             const previewData = data.data.slice(0, 100); // Limit to first 100 records
                 
-                // Create columns for the table
-                const firstRecord = previewData[0] || {};
-                const columns = Object.keys(firstRecord).map(key => ({
-                    title: key,
-                    dataIndex: key,
-                    key: key,
-                }));
+    //             // Create columns for the table
+    //             const firstRecord = previewData[0] || {};
+    //             const columns = Object.keys(firstRecord).map(key => ({
+    //                 title: key,
+    //                 dataIndex: key,
+    //                 key: key,
+    //             }));
                 
-                setPreviewData(previewData);
-                setPreviewColumns(columns);
-                setPreviewVisible(true);
-            } else {
-                message.warning('No data available for preview');
-            }
-        } catch (error) {
-            console.error('Failed to fetch profile preview:', error);
-            message.error('Failed to fetch profile preview');
-        } finally {
-            setPreviewLoading(false);
-        }
-    };
+    //             setPreviewData(previewData);
+    //             setPreviewColumns(columns);
+    //             setPreviewVisible(true);
+    //         } else {
+    //             message.warning('No data available for preview');
+    //         }
+    //     } catch (error) {
+    //         console.error('Failed to fetch profile preview:', error);
+    //         message.error('Failed to fetch profile preview');
+    //     } finally {
+    //         setPreviewLoading(false);
+    //     }
+    // };
 
     // Handle profile download
     const handleDownload = async (profileId, profileName) => {
@@ -181,7 +181,7 @@ const ProfileList: React.FC = () => {
         setUploading(true);
 
         try {
-            const response = await fetch('/api/agent-profiles/upload', {
+            const response = await fetchCustom('/api/agent-profiles/upload', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${getAccessToken()}`
