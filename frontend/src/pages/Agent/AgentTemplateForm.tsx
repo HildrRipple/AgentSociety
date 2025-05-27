@@ -134,7 +134,7 @@ const defaultProfileFields = {
     choices: ["none", "Christian", "Muslim", "Buddhist", "Hindu"],
     weights: [0.2, 0.2, 0.2, 0.2, 0.2]
   },
-  marital_status: {
+  marriage_status: {
     type: 'choice',
     choices: ["not married", "married", "divorced", "widowed"],
     weights: [0.4, 0.4, 0.1, 0.1]
@@ -249,8 +249,8 @@ const profileOptions: Record<string, ProfileField> = {
     type: 'discrete',
     options: ["none", "Christian", "Muslim", "Buddhist", "Hindu"],
   },
-  marital_status: {
-    label: "Marital Status",
+  marriage_status: {
+    label: "Marriage Status",
     type: 'discrete',
     options: ["not married", "married", "divorced", "widowed"],
   },
