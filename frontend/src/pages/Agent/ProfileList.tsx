@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Upload } from 'antd';
 import { PlusOutlined, EyeOutlined, DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { Spin } from 'antd';
-import { Link } from 'react-router-dom';
 import { fetchCustom } from '../../components/fetch';
 import { getAccessToken } from '../../components/Auth';
 
@@ -18,6 +17,7 @@ const ProfileList: React.FC = () => {
     const [uploadModalVisible, setUploadModalVisible] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [fileList, setFileList] = useState([]);
+    const [description, setDescription] = useState('');
 
     // Load profiles
     const loadProfiles = async () => {
@@ -46,8 +46,7 @@ const ProfileList: React.FC = () => {
 
     // Filter profiles based on search text
     const filteredProfiles = profiles.filter(profile =>
-        profile.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        profile.agent_type.toLowerCase().includes(searchText.toLowerCase())
+        profile.name.toLowerCase().includes(searchText.toLowerCase())
     );
 
     // Handle profile preview
@@ -95,7 +94,7 @@ const ProfileList: React.FC = () => {
     const handleDownload = async (profileId, profileName) => {
         try {
             // Call the API to get profile data
-            const response = await fetch(`/api/agent-profiles/${profileId}`);
+            const response = await fetchCustom(`/api/agent-profiles/${profileId}`);
             
             if (!response.ok) {
                 throw new Error(`Failed to fetch profile: ${response.statusText}`);
@@ -175,9 +174,9 @@ const ProfileList: React.FC = () => {
         }
 
         const formData = new FormData();
-        fileList.forEach(file => {
-            formData.append('file', file);
-        });
+        formData.append('file', fileList[0].originFileObj as File);
+        formData.append('name', fileList[0].name);
+        formData.append('description', description);
 
         setUploading(true);
 
@@ -191,16 +190,18 @@ const ProfileList: React.FC = () => {
             });
 
             if (!response.ok) {
-                throw new Error(`Upload failed: ${response.statusText}`);
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Upload failed: ${response.statusText}`);
             }
 
             setFileList([]);
+            setDescription('');
             setUploadModalVisible(false);
             message.success('Profile uploaded successfully');
             loadProfiles(); // Refresh the list
         } catch (error) {
             console.error('Failed to upload profile:', error);
-            message.error('Failed to upload profile');
+            message.error(error instanceof Error ? error.message : 'Failed to upload profile');
         } finally {
             setUploading(false);
         }
@@ -219,9 +220,10 @@ const ProfileList: React.FC = () => {
             key: 'name',
         },
         {
-            title: 'Agent Type',
-            dataIndex: 'agent_type',
-            key: 'agent_type',
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            ellipsis: true,
         },
         {
             title: 'Count',
@@ -238,6 +240,7 @@ const ProfileList: React.FC = () => {
             key: 'actions',
             render: (_, record) => (
                 <Space>
+                    {/* 注释掉预览按钮
                     <Tooltip title="Preview">
                         <Button 
                             icon={<EyeOutlined />} 
@@ -245,6 +248,7 @@ const ProfileList: React.FC = () => {
                             onClick={() => handlePreview(record.id)}
                         />
                     </Tooltip>
+                    */}
                     <Tooltip title="Download">
                         <Button 
                             icon={<DownloadOutlined />} 
@@ -296,7 +300,7 @@ const ProfileList: React.FC = () => {
                 pagination={{ pageSize: 10 }}
             />
 
-            {/* Preview Modal */}
+            {/* 注释掉预览模态框
             <Modal
                 title="Profile Preview"
                 open={previewVisible}
@@ -324,6 +328,7 @@ const ProfileList: React.FC = () => {
                     <div>No preview data available</div>
                 )}
             </Modal>
+            */}
 
             {/* Upload Modal */}
             <Modal
@@ -332,11 +337,13 @@ const ProfileList: React.FC = () => {
                 onCancel={() => {
                     setUploadModalVisible(false);
                     setFileList([]);
+                    setDescription('');
                 }}
                 footer={[
                     <Button key="cancel" onClick={() => {
                         setUploadModalVisible(false);
                         setFileList([]);
+                        setDescription('');
                     }}>
                         Cancel
                     </Button>,
@@ -351,21 +358,29 @@ const ProfileList: React.FC = () => {
                     </Button>
                 ]}
             >
-                <Upload.Dragger
-                    fileList={fileList}
-                    onChange={handleFileChange}
-                    beforeUpload={() => false}
-                    multiple={false}
-                    accept=".csv,.json"
-                >
-                    <p className="ant-upload-drag-icon">
-                        <UploadOutlined />
-                    </p>
-                    <p className="ant-upload-text">Click or drag file to this area to upload</p>
-                    <p className="ant-upload-hint">
-                        Support for CSV or JSON files. The file should contain agent profile data.
-                    </p>
-                </Upload.Dragger>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                    <Upload.Dragger
+                        fileList={fileList}
+                        onChange={handleFileChange}
+                        beforeUpload={() => false}
+                        multiple={false}
+                        accept=".csv,.json"
+                    >
+                        <p className="ant-upload-drag-icon">
+                            <UploadOutlined />
+                        </p>
+                        <p className="ant-upload-text">Click or drag file to this area to upload</p>
+                        <p className="ant-upload-hint">
+                            Support for CSV or JSON files. The file should contain agent profile data.
+                        </p>
+                    </Upload.Dragger>
+                    <Input.TextArea
+                        placeholder="Enter description for this profile"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows={4}
+                    />
+                </Space>
             </Modal>
         </Card>
     );

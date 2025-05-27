@@ -177,7 +177,6 @@ async def upload_agent_profile(
     request: Request,
     file: UploadFile = File(...),
     name: Optional[str] = Form(None),
-    agent_type: Optional[str] = Form("citizen"),
     description: Optional[str] = Form(None),
 ) -> ApiResponseWrapper[Dict[str, Any]]:
     """Upload an agent profile file and save it to the database"""
@@ -242,7 +241,6 @@ async def upload_agent_profile(
         # Save metadata to database
         async with request.app.state.get_db() as db:
             db = cast(AsyncSession, db)
-
             # Create new profile data entry
             profile_id = uuid.uuid4()
             new_profile = AgentProfile(
@@ -250,24 +248,25 @@ async def upload_agent_profile(
                 id=profile_id,
                 name=profile_name,
                 description=profile_description,
-                agent_type=agent_type,
+                agent_type="citizen",  # 设置默认值
                 file_path=s3_path,
                 record_count=record_count,
             )
 
             db.add(new_profile)
             await db.commit()
+            await db.refresh(new_profile)  # 刷新对象以获取数据库生成的值
 
-            return ApiResponseWrapper(
-                data={
-                    "id": str(profile_id),
-                    "name": profile_name,
-                    "agent_type": agent_type,
-                    "count": record_count,
-                    "created_at": new_profile.created_at.isoformat(),
-                    "file_path": s3_path,
-                }
-            )
+            # 创建一个新的字典来存储响应数据
+            response_data = {
+                "id": str(profile_id),
+                "name": profile_name,
+                "description": profile_description,
+                "count": record_count,
+                "created_at": new_profile.created_at.isoformat() if new_profile.created_at else None,
+                "file_path": s3_path,
+            }
+            return ApiResponseWrapper(data=response_data)
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON format"
