@@ -114,7 +114,7 @@ class CitizenAgentBase(Agent):
         """
         person_id = await self.status.get("id")
         currency = await self.status.get("currency")
-        skill = await self.status.get("work_skill")
+        skill = await self.status.get("work_skill", 0.0)
         consumption = 0.0
         income = 0.0
         await self.environment.economy_client.add_agents(

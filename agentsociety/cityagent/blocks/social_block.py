@@ -429,6 +429,7 @@ class SocialBlock(Block):
     ParamsType = SocialBlockParams
     OutputType = SocietyAgentBlockOutput
     ContextType = SocialBlockContext
+    NeedAgent = True
     name = "SocialBlock"
     description = "Responsible for all kinds of social interactions"
     actions = {

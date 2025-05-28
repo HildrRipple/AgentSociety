@@ -533,12 +533,12 @@ class AgentGroup:
                     parent_id = position["lane_position"]["lane_id"]
                 else:
                     parent_id = None
-                hunger_satisfaction = await agent.status.get("hunger_satisfaction")
-                energy_satisfaction = await agent.status.get("energy_satisfaction")
-                safety_satisfaction = await agent.status.get("safety_satisfaction")
-                social_satisfaction = await agent.status.get("social_satisfaction")
+                hunger_satisfaction = await agent.status.get("hunger_satisfaction", 0)
+                energy_satisfaction = await agent.status.get("energy_satisfaction", 0)
+                safety_satisfaction = await agent.status.get("safety_satisfaction", 0)
+                social_satisfaction = await agent.status.get("social_satisfaction", 0)
                 current_need = await agent.status.get("current_need", "None")
-                current_plan = await agent.status.get("current_plan")
+                current_plan = await agent.status.get("current_plan", {})
                 if current_plan is not None and current_plan:
                     intention = current_plan.get("target", "Other")
                     step_index = current_plan.get("index", 0)

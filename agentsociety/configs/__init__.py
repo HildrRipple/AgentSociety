@@ -1,7 +1,7 @@
 import math
 from typing import Any, Awaitable, Callable, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, model_validator
 import psutil
 from ..environment import MapConfig, SimulatorConfig
 from ..llm import LLMConfig
@@ -18,6 +18,7 @@ from .exp import (
     AgentFilterConfig,
 )
 from .utils import load_config_from_file
+from ..agent.memory_config_generator import default_memory_config_citizen
 
 __all__ = [
     "EnvConfig",
@@ -95,6 +96,15 @@ class AgentsConfig(BaseModel):
     @field_serializer("init_funcs")
     def serialize_init_funcs(self, init_funcs, info):
         return [func.__name__ for func in init_funcs]
+    
+    @model_validator(mode="after")
+    def validate_configuration(self):
+        """Validate configuration options to ensure the user selects the correct combination"""
+        for agent_config in self.citizens:
+            if agent_config.memory_config_func is None:
+                agent_config.memory_config_func = default_memory_config_citizen
+
+        return self
 
 
 class AdvancedConfig(BaseModel):
