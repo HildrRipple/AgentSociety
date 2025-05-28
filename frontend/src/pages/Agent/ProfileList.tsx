@@ -103,18 +103,17 @@ const ProfileList: React.FC = () => {
             const data = await response.json();
             
             if (data && data.data) {
-                // Convert to CSV
-                const csvContent = convertToCSV(data.data);
-                
-                // Create a download link
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                // 创建 JSON 格式的 blob
+                const jsonContent = JSON.stringify(data.data, null, 2); // 使用 2 空格缩进，使输出更易读
+                const blob = new Blob([jsonContent], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.setAttribute('download', `${profileName}.csv`);
+                link.setAttribute('download', `${profileName}`);
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
+                URL.revokeObjectURL(url); // 清理创建的 URL
             } else {
                 message.warning('No data available for download');
             }
@@ -125,27 +124,27 @@ const ProfileList: React.FC = () => {
     };
 
     // Convert JSON to CSV
-    const convertToCSV = (data) => {
-        if (!data || data.length === 0) return '';
+    // const convertToCSV = (data) => {
+    //     if (!data || data.length === 0) return '';
         
-        const headers = Object.keys(data[0]);
-        const csvRows = [];
+    //     const headers = Object.keys(data[0]);
+    //     const csvRows = [];
         
-        // Add header row
-        csvRows.push(headers.join(','));
+    //     // Add header row
+    //     csvRows.push(headers.join(','));
         
-        // Add data rows
-        for (const row of data) {
-            const values = headers.map(header => {
-                const value = row[header];
-                // Handle values that contain commas, quotes, etc.
-                return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
-            });
-            csvRows.push(values.join(','));
-        }
+    //     // Add data rows
+    //     for (const row of data) {
+    //         const values = headers.map(header => {
+    //             const value = row[header];
+    //             // Handle values that contain commas, quotes, etc.
+    //             return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
+    //         });
+    //         csvRows.push(values.join(','));
+    //     }
         
-        return csvRows.join('\n');
-    };
+    //     return csvRows.join('\n');
+    // };
 
     // Handle profile delete
     const handleDelete = async (profileId) => {
@@ -364,14 +363,15 @@ const ProfileList: React.FC = () => {
                         onChange={handleFileChange}
                         beforeUpload={() => false}
                         multiple={false}
-                        accept=".csv,.json"
+                        // accept=".csv,.json"
+                        accept=".json"
                     >
                         <p className="ant-upload-drag-icon">
                             <UploadOutlined />
                         </p>
                         <p className="ant-upload-text">Click or drag file to this area to upload</p>
                         <p className="ant-upload-hint">
-                            Support for CSV or JSON files. The file should contain agent profile data.
+                            Support for JSON files. The file should contain agent profile data.
                         </p>
                     </Upload.Dragger>
                     <Input.TextArea
