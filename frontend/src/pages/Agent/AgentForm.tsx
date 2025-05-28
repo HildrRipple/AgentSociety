@@ -15,6 +15,16 @@ interface AgentTemplate {
   // ... 其他字段
 }
 
+interface AgentProfile {
+  id: string;
+  name: string;
+  description: string;
+  agent_type: string;
+  count: number;
+  created_at: string;
+  file_path: string;
+}
+
 interface AgentFormProps {
   value: Partial<AgentsConfig>;
   onChange: (value: Partial<AgentsConfig>) => void;
@@ -29,6 +39,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
   const addDistributionRef = React.useRef(null);
   const [manualDistributions, setManualDistributions] = React.useState({});
   const [templates, setTemplates] = useState<AgentTemplate[]>([]);
+  const [profiles, setProfiles] = useState<AgentProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const { t } = useTranslation();
 
@@ -93,9 +104,28 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
     loadTemplates();
   }, []);
 
+  // Load profiles
+  useEffect(() => {
+    const loadProfiles = async () => {
+      try {
+        const response = await fetchCustom('/api/agent-profiles');
+        if (response.ok) {
+          const data = await response.json();
+          setProfiles(data.data || []);
+        } else {
+          message.error('Failed to load profiles');
+        }
+      } catch (error) {
+        message.error('Error loading profiles');
+      }
+    };
+
+    loadProfiles();
+  }, []);
+
   // Handle profile selection
-  const handleProfileSelect = (profileId) => {
-    setSelectedProfile(profileId);
+  const handleProfileSelect = (filePath) => {
+    setSelectedProfile(filePath);
     
     // Update form values based on selected profile
     const formValues = form.getFieldsValue();
@@ -103,7 +133,12 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
       formValues.citizens = [{}];
     }
     
-    formValues.citizens[0].profile_id = profileId;
+    // 只设置必要的字段
+    formValues.citizens[0] = {
+      agent_class: 'citizen',
+      memory_from_file: filePath
+    };
+    
     form.setFieldsValue(formValues);
     
     // Update parent component
@@ -340,7 +375,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                 </Form.Item>
                 
                 {citizenConfigMode === 'profile' ? (
-                  <Form.List name="citizens" initialValue={[{ agent_class: 'citizen', memory_distributions: {} }]}>
+                  <Form.List name="citizens" initialValue={[{ agent_class: 'citizen' }]}>
                     {(fields, { add, remove }) => (
                       <>
                         {fields.map(({ key, name, ...restField }) => (
@@ -356,23 +391,30 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                           >
                             <Form.Item
                               {...restField}
-                              name={[name, 'profile_id']}
+                              name={[name, 'memory_from_file']}
                               label="Select Profile"
                               rules={[{ required: true, message: 'Please select a profile' }]}
                             >
                               <Select
                                 placeholder="Select a profile"
-                                loading={false}
+                                loading={loading}
                                 onChange={(value) => handleProfileSelect(value)}
                               >
-                                {/* Profile options will be populated here */}
+                                {profiles.map(profile => (
+                                  <Option key={profile.id} value={profile.file_path}>
+                                    {profile.name}
+                                    <span style={{ color: '#999', marginLeft: 8 }}>
+                                      ({profile.count} records)
+                                    </span>
+                                  </Option>
+                                ))}
                               </Select>
                             </Form.Item>
                           </Card>
                         ))}
                         <Button
                           type="dashed"
-                          onClick={() => add({ number: 10, agent_class: 'citizen', memory_distributions: {} })}
+                          onClick={() => add({ agent_class: 'citizen' })}
                           block
                           icon={<PlusOutlined />}
                         >
