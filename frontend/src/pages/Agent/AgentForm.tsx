@@ -34,23 +34,17 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
   const [form] = Form.useForm();
   const [activeTab, setActiveTab] = React.useState('1');
   const [citizenConfigMode, setCitizenConfigMode] = React.useState('manual');
-  const [selectedProfile, setSelectedProfile] = React.useState('');
+  const [selectedCitizenProfile, setSelectedCitizenProfile] = React.useState({});
+  const [selectedCustomProfiles, setSelectedCustomProfiles] = React.useState<{[key: number]: string}>({});
   const [distributionsState, setDistributionsState] = React.useState({});
   const addDistributionRef = React.useRef(null);
   const [manualDistributions, setManualDistributions] = React.useState({});
   const [templates, setTemplates] = useState<AgentTemplate[]>([]);
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
   const [loading, setLoading] = useState(false);
+  const [customConfigMode, setCustomConfigMode] = React.useState('manual');
   const { t } = useTranslation();
 
-  // Define agent type options
-  const agentClassOptions = [
-    { label: 'Citizen', value: 'citizen' },
-    { label: 'Firm', value: 'firm' },
-    { label: 'Government', value: 'government' },
-    { label: 'Bank', value: 'bank' },
-    { label: 'NBS', value: 'nbs' },
-  ];
 
   // Define distribution type options
   const distributionTypeOptions = [
@@ -123,25 +117,40 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
     loadProfiles();
   }, []);
 
-  // Handle profile selection
-  const handleProfileSelect = (filePath) => {
-    setSelectedProfile(filePath);
+  // Handle citizen profile selection
+  const handleCitizenProfileSelect = (filePath: string, citizenIndex: number) => {
+    setSelectedCitizenProfile(prev => ({
+      ...prev,
+      [citizenIndex]: filePath
+    }));
     
     // Update form values based on selected profile
     const formValues = form.getFieldsValue();
-    if (!formValues.citizens) {
-      formValues.citizens = [{}];
-    }
-    
-    // 只设置必要的字段
-    formValues.citizens[0] = {
+    formValues.citizens[citizenIndex] = {
+      ...formValues.citizens[citizenIndex],
       agent_class: 'citizen',
       memory_from_file: filePath
     };
     
     form.setFieldsValue(formValues);
+    onChange(formValues);
+  };
+
+  // Handle custom profile selection
+  const handleCustomProfileSelect = (filePath: string, customIndex: number) => {
+    setSelectedCustomProfiles(prev => ({
+      ...prev,
+      [customIndex]: filePath
+    }));
     
-    // Update parent component
+    // Update form values based on selected profile
+    const formValues = form.getFieldsValue();
+    formValues.customs[customIndex] = {
+      ...formValues.customs[customIndex],
+      memory_from_file: filePath
+    };
+    
+    form.setFieldsValue(formValues);
     onChange(formValues);
   };
 
@@ -257,6 +266,16 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         const blockKey = key.toLowerCase();
                         convertedBlocks[blockKey] = value;
                       });
+
+                      // 如果使用 profile，不包含 memory_distributions
+                      if (custom.memory_from_file) {
+                        return {
+                          agent_class: 'citizen',
+                          memory_from_file: custom.memory_from_file,
+                          agent_params: template.agent_params,
+                          blocks: convertedBlocks
+                        };
+                      }
 
                       // 转换memory_distributions格式
                       const convertedDistributions = {};
@@ -398,7 +417,8 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                               <Select
                                 placeholder="Select a profile"
                                 loading={loading}
-                                onChange={(value) => handleProfileSelect(value)}
+                                value={selectedCitizenProfile[name]}
+                                onChange={(value) => handleCitizenProfileSelect(value, name)}
                               >
                                 {profiles.map(profile => (
                                   <Option key={profile.id} value={profile.file_path}>
@@ -721,7 +741,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
 
             <TabPane tab="Custom" key="6">
               <Card bordered={false}>
-                <Form.List name="customs" initialValue={[{ number: 1 }]}>
+                <Form.List name="customs" initialValue={[{}]}>
                   {(fields, { add, remove }) => (
                     <>
                       {fields.map(({ key, name, ...restField }) => (
@@ -756,19 +776,55 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                               ))}
                             </Select>
                           </Form.Item>
-                          <Form.Item
-                            {...restField}
-                            name={[name, 'number']}
-                            label={t('form.agent.numberLabel')}
-                            rules={[{ required: true, message: t('form.agent.numberPlaceholder') }]}
-                          >
-                            <InputNumber min={1} style={{ width: '100%' }} />
+
+                          <Form.Item label="Configuration Mode">
+                            <Radio.Group
+                              value={customConfigMode}
+                              onChange={(e) => setCustomConfigMode(e.target.value)}
+                            >
+                              <Radio.Button value="manual">Set Number</Radio.Button>
+                              <Radio.Button value="profile">Use Profile</Radio.Button>
+                            </Radio.Group>
                           </Form.Item>
+
+                          {customConfigMode === 'manual' ? (
+                            <Form.Item
+                              {...restField}
+                              name={[name, 'number']}
+                              label={t('form.agent.numberLabel')}
+                              rules={[{ required: true, message: t('form.agent.numberPlaceholder') }]}
+                            >
+                              <InputNumber min={1} style={{ width: '100%' }} />
+                            </Form.Item>
+                          ) : (
+                            <Form.Item
+                              {...restField}
+                              name={[name, 'memory_from_file']}
+                              label="Select Profile"
+                              rules={[{ required: true, message: 'Please select a profile' }]}
+                            >
+                              <Select
+                                placeholder="Select a profile"
+                                loading={loading}
+                                value={selectedCustomProfiles[name]}
+                                onChange={(value) => handleCustomProfileSelect(value, name)}
+                              >
+                                {profiles.map(profile => (
+                                  <Option key={profile.id} value={profile.file_path}>
+                                    {profile.name}
+                                    <span style={{ color: '#999', marginLeft: 8 }}>
+                                      ({profile.count} records)
+                                    </span>
+                                  </Option>
+                                ))}
+                              </Select>
+                            </Form.Item>
+                          )}
                         </Card>
                       ))}
                       <Button
                         type="dashed"
-                        onClick={() => add({ number: 1 })}
+                        onClick={() => add({})}
                         block
                         icon={<PlusOutlined />}
                       >
