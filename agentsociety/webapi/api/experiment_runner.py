@@ -102,11 +102,16 @@ async def run_experiment(
             # create account with 0 balance
             stmt = insert(Account).values(tenant_id=tenant_id, balance=0)
             await db.execute(stmt)
+            stmt = select(Account).where(Account.tenant_id == tenant_id)
             account = (await db.execute(stmt)).scalar_one()
-        if account.balance <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient balance"
-            )
+        executor = cast(
+            Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
+        )
+        if executor == KubernetesExecutor:
+            if account.balance <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient balance"
+                )
         # ===== LLM config =====
         stmt = select(LLMConfig.config).where(
             LLMConfig.tenant_id == config.llm.tenant_id,
