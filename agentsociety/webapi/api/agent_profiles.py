@@ -190,7 +190,7 @@ def validate_and_process_ids(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     """
     # Collect existing IDs
     existing_ids = set()
-    max_id = -1
+    max_id = 0
     
     # First pass: validate existing IDs
     for record in data:
