@@ -37,6 +37,9 @@ from .type import ExperimentStatus, Logs
 
 __all__ = ["AgentSociety"]
 
+MIN_ID = 1
+MAX_ID = 100000000
+
 
 def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     """
@@ -255,6 +258,8 @@ class AgentSociety:
             nonlocal next_id  # Declare that we want to modify the outer variable
             while next_id in defined_ids:
                 next_id += 1
+            if next_id > MAX_ID:
+                raise ValueError(f"Agent ID {next_id} is greater than MAX_ID {MAX_ID}")
             defined_ids.add(next_id)
             return next_id
         
@@ -330,6 +335,8 @@ class AgentSociety:
             for agent_datum in agent_data:
                 agent_id = agent_datum.get("id")
                 assert agent_id is not None, "id is required in memory_from_file[Firms]"
+                assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                assert agent_id <= MAX_ID, f"id {agent_id} is greater than MAX_ID {MAX_ID}"
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 firm_ids.add(agent_id)
@@ -361,6 +368,8 @@ class AgentSociety:
             for agent_datum in agent_data:
                 agent_id = agent_datum.get("id")
                 assert agent_id is not None, "id is required in memory_from_file[Banks]"
+                assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                assert agent_id <= MAX_ID, f"id {agent_id} is greater than MAX_ID {MAX_ID}"
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 bank_ids.add(agent_id)
@@ -392,6 +401,8 @@ class AgentSociety:
             for agent_datum in agent_data:
                 agent_id = agent_datum.get("id")
                 assert agent_id is not None, "id is required in memory_from_file[NBS]"
+                assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                assert agent_id <= MAX_ID, f"id {agent_id} is greater than MAX_ID {MAX_ID}"
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 nbs_ids.add(agent_id)
@@ -423,6 +434,8 @@ class AgentSociety:
             for agent_datum in agent_data:
                 agent_id = agent_datum.get("id")
                 assert agent_id is not None, "id is required in memory_from_file[Governments]"
+                assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                assert agent_id <= MAX_ID, f"id {agent_id} is greater than MAX_ID {MAX_ID}"
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 government_ids.add(agent_id)
@@ -455,6 +468,8 @@ class AgentSociety:
             for agent_datum in agent_data:
                 agent_id = agent_datum.get("id")
                 assert agent_id is not None, "id is required in memory_from_file[Citizens]"
+                assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                assert agent_id <= MAX_ID, f"id {agent_id} is greater than MAX_ID {MAX_ID}"
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 citizen_ids.add(agent_id)
