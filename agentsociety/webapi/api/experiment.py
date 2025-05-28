@@ -267,13 +267,7 @@ async def get_experiment_metrics(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
             )
 
-        found, metrics_by_key = await get_experiment_metrics_by_id(db, exp_id)
-        if not found:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No MLflow run found for this experiment",
-            )
-
+        _, metrics_by_key = await get_experiment_metrics_by_id(db, exp_id)
         return ApiResponseWrapper(data=metrics_by_key)
 
 
