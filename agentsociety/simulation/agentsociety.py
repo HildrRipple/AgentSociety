@@ -74,7 +74,7 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     agent_params = agent_config.agent_params
     blocks = agent_config.blocks
     agents = [(agent_class, generator, i, agent_params, blocks) for i in range(n)]
-    return agents
+    return agents, generator
 
 
 class AgentSociety:
@@ -250,6 +250,14 @@ class AgentSociety:
         # ======================================
         agents = []  # (id, agent_class, generator, memory_index)
         next_id = 1
+        defined_ids = set()  # used to check if the id is already defined
+        def _find_next_id():
+            nonlocal next_id  # Declare that we want to modify the outer variable
+            while next_id in defined_ids:
+                next_id += 1
+            defined_ids.add(next_id)
+            return next_id
+        
         group_size = self._config.advanced.group_size
         get_logger().info(f"Initializing agent groups (size={group_size})...")
         citizen_ids = set()
@@ -260,385 +268,286 @@ class AgentSociety:
         aoi_ids = self._environment.get_aoi_ids()
 
         # Check if any agent config uses memory_from_file
-        using_file_based_ids = any(
-            agent_config.memory_from_file is not None
-            for agent_configs in [
-                self._config.agents.firms,
-                self._config.agents.banks,
-                self._config.agents.nbs,
-                self._config.agents.governments,
-                self._config.agents.citizens,
+        agent_configs_normal = {
+            "firms": [],
+            "banks": [],
+            "nbs": [],
+            "governments": [],
+            "citizens": [],
+        }
+        agent_configs_from_file = {
+            "firms": [],
+            "banks": [],
+            "nbs": [],
+            "governments": [],
+            "citizens": [],
+        }
+        for agent_config in self._config.agents.firms:
+            if agent_config.memory_from_file is None:
+                agent_configs_normal["firms"].append(agent_config)
+            else:
+                agent_configs_from_file["firms"].append(agent_config)
+        for agent_config in self._config.agents.banks:
+            if agent_config.memory_from_file is None:
+                agent_configs_normal["banks"].append(agent_config)
+            else:
+                agent_configs_from_file["banks"].append(agent_config)
+        for agent_config in self._config.agents.nbs:
+            if agent_config.memory_from_file is None:
+                agent_configs_normal["nbs"].append(agent_config)
+            else:
+                agent_configs_from_file["nbs"].append(agent_config)
+        for agent_config in self._config.agents.governments:
+            if agent_config.memory_from_file is None:
+                agent_configs_normal["governments"].append(agent_config)
+            else:
+                agent_configs_from_file["governments"].append(agent_config)
+        for agent_config in self._config.agents.citizens:
+            if agent_config.memory_from_file is None:
+                agent_configs_normal["citizens"].append(agent_config)
+            else:
+                agent_configs_from_file["citizens"].append(agent_config)
+
+        citizen_generators = []
+        # Step 1: Process all agents with memory_from_file
+        # Firms
+        for agent_config in agent_configs_from_file["firms"]:
+            # Create generator
+            generator = MemoryConfigGenerator(
+                agent_config.memory_config_func,  # type: ignore
+                agent_config.agent_class.StatusAttributes,  # type: ignore
+                agent_config.memory_from_file,
+                (
+                    agent_config.memory_distributions
+                    if agent_config.memory_distributions is not None
+                    else {}
+                ),
+                self._config.env.s3,
+            )
+            # Get agent data from file
+            agent_data = generator.get_agent_data_from_file()
+            # Extract IDs from agent data
+            for agent_datum in agent_data:
+                agent_id = agent_datum.get("id")
+                assert agent_id is not None, "id is required in memory_from_file[Firms]"
+                assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                defined_ids.add(agent_id)
+                firm_ids.add(agent_id)
+                agents.append(
+                    (
+                        agent_id,
+                        agent_config.agent_class,
+                        generator,
+                        agent_data.index(agent_datum),
+                        agent_config.agent_params,
+                        agent_config.blocks,
+                    )
+                )
+
+        # Banks
+        for agent_config in agent_configs_from_file["banks"]:
+            generator = MemoryConfigGenerator(
+                agent_config.memory_config_func,  # type: ignore
+                agent_config.agent_class.StatusAttributes,  # type: ignore
+                agent_config.memory_from_file,
+                (
+                    agent_config.memory_distributions
+                    if agent_config.memory_distributions is not None
+                    else {}
+                ),
+                self._config.env.s3,
+            )
+            agent_data = generator.get_agent_data_from_file()
+            for agent_datum in agent_data:
+                agent_id = agent_datum.get("id")
+                assert agent_id is not None, "id is required in memory_from_file[Banks]"
+                assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                defined_ids.add(agent_id)
+                bank_ids.add(agent_id)
+                agents.append(
+                    (
+                        agent_id,
+                        agent_config.agent_class,
+                        generator,
+                        agent_data.index(agent_datum),
+                        agent_config.agent_params,
+                        agent_config.blocks,
+                    )
+                )
+
+        # NBS
+        for agent_config in agent_configs_from_file["nbs"]:
+            generator = MemoryConfigGenerator(
+                agent_config.memory_config_func,  # type: ignore
+                agent_config.agent_class.StatusAttributes,  # type: ignore
+                agent_config.memory_from_file,
+                (
+                    agent_config.memory_distributions
+                    if agent_config.memory_distributions is not None
+                    else {}
+                ),
+                self._config.env.s3,
+            )
+            agent_data = generator.get_agent_data_from_file()
+            for agent_datum in agent_data:
+                agent_id = agent_datum.get("id")
+                assert agent_id is not None, "id is required in memory_from_file[NBS]"
+                assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                defined_ids.add(agent_id)
+                nbs_ids.add(agent_id)
+                agents.append(
+                    (
+                        agent_id,
+                        agent_config.agent_class,
+                        generator,
+                        agent_data.index(agent_datum),
+                        agent_config.agent_params,
+                        agent_config.blocks,
+                    )
+                )
+
+        # Governments
+        for agent_config in agent_configs_from_file["governments"]:
+            generator = MemoryConfigGenerator(
+                agent_config.memory_config_func,  # type: ignore
+                agent_config.agent_class.StatusAttributes,  # type: ignore
+                agent_config.memory_from_file,
+                (
+                    agent_config.memory_distributions
+                    if agent_config.memory_distributions is not None
+                    else {}
+                ),
+                self._config.env.s3,
+            )
+            agent_data = generator.get_agent_data_from_file()
+            for agent_datum in agent_data:
+                agent_id = agent_datum.get("id")
+                assert agent_id is not None, "id is required in memory_from_file[Governments]"
+                assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                defined_ids.add(agent_id)
+                government_ids.add(agent_id)
+                agents.append(
+                    (
+                        agent_id,
+                        agent_config.agent_class,
+                        generator,
+                        agent_data.index(agent_datum),
+                        agent_config.agent_params,
+                        agent_config.blocks,
+                    )
+                )
+
+        # Citizens
+        for agent_config in agent_configs_from_file["citizens"]:
+            generator = MemoryConfigGenerator(
+                agent_config.memory_config_func,  # type: ignore
+                agent_config.agent_class.StatusAttributes,  # type: ignore
+                agent_config.memory_from_file,
+                (
+                    agent_config.memory_distributions
+                    if agent_config.memory_distributions is not None
+                    else {}
+                ),
+                self._config.env.s3,
+            )
+            citizen_generators.append(generator)
+            agent_data = generator.get_agent_data_from_file()
+            for agent_datum in agent_data:
+                agent_id = agent_datum.get("id")
+                assert agent_id is not None, "id is required in memory_from_file[Citizens]"
+                assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                defined_ids.add(agent_id)
+                citizen_ids.add(agent_id)
+                agents.append(
+                    (
+                        agent_id,
+                        agent_config.agent_class,
+                        generator,
+                        agent_data.index(agent_datum),
+                        agent_config.agent_params,
+                        agent_config.blocks,
+                    )
+                )
+
+        get_logger().info(f"{len(defined_ids)} defined ids found in memory_config_files")
+
+        # Step 2: Process all agents without memory_from_file
+        for agent_config in agent_configs_normal["firms"]:
+            # Handle distribution-based configuration as before
+            if agent_config.memory_distributions is None:
+                agent_config.memory_distributions = {}
+            assert (
+                "aoi_id" not in agent_config.memory_distributions
+            ), "aoi_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
+            agent_config.memory_distributions["aoi_id"] = DistributionConfig(
+                dist_type=DistributionType.CHOICE,
+                choices=list(aoi_ids),
+            )
+            firm_classes, _ = _init_agent_class(agent_config, self._config.env.s3)
+            firms = [
+                (_find_next_id(), *firm_class)
+                for i, firm_class in enumerate(firm_classes)
             ]
-            for agent_config in agent_configs
-        )
+            firm_ids.update([firm[0] for firm in firms])
+            agents += firms
 
-        # If using file-based IDs, we need to extract IDs from files first
-        if using_file_based_ids:
-            get_logger().info("Using file-based agent IDs")
-            # Process firms with file-based configuration
-            for agent_config in self._config.agents.firms:
-                if agent_config.memory_from_file is not None:
-                    # Create generator
-                    generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func,  # type: ignore
-                        agent_config.agent_class.StatusAttributes,  # type: ignore
-                        agent_config.memory_from_file,
-                        (
-                            agent_config.memory_distributions
-                            if agent_config.memory_distributions is not None
-                            else {}
-                        ),
-                        self._config.env.s3,
-                    )
-                    # Get agent data from file
-                    agent_data = generator.get_agent_data_from_file()
-                    # Extract IDs from agent data
-                    if agent_data:
-                        for idx, agent_datum in enumerate(agent_data):
-                            agent_id = agent_datum.get("id")
-                            if agent_id is not None:
-                                firm_ids.add(agent_id)
-                                agents.append(
-                                    (
-                                        agent_id,
-                                        agent_config.agent_class,
-                                        generator,
-                                        idx,
-                                        agent_config.agent_params,
-                                        agent_config.blocks,
-                                    )
-                                )
-                                next_id = max(next_id, agent_id + 1)
-                else:
-                    # Handle distribution-based configuration as before
-                    if agent_config.memory_distributions is None:
-                        agent_config.memory_distributions = {}
-                    assert (
-                        "aoi_id" not in agent_config.memory_distributions
-                    ), "aoi_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
-                    agent_config.memory_distributions["aoi_id"] = DistributionConfig(
-                        dist_type=DistributionType.CHOICE,
-                        choices=list(aoi_ids),
-                    )
-                    firm_classes = _init_agent_class(agent_config, self._config.env.s3)
-                    firms = [
-                        (next_id + i, *firm_class)
-                        for i, firm_class in enumerate(firm_classes)
-                    ]
-                    firm_ids.update([firm[0] for firm in firms])
-                    agents += firms
-                    next_id += len(firms)
+        for agent_config in agent_configs_normal["banks"]:
+            bank_classes, _ = _init_agent_class(agent_config, self._config.env.s3)
+            banks = [
+                (_find_next_id(), *bank_class)
+                for i, bank_class in enumerate(bank_classes)
+            ]
+            bank_ids.update([bank[0] for bank in banks])
+            agents += banks
 
-            # Similar process for banks, nbs, governments, and citizens
-            # Process banks
-            for agent_config in self._config.agents.banks:
-                if agent_config.memory_from_file is not None:
-                    generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func,  # type: ignore
-                        agent_config.agent_class.StatusAttributes,  # type: ignore
-                        agent_config.memory_from_file,
-                        (
-                            agent_config.memory_distributions
-                            if agent_config.memory_distributions is not None
-                            else {}
-                        ),
-                        self._config.env.s3,
-                    )
-                    agent_data = generator.get_agent_data_from_file()
-                    for agent_datum in agent_data:
-                        agent_id = agent_datum.get("id")
-                        if agent_id is not None:
-                            bank_ids.add(agent_id)
-                            agents.append(
-                                (
-                                    agent_id,
-                                    agent_config.agent_class,
-                                    generator,
-                                    agent_data.index(agent_datum),
-                                    agent_config.agent_params,
-                                    agent_config.blocks,
-                                )
-                            )
-                            next_id = max(next_id, agent_id + 1)
-                else:
-                    bank_classes = _init_agent_class(agent_config, self._config.env.s3)
-                    banks = [
-                        (next_id + i, *bank_class)
-                        for i, bank_class in enumerate(bank_classes)
-                    ]
-                    bank_ids.update([bank[0] for bank in banks])
-                    agents += banks
-                    next_id += len(banks)
+        for agent_config in agent_configs_normal["nbs"]:
+            nbs_classes, _ = _init_agent_class(agent_config, self._config.env.s3)
+            nbs = [
+                (_find_next_id(), *nbs_class)
+                for i, nbs_class in enumerate(nbs_classes)
+            ]
+            nbs_ids.update([nbs[0] for nbs in nbs])
+            agents += nbs
 
-            # Process nbs
-            for agent_config in self._config.agents.nbs:
-                if agent_config.memory_from_file is not None:
-                    generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func,  # type: ignore
-                        agent_config.agent_class.StatusAttributes,  # type: ignore
-                        agent_config.memory_from_file,
-                        (
-                            agent_config.memory_distributions
-                            if agent_config.memory_distributions is not None
-                            else {}
-                        ),
-                        self._config.env.s3,
-                    )
-                    agent_data = generator.get_agent_data_from_file()
-                    for agent_datum in agent_data:
-                        agent_id = agent_datum.get("id")
-                        if agent_id is not None:
-                            nbs_ids.add(agent_id)
-                            agents.append(
-                                (
-                                    agent_id,
-                                    agent_config.agent_class,
-                                    generator,
-                                    agent_data.index(agent_datum),
-                                    agent_config.agent_params,
-                                    agent_config.blocks,
-                                )
-                            )
-                            next_id = max(next_id, agent_id + 1)
-                else:
-                    nbs_classes = _init_agent_class(agent_config, self._config.env.s3)
-                    nbs = [
-                        (next_id + i, *nbs_class)
-                        for i, nbs_class in enumerate(nbs_classes)
-                    ]
-                    nbs_ids.update([nbs[0] for nbs in nbs])
-                    agents += nbs
-                    next_id += len(nbs)
+        for agent_config in agent_configs_normal["governments"]:
+            government_classes, _ = _init_agent_class(
+                agent_config, self._config.env.s3
+            )
+            governments = [
+                (_find_next_id(), *government_class)
+                for i, government_class in enumerate(government_classes)
+            ]
+            government_ids.update([government[0] for government in governments])
+            agents += governments
 
-            # Process governments
-            for agent_config in self._config.agents.governments:
-                if agent_config.memory_from_file is not None:
-                    generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func,  # type: ignore
-                        agent_config.agent_class.StatusAttributes,  # type: ignore
-                        agent_config.memory_from_file,
-                        (
-                            agent_config.memory_distributions
-                            if agent_config.memory_distributions is not None
-                            else {}
-                        ),
-                        self._config.env.s3,
-                    )
-                    agent_data = generator.get_agent_data_from_file()
-                    for agent_datum in agent_data:
-                        agent_id = agent_datum.get("id")
-                        if agent_id is not None:
-                            government_ids.add(agent_id)
-                            agents.append(
-                                (
-                                    agent_id,
-                                    agent_config.agent_class,
-                                    generator,
-                                    agent_data.index(agent_datum),
-                                    agent_config.agent_params,
-                                    agent_config.blocks,
-                                )
-                            )
-                            next_id = max(next_id, agent_id + 1)
-                else:
-                    government_classes = _init_agent_class(
-                        agent_config, self._config.env.s3
-                    )
-                    governments = [
-                        (next_id + i, *government_class)
-                        for i, government_class in enumerate(government_classes)
-                    ]
-                    government_ids.update([government[0] for government in governments])
-                    agents += governments
-                    next_id += len(governments)
+        for agent_config in agent_configs_normal["citizens"]:
+            citizen_classes, generator = _init_agent_class(
+                agent_config, self._config.env.s3
+            )
+            citizen_generators.append(generator)
+            citizens = [
+                (_find_next_id(), *citizen_class)
+                for i, citizen_class in enumerate(citizen_classes)
+            ]
+            citizen_ids.update([citizen[0] for citizen in citizens])
+            agents += citizens
 
-            # Process citizens
-            for agent_config in self._config.agents.citizens:
-                if agent_config.memory_from_file is not None:
-                    # Add distributions for citizens as before
-                    if agent_config.memory_distributions is None:
-                        agent_config.memory_distributions = {}
-                    # Add required distributions
-                    for key, ids in [
-                        ("firm_id", firm_ids),
-                        ("bank_id", bank_ids),
-                        ("nbs_id", nbs_ids),
-                        ("government_id", government_ids),
-                        ("home_aoi_id", aoi_ids),
-                        ("work_aoi_id", aoi_ids),
-                    ]:
-                        assert (
-                            key not in agent_config.memory_distributions
-                        ), f"{key} is not allowed to be set in memory_distributions because it will be generated in the initialization"
-                        agent_config.memory_distributions[key] = DistributionConfig(
-                            dist_type=DistributionType.CHOICE,
-                            choices=list(ids),
-                        )
-                    generator = MemoryConfigGenerator(
-                        agent_config.memory_config_func,  # type: ignore
-                        agent_config.agent_class.StatusAttributes,  # type: ignore
-                        agent_config.memory_from_file,
-                        (
-                            agent_config.memory_distributions
-                            if agent_config.memory_distributions is not None
-                            else {}
-                        ),
-                        self._config.env.s3,
-                    )
-                    agent_data = generator.get_agent_data_from_file()
-                    for agent_datum in agent_data:
-                        agent_id = agent_datum.get("id")
-                        if agent_id is not None:
-                            citizen_ids.add(agent_id)
-                            agents.append(
-                                (
-                                    agent_id,
-                                    agent_config.agent_class,
-                                    generator,
-                                    agent_data.index(agent_datum),
-                                    agent_config.agent_params,
-                                    agent_config.blocks,
-                                )
-                            )
-                            next_id = max(next_id, agent_id + 1)
-                        else:
-                            citizen_ids.add(next_id)
-                            agents.append(
-                                (next_id, agent_config.agent_class, generator, agent_data.index(agent_datum), agent_config.agent_params, agent_config.blocks)
-                            )
-                            next_id += 1
-                else:
-                    # Add distributions for citizens as before
-                    if agent_config.memory_distributions is None:
-                        agent_config.memory_distributions = {}
-                    # Add required distributions
-                    for key, ids in [
-                        ("firm_id", firm_ids),
-                        ("bank_id", bank_ids),
-                        ("nbs_id", nbs_ids),
-                        ("government_id", government_ids),
-                        ("home_aoi_id", aoi_ids),
-                        ("work_aoi_id", aoi_ids),
-                    ]:
-                        assert (
-                            key not in agent_config.memory_distributions
-                        ), f"{key} is not allowed to be set in memory_distributions because it will be generated in the initialization"
-                        agent_config.memory_distributions[key] = DistributionConfig(
-                            dist_type=DistributionType.CHOICE,
-                            choices=list(ids),
-                        )
-                    citizen_classes = _init_agent_class(
-                        agent_config, self._config.env.s3
-                    )
-                    citizens = [
-                        (next_id + i, *citizen_class)
-                        for i, citizen_class in enumerate(citizen_classes)
-                    ]
-                    citizen_ids.update([citizen[0] for citizen in citizens])
-                    next_id += len(citizens)
-                    agents += citizens
-        else:
-            # Original implementation for distribution-based agent creation
-            for agent_config in self._config.agents.firms:
-                if agent_config.memory_distributions is None:
-                    agent_config.memory_distributions = {}
-                assert (
-                    "aoi_id" not in agent_config.memory_distributions
-                ), "aoi_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
-                agent_config.memory_distributions["aoi_id"] = DistributionConfig(
+        # Step 3: Insert essential distributions for citizens
+        memory_distributions = {}
+        for key, ids in [
+                ("firm_id", firm_ids),
+                ("bank_id", bank_ids),
+                ("nbs_id", nbs_ids),
+                ("government_id", government_ids),
+                ("home_aoi_id", aoi_ids),
+                ("work_aoi_id", aoi_ids),
+            ]:
+                memory_distributions[key] = DistributionConfig(
                     dist_type=DistributionType.CHOICE,
-                    choices=list(aoi_ids),
+                    choices=list(ids),
                 )
-                firm_classes = _init_agent_class(agent_config, self._config.env.s3)
-                firms = [
-                    (next_id + i, *firm_class)
-                    for i, firm_class in enumerate(firm_classes)
-                ]
-                firm_ids.update([firm[0] for firm in firms])
-                agents += firms
-                next_id += len(firms)
-            for agent_config in self._config.agents.banks:
-                bank_classes = _init_agent_class(agent_config, self._config.env.s3)
-                banks = [
-                    (next_id + i, *bank_class)
-                    for i, bank_class in enumerate(bank_classes)
-                ]
-                bank_ids.update([bank[0] for bank in banks])
-                agents += banks
-                next_id += len(banks)
-            for agent_config in self._config.agents.nbs:
-                nbs_classes = _init_agent_class(agent_config, self._config.env.s3)
-                nbs = [
-                    (next_id + i, *nbs_class) for i, nbs_class in enumerate(nbs_classes)
-                ]
-                nbs_ids.update([nbs[0] for nbs in nbs])
-                agents += nbs
-                next_id += len(nbs)
-            for agent_config in self._config.agents.governments:
-                government_classes = _init_agent_class(
-                    agent_config, self._config.env.s3
-                )
-                governments = [
-                    (next_id + i, *government_class)
-                    for i, government_class in enumerate(government_classes)
-                ]
-                government_ids.update([government[0] for government in governments])
-                agents += governments
-                next_id += len(governments)
-            for agent_config in self._config.agents.citizens:
-                # append distribution for firm_id, bank_id, nbs_id, government_id, home_aoi_id, work_aoi_id
-                if agent_config.memory_distributions is None:
-                    agent_config.memory_distributions = {}
-                assert (
-                    "firm_id" not in agent_config.memory_distributions
-                ), "firm_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
-                agent_config.memory_distributions["firm_id"] = DistributionConfig(
-                    dist_type=DistributionType.CHOICE,
-                    choices=list(firm_ids),
-                )
-                assert (
-                    "bank_id" not in agent_config.memory_distributions
-                ), "bank_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
-                agent_config.memory_distributions["bank_id"] = DistributionConfig(
-                    dist_type=DistributionType.CHOICE,
-                    choices=list(bank_ids),
-                )
-                assert (
-                    "nbs_id" not in agent_config.memory_distributions
-                ), "nbs_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
-                agent_config.memory_distributions["nbs_id"] = DistributionConfig(
-                    dist_type=DistributionType.CHOICE,
-                    choices=list(nbs_ids),
-                )
-                assert (
-                    "government_id" not in agent_config.memory_distributions
-                ), "government_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
-                agent_config.memory_distributions["government_id"] = DistributionConfig(
-                    dist_type=DistributionType.CHOICE,
-                    choices=list(government_ids),
-                )
-                assert (
-                    "home_aoi_id" not in agent_config.memory_distributions
-                ), "home_aoi_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
-                agent_config.memory_distributions["home_aoi_id"] = DistributionConfig(
-                    dist_type=DistributionType.CHOICE,
-                    choices=list(aoi_ids),
-                )
-                assert (
-                    "work_aoi_id" not in agent_config.memory_distributions
-                ), "work_aoi_id is not allowed to be set in memory_distributions because it will be generated in the initialization"
-                agent_config.memory_distributions["work_aoi_id"] = DistributionConfig(
-                    dist_type=DistributionType.CHOICE,
-                    choices=list(aoi_ids),
-                )
-                citizen_classes = _init_agent_class(agent_config, self._config.env.s3)
-                citizens = [
-                    (next_id + i, *citizen_class)
-                    for i, citizen_class in enumerate(citizen_classes)
-                ]
-                citizen_ids.update([citizen[0] for citizen in citizens])
-                next_id += len(citizens)
-                agents += citizens
+        for generator in citizen_generators:
+            generator.merge_distributions(memory_distributions)
 
         get_logger().info(
             f"agents: len(citizens)={len(citizen_ids)}, len(firms)={len(firm_ids)}, len(banks)={len(bank_ids)}, len(nbs)={len(nbs_ids)}, len(governments)={len(government_ids)}"

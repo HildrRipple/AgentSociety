@@ -961,9 +961,10 @@ class Memory:
                     self._embedding_fields[k] = False
 
                 if (
-                    k in PROFILE_ATTRIBUTES
+                    (k in PROFILE_ATTRIBUTES
                     or k in STATE_ATTRIBUTES
-                    or k == TIME_STAMP_KEY
+                    or k == TIME_STAMP_KEY)
+                    and k != "id"
                 ):
                     get_logger().warning(f"key `{k}` already declared in memory!")
                     continue

@@ -72,6 +72,20 @@ class MemoryConfigGenerator:
                 distributions[field] = Distribution.from_config(distribution)
         self._distributions = cast(dict[str, Distribution], distributions)
 
+    def merge_distributions(self, distributions: dict[str, Union[Distribution, DistributionConfig]]):
+        """
+        Merge the distributions for the memory config generator.
+        """
+        distributions = copy.deepcopy(distributions)
+        # change DistributionConfig to Distribution
+        for field, distribution in distributions.items():
+            if field in self._distributions:
+                raise ValueError(f"Distribution {field} is already set")
+            else:
+                if isinstance(distribution, DistributionConfig):
+                    distributions[field] = Distribution.from_config(distribution)
+                self._distributions[field] = distributions[field] # type: ignore
+
     def generate(self, i: int):
         """
         Generate memory configuration.
