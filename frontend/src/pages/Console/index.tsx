@@ -8,7 +8,7 @@ import React from "react";
 import { Experiment } from "../../components/type";
 import { ProColumns, ProDescriptions, ProTable } from "@ant-design/pro-components";
 import { ActionType } from "@ant-design/pro-table";
-import { EllipsisOutlined, ReloadOutlined } from "@ant-design/icons";
+import { EllipsisOutlined, ReloadOutlined, PlusOutlined } from "@ant-design/icons";
 import { fetchCustom } from "../../components/fetch";
 import { getAccessToken } from "../../components/Auth";
 import { useTranslation } from "react-i18next";
@@ -238,6 +238,19 @@ const Page = () => {
                         }}
                         rowKey="id"
                         columnEmptyText="-"
+                        search={{
+                            optionRender: ({ searchText, resetText }, { form }, dom) => [
+                                ...dom,
+                                <Button
+                                    key="create"
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={() => navigate('/create-experiment')}
+                                >
+                                    {t('console.buttons.createExperiment')}
+                                </Button>
+                            ]
+                        }}
                     />
                 </Col>
             </Row>

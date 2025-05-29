@@ -106,7 +106,8 @@ i18n
                             detail: "Detail",
                             viewLog: "View Log",
                             export: "Export",
-                            delete: "Delete"
+                            delete: "Delete",
+                            createExperiment: "Create Experiment"
                         },
                         modals: {
                             experimentDetail: "Experiment Detail",
@@ -235,7 +236,7 @@ i18n
                     form: {
                         agent: {
                             title: "Agent Configurations",
-                            createNew: "Create New",
+                            createNew: "Create",
                             searchPlaceholder: "Search agents",
                             editTitle: "Edit Agent",
                             createTitle: "Create Agent",
@@ -274,7 +275,7 @@ i18n
                         },
                         llm: {
                             title: "LLM Configurations",
-                            createNew: "Create New",
+                            createNew: "Create",
                             searchPlaceholder: "Search LLM configs",
                             editTitle: "Edit LLM Config",
                             createTitle: "Create LLM Config",
@@ -294,7 +295,7 @@ i18n
                         },
                         map: {
                             title: "Map Configurations",
-                            createNew: "Create New",
+                            createNew: "Create",
                             searchPlaceholder: "Search maps",
                             editTitle: "Edit Map",
                             createTitle: "Create Map",
@@ -324,7 +325,7 @@ i18n
                         },
                         template: {
                             title: "Agent Templates",
-                            createNew: "Create New",
+                            createNew: "Create",
                             searchPlaceholder: "Search templates",
                             editTitle: "Edit Template",
                             createTitle: "Create Template",
@@ -435,7 +436,8 @@ i18n
                             detail: "详情",
                             viewLog: "查看日志",
                             export: "导出",
-                            delete: "删除"
+                            delete: "删除",
+                            createExperiment: "创建实验"
                         },
                         modals: {
                             experimentDetail: "实验详情",
