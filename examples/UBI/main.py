@@ -28,6 +28,7 @@ from agentsociety.message import RedisConfig
 from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import AvroConfig, PostgreSQLConfig
+from agentsociety.cityagent import SocietyAgentConfig
 
 ray.init(logging_level=logging.INFO)
 
@@ -80,7 +81,11 @@ config = Config(
             AgentConfig(
                 agent_class=AgentClassType.CITIZEN,
                 number=1,
-                param_config=json.load(open("society_agent_config.json")),
+                agent_params=SocietyAgentConfig(
+                    UBI=1000,
+                    num_labor_hours=168,
+                    productivity_per_labor=1,
+                ),
             )
         ],
         firms=[

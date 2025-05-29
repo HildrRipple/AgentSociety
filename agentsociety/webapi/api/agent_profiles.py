@@ -107,7 +107,7 @@ async def get_agent_profile(
 
         # Get the file from S3
         env: EnvConfig = request.app.state.env
-        fs_client = env.webui_fs_client
+        fs_client = env.fs_client
         try:
             content = fs_client.download(profile.file_path)
             data = json.loads(content)
@@ -155,7 +155,7 @@ async def delete_agent_profile(
 
         # Delete the file from webui storage
         env: EnvConfig = request.app.state.env
-        fs_client = env.webui_fs_client
+        fs_client = env.fs_client
         try:
             fs_client.delete(profile.file_path)
         except Exception as e:
@@ -261,7 +261,7 @@ async def upload_agent_profile(
         )
 
     env: EnvConfig = request.app.state.env
-    fs_client = env.webui_fs_client
+    fs_client = env.fs_client
 
     # Read file content
     content = await file.read()

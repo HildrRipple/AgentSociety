@@ -198,10 +198,10 @@ class AgentGroup:
         # ====================
         # Initialize the avro saver
         # ====================
-        if self._config.env.avro.enabled:
+        if self._config.env.enable_avro:
             get_logger().info(f"Initializing the avro saver...")
             self._avro_saver = AvroSaver(
-                self._config.env.avro, self._exp_id, self._group_id
+                self._config.env, self._tenant_id, self._exp_id, self._group_id
             )
             get_logger().info(f"Avro saver initialized")
 

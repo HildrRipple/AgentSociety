@@ -2,7 +2,7 @@
 Logging and saving components
 """
 
-from .avro import AvroSaver, AvroConfig
+from .avro import AvroSaver
 from .pgsql import PgWriter, PostgreSQLConfig
 from .type import StorageDialog, StorageSurvey
 
@@ -11,6 +11,5 @@ __all__ = [
     "PgWriter",
     "StorageDialog",
     "StorageSurvey",
-    "AvroConfig",
     "PostgreSQLConfig",
 ]

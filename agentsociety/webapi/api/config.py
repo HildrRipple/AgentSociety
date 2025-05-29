@@ -272,7 +272,7 @@ async def upload_map_file(
     path = f"maps/{tenant_id}/{map_id}.pb"
 
     # Upload to S3
-    fs_client = env.webui_fs_client
+    fs_client = env.fs_client
     content = await file.read()
     fs_client.upload(content, path)
 
@@ -397,7 +397,7 @@ async def export_map_config(
     # Get map file path from config
     map_path = config.file_path
 
-    fs_client = env.webui_fs_client
+    fs_client = env.fs_client
     # download map file from s3
     file_content = fs_client.download(map_path)
 
@@ -505,7 +505,7 @@ async def download_map_by_token(
     config = RealMapConfig.model_validate(row.config)
     map_path = config.file_path
 
-    fs_client = env.webui_fs_client
+    fs_client = env.fs_client
     file_content = fs_client.download(map_path)
 
     return StreamingResponse(

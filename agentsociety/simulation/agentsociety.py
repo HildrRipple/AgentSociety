@@ -4,6 +4,7 @@ A clear version of the simulation.
 
 import asyncio
 import inspect
+import json
 import time
 import traceback
 import uuid
@@ -84,7 +85,7 @@ class AgentSociety:
     def __init__(
         self,
         config: Config,
-        tenant_id: str = "",
+        tenant_id: str = "local",
     ) -> None:
         config.set_auto_workers()
         self._config = config
@@ -150,6 +151,9 @@ class AgentSociety:
         )
         self._total_steps: int = 0
 
+        # simulation context - for information dump
+        self.context = {}
+
     async def init(self):
         """Initialize all the components"""
         # ====================
@@ -210,10 +214,11 @@ class AgentSociety:
         # ====================
         # Initialize the avro saver
         # ====================
-        if self._config.env.avro.enabled:
+        if self._config.env.enable_avro:
             get_logger().info(f"Initializing avro saver...")
             self._avro_saver = AvroSaver(
-                config=self._config.env.avro,
+                config=self._config.env,
+                tenant_id=self.tenant_id,
                 exp_id=self.exp_id,
                 group_id=None,
             )
@@ -613,6 +618,7 @@ class AgentSociety:
         # save the experiment info
         # ===================================
         await self._save_exp_info()
+        self._save_context()
         get_logger().info(f"Experiment info saved")
 
         # ===================================
@@ -687,7 +693,7 @@ class AgentSociety:
 
     @property
     def enable_avro(self):
-        return self._config.env.avro.enabled
+        return self._config.env.enable_avro
 
     @property
     def enable_pgsql(self):
@@ -1047,6 +1053,14 @@ class AgentSociety:
             worker: ray.ObjectRef = self._pgsql_writers[0]
             await worker.write_global_prompt.remote(prompt_info)  # type:ignore
 
+    def _save_context(self):
+        fs_client = self._config.env.fs_client
+        json_bytes = json.dumps(self.context, indent=2, ensure_ascii=False).encode('utf-8')
+        fs_client.upload(
+            data = json_bytes,
+            remote_path = f"exps/{self.tenant_id}/{self.exp_id}/artifacts.json",
+        )
+
     async def delete_agents(self, target_agent_ids: list[int]):
         """
         Delete the specified agents.
@@ -1134,6 +1148,7 @@ class AgentSociety:
                 self._exp_info.input_tokens += log["input_tokens"]
                 self._exp_info.output_tokens += log["output_tokens"]
             await self._save_exp_info()
+            self._save_context()
             # ======================
             # save the simulation results
             # ======================
@@ -1353,6 +1368,7 @@ class AgentSociety:
                     await step.func(self)
                 else:
                     raise ValueError(f"Unknown workflow type: {step.type}")
+                self._save_context()
             # Finalize the agents
             tasks = []
             for group in self._groups.values():
@@ -1363,9 +1379,11 @@ class AgentSociety:
             get_logger().error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
             self._exp_info.status = ExperimentStatus.ERROR.value
             self._exp_info.error = str(e)
+            self._save_context()
             await self._save_exp_info()
 
             raise RuntimeError(str(e)) from e
         self._exp_info.status = ExperimentStatus.FINISHED.value
+        self._save_context()
         await self._save_exp_info()
         return logs

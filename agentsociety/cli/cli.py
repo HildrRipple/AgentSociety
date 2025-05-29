@@ -136,7 +136,7 @@ def ui(config: str, config_base64: str):
         executor = (
             KubernetesExecutor([])
             if c.executor == "kubernetes"
-            else ProcessExecutor(c.env.webui_home_dir)
+            else ProcessExecutor(c.env.home_dir)
         )
         # ================= 【商业版】 =================
         get_tenant_id = empty_get_tenant_id
