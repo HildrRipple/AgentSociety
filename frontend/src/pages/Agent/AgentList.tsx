@@ -7,8 +7,10 @@ import { AgentsConfig } from '../../types/config';
 import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 const AgentList: React.FC = () => {
+    const navigate = useNavigate();
     const { t } = useTranslation();
     const [agents, setAgents] = useState<ConfigItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -267,7 +269,13 @@ const AgentList: React.FC = () => {
     return (
         <Card
             title={t('form.agent.title')}
-            extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>{t('form.agent.createNew')}</Button>}
+            extra={
+                <Space>
+                    <Button onClick={() => navigate('/agent-templates')}>Agent Templates</Button>
+                    <Button onClick={() => navigate('/profiles')}>Profiles</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>{t('form.agent.createNew')}</Button>
+                </Space>
+            }
         >
             <Input.Search
                 placeholder={t('form.agent.searchPlaceholder')}
