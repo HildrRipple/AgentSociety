@@ -50,12 +50,12 @@ def default_memory_config_citizen(
                 EXTRA_ATTRIBUTES[attr.name] = (attr.type, attr.default, attr.whether_embedding)
 
     PROFILE = {
-        "name": (str, sample_field_value(distributions, "name"), True),
-        "gender": (str, sample_field_value(distributions, "gender"), True),
-        "age": (int, sample_field_value(distributions, "age"), True),
-        "education": (str, sample_field_value(distributions, "education"), True),
+        "name": (str, "unknown", True),
+        "gender": (str, "unknown", True),
+        "age": (int, 20, True),
+        "education": (str, "unknown", True),
         "skill": (str, "unknown", True),
-        "occupation": (str, sample_field_value(distributions, "occupation"), True),
+        "occupation": (str, "unknown", True),
         "family_consumption": (str, "unknown", True),
         "consumption": (str, "unknown", True),
         "personality": (str, "unknown", True),
@@ -65,7 +65,7 @@ def default_memory_config_citizen(
         "city": (str, "unknown", True),
         "race": (str, "unknown", True),
         "religion": (str, "unknown", True),
-        "marriage_status": (str, sample_field_value(distributions, "marriage_status"), True),
+        "marriage_status": (str, "unknown", True),
         "background_story": (str, "No background story", True),
     }
 

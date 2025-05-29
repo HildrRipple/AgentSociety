@@ -43,48 +43,16 @@ class AgentsConfig(BaseModel):
     citizens: list[AgentConfig] = Field(..., min_length=1)
     """Citizen Agent configuration"""
 
-    firms: list[AgentConfig] = Field(
-        [
-            AgentConfig(
-                agent_class=AgentClassType.FIRM,
-                number=1,
-            ),
-        ],
-        min_length=1,
-    )
+    firms: list[AgentConfig] = Field(default=[])
     """Firm Agent configuration"""
 
-    banks: list[AgentConfig] = Field(
-        [
-            AgentConfig(
-                agent_class=AgentClassType.BANK,
-                number=1,
-            ),
-        ],
-        min_length=1,
-    )
+    banks: list[AgentConfig] = Field(default=[])
     """Bank Agent configuration"""
 
-    nbs: list[AgentConfig] = Field(
-        [
-            AgentConfig(
-                agent_class=AgentClassType.NBS,
-                number=1,
-            ),
-        ],
-        min_length=1,
-    )
+    nbs: list[AgentConfig] = Field(default=[])
     """NBS Agent configuration"""
 
-    governments: list[AgentConfig] = Field(
-        [
-            AgentConfig(
-                agent_class=AgentClassType.GOVERNMENT,
-                number=1,
-            ),
-        ],
-        min_length=1,
-    )
+    governments: list[AgentConfig] = Field(default=[])
     """Government Agent configuration"""
 
     others: list[AgentConfig] = Field([])
@@ -99,10 +67,35 @@ class AgentsConfig(BaseModel):
     
     @model_validator(mode="after")
     def validate_configuration(self):
-        """Validate configuration options to ensure the user selects the correct combination"""
-        for agent_config in self.citizens:
-            if agent_config.memory_config_func is None:
-                agent_config.memory_config_func = default_memory_config_citizen
+        """
+        Validates configuration options to ensure the user selects the correct combination.
+        - **Description**:
+            - If citizens contains at least one CITIZEN type agent, automatically fills 
+              empty institution agent lists with default configurations.
+            - Sets default memory_config_func for citizen agents if not specified.
+
+        - **Returns**:
+            - `AgentsConfig`: The validated configuration instance.
+        """
+        # Check if there's at least one CITIZEN type agent in citizens
+        has_citizen_type = any(
+            agent_config.agent_class == AgentClassType.CITIZEN 
+            for agent_config in self.citizens
+        )
+        
+        if has_citizen_type:
+            # Auto-fill empty institution lists with default configurations
+            if len(self.firms) == 0:
+                self.firms = [AgentConfig(agent_class=AgentClassType.FIRM, number=1)]
+            
+            if len(self.banks) == 0:
+                self.banks = [AgentConfig(agent_class=AgentClassType.BANK, number=1)]
+            
+            if len(self.nbs) == 0:
+                self.nbs = [AgentConfig(agent_class=AgentClassType.NBS, number=1)]
+            
+            if len(self.governments) == 0:
+                self.governments = [AgentConfig(agent_class=AgentClassType.GOVERNMENT, number=1)]
 
         return self
 

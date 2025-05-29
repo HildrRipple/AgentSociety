@@ -18,7 +18,7 @@ import yaml
 from ..agent import Agent, StatusAttribute
 from ..agent.distribution import (Distribution, DistributionConfig,
                                   DistributionType)
-from ..agent.memory_config_generator import MemoryConfigGenerator, MemoryT
+from ..agent.memory_config_generator import MemoryConfigGenerator, MemoryT, default_memory_config_citizen
 from ..configs import (AgentConfig, AgentFilterConfig, Config,
                        MetricExtractorConfig, MetricType, WorkflowType)
 from ..environment import EnvironmentStarter
@@ -41,6 +41,24 @@ __all__ = ["AgentSociety"]
 MIN_ID = 1
 MAX_ID = 100000000
 
+
+def _set_default_agent_config(self: Config):
+    """
+    Validates configuration options to ensure the user selects the correct combination.
+    - **Description**:
+        - If citizens contains at least one CITIZEN type agent, automatically fills 
+            empty institution agent lists with default configurations.
+        - Sets default memory_config_func for citizen agents if not specified.
+
+    - **Returns**:
+        - `AgentsConfig`: The validated configuration instance.
+    """
+    # Set default memory config function for citizens
+    for agent_config in self.agents.citizens:
+        if agent_config.memory_config_func is None:
+            agent_config.memory_config_func = default_memory_config_citizen
+
+    return self
 
 def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     """
@@ -88,7 +106,7 @@ class AgentSociety:
         tenant_id: str = "local",
     ) -> None:
         config.set_auto_workers()
-        self._config = config
+        self._config = _set_default_agent_config(config)
         self.tenant_id = tenant_id
 
         # ====================
