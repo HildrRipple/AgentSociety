@@ -55,11 +55,6 @@ const RootMenu = ({ selectedKey, style }: {
             icon: <GlobalOutlined />,
         },
         {
-            key: '/workflows',
-            label: <Link to="/workflows">{t('menu.workflows')}</Link>,
-            icon: <NodeIndexOutlined />,
-        },
-        {
             key: '/agents',
             label: (
                 <Dropdown menu={{ items: agentItems }} placement="bottomLeft" arrow>
@@ -69,6 +64,11 @@ const RootMenu = ({ selectedKey, style }: {
                 </Dropdown>
             ),
 
+        },
+        {
+            key: '/workflows',
+            label: <Link to="/workflows">{t('menu.workflows')}</Link>,
+            icon: <NodeIndexOutlined />,
         },
         {
             key: "/console",
