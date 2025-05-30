@@ -190,6 +190,8 @@ def ui(config: str, config_base64: str):
 @cli.command()
 @common_options
 def check(config: str, config_base64: str):
+    import os
+
     """Pre-check the config"""
     config_dict = load_config(config, config_base64)
 
@@ -277,8 +279,6 @@ def check(config: str, config_base64: str):
 
     if c.env.mlflow.enabled:
         try:
-            import os
-
             if c.env.mlflow.username is not None:
                 os.environ["MLFLOW_TRACKING_USERNAME"] = c.env.mlflow.username
             if c.env.mlflow.password is not None:
