@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Input, InputNumber, Select, Card, Tabs, Button, Space, Switch } from 'antd';
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import { ExpConfig, WorkflowStepConfig, MetricExtractorConfig } from '../../types/config';
 import { WorkflowType, MetricType } from '../../utils/enums';
+import { fetchCustom } from '../../components/fetch';
 
 const { TabPane } = Tabs;
 
@@ -14,6 +15,21 @@ interface WorkflowFormProps {
 const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
     const [form] = Form.useForm();
     const [stepTypes, setStepTypes] = useState<Record<number, WorkflowType>>({});
+    const [functionList, setFunctionList] = useState<string[]>([]);
+
+    // 获取函数列表
+    useEffect(() => {
+        const fetchFunctionList = async () => {
+            try {
+                const response = await fetchCustom('/api/community/workflow/functions');
+                const data = await response.json();
+                setFunctionList(data.data);
+            } catch (error) {
+                console.error('Failed to fetch function list:', error);
+            }
+        };
+        fetchFunctionList();
+    }, []);
 
     // Update parent component state when form values change
     const handleValuesChange = (changedValues: any, allValues: any) => {
@@ -371,10 +387,16 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                         {...restField}
                                                         name={[name, 'func']}
                                                         label="Function Name"
-                                                        rules={[{ required: true, message: 'Please enter function name' }]}
-                                                        tooltip="Name of the function to execute"
+                                                        rules={[{ required: true, message: 'Please select a function' }]}
+                                                        tooltip="Select a function to execute"
                                                     >
-                                                        <Input placeholder="Enter function name" />
+                                                        <Select
+                                                            placeholder="Select a function"
+                                                            options={functionList.map(func => ({
+                                                                value: func,
+                                                                label: func
+                                                            }))}
+                                                        />
                                                     </Form.Item>
                                                 </>
                                             )}

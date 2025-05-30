@@ -48,6 +48,7 @@ from agentsociety.cityagent.blocks.social_block import (
 )
 
 from agentsociety_community.agents import citizens, supervisors
+from agentsociety_community.workflows import functions as workflow_functions
 
 __all__ = ["router"]
 
@@ -680,5 +681,22 @@ async def get_agent_classes(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get agent_classes '{agent_type}': {str(e)}",
+        )
+
+
+@router.get("/community/workflow/functions")
+async def get_workflow_functions(
+    request: Request,
+) -> ApiResponseWrapper[List[str]]:
+    """Get available workflow function names"""
+    try:
+        function_map = workflow_functions.get_type_to_cls_dict()
+        function_names = list(function_map.keys())
+        return ApiResponseWrapper(data=function_names)
+    except Exception as e:
+        print(f"Error in get_workflow_functions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get workflow functions: {str(e)}",
         )
 
