@@ -346,11 +346,48 @@ def run(
     from ..configs import Config
     from ..simulation import AgentSociety
     from ..cityagent import default
-    # from agentsociety_community.agents import citizens, supervisors
+    from agentsociety_community.agents import citizens, supervisors
+    from agentsociety_community.workflows import functions as workflow_functions
 
-    c = Config.model_validate(config_dict)
-    c = default(c)
-    society = AgentSociety(c, tenant_id)
+    try:
+        # 获取映射字典
+        workflow_function_map = workflow_functions.get_type_to_cls_dict()
+        citizens_class_map = citizens.get_type_to_cls_dict()
+        supervisors_class_map = supervisors.get_type_to_cls_dict()
+        
+        c = Config.model_validate(config_dict)
+        c = default(c)
+        
+        # 处理citizens中的agent_class
+        for citizen in c.agents.citizens:
+            if isinstance(citizen.agent_class, str):
+                try:
+                    citizen.agent_class = citizens_class_map[citizen.agent_class]()
+                except Exception as e:
+                    print(f"Error importing citizen agent class {citizen.agent_class}: {str(e)}")
+                    continue
+                    
+        # 处理supervisor中的agent_class
+        if c.agents.supervisor is not None and isinstance(c.agents.supervisor.agent_class, str):
+            try:
+                c.agents.supervisor.agent_class = supervisors_class_map[c.agents.supervisor.agent_class]()
+            except Exception as e:
+                print(f"Error importing supervisor agent class {c.agents.supervisor.agent_class}: {str(e)}")
+        
+        # 遍历workflow中的每个步骤
+        for step in c.exp.workflow:
+            if step.func is not None and isinstance(step.func, str):
+                # 如果func是字符串，尝试从function_map中获取对应的函数
+                try:
+                    imported_func = workflow_function_map[step.func]()  # 获取实际函数
+                    step.func = imported_func  # 替换为导入的函数
+                except Exception as e:
+                    print(f"Error importing function {step.func}: {str(e)}")
+                    continue
+            
+        society = AgentSociety(c, tenant_id)
+    except ImportError:
+        print("agentsociety_community is not installed. Please install it with `pip install agentsociety-community`")
 
     async def _run():
         try:
