@@ -223,6 +223,7 @@ def _memory_config_load_file(file_path: str, s3config: S3Config):
             if line.strip():  # Skip empty lines
                 memory_data.append(jsonc.loads(line))
         return memory_data
+    # TODO：add support for csv file
     else:
         raise ValueError(
             f"Unsupported file type. Only .json or .jsonl files are supported. Got: {file_path}"

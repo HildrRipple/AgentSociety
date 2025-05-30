@@ -346,6 +346,7 @@ def run(
     from ..configs import Config
     from ..simulation import AgentSociety
     from ..cityagent import default
+    # from agentsociety_community.agents import citizens, supervisors
 
     c = Config.model_validate(config_dict)
     c = default(c)
