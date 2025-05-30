@@ -1064,10 +1064,19 @@ const AgentTemplateForm: React.FC = () => {
     setTemplateBases([]); // 清空template bases
     
     // 更新表单字段值
-    form.setFieldsValue({
+    const formValues: any = {
       agent_type: value,
       template_base: undefined
-    });
+    };
+    
+    // 根据agent type设置profile数据
+    if (value === 'citizen') {
+      formValues.profile = defaultProfileFields;
+    } else if (value === 'supervisor') {
+      formValues.profile = {};
+    }
+    
+    form.setFieldsValue(formValues);
     
     if (value) {
       fetchTemplateBases(value);
@@ -1129,7 +1138,7 @@ const AgentTemplateForm: React.FC = () => {
             description: template.description,
             agent_type: template.agent_type,
             template_base: template.template_base,
-            profile: template.memory_distributions,
+            profile: template.agent_type === 'citizen' ? template.memory_distributions : {},
             agent_params: template.agent_params,
             blocks: template.blocks
           });
@@ -1140,7 +1149,7 @@ const AgentTemplateForm: React.FC = () => {
       form.setFieldsValue({
         name: 'General Social Agent',
         description: '',
-        profile: defaultProfileFields,
+        profile: {}, // 初始为空，等用户选择agent type后再设置
         // agent_params: {
         //   enable_cognition: true,
         //   UBI: 1000,
@@ -1189,27 +1198,30 @@ const AgentTemplateForm: React.FC = () => {
       
       // 构造 memory_distributions
       const memory_distributions: Record<string, any> = {};
-      Object.entries(values.profile || {}).forEach(([key, value]: [string, any]) => {
-        if (value.type === 'choice') {
-          memory_distributions[key] = {
-            dist_type: 'choice',
-            choices: value.choices,
-            weights: value.weights
-          };
-        } else if (value.type === 'uniform_int') {
-          memory_distributions[key] = {
-            dist_type: 'uniform_int',
-            min_value: value.min_value,
-            max_value: value.max_value
-          };
-        } else if (value.type === 'normal') {
-          memory_distributions[key] = {
-            dist_type: 'normal',
-            mean: value.mean,
-            std: value.std
-          };
-        }
-      });
+      // 只有citizen类型才处理profile数据
+      if (values.agent_type === 'citizen') {
+        Object.entries(values.profile || {}).forEach(([key, value]: [string, any]) => {
+          if (value.type === 'choice') {
+            memory_distributions[key] = {
+              dist_type: 'choice',
+              choices: value.choices,
+              weights: value.weights
+            };
+          } else if (value.type === 'uniform_int') {
+            memory_distributions[key] = {
+              dist_type: 'uniform_int',
+              min_value: value.min_value,
+              max_value: value.max_value
+            };
+          } else if (value.type === 'normal') {
+            memory_distributions[key] = {
+              dist_type: 'normal',
+              mean: value.mean,
+              std: value.std
+            };
+          }
+        });
+      }
 
       // 构造 agent_params
       const agent_params: Record<string, any> = {};
@@ -1359,20 +1371,22 @@ const AgentTemplateForm: React.FC = () => {
                 </Card>
               </Col>
 
-              <Col span={6} style={{ borderRight: '1px solid #f0f0f0' }}>
+              {/* Profile列 - 始终渲染，但supervisor模式下span为0实现隐藏 */}
+              <Col span={agentType === 'citizen' ? 6 : 0} style={{ borderRight: agentType === 'citizen' ? '1px solid #f0f0f0' : 'none' }}>
                 <div style={{
                   height: 'calc(100vh - 250px)',
                   overflowY: 'auto',
-                  padding: '0 24px',
+                  padding: agentType === 'citizen' ? '0 24px' : '0',
                   position: 'sticky',
-                  top: 0
+                  top: 0,
+                  display: agentType === 'citizen' ? 'block' : 'none'
                 }}>
                   {renderProfileSection(form)}
                   {renderBaseLocation()}
                 </div>
               </Col>
 
-              <Col span={12} style={{ borderRight: '1px solid #f0f0f0' }}>
+              <Col span={agentType === 'citizen' ? 12 : 18} style={{ borderRight: '1px solid #f0f0f0' }}>
                 <div style={{
                   height: 'calc(100vh - 250px)',
                   overflowY: 'auto',
