@@ -647,21 +647,14 @@ const renderDynamicFormItem = (
         </Form.Item>
       );
     case 'str':
-      if (paramName.toLowerCase().includes('prompt')) {
-        return (
-          <Form.Item {...baseProps}>
-            <MonacoPromptEditor 
-              height="200px" 
-              suggestions={formItemProps.suggestions} 
-              editorId={paramName}
-              key={`${paramName}-${formItemProps.suggestions?.length}`}
-            />
-          </Form.Item>
-        );
-      }
       return (
         <Form.Item {...baseProps}>
-          <Input />
+          <MonacoPromptEditor 
+            height="200px" 
+            suggestions={formItemProps.suggestions} 
+            editorId={paramName}
+            key={`${paramName}-${formItemProps.suggestions?.length}`}
+          />
         </Form.Item>
       );
     default:
