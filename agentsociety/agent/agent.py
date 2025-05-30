@@ -428,3 +428,15 @@ class SupervisorBase(Agent):
                 persuasion_messages: List of persuasion messages
             """
             raise NotImplementedError("This method `supervisor_func` should be implemented by the subclass")
+        
+        async def react_to_intervention(self, intervention_message: str):
+            """
+            React to an intervention.
+            """
+            ...
+            
+        async def reset(self):
+            """
+            Reset the agent.
+            """
+            ...
