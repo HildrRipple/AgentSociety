@@ -1075,8 +1075,8 @@ const AgentTemplateForm: React.FC = () => {
 
   // Agent type 选项
   const agentTypeOptions = [
-    { value: 'citizen', label: 'Citizen' },
-    { value: 'supervisor', label: 'Supervisor' },
+    { value: 'citizen', label: t('form.template.agentTypes.citizen') },
+    { value: 'supervisor', label: t('form.template.agentTypes.supervisor') },
   ];
 
   // 处理agent type变化
@@ -1368,13 +1368,13 @@ const AgentTemplateForm: React.FC = () => {
                   <Col span={6}>
                     <Form.Item
                       name="agent_type"
-                      label="Agent Type"
-                      rules={[{ required: true, message: '请选择Agent类型' }]}
+                      label={t('form.template.agentType')}
+                      rules={[{ required: true, message: t('form.template.pleaseSelectAgentType') }]}
                       style={{ marginBottom: 0 }}
                     >
                       <Select
                         value={agentType}
-                        placeholder="请选择Agent类型"
+                        placeholder={t('form.template.selectAgentType')}
                         style={{ width: '100%' }}
                         onChange={handleAgentTypeChange}
                         options={agentTypeOptions}
@@ -1384,13 +1384,13 @@ const AgentTemplateForm: React.FC = () => {
                   <Col span={6}>
                     <Form.Item
                       name="agent_class"
-                      label="Agent Class"
-                      rules={[{ required: true, message: '请选择Agent Class' }]}
+                      label={t('form.template.agentClass')}
+                      rules={[{ required: true, message: t('form.template.pleaseSelectAgentClass') }]}
                       style={{ marginBottom: 0 }}
                     >
                       <Select
                         value={agentClass}
-                        placeholder={agentType ? "请选择Agent Class" : "请先选择Agent类型"}
+                        placeholder={agentType ? t('form.template.selectAgentClass') : t('form.template.selectAgentTypeFirst')}
                         style={{ width: '100%' }}
                         disabled={!agentType || loadingAgentClasses}
                         loading={loadingAgentClasses}
