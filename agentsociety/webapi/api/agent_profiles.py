@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...configs import EnvConfig
 from ...s3 import S3Client
 from ..models import ApiResponseWrapper
-from ..models.agent_profiles import AgentProfile
+from ..models.agent_profiles import AgentProfile, ApiAgentProfile
 from .const import DEMO_USER_ID
 
 __all__ = ["router"]
@@ -45,7 +45,7 @@ class SaveProfileRequest(BaseModel):
 @router.get("/agent-profiles")
 async def list_agent_profiles(
     request: Request,
-) -> ApiResponseWrapper[List[Dict[str, Any]]]:
+) -> ApiResponseWrapper[List[ApiAgentProfile]]:
     """List all agent profiles for the current tenant"""
 
     tenant_id = await request.app.state.get_tenant_id(request)
@@ -63,21 +63,8 @@ async def list_agent_profiles(
         result = await db.execute(stmt)
         profiles = result.scalars().all()
 
-        # Convert to list of dictionaries
-        profile_list = []
-        for profile in profiles:
-            profile_list.append(
-                {
-                    "id": str(profile.id),
-                    "name": profile.name,
-                    "description": profile.description,
-                    "agent_type": profile.agent_type,
-                    "count": profile.record_count,
-                    "created_at": profile.created_at.isoformat(),
-                    "file_path": profile.file_path,
-                }
-            )
-
+        # Convert to ApiAgentProfile list
+        profile_list = [ApiAgentProfile.model_validate(profile) for profile in profiles]
         return ApiResponseWrapper(data=profile_list)
 
 
@@ -232,21 +219,8 @@ async def upload_agent_profile(
     file: UploadFile = File(...),
     name: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
-) -> ApiResponseWrapper[Dict[str, Any]]:
-    """Upload an agent profile file and save it to the database.
-    
-    Args:
-        request: FastAPI request object
-        file: Uploaded file (CSV or JSON)
-        name: Optional profile name
-        description: Optional profile description
-        
-    Returns:
-        ApiResponseWrapper containing the created profile metadata
-        
-    Raises:
-        HTTPException: If file processing fails or validation errors occur
-    """
+) -> ApiResponseWrapper[ApiAgentProfile]:
+    """Upload an agent profile file and save it to the database."""
     if request.app.state.read_only:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Server is in read-only mode"
@@ -308,9 +282,7 @@ async def upload_agent_profile(
 
         # Use provided name or filename
         profile_name = name if name else os.path.splitext(filename)[0]
-        profile_description = (
-            description if description else f"Uploaded file: {filename}"
-        )
+        profile_description = description if description else None
 
         # Save metadata to database
         async with request.app.state.get_db() as db:
@@ -331,16 +303,9 @@ async def upload_agent_profile(
             await db.commit()
             await db.refresh(new_profile)  # Refresh to get database-generated values
 
-            # Create response data dictionary
-            response_data = {
-                "id": str(profile_id),
-                "name": profile_name,
-                "description": profile_description,
-                "count": record_count,
-                "created_at": new_profile.created_at.isoformat() if new_profile.created_at else None,
-                "file_path": s3_path,
-            }
-            return ApiResponseWrapper(data=response_data)
+            # Convert to ApiAgentProfile
+            api_profile = ApiAgentProfile.model_validate(new_profile)
+            return ApiResponseWrapper(data=api_profile)
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON format"
