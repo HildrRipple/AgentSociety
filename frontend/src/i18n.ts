@@ -465,6 +465,14 @@ i18n
                             backgroundPlaceholder: "Enter background story",
                             preferences: "Preferences",
                             preferencesPlaceholder: "Enter preferences",
+                            uploadProfile: "Upload Profile",
+                            uploadTitle: "Upload Profile",
+                            uploadHint: "Click or drag file to this area to upload",
+                            uploadDescription: "Support for JSON files. The file should contain agent profile data.",
+                            enterDescription: "Enter description for this profile",
+                            cancel: "Cancel",
+                            upload: "Upload",
+                            pleaseSelectFile: "Please select a file to upload",
                             messages: {
                                 loadFailed: "Failed to load profiles",
                                 deleteSuccess: "Profile deleted successfully",
@@ -472,7 +480,20 @@ i18n
                                 updateSuccess: "Profile updated successfully",
                                 updateFailed: "Failed to update profile",
                                 createSuccess: "Profile created successfully",
-                                createFailed: "Failed to create profile"
+                                createFailed: "Failed to create profile",
+                                uploadSuccess: "Profile uploaded successfully",
+                                uploadFailed: "Failed to upload profile",
+                                noData: "No data available for download",
+                                deleteConfirm: "Are you sure you want to delete this profile?"
+                            },
+                            table: {
+                                name: "Name",
+                                description: "Description",
+                                count: "Count",
+                                createdAt: "Created At",
+                                actions: "Actions",
+                                download: "Download",
+                                delete: "Delete"
                             }
                         }
                     }
@@ -926,6 +947,14 @@ i18n
                             backgroundPlaceholder: "请输入背景故事",
                             preferences: "偏好设置",
                             preferencesPlaceholder: "请输入偏好设置",
+                            uploadProfile: "上传画像",
+                            uploadTitle: "上传画像",
+                            uploadHint: "点击或拖拽文件到此区域上传",
+                            uploadDescription: "支持JSON文件。文件应包含智能体画像数据。",
+                            enterDescription: "请输入此画像的描述",
+                            cancel: "取消",
+                            upload: "上传",
+                            pleaseSelectFile: "请选择要上传的文件",
                             messages: {
                                 loadFailed: "加载画像失败",
                                 deleteSuccess: "画像删除成功",
@@ -933,7 +962,20 @@ i18n
                                 updateSuccess: "画像更新成功",
                                 updateFailed: "更新画像失败",
                                 createSuccess: "画像创建成功",
-                                createFailed: "创建画像失败"
+                                createFailed: "创建画像失败",
+                                uploadSuccess: "画像上传成功",
+                                uploadFailed: "上传画像失败",
+                                noData: "没有可下载的数据",
+                                deleteConfirm: "确定要删除这个画像吗？"
+                            },
+                            table: {
+                                name: "名称",
+                                description: "描述",
+                                count: "数量",
+                                createdAt: "创建时间",
+                                actions: "操作",
+                                download: "下载",
+                                delete: "删除"
                             }
                         }
                     }
