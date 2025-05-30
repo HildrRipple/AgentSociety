@@ -47,6 +47,8 @@ from agentsociety.cityagent.blocks.social_block import (
     SocialNoneBlock,
 )
 
+from agentsociety_community.agents import citizens, supervisors
+
 __all__ = ["router"]
 
 router = APIRouter(tags=["agent_templates"])
@@ -420,29 +422,6 @@ async def delete_agent_template(
         return ApiResponseWrapper(data={"message": "Template deleted successfully"})
 
 
-# @router.get("/agent-functions")
-# async def get_agent_functions(
-#     request: Request,
-# ) -> ApiResponseWrapper[List[Dict[str, str]]]:
-#     """Get available functions for agent"""
-#     try:
-#         functions_map = SocietyAgent.get_functions
-#         functions = [
-#             {
-#                 "function_name": func_info["function_name"],
-#                 "description": func_info["description"],
-#             }
-#             for func_info in functions_map.values()
-#         ]
-#         return ApiResponseWrapper(data=functions)
-#     except Exception as e:
-#         print(f"Error in get_agent_functions: {str(e)}")
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=f"Failed to get agent functions: {str(e)}",
-#         )
-
-
 @router.get("/agent-blocks")
 async def get_agent_blocks(
     request: Request,
@@ -537,10 +516,33 @@ def get_field_info(field):
 @router.get("/agent-param")
 async def get_agent_param(
     request: Request,
+    agent_type: str,
+    agent_class: str,
 ) -> ApiResponseWrapper[Dict[str, Any]]:
-    """Get SocietyAgent's parameters including ParamsType, BlockOutputType, Context and StatusAttributes"""
+    """Get agent's parameters including ParamsType, BlockOutputType, Context and StatusAttributes based on agent type and class"""
     try:
-        # Get SocietyAgent parameters information
+        # Get the appropriate agent class based on agent_type and agent_class
+        if agent_type == "citizen":
+            type_dict = citizens.get_type_to_cls_dict()
+        elif agent_type == "supervisor":
+            type_dict = supervisors.get_type_to_cls_dict()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid agent_type. Must be 'citizen' or 'supervisor', got: {agent_type}",
+            )
+        
+        if agent_class not in type_dict:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid agent_class '{agent_class}' for agent_type '{agent_type}'. Available classes: {list(type_dict.keys())}",
+            )
+        
+        # Get the agent class
+        agent_cls_factory = type_dict[agent_class]
+        agent_cls = agent_cls_factory()
+        
+        # Get agent parameters information
         param_data = {
             "params_type": {},
             "block_output_type": {},
@@ -549,24 +551,24 @@ async def get_agent_param(
         }
         
         # Process ParamsType
-        if hasattr(SocietyAgent.ParamsType, "model_fields"):
+        if hasattr(agent_cls.ParamsType, "model_fields"):
             param_data["params_type"] = {
                 field_name: get_field_info(field)
-                for field_name, field in SocietyAgent.ParamsType.model_fields.items()
+                for field_name, field in agent_cls.ParamsType.model_fields.items()
             }
             
         # Process BlockOutputType
-        if hasattr(SocietyAgent.BlockOutputType, "model_fields"):
+        if hasattr(agent_cls.BlockOutputType, "model_fields"):
             param_data["block_output_type"] = {
                 field_name: get_field_info(field)
-                for field_name, field in SocietyAgent.BlockOutputType.model_fields.items()
+                for field_name, field in agent_cls.BlockOutputType.model_fields.items()
             }
             
         # Process Context
-        if hasattr(SocietyAgent.Context, "model_fields"):
+        if hasattr(agent_cls.Context, "model_fields"):
             param_data["context"] = {
                 field_name: get_field_info(field)
-                for field_name, field in SocietyAgent.Context.model_fields.items()
+                for field_name, field in agent_cls.Context.model_fields.items()
             }
             
         # Process StatusAttributes
@@ -578,10 +580,12 @@ async def get_agent_param(
                 "description": attr.description,
                 # "whether_embedding": attr.whether_embedding if hasattr(attr, "whether_embedding") else False
             }
-            for attr in SocietyAgent.StatusAttributes
+            for attr in agent_cls.StatusAttributes
         ]
         
         return ApiResponseWrapper(data=param_data)
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in get_agent_param: {str(e)}")
         raise HTTPException(
@@ -643,3 +647,38 @@ async def get_block_param(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get block parameters: {str(e)}",
         )
+
+
+@router.get("/agent-classes")
+async def get_agent_classes(
+    request: Request,
+    agent_type: str,
+) -> ApiResponseWrapper[List[Dict[str, str]]]:
+    """Get available agent classes base on agent type"""
+    try:
+        if agent_type == "citizen":
+            type_dict = citizens.get_type_to_cls_dict()
+        elif agent_type == "supervisor":
+            type_dict = supervisors.get_type_to_cls_dict()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid agent_type. Must be 'citizen' or 'supervisor', got: {agent_type}",
+            )
+        
+        # Convert to list of dicts with value and label for frontend Select component
+        agent_type = [
+            {"value": type_name, "label": type_name}
+            for type_name in type_dict.keys()
+        ]
+        
+        return ApiResponseWrapper(data=agent_type)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_agent_classes: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get agent_classes '{agent_type}': {str(e)}",
+        )
+

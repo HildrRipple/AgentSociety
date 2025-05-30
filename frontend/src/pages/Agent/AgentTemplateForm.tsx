@@ -7,19 +7,6 @@ import { QuestionCircleOutlined } from '@ant-design/icons';
 import MonacoPromptEditor from '../../components/MonacoPromptEditor';
 import { useTranslation } from 'react-i18next';
 
-// Import required interfaces and constants
-// interface TemplateBlock {
-//   id: string;
-//   name: string;
-//   type: string;
-//   description: string;
-//   dependencies?: {
-//     needs?: string;
-//     satisfaction?: string;
-//   };
-//   params?: Record<string, any>;
-// }
-
 interface AgentTemplate {
   id: string;
   name: string;
@@ -35,18 +22,7 @@ interface AgentTemplate {
       std?: number;
     };
   };
-  agent_params: {
-    // enable_cognition: boolean;
-    // UBI: number;
-    // num_labor_hours: number;
-    // productivity_per_labor: number;
-    // time_diff: number;
-    // max_plan_steps: number;
-    // need_initialization_prompt?: string;
-    // need_evaluation_prompt?: string;
-    // need_reflection_prompt?: string;
-    // plan_generation_prompt?: string;
-  };
+  agent_params: Record<string, any>;
   blocks: {
     [key: string]: {
       params?: Record<string, any>;
@@ -55,6 +31,8 @@ interface AgentTemplate {
   created_at: string;
   updated_at: string;
   tenant_id?: string;
+  agent_type?: string;
+  agent_class?: string;
 }
 
 // Add default configurations
@@ -533,34 +511,50 @@ const AgentContext = React.createContext<{
   agentInfo: AgentInfo | null;
   setAgentInfo: React.Dispatch<React.SetStateAction<AgentInfo | null>>;
   suggestions: any[];
-} | null>(null);
+  setAgentType: React.Dispatch<React.SetStateAction<string>>;
+  setAgentClass: React.Dispatch<React.SetStateAction<string>>;
+}>({
+  agentInfo: null,
+  setAgentInfo: () => {},
+  suggestions: [],
+  setAgentType: () => {},
+  setAgentClass: () => {}
+});
 
 // Create AgentContextProvider
 const AgentContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [agentInfo, setAgentInfo] = useState<AgentInfo | null>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [agentType, setAgentType] = useState<string>('');
+  const [agentClass, setAgentClass] = useState<string>('');
 
   useEffect(() => {
     const fetchAgentInfo = async () => {
+      if (!agentType || !agentClass) {
+        setAgentInfo(null);
+        setSuggestions([]);
+        return;
+      }
+
       try {
-        const response = await fetchCustom('/api/agent-param');
+        const response = await fetchCustom(`/api/agent-param?agent_type=${agentType}&agent_class=${agentClass}`);
         const data = await response.json();
         
         if (data.data) {
-          setAgentInfo(data.data);
+          const newAgentInfo = data.data;
+          setAgentInfo(newAgentInfo);
           
-          // 生成 suggestions
           const profileSuggestions = Object.entries(profileOptions).map(([key, config]) => ({
             label: `${key}`,
             detail: `Agent's ${config.label.toLowerCase()}`
           }));
 
-          const contextSuggestions = Object.entries(data.data.context || {}).map(([key, value]: [string, any]) => ({
+          const contextSuggestions = Object.entries(newAgentInfo.context || {}).map(([key, value]: [string, any]) => ({
             label: key,
             detail: value.description || `Type: ${value.type}`
           }));
 
-          const statusSuggestions = (data.data.status_attributes || []).map((attr: any) => ({
+          const statusSuggestions = (newAgentInfo.status_attributes || []).map((attr: any) => ({
             label: attr.name,
             detail: attr.description || `Type: ${attr.type}`
           }));
@@ -572,20 +566,27 @@ const AgentContextProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ];
 
           setSuggestions(newSuggestions);
+        } else {
+          setAgentInfo(null);
+          setSuggestions([]);
         }
       } catch (err) {
         console.error('Failed to fetch agent parameters:', err);
+        setAgentInfo(null);
+        setSuggestions([]);
       }
     };
 
     fetchAgentInfo();
-  }, []);
+  }, [agentType, agentClass]);
 
   const contextValue = useMemo(() => ({
     agentInfo,
     setAgentInfo,
-    suggestions
-  }), [agentInfo, suggestions]);
+    suggestions,
+    setAgentType,
+    setAgentClass,
+  }), [agentInfo, suggestions, agentType, agentClass]);
 
   return (
     <AgentContext.Provider value={contextValue}>
@@ -673,12 +674,12 @@ const renderDynamicFormItem = (
 
 const AgentConfiguration: React.FC = () => {
   const context = useContext(AgentContext);
-  const suggestions = context?.suggestions || [];
-  const agentInfo = context?.agentInfo;
 
   if (!context?.agentInfo) {
     return <Spin />;
   }
+
+  const { agentInfo, suggestions } = context;
 
   return (
     <Card title="Agent Configuration" bordered={false}>
@@ -905,11 +906,12 @@ interface AgentInfoSidebarProps {
 
 const AgentInfoSidebar: React.FC<AgentInfoSidebarProps> = ({ blockContexts = [] }) => {
   const context = useContext(AgentContext);
-  const agentInfo = context?.agentInfo;
 
-  if (!agentInfo) {
+  if (!context?.agentInfo) {
     return <Spin />;
   }
+
+  const { agentInfo } = context;
 
   // 通用的表格列配置
   const commonColumns = [
@@ -1039,23 +1041,89 @@ const AgentTemplateForm: React.FC = () => {
   const { id } = useParams();
   const [currentTemplate, setCurrentTemplate] = useState<AgentTemplate | null>(null);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
-  const [searchValue, setSearchValue] = useState<string>('');
+  const [agentType, setAgentType] = useState<string>('');
+  const [agentClasses, setAgentClasses] = useState<{ value: string; label: string }[]>([]);
+  const [agentClass, setAgentClass] = useState<string>('');
+  const [loadingAgentClasses, setLoadingAgentClasses] = useState<boolean>(false);
   const [blockContexts, setBlockContexts] = useState<BlockContextInfo[]>([]);
   
   // 将 context 移到组件顶层
   const context = useContext(AgentContext);
   const agentInfo = context?.agentInfo;
 
-  // 添加搜索数据源
-  const searchOptions = [
-    { value: 'societyagent', label: 'Society Agent' },
+  // Agent type 选项
+  const agentTypeOptions = [
+    { value: 'citizen', label: 'Citizen' },
+    { value: 'supervisor', label: 'Supervisor' },
   ];
 
-  // 处理搜索
-  const handleSearch = (value: string) => {
-    setSearchValue(value);
-    // 这里可以添加实际的搜索逻辑
+  // 处理agent type变化
+  const handleAgentTypeChange = (value: string) => {
+    setAgentType(value);
+    setAgentClass(''); // 重置agent class
+    setAgentClasses([]); // 清空agent classes
+    
+    // 通知context更新agent type，重置agent class
+    context?.setAgentType(value);
+    context?.setAgentClass('');
+    
+    // 更新表单字段值
+    form.setFieldsValue({
+      agent_class: undefined,
+      agent_type: value
+    });
+    
+    // 根据agent type设置profile数据
+    if (value === 'citizen') {
+      form.setFieldsValue({
+        profile: defaultProfileFields,
+        agent_type: value,
+        agent_class: undefined
+      });
+    } else if (value === 'supervisor') {
+      form.setFieldsValue({
+        profile: {},
+        agent_type: value,
+        agent_class: undefined
+      });
+    }
+    
+    // 获取agent classes
+    if (value) {
+      fetchAgentClasses(value);
+    }
+  };
 
+  // 获取agent classes
+  const fetchAgentClasses = async (agentType: string) => {
+    setLoadingAgentClasses(true);
+    try {
+      const response = await fetchCustom(`/api/agent-classes?agent_type=${agentType}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data) {
+          setAgentClasses(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('获取agent classes失败:', error);
+      setAgentClasses([]);
+    } finally {
+      setLoadingAgentClasses(false);
+    }
+  };
+
+  // 处理agent class变化
+  const handleAgentClassChange = (value: string) => {
+    setAgentClass(value);
+    
+    // 通知context更新agent class
+    context?.setAgentClass(value);
+    
+    // 更新表单字段值
+    form.setFieldsValue({
+      agent_class: value
+    });
   };
 
   // Load template data
@@ -1066,6 +1134,22 @@ const AgentTemplateForm: React.FC = () => {
           const template = (await res.json()).data;
           setCurrentTemplate(template);
 
+          // Set agent type and agent class if available
+          if (template.agent_type) {
+            setAgentType(template.agent_type);
+            // 通知context更新agent type
+            context?.setAgentType(template.agent_type);
+            // Load agent classes for the agent type
+            if (template.agent_type) {
+              fetchAgentClasses(template.agent_type);
+            }
+          }
+          if (template.agent_class) {
+            setAgentClass(template.agent_class);
+            // 通知context更新agent class
+            context?.setAgentClass(template.agent_class);
+          }
+
           // Extract block types from template
           const blockTypes = Object.keys(template.blocks);
           setSelectedBlocks(blockTypes);
@@ -1073,7 +1157,9 @@ const AgentTemplateForm: React.FC = () => {
           form.setFieldsValue({
             name: template.name,
             description: template.description,
-            profile: template.memory_distributions,
+            agent_type: template.agent_type,
+            agent_class: template.agent_class,
+            profile: template.agent_type === 'citizen' ? template.memory_distributions : {},
             agent_params: template.agent_params,
             blocks: template.blocks
           });
@@ -1082,9 +1168,8 @@ const AgentTemplateForm: React.FC = () => {
     } else {
       // Default values for new template
       form.setFieldsValue({
-        name: 'General Social Agent',
         description: '',
-        profile: defaultProfileFields,
+        profile: {}, // 初始为空，等用户选择agent type后再设置
         // agent_params: {
         //   enable_cognition: true,
         //   UBI: 1000,
@@ -1133,27 +1218,30 @@ const AgentTemplateForm: React.FC = () => {
       
       // 构造 memory_distributions
       const memory_distributions: Record<string, any> = {};
-      Object.entries(values.profile || {}).forEach(([key, value]: [string, any]) => {
-        if (value.type === 'choice') {
-          memory_distributions[key] = {
-            dist_type: 'choice',
-            choices: value.choices,
-            weights: value.weights
-          };
-        } else if (value.type === 'uniform_int') {
-          memory_distributions[key] = {
-            dist_type: 'uniform_int',
-            min_value: value.min_value,
-            max_value: value.max_value
-          };
-        } else if (value.type === 'normal') {
-          memory_distributions[key] = {
-            dist_type: 'normal',
-            mean: value.mean,
-            std: value.std
-          };
-        }
-      });
+      // 只有citizen类型才处理profile数据
+      if (values.agent_type === 'citizen') {
+        Object.entries(values.profile || {}).forEach(([key, value]: [string, any]) => {
+          if (value.type === 'choice') {
+            memory_distributions[key] = {
+              dist_type: 'choice',
+              choices: value.choices,
+              weights: value.weights
+            };
+          } else if (value.type === 'uniform_int') {
+            memory_distributions[key] = {
+              dist_type: 'uniform_int',
+              min_value: value.min_value,
+              max_value: value.max_value
+            };
+          } else if (value.type === 'normal') {
+            memory_distributions[key] = {
+              dist_type: 'normal',
+              mean: value.mean,
+              std: value.std
+            };
+          }
+        });
+      }
 
       // 构造 agent_params
       const agent_params: Record<string, any> = {};
@@ -1184,6 +1272,8 @@ const AgentTemplateForm: React.FC = () => {
       const templateData = {
         name: values.name || 'Default Template Name',
         description: values.description || '',
+        agent_type: values.agent_type,
+        agent_class: values.agent_class,
         memory_distributions,
         agent_params,
         blocks: blocksData
@@ -1216,121 +1306,135 @@ const AgentTemplateForm: React.FC = () => {
   };
 
   return (
-    <AgentContextProvider>
-      <div style={{ padding: '24px' }}>
-        <Card
-          title={id ? t('form.template.editTitle') : t('form.template.createTitle')}
-          extra={
-            <Space>
-              <Button onClick={() => navigate('/agent-templates')}>{t('form.common.cancel')}</Button>
-              <Button type="primary" onClick={() => form.submit()}>
-                {t('form.common.submit')}
-              </Button>
-            </Space>
-          }
-          bodyStyle={{ padding: '24px 0' }}
+    <div style={{ padding: '24px' }}>
+      <Card
+        title={id ? t('form.template.editTitle') : t('form.template.createTitle')}
+        extra={
+          <Space>
+            <Button onClick={() => navigate('/agent-templates')}>{t('form.common.cancel')}</Button>
+            <Button type="primary" onClick={() => form.submit()}>
+              {t('form.common.submit')}
+            </Button>
+          </Space>
+        }
+        bodyStyle={{ padding: '24px 0' }}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
         >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-          >
-            <Row gutter={0}>
-              <Col span={24} style={{ padding: '0 24px', marginBottom: '24px' }}>
-                <Card
-                  title={t('form.template.basicInfo')}
-                  bordered={false}
-                  bodyStyle={{ padding: '12px 24px' }}
-                  headStyle={{ padding: '0 24px 8px' }}
-                >
-                  <Row gutter={16} align="middle">
-                    <Col span={6}>
-                      <Form.Item
-                        name="name"
-                        label={t('form.common.name')}
-                        rules={[{ required: true }]}
-                        style={{ marginBottom: 0 }}
-                      >
-                        <Input placeholder={t('form.template.namePlaceholder')} />
-                      </Form.Item>
-                    </Col>
-                    <Col span={12}>
-                      <Form.Item
-                        name="description"
-                        label={t('form.common.description')}
-                        style={{ marginBottom: 0 }}
-                      >
-                        <Input placeholder={t('form.template.descriptionPlaceholder')} />
-                      </Form.Item>
-                    </Col>
-                    <Col span={6}>
-                      <Form.Item
-                        label="Template Type"
-                        style={{ marginBottom: 0 }}
-                      >
-                        <Select
-                          showSearch
-                          value={searchValue}
-                          placeholder="Enter search keywords"
-                          style={{ width: '100%' }}
-                          defaultActiveFirstOption={false}
-                          showArrow={false}
-                          filterOption={false}
-                          onSearch={handleSearch}
-                          onChange={handleSearch}
-                          notFoundContent={null}
-                          options={searchOptions}
-                        />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                </Card>
-              </Col>
+          <Row gutter={0}>
+            <Col span={24} style={{ padding: '0 24px', marginBottom: '24px' }}>
+              <Card
+                title={t('form.template.basicInfo')}
+                bordered={false}
+                bodyStyle={{ padding: '12px 24px' }}
+                headStyle={{ padding: '0 24px 8px' }}
+              >
+                <Row gutter={16} align="middle">
+                  <Col span={6}>
+                    <Form.Item
+                      name="name"
+                      label={t('form.common.name')}
+                      rules={[{ required: true }]}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Input />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="agent_type"
+                      label="Agent Type"
+                      rules={[{ required: true, message: '请选择Agent类型' }]}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Select
+                        value={agentType}
+                        placeholder="请选择Agent类型"
+                        style={{ width: '100%' }}
+                        onChange={handleAgentTypeChange}
+                        options={agentTypeOptions}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="agent_class"
+                      label="Agent Class"
+                      rules={[{ required: true, message: '请选择Agent Class' }]}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Select
+                        value={agentClass}
+                        placeholder={agentType ? "请选择Agent Class" : "请先选择Agent类型"}
+                        style={{ width: '100%' }}
+                        disabled={!agentType || loadingAgentClasses}
+                        loading={loadingAgentClasses}
+                        onChange={handleAgentClassChange}
+                        options={agentClasses}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="description"
+                      label={t('form.common.description')}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Input placeholder={t('form.template.descriptionPlaceholder')} />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Card>
+            </Col>
 
-              <Col span={6} style={{ borderRight: '1px solid #f0f0f0' }}>
-                <div style={{
-                  height: 'calc(100vh - 250px)',
-                  overflowY: 'auto',
-                  padding: '0 24px',
-                  position: 'sticky',
-                  top: 0
-                }}>
-                  {renderProfileSection(form)}
-                  {renderBaseLocation()}
-                </div>
-              </Col>
+            {/* Profile列 - 始终渲染，但supervisor模式下span为0实现隐藏 */}
+            <Col span={agentType === 'citizen' ? 6 : 0} style={{ borderRight: agentType === 'citizen' ? '1px solid #f0f0f0' : 'none' }}>
+              <div style={{
+                height: 'calc(100vh - 250px)',
+                overflowY: 'auto',
+                padding: agentType === 'citizen' ? '0 24px' : '0',
+                position: 'sticky',
+                top: 0,
+                display: agentType === 'citizen' ? 'block' : 'none'
+              }}>
+                {renderProfileSection(form)}
+                {renderBaseLocation()}
+              </div>
+            </Col>
 
-              <Col span={12} style={{ borderRight: '1px solid #f0f0f0' }}>
-                <div style={{
-                  height: 'calc(100vh - 250px)',
-                  overflowY: 'auto',
-                  padding: '0 24px',
-                  position: 'sticky',
-                  top: 0
-                }}>
-                  <AgentConfiguration />
-                  <BlockConfiguration 
-                    onBlockContextChange={setBlockContexts}
-                  />
-                </div>
-              </Col>
+            <Col span={agentType === 'citizen' ? 12 : 18} style={{ borderRight: '1px solid #f0f0f0' }}>
+              <div style={{
+                height: 'calc(100vh - 250px)',
+                overflowY: 'auto',
+                padding: '0 24px',
+                position: 'sticky',
+                top: 0
+              }}>
+                <AgentConfiguration />
+                <BlockConfiguration 
+                  onBlockContextChange={setBlockContexts}
+                />
+              </div>
+            </Col>
 
-              <Col span={6}>
-                <div style={{
-                  height: 'calc(100vh - 250px)',
-                  overflowY: 'auto',
-                  padding: '0 24px',
-                  position: 'sticky',
-                  top: 0
-                }}>
-                  <AgentInfoSidebar blockContexts={blockContexts} />
-                </div>
-              </Col>
-            </Row>
-          </Form>
-        </Card>
-      </div>
-    </AgentContextProvider>
+            <Col span={6}>
+              <div style={{
+                height: 'calc(100vh - 250px)',
+                overflowY: 'auto',
+                padding: '0 24px',
+                position: 'sticky',
+                top: 0
+              }}>
+                <AgentInfoSidebar blockContexts={blockContexts} />
+              </div>
+            </Col>
+          </Row>
+        </Form>
+      </Card>
+    </div>
   );
 };
 
