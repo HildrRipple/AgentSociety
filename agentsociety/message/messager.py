@@ -353,7 +353,7 @@ class Messager:
                         "type": "social",
                     }
                     await self.client.publish(
-                        channel.replace(to_id, from_id),
+                        channel.replace(f":{to_id}:", f":{from_id}:"),
                         jsonc.dumps(
                             failed_payload,
                             default=str,
