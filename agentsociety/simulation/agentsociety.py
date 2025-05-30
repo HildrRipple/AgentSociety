@@ -582,18 +582,7 @@ class AgentSociety:
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 supervisor_ids.add(agent_id)
-                # agents.append(
-                #     (
-                #         agent_id,
-                #         agent_config.agent_class,
-                #         generator,
-                #         agent_data.index(agent_datum),
-                #         agent_config.agent_params,
-                #         agent_config.blocks,
-                #     )
-                # )
-                # init agent
-                memory_dict = generator.generate(0)
+                memory_dict = agent_datum
                 extra_attributes = memory_dict.get("extra_attributes", {})
                 profile = memory_dict.get("profile", {})
                 base = memory_dict.get("base", {})
@@ -628,7 +617,7 @@ class AgentSociety:
                         self.environment,
                         self.messager,
                         self._avro_saver,
-                        self._pgsql_writers[0],
+                        self._pgsql_writers[0] if self._pgsql_writers else None,
                         self._mlflow,
                     ),
                     memory=memory_init,
@@ -698,6 +687,14 @@ class AgentSociety:
             ]
             citizen_ids.update([citizen[0] for citizen in citizens])
             agents += citizens
+
+        for agent_config in agent_configs_normal["supervisor"]:
+            supervisor_classes, _ = _init_agent_class(agent_config, self._config.env.s3)
+            supervisors = [
+                (_find_next_id(), *supervisor_class)
+                for i, supervisor_class in enumerate(supervisor_classes)
+            ]
+            supervisor_ids.update([supervisor[0] for supervisor in supervisors])
 
         # Step 3: Insert essential distributions for citizens
         memory_distributions = {}
