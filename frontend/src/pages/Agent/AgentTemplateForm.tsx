@@ -55,6 +55,8 @@ interface AgentTemplate {
   created_at: string;
   updated_at: string;
   tenant_id?: string;
+  agent_type?: string;
+  template_base?: string;
 }
 
 // Add default configurations
@@ -1039,23 +1041,63 @@ const AgentTemplateForm: React.FC = () => {
   const { id } = useParams();
   const [currentTemplate, setCurrentTemplate] = useState<AgentTemplate | null>(null);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
-  const [searchValue, setSearchValue] = useState<string>('');
+  const [agentType, setAgentType] = useState<string>('');
+  const [templateBases, setTemplateBases] = useState<{ value: string; label: string }[]>([]);
+  const [templateBase, setTemplateBase] = useState<string>('');
+  const [loadingTemplateBases, setLoadingTemplateBases] = useState<boolean>(false);
   const [blockContexts, setBlockContexts] = useState<BlockContextInfo[]>([]);
   
   // 将 context 移到组件顶层
   const context = useContext(AgentContext);
   const agentInfo = context?.agentInfo;
 
-  // 添加搜索数据源
-  const searchOptions = [
-    { value: 'societyagent', label: 'Society Agent' },
+  // Agent type 选项
+  const agentTypeOptions = [
+    { value: 'citizen', label: 'Citizen' },
+    { value: 'supervisor', label: 'Supervisor' },
   ];
 
-  // 处理搜索
-  const handleSearch = (value: string) => {
-    setSearchValue(value);
-    // 这里可以添加实际的搜索逻辑
+  // 处理agent type变化
+  const handleAgentTypeChange = (value: string) => {
+    setAgentType(value);
+    setTemplateBase(''); // 重置template base
+    setTemplateBases([]); // 清空template bases
+    
+    // 更新表单字段值
+    form.setFieldsValue({
+      agent_type: value,
+      template_base: undefined
+    });
+    
+    if (value) {
+      fetchTemplateBases(value);
+    }
+  };
 
+  // 获取template bases
+  const fetchTemplateBases = async (agentType: string) => {
+    setLoadingTemplateBases(true);
+    try {
+      const response = await fetchCustom(`/api/template-bases?agent_type=${agentType}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTemplateBases(data.data || []);
+      }
+    } catch (error) {
+      console.error('获取template bases失败:', error);
+      setTemplateBases([]);
+    } finally {
+      setLoadingTemplateBases(false);
+    }
+  };
+
+  // 处理template base变化
+  const handleTemplateBaseChange = (value: string) => {
+    setTemplateBase(value);
+    // 更新表单字段值
+    form.setFieldsValue({
+      template_base: value
+    });
   };
 
   // Load template data
@@ -1066,6 +1108,18 @@ const AgentTemplateForm: React.FC = () => {
           const template = (await res.json()).data;
           setCurrentTemplate(template);
 
+          // Set agent type and template base if available
+          if (template.agent_type) {
+            setAgentType(template.agent_type);
+            // Load template bases for the agent type
+            if (template.agent_type) {
+              fetchTemplateBases(template.agent_type);
+            }
+          }
+          if (template.template_base) {
+            setTemplateBase(template.template_base);
+          }
+
           // Extract block types from template
           const blockTypes = Object.keys(template.blocks);
           setSelectedBlocks(blockTypes);
@@ -1073,6 +1127,8 @@ const AgentTemplateForm: React.FC = () => {
           form.setFieldsValue({
             name: template.name,
             description: template.description,
+            agent_type: template.agent_type,
+            template_base: template.template_base,
             profile: template.memory_distributions,
             agent_params: template.agent_params,
             blocks: template.blocks
@@ -1184,6 +1240,8 @@ const AgentTemplateForm: React.FC = () => {
       const templateData = {
         name: values.name || 'Default Template Name',
         description: values.description || '',
+        agent_type: values.agent_type,
+        template_base: values.template_base,
         memory_distributions,
         agent_params,
         blocks: blocksData
@@ -1254,33 +1312,47 @@ const AgentTemplateForm: React.FC = () => {
                         <Input placeholder={t('form.template.namePlaceholder')} />
                       </Form.Item>
                     </Col>
-                    <Col span={12}>
+                    <Col span={6}>
+                      <Form.Item
+                        name="agent_type"
+                        label="Agent Type"
+                        rules={[{ required: true, message: '请选择Agent类型' }]}
+                        style={{ marginBottom: 0 }}
+                      >
+                        <Select
+                          value={agentType}
+                          placeholder="请选择Agent类型"
+                          style={{ width: '100%' }}
+                          onChange={handleAgentTypeChange}
+                          options={agentTypeOptions}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={6}>
+                      <Form.Item
+                        name="template_base"
+                        label="Template Base"
+                        rules={[{ required: true, message: '请选择Template Base' }]}
+                        style={{ marginBottom: 0 }}
+                      >
+                        <Select
+                          value={templateBase}
+                          placeholder={agentType ? "请选择Template Base" : "请先选择Agent类型"}
+                          style={{ width: '100%' }}
+                          disabled={!agentType || loadingTemplateBases}
+                          loading={loadingTemplateBases}
+                          onChange={handleTemplateBaseChange}
+                          options={templateBases}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={6}>
                       <Form.Item
                         name="description"
                         label={t('form.common.description')}
                         style={{ marginBottom: 0 }}
                       >
                         <Input placeholder={t('form.template.descriptionPlaceholder')} />
-                      </Form.Item>
-                    </Col>
-                    <Col span={6}>
-                      <Form.Item
-                        label="Template Type"
-                        style={{ marginBottom: 0 }}
-                      >
-                        <Select
-                          showSearch
-                          value={searchValue}
-                          placeholder="Enter search keywords"
-                          style={{ width: '100%' }}
-                          defaultActiveFirstOption={false}
-                          showArrow={false}
-                          filterOption={false}
-                          onSearch={handleSearch}
-                          onChange={handleSearch}
-                          notFoundContent={null}
-                          options={searchOptions}
-                        />
                       </Form.Item>
                     </Col>
                   </Row>

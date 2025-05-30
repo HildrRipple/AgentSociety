@@ -47,6 +47,8 @@ from agentsociety.cityagent.blocks.social_block import (
     SocialNoneBlock,
 )
 
+from agentsociety_community.agents import citizens, supervisors
+
 __all__ = ["router"]
 
 router = APIRouter(tags=["agent_templates"])
@@ -643,3 +645,38 @@ async def get_block_param(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get block parameters: {str(e)}",
         )
+
+
+@router.get("/template-bases")
+async def get_template_bases(
+    request: Request,
+    agent_type: str,
+) -> ApiResponseWrapper[List[Dict[str, str]]]:
+    """Get available template bases based on agent type"""
+    try:
+        if agent_type == "citizen":
+            type_dict = citizens.get_type_to_cls_dict()
+        elif agent_type == "supervisor":
+            type_dict = supervisors.get_type_to_cls_dict()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid agent_type. Must be 'citizen' or 'supervisor', got: {agent_type}",
+            )
+        
+        # Convert to list of dicts with value and label for frontend Select component
+        template_bases = [
+            {"value": type_name, "label": type_name}
+            for type_name in type_dict.keys()
+        ]
+        
+        return ApiResponseWrapper(data=template_bases)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_template_bases: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get template bases for agent_type '{agent_type}': {str(e)}",
+        )
+
