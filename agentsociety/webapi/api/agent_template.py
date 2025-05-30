@@ -647,12 +647,12 @@ async def get_block_param(
         )
 
 
-@router.get("/template-bases")
-async def get_template_bases(
+@router.get("/agent-classes")
+async def get_agent_classes(
     request: Request,
     agent_type: str,
 ) -> ApiResponseWrapper[List[Dict[str, str]]]:
-    """Get available template bases based on agent type"""
+    """Get available agent classes base on agent type"""
     try:
         if agent_type == "citizen":
             type_dict = citizens.get_type_to_cls_dict()
@@ -665,18 +665,18 @@ async def get_template_bases(
             )
         
         # Convert to list of dicts with value and label for frontend Select component
-        template_bases = [
+        agent_type = [
             {"value": type_name, "label": type_name}
             for type_name in type_dict.keys()
         ]
         
-        return ApiResponseWrapper(data=template_bases)
+        return ApiResponseWrapper(data=agent_type)
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error in get_template_bases: {str(e)}")
+        print(f"Error in get_agent_classes: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get template bases for agent_type '{agent_type}': {str(e)}",
+            detail=f"Failed to get agent_classes '{agent_type}': {str(e)}",
         )
 

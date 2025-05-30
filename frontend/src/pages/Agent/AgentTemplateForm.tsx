@@ -7,19 +7,6 @@ import { QuestionCircleOutlined } from '@ant-design/icons';
 import MonacoPromptEditor from '../../components/MonacoPromptEditor';
 import { useTranslation } from 'react-i18next';
 
-// Import required interfaces and constants
-// interface TemplateBlock {
-//   id: string;
-//   name: string;
-//   type: string;
-//   description: string;
-//   dependencies?: {
-//     needs?: string;
-//     satisfaction?: string;
-//   };
-//   params?: Record<string, any>;
-// }
-
 interface AgentTemplate {
   id: string;
   name: string;
@@ -35,18 +22,7 @@ interface AgentTemplate {
       std?: number;
     };
   };
-  agent_params: {
-    // enable_cognition: boolean;
-    // UBI: number;
-    // num_labor_hours: number;
-    // productivity_per_labor: number;
-    // time_diff: number;
-    // max_plan_steps: number;
-    // need_initialization_prompt?: string;
-    // need_evaluation_prompt?: string;
-    // need_reflection_prompt?: string;
-    // plan_generation_prompt?: string;
-  };
+  agent_params: Record<string, any>;
   blocks: {
     [key: string]: {
       params?: Record<string, any>;
@@ -56,7 +32,7 @@ interface AgentTemplate {
   updated_at: string;
   tenant_id?: string;
   agent_type?: string;
-  template_base?: string;
+  agent_class?: string;
 }
 
 // Add default configurations
@@ -1042,9 +1018,9 @@ const AgentTemplateForm: React.FC = () => {
   const [currentTemplate, setCurrentTemplate] = useState<AgentTemplate | null>(null);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
   const [agentType, setAgentType] = useState<string>('');
-  const [templateBases, setTemplateBases] = useState<{ value: string; label: string }[]>([]);
-  const [templateBase, setTemplateBase] = useState<string>('');
-  const [loadingTemplateBases, setLoadingTemplateBases] = useState<boolean>(false);
+  const [agentClasses, setAgentClasses] = useState<{ value: string; label: string }[]>([]);
+  const [agentClass, setAgentClass] = useState<string>('');
+  const [loadingAgentClasses, setLoadingAgentClasses] = useState<boolean>(false);
   const [blockContexts, setBlockContexts] = useState<BlockContextInfo[]>([]);
   
   // 将 context 移到组件顶层
@@ -1060,52 +1036,57 @@ const AgentTemplateForm: React.FC = () => {
   // 处理agent type变化
   const handleAgentTypeChange = (value: string) => {
     setAgentType(value);
-    setTemplateBase(''); // 重置template base
-    setTemplateBases([]); // 清空template bases
+    setAgentClass(''); // 重置agent class
+    setAgentClasses([]); // 清空agent classes
     
     // 更新表单字段值
-    const formValues: any = {
-      agent_type: value,
-      template_base: undefined
-    };
+    form.setFieldsValue({
+      agent_class: undefined
+    });
     
     // 根据agent type设置profile数据
     if (value === 'citizen') {
-      formValues.profile = defaultProfileFields;
+      form.setFieldsValue({
+        profile: defaultProfileFields,
+        agent_type: value,
+        agent_class: undefined
+      });
     } else if (value === 'supervisor') {
-      formValues.profile = {};
+      form.setFieldsValue({
+        profile: {},
+        agent_type: value,
+        agent_class: undefined
+      });
     }
-    
-    form.setFieldsValue(formValues);
     
     if (value) {
-      fetchTemplateBases(value);
+      fetchAgentClasses(value);
     }
   };
 
-  // 获取template bases
-  const fetchTemplateBases = async (agentType: string) => {
-    setLoadingTemplateBases(true);
+  // 获取agent classes
+  const fetchAgentClasses = async (agentType: string) => {
+    setLoadingAgentClasses(true);
     try {
-      const response = await fetchCustom(`/api/template-bases?agent_type=${agentType}`);
+      const response = await fetchCustom(`/api/agent-classes?agent_type=${agentType}`);
       if (response.ok) {
         const data = await response.json();
-        setTemplateBases(data.data || []);
+        setAgentClasses(data.data || []);
       }
     } catch (error) {
-      console.error('获取template bases失败:', error);
-      setTemplateBases([]);
+      console.error('获取agent classes失败:', error);
+      setAgentClasses([]);
     } finally {
-      setLoadingTemplateBases(false);
+      setLoadingAgentClasses(false);
     }
   };
 
-  // 处理template base变化
-  const handleTemplateBaseChange = (value: string) => {
-    setTemplateBase(value);
+  // 处理agent class变化
+  const handleAgentClassChange = (value: string) => {
+    setAgentClass(value);
     // 更新表单字段值
     form.setFieldsValue({
-      template_base: value
+      agent_class: value
     });
   };
 
@@ -1117,16 +1098,16 @@ const AgentTemplateForm: React.FC = () => {
           const template = (await res.json()).data;
           setCurrentTemplate(template);
 
-          // Set agent type and template base if available
+          // Set agent type and agent class if available
           if (template.agent_type) {
             setAgentType(template.agent_type);
-            // Load template bases for the agent type
+            // Load agent classes for the agent type
             if (template.agent_type) {
-              fetchTemplateBases(template.agent_type);
+              fetchAgentClasses(template.agent_type);
             }
           }
-          if (template.template_base) {
-            setTemplateBase(template.template_base);
+          if (template.agent_class) {
+            setAgentClass(template.agent_class);
           }
 
           // Extract block types from template
@@ -1137,7 +1118,7 @@ const AgentTemplateForm: React.FC = () => {
             name: template.name,
             description: template.description,
             agent_type: template.agent_type,
-            template_base: template.template_base,
+            agent_class: template.agent_class,
             profile: template.agent_type === 'citizen' ? template.memory_distributions : {},
             agent_params: template.agent_params,
             blocks: template.blocks
@@ -1147,7 +1128,6 @@ const AgentTemplateForm: React.FC = () => {
     } else {
       // Default values for new template
       form.setFieldsValue({
-        name: 'General Social Agent',
         description: '',
         profile: {}, // 初始为空，等用户选择agent type后再设置
         // agent_params: {
@@ -1253,7 +1233,7 @@ const AgentTemplateForm: React.FC = () => {
         name: values.name || 'Default Template Name',
         description: values.description || '',
         agent_type: values.agent_type,
-        template_base: values.template_base,
+        agent_class: values.agent_class,
         memory_distributions,
         agent_params,
         blocks: blocksData
@@ -1321,7 +1301,7 @@ const AgentTemplateForm: React.FC = () => {
                         rules={[{ required: true }]}
                         style={{ marginBottom: 0 }}
                       >
-                        <Input placeholder={t('form.template.namePlaceholder')} />
+                        <Input />
                       </Form.Item>
                     </Col>
                     <Col span={6}>
@@ -1342,19 +1322,19 @@ const AgentTemplateForm: React.FC = () => {
                     </Col>
                     <Col span={6}>
                       <Form.Item
-                        name="template_base"
-                        label="Template Base"
-                        rules={[{ required: true, message: '请选择Template Base' }]}
+                        name="agent_class"
+                        label="Agent Class"
+                        rules={[{ required: true, message: '请选择Agent Class' }]}
                         style={{ marginBottom: 0 }}
                       >
                         <Select
-                          value={templateBase}
-                          placeholder={agentType ? "请选择Template Base" : "请先选择Agent类型"}
+                          value={agentClass}
+                          placeholder={agentType ? "请选择Agent Class" : "请先选择Agent类型"}
                           style={{ width: '100%' }}
-                          disabled={!agentType || loadingTemplateBases}
-                          loading={loadingTemplateBases}
-                          onChange={handleTemplateBaseChange}
-                          options={templateBases}
+                          disabled={!agentType || loadingAgentClasses}
+                          loading={loadingAgentClasses}
+                          onChange={handleAgentClassChange}
+                          options={agentClasses}
                         />
                       </Form.Item>
                     </Col>
