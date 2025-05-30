@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, InputNumber, Select, Card, Tabs, Button, Space, Switch } from 'antd';
-import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import { Form, Input, InputNumber, Select, Card, Tabs, Button, Space, Switch, Tooltip } from 'antd';
+import { PlusOutlined, MinusCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { ExpConfig, WorkflowStepConfig, MetricExtractorConfig } from '../../types/config';
 import { WorkflowType, MetricType } from '../../utils/enums';
 import { fetchCustom } from '../../components/fetch';
@@ -170,16 +170,61 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                 <Select
                                                     placeholder="Select step type"
                                                     options={[
-                                                        { value: WorkflowType.RUN, label: 'Run' },
-                                                        { value: WorkflowType.STEP, label: 'Step' },
-                                                        { value: WorkflowType.INTERVIEW, label: 'Interview' },
-                                                        { value: WorkflowType.SURVEY, label: 'Survey' },
-                                                        { value: WorkflowType.ENVIRONMENT_INTERVENE, label: 'Environment Intervene' },
-                                                        { value: WorkflowType.UPDATE_STATE_INTERVENE, label: 'Update State Intervene' },
-                                                        { value: WorkflowType.MESSAGE_INTERVENE, label: 'Message Intervene' },
-                                                        { value: WorkflowType.NEXT_ROUND, label: 'Next Round' },
-                                                        { value: WorkflowType.INTERVENE, label: 'Other' },
-                                                        { value: WorkflowType.FUNCTION, label: 'Function' },
+                                                        { 
+                                                            value: WorkflowType.RUN, 
+                                                            label: (
+                                                                <Space>
+                                                                    Run
+                                                                    <Tooltip title="运行典型日模拟">
+                                                                        <QuestionCircleOutlined style={{ color: '#1890ff' }} />
+                                                                    </Tooltip>
+                                                                </Space>
+                                                            )
+                                                        },
+                                                        { 
+                                                            value: WorkflowType.STEP, 
+                                                            label: (
+                                                                <Space>
+                                                                    Step
+                                                                    <Tooltip title="运行单步模拟">
+                                                                        <QuestionCircleOutlined style={{ color: '#1890ff' }} />
+                                                                    </Tooltip>
+                                                                </Space>
+                                                            )
+                                                        },
+                                                        { 
+                                                            value: WorkflowType.ENVIRONMENT_INTERVENE, 
+                                                            label: (
+                                                                <Space>
+                                                                    Environment Intervene
+                                                                    <Tooltip title="更新环境信息，例如天气信息等">
+                                                                        <QuestionCircleOutlined style={{ color: '#1890ff' }} />
+                                                                    </Tooltip>
+                                                                </Space>
+                                                            )
+                                                        },
+                                                        { 
+                                                            value: WorkflowType.NEXT_ROUND, 
+                                                            label: (
+                                                                <Space>
+                                                                    Next Round
+                                                                    <Tooltip title="重置智能体并准备启动下一轮模拟">
+                                                                        <QuestionCircleOutlined style={{ color: '#1890ff' }} />
+                                                                    </Tooltip>
+                                                                </Space>
+                                                            )
+                                                        },
+                                                        { 
+                                                            value: WorkflowType.FUNCTION, 
+                                                            label: (
+                                                                <Space>
+                                                                    Function
+                                                                    <Tooltip title="运行特定功能函数">
+                                                                        <QuestionCircleOutlined style={{ color: '#1890ff' }} />
+                                                                    </Tooltip>
+                                                                </Space>
+                                                            )
+                                                        },
                                                     ]}
                                                 />
                                             </Form.Item>
@@ -238,6 +283,7 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                             )}
 
                                             {/* INTERVIEW 类型字段 */}
+                                            {/* 
                                             {stepTypes[name] === WorkflowType.INTERVIEW && (
                                                 <>
                                                     <Form.Item
@@ -265,8 +311,10 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                     </Form.Item>
                                                 </>
                                             )}
+                                            */}
 
                                             {/* SURVEY 类型字段 */}
+                                            {/* 
                                             {stepTypes[name] === WorkflowType.SURVEY && (
                                                 <>
                                                     <Form.Item
@@ -282,10 +330,9 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                             tokenSeparators={[',']}
                                                         />
                                                     </Form.Item>
-                                                    
-                                                    {/* 这里可以添加更多的调查相关字段 */}
                                                 </>
                                             )}
+                                            */}
 
                                             {/* ENVIRONMENT_INTERVENE 类型字段 */}
                                             {stepTypes[name] === WorkflowType.ENVIRONMENT_INTERVENE && (
@@ -313,6 +360,7 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                             )}
 
                                             {/* UPDATE_STATE_INTERVENE 类型字段 */}
+                                            {/* 
                                             {stepTypes[name] === WorkflowType.UPDATE_STATE_INTERVENE && (
                                                 <>
                                                     <Form.Item
@@ -350,8 +398,10 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                     </Form.Item>
                                                 </>
                                             )}
+                                            */}
 
                                             {/* MESSAGE_INTERVENE 类型字段 */}
+                                            {/* 
                                             {stepTypes[name] === WorkflowType.MESSAGE_INTERVENE && (
                                                 <>
                                                     <Form.Item
@@ -379,29 +429,10 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                     </Form.Item>
                                                 </>
                                             )}
-
-                                            {/* FUNCTION 类型字段 */}
-                                            {stepTypes[name] === WorkflowType.FUNCTION && (
-                                                <>
-                                                    <Form.Item
-                                                        {...restField}
-                                                        name={[name, 'func']}
-                                                        label="Function Name"
-                                                        rules={[{ required: true, message: 'Please select a function' }]}
-                                                        tooltip="Select a function to execute"
-                                                    >
-                                                        <Select
-                                                            placeholder="Select a function"
-                                                            options={functionList.map(func => ({
-                                                                value: func,
-                                                                label: func
-                                                            }))}
-                                                        />
-                                                    </Form.Item>
-                                                </>
-                                            )}
+                                            */}
 
                                             {/* INTERVENE 类型字段 */}
+                                            {/* 
                                             {stepTypes[name] === WorkflowType.INTERVENE && (
                                                 <>
                                                     <Form.Item
@@ -415,6 +446,7 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                     </Form.Item>
                                                 </>
                                             )}
+                                            */}
 
                                             {/* 所有类型都可以有描述 */}
                                             <Form.Item
