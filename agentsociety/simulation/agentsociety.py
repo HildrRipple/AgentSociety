@@ -15,15 +15,19 @@ import ray
 import ray.util.queue
 import yaml
 
-from ..agent import Agent, StatusAttribute
+from ..agent import Agent, AgentToolbox, StatusAttribute, SupervisorBase
 from ..agent.distribution import (Distribution, DistributionConfig,
                                   DistributionType)
-from ..agent.memory_config_generator import MemoryConfigGenerator, MemoryT, default_memory_config_citizen
+from ..agent.memory_config_generator import (MemoryConfigGenerator, MemoryT,
+                                             default_memory_config_citizen)
 from ..configs import (AgentConfig, AgentFilterConfig, Config,
-                       MetricExtractorConfig, MetricType, WorkflowType)
+                       MessageInterceptConfig, MetricExtractorConfig,
+                       MetricType, WorkflowType)
 from ..environment import EnvironmentStarter
 from ..llm import LLM, monitor_requests
+from ..llm.embeddings import init_embedding
 from ..logger import get_logger, set_logger_level
+from ..memory import FaissQuery, Memory
 from ..message import MessageInterceptor, Messager
 from ..message.message_interceptor import MessageBlockListenerBase
 from ..metrics import MlflowClient
@@ -46,7 +50,7 @@ def _set_default_agent_config(self: Config):
     """
     Validates configuration options to ensure the user selects the correct combination.
     - **Description**:
-        - If citizens contains at least one CITIZEN type agent, automatically fills 
+        - If citizens contains at least one CITIZEN type agent, automatically fills
             empty institution agent lists with default configurations.
         - Sets default memory_config_func for citizen agents if not specified.
 
@@ -59,6 +63,7 @@ def _set_default_agent_config(self: Config):
             agent_config.memory_config_func = default_memory_config_citizen
 
     return self
+
 
 def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     """
@@ -199,7 +204,17 @@ class AgentSociety:
         # Initialize the messager
         # ====================
         get_logger().info(f"Initializing messager...")
-        if self._config.exp.message_intercept is not None:
+        if (
+            self._config.exp.message_intercept is not None
+            or self._config.agents.supervisor is not None
+        ):
+            if self._config.exp.message_intercept is None:
+                self._config.exp.message_intercept = MessageInterceptConfig(
+                    forward_strategy="outer_control",
+                    blocks=[],
+                )
+            else:
+                self._config.exp.message_intercept.forward_strategy = "outer_control"
             queue = ray.util.queue.Queue()
             self._message_interceptor = MessageInterceptor.remote(
                 blocks=self._config.exp.message_intercept.blocks,  # type: ignore
@@ -277,6 +292,7 @@ class AgentSociety:
         agents = []  # (id, agent_class, generator, memory_index)
         next_id = 1
         defined_ids = set()  # used to check if the id is already defined
+
         def _find_next_id():
             nonlocal next_id  # Declare that we want to modify the outer variable
             while next_id in defined_ids:
@@ -285,7 +301,7 @@ class AgentSociety:
                 raise ValueError(f"Agent ID {next_id} is greater than MAX_ID {MAX_ID}")
             defined_ids.add(next_id)
             return next_id
-        
+
         group_size = self._config.advanced.group_size
         get_logger().info(f"Initializing agent groups (size={group_size})...")
         citizen_ids = set()
@@ -293,7 +309,13 @@ class AgentSociety:
         nbs_ids = set()
         government_ids = set()
         firm_ids = set()
+        supervisor_ids = set()
         aoi_ids = self._environment.get_aoi_ids()
+
+        self._embedding_model = init_embedding(self._config.advanced.embedding_model)
+        get_logger().debug(f"Embedding model initialized")
+        self._faiss_query = FaissQuery(self._embedding_model)
+        get_logger().debug(f"FAISS query initialized")
 
         # Check if any agent config uses memory_from_file
         agent_configs_normal = {
@@ -302,6 +324,7 @@ class AgentSociety:
             "nbs": [],
             "governments": [],
             "citizens": [],
+            "supervisor": [],
         }
         agent_configs_from_file = {
             "firms": [],
@@ -309,6 +332,7 @@ class AgentSociety:
             "nbs": [],
             "governments": [],
             "citizens": [],
+            "supervisor": [],
         }
         for agent_config in self._config.agents.firms:
             if agent_config.memory_from_file is None:
@@ -335,6 +359,12 @@ class AgentSociety:
                 agent_configs_normal["citizens"].append(agent_config)
             else:
                 agent_configs_from_file["citizens"].append(agent_config)
+        if self._config.agents.supervisor is not None:
+            agent_config = self._config.agents.supervisor
+            if agent_config.memory_from_file is None:
+                agent_configs_normal["supervisor"] = [agent_config]
+            else:
+                agent_configs_from_file["supervisor"] = [agent_config]
 
         citizen_generators = []
         # Step 1: Process all agents with memory_from_file
@@ -359,7 +389,9 @@ class AgentSociety:
                 agent_id = agent_datum.get("id")
                 assert agent_id is not None, "id is required in memory_from_file[Firms]"
                 assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
-                assert agent_id <= MAX_ID, f"id {agent_id} is greater than MAX_ID {MAX_ID}"
+                assert (
+                    agent_id <= MAX_ID
+                ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 firm_ids.add(agent_id)
@@ -392,7 +424,9 @@ class AgentSociety:
                 agent_id = agent_datum.get("id")
                 assert agent_id is not None, "id is required in memory_from_file[Banks]"
                 assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
-                assert agent_id <= MAX_ID, f"id {agent_id} is greater than MAX_ID {MAX_ID}"
+                assert (
+                    agent_id <= MAX_ID
+                ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 bank_ids.add(agent_id)
@@ -425,7 +459,9 @@ class AgentSociety:
                 agent_id = agent_datum.get("id")
                 assert agent_id is not None, "id is required in memory_from_file[NBS]"
                 assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
-                assert agent_id <= MAX_ID, f"id {agent_id} is greater than MAX_ID {MAX_ID}"
+                assert (
+                    agent_id <= MAX_ID
+                ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 nbs_ids.add(agent_id)
@@ -456,9 +492,13 @@ class AgentSociety:
             agent_data = generator.get_agent_data_from_file()
             for agent_datum in agent_data:
                 agent_id = agent_datum.get("id")
-                assert agent_id is not None, "id is required in memory_from_file[Governments]"
+                assert (
+                    agent_id is not None
+                ), "id is required in memory_from_file[Governments]"
                 assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
-                assert agent_id <= MAX_ID, f"id {agent_id} is greater than MAX_ID {MAX_ID}"
+                assert (
+                    agent_id <= MAX_ID
+                ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 government_ids.add(agent_id)
@@ -490,9 +530,13 @@ class AgentSociety:
             agent_data = generator.get_agent_data_from_file()
             for agent_datum in agent_data:
                 agent_id = agent_datum.get("id")
-                assert agent_id is not None, "id is required in memory_from_file[Citizens]"
+                assert (
+                    agent_id is not None
+                ), "id is required in memory_from_file[Citizens]"
                 assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
-                assert agent_id <= MAX_ID, f"id {agent_id} is greater than MAX_ID {MAX_ID}"
+                assert (
+                    agent_id <= MAX_ID
+                ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 citizen_ids.add(agent_id)
@@ -507,7 +551,95 @@ class AgentSociety:
                     )
                 )
 
-        get_logger().info(f"{len(defined_ids)} defined ids found in memory_config_files")
+        # Supervisor
+        # ATTENTION: will not be initialized in AgentGroup
+        assert (
+            len(agent_configs_from_file["supervisor"]) <= 1
+        ), "only one or zero supervisor is allowed"
+        self.supervisor: Optional[SupervisorBase] = None
+        for agent_config in agent_configs_from_file["supervisor"]:
+            generator = MemoryConfigGenerator(
+                agent_config.memory_config_func,  # type: ignore
+                agent_config.agent_class.StatusAttributes,  # type: ignore
+                agent_config.memory_from_file,
+                (
+                    agent_config.memory_distributions
+                    if agent_config.memory_distributions is not None
+                    else {}
+                ),
+                self._config.env.s3,
+            )
+            agent_data = generator.get_agent_data_from_file()
+            for agent_datum in agent_data:
+                agent_id = agent_datum.get("id")
+                assert (
+                    agent_id is not None
+                ), "id is required in memory_from_file[Supervisor]"
+                assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                assert (
+                    agent_id <= MAX_ID
+                ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
+                assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                defined_ids.add(agent_id)
+                supervisor_ids.add(agent_id)
+                # agents.append(
+                #     (
+                #         agent_id,
+                #         agent_config.agent_class,
+                #         generator,
+                #         agent_data.index(agent_datum),
+                #         agent_config.agent_params,
+                #         agent_config.blocks,
+                #     )
+                # )
+                # init agent
+                memory_dict = generator.generate(0)
+                extra_attributes = memory_dict.get("extra_attributes", {})
+                profile = memory_dict.get("profile", {})
+                base = memory_dict.get("base", {})
+                memory_init = Memory(
+                    agent_id=agent_id,
+                    environment=self.environment,
+                    faiss_query=self._faiss_query,
+                    embedding_model=self._embedding_model,
+                    config=extra_attributes,
+                    profile=profile,
+                    base=base,
+                )
+                # # build blocks
+                if agent_config.blocks is not None:
+                    blocks = [
+                        block_type(
+                            llm=self._llm,
+                            environment=self.environment,
+                            agent_memory=memory_init,
+                            block_params=block_params,
+                        )
+                        for block_type, block_params in agent_config.blocks.items()
+                    ]
+                else:
+                    blocks = None
+                # build agent
+                self.supervisor = agent_config.agent_class(
+                    id=agent_id,
+                    name=f"{agent_config.agent_class.__name__}_{agent_id}",
+                    toolbox=AgentToolbox(
+                        self._llm,
+                        self.environment,
+                        self.messager,
+                        self._avro_saver,
+                        self._pgsql_writers[0],
+                        self._mlflow,
+                    ),
+                    memory=memory_init,
+                    agent_params=agent_config.agent_params,
+                    blocks=blocks,
+                )
+                break
+
+        get_logger().info(
+            f"{len(defined_ids)} defined ids found in memory_config_files"
+        )
 
         # Step 2: Process all agents without memory_from_file
         for agent_config in agent_configs_normal["firms"]:
@@ -541,16 +673,13 @@ class AgentSociety:
         for agent_config in agent_configs_normal["nbs"]:
             nbs_classes, _ = _init_agent_class(agent_config, self._config.env.s3)
             nbs = [
-                (_find_next_id(), *nbs_class)
-                for i, nbs_class in enumerate(nbs_classes)
+                (_find_next_id(), *nbs_class) for i, nbs_class in enumerate(nbs_classes)
             ]
             nbs_ids.update([nbs[0] for nbs in nbs])
             agents += nbs
 
         for agent_config in agent_configs_normal["governments"]:
-            government_classes, _ = _init_agent_class(
-                agent_config, self._config.env.s3
-            )
+            government_classes, _ = _init_agent_class(agent_config, self._config.env.s3)
             governments = [
                 (_find_next_id(), *government_class)
                 for i, government_class in enumerate(government_classes)
@@ -573,17 +702,17 @@ class AgentSociety:
         # Step 3: Insert essential distributions for citizens
         memory_distributions = {}
         for key, ids in [
-                ("firm_id", firm_ids),
-                ("bank_id", bank_ids),
-                ("nbs_id", nbs_ids),
-                ("government_id", government_ids),
-                ("home_aoi_id", aoi_ids),
-                ("work_aoi_id", aoi_ids),
-            ]:
-                memory_distributions[key] = DistributionConfig(
-                    dist_type=DistributionType.CHOICE,
-                    choices=list(ids),
-                )
+            ("firm_id", firm_ids),
+            ("bank_id", bank_ids),
+            ("nbs_id", nbs_ids),
+            ("government_id", government_ids),
+            ("home_aoi_id", aoi_ids),
+            ("work_aoi_id", aoi_ids),
+        ]:
+            memory_distributions[key] = DistributionConfig(
+                dist_type=DistributionType.CHOICE,
+                choices=list(ids),
+            )
         for generator in citizen_generators:
             generator.merge_distributions(memory_distributions)
 
@@ -1073,10 +1202,12 @@ class AgentSociety:
 
     def _save_context(self):
         fs_client = self._config.env.fs_client
-        json_bytes = json.dumps(self.context, indent=2, ensure_ascii=False).encode('utf-8')
+        json_bytes = json.dumps(self.context, indent=2, ensure_ascii=False).encode(
+            "utf-8"
+        )
         fs_client.upload(
-            data = json_bytes,
-            remote_path = f"exps/{self.tenant_id}/{self.exp_id}/artifacts.json",
+            data=json_bytes,
+            remote_path=f"exps/{self.tenant_id}/{self.exp_id}/artifacts.json",
         )
 
     async def delete_agents(self, target_agent_ids: list[int]):
@@ -1203,14 +1334,11 @@ class AgentSociety:
             message_intercept_config = self.config.exp.message_intercept
             if message_intercept_config is not None:
                 if message_intercept_config.forward_strategy == "outer_control":
+                    assert (
+                        self.supervisor is not None
+                    ), "Supervisor must be set when using `outer_control` strategy"
                     interceptor = self._message_interceptor
-                    assert (
-                        interceptor is not None
-                    ), "Message interceptor must be set when using `outer_control` strategy"
-                    governance_func = message_intercept_config.governance_func
-                    assert (
-                        governance_func is not None
-                    ), "Governance function must be set when using `outer_control` strategy"
+                    supervisor_func = self.supervisor.supervisor_func
                     # the logic of outer control
                     current_round_dict = await interceptor.get_validation_dict.remote()  # type: ignore
                     (
@@ -1218,9 +1346,7 @@ class AgentSociety:
                         blocked_agent_ids,
                         blocked_social_edges,
                         persuasion_messages,
-                    ) = await governance_func(
-                        list(current_round_dict.keys()), self._llm
-                    )
+                    ) = await supervisor_func(list(current_round_dict.keys()))
                     interceptor.update_blocked_agent_ids.remote(blocked_agent_ids)  # type: ignore
                     interceptor.update_blocked_social_edges.remote(blocked_social_edges)  # type: ignore
                     # modify validation_dict based on blocked_agent_ids and blocked_social_edges

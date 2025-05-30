@@ -168,6 +168,8 @@ def default(config: Config) -> Config:
         _fill_in_agent_class_and_memory_config(agent_config)
         for agent_config in config.agents.nbs
     ]
+    if config.agents.supervisor is not None:
+        config.agents.supervisor = _fill_in_agent_class_and_memory_config(config.agents.supervisor)
     # =====================
     # exp config
     # =====================

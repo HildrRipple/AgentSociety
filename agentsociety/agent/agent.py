@@ -372,3 +372,59 @@ class GovernmentAgentBase(InstitutionAgentBase):
     """
 
     ...
+
+
+class SupervisorBase(Agent):
+        def __init__(
+            self,
+            id: int,
+            name: str,
+            toolbox: AgentToolbox,
+            memory: Memory,
+            agent_params: Optional[Any] = None,
+            blocks: Optional[list[Block]] = None,
+        ) -> None:
+            """
+            Initialize a new instance of the CitizenAgent.
+
+            - **Args**:
+                - `id` (`int`): The ID of the agent.
+                - `name` (`str`): The name or identifier of the agent.
+                - `toolbox` (`AgentToolbox`): The toolbox of the agent.
+                - `memory` (`Memory`): The memory of the agent.
+
+            - **Description**:
+                - Initializes the CitizenAgent with the provided parameters and sets up necessary internal states.
+            """
+            super().__init__(
+                id=id,
+                name=name,
+                type=AgentType.Citizen,
+                toolbox=toolbox,
+                memory=memory,
+                agent_params=agent_params,
+                blocks=blocks,
+            )
+            
+        async def supervisor_func(
+            self,
+            current_round_messages: list[tuple[int, int, str]],
+        )-> tuple[
+            dict[tuple[int, int, str], bool],
+            list[int],
+            list[tuple[int, int]],
+            list[dict[str, Any]],
+        ]:
+            """
+            Process and validate messages from the current round, performing validation and intervention
+
+            Args:
+                current_round_messages: List of messages for the current round, each element is a tuple of (sender_id, receiver_id, content)
+
+            Returns:
+                validation_dict: Dictionary of message validation results, key is message tuple, value is whether validation passed
+                blocked_agent_ids: List of blocked agent IDs
+                blocked_social_edges: List of blocked social edges
+                persuasion_messages: List of persuasion messages
+            """
+            raise NotImplementedError("This method `supervisor_func` should be implemented by the subclass")

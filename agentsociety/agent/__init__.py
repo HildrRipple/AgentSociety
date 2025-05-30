@@ -4,6 +4,7 @@ from .agent import (
     FirmAgentBase,
     GovernmentAgentBase,
     NBSAgentBase,
+    SupervisorBase,
 )
 from .agent_base import Agent, AgentToolbox, AgentType, AgentParams
 from .block import (

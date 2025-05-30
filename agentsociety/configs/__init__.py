@@ -57,6 +57,9 @@ class AgentsConfig(BaseModel):
 
     others: list[AgentConfig] = Field([])
     """Other Agent configuration"""
+    
+    supervisor: Optional[AgentConfig] = Field(None)
+    """Supervisor Agent configuration"""
 
     init_funcs: list[Callable[[Any], Union[None, Awaitable[None]]]] = Field([])
     """Initialization functions for simulation, the only one argument is the AgentSociety object"""
