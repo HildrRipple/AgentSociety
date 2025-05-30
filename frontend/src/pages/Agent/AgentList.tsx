@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
+import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form, Row, Col } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
 import AgentForm from './AgentForm';
 import { ConfigItem } from '../../services/storageService';
@@ -296,30 +296,38 @@ const AgentList: React.FC = () => {
                 open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
-                width={800}
+                width="80vw"
                 destroyOnHidden
             >
-                <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 16 }}>
+                <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 8 }}>
                     <Form
                         form={metaForm}
                         layout="vertical"
                     >
-                        <Form.Item
-                            name="name"
-                            label={t('form.common.name')}
-                            rules={[{ required: true, message: t('form.common.nameRequired') }]}
-                        >
-                            <Input placeholder={t('form.common.namePlaceholder')} />
-                        </Form.Item>
-                        <Form.Item
-                            name="description"
-                            label={t('form.common.description')}
-                        >
-                            <Input.TextArea
-                                rows={2}
-                                placeholder={t('form.common.descriptionPlaceholder')}
-                            />
-                        </Form.Item>
+                        <Row gutter={16}>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="name"
+                                    label={t('form.common.name')}
+                                    rules={[{ required: true, message: t('form.common.nameRequired') }]}
+                                    style={{ marginBottom: 8 }}
+                                >
+                                    <Input placeholder={t('form.common.namePlaceholder')} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={16}>
+                                <Form.Item
+                                    name="description"
+                                    label={t('form.common.description')}
+                                    style={{ marginBottom: 0 }}
+                                >
+                                    <Input.TextArea
+                                        rows={1}
+                                        placeholder={t('form.common.descriptionPlaceholder')}
+                                    />
+                                </Form.Item>
+                            </Col>
+                        </Row>
                     </Form>
                 </Card>
 
