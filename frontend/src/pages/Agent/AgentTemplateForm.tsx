@@ -860,7 +860,7 @@ const BlockConfiguration: React.FC<{
         >
           <Select
             mode="multiple"
-            placeholder="Select blocks to configure"
+            placeholder={t('form.template.selectBlocksPlaceholder')}
             style={{ width: '100%' }}
             onChange={handleBlockSelect}
             options={blocks.map(block => ({
