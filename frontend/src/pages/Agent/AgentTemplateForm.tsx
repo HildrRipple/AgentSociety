@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { Form, Input, Card, Row, Col, Button, Switch, InputNumber, Select, Space, message, Tooltip, Table, Modal, Typography, Spin, Tabs } from 'antd';
+import { Form, Input, Card, Row, Col, Button, Switch, InputNumber, Select, Space, message, Tooltip, Table, Modal, Typography, Spin, Tabs, Empty } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCustom } from '../../components/fetch';
@@ -670,7 +670,14 @@ const AgentConfiguration: React.FC = () => {
   const context = useContext(AgentContext);
 
   if (!context?.agentInfo) {
-    return <Spin />;
+    return (
+      <Card title="Agent Configuration" bordered={false} style={{ marginBottom: '12px' }}>
+        <Empty 
+          description="请先选择Agent类型和Agent Class" 
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        />
+      </Card>
+    );
   }
 
   const { agentInfo, suggestions } = context;
@@ -731,7 +738,6 @@ const BlockConfiguration: React.FC<{
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
   const [blockParams, setBlockParams] = useState<Record<string, any>>({});
   const [blockContexts, setBlockContexts] = useState<Record<string, any>>({});
-  // 新增blockSuggestions状态
   const [blockSuggestions, setBlockSuggestions] = useState<Record<string, any[]>>({});
   const context = useContext(AgentContext);
   const suggestions = context?.suggestions || [];
@@ -902,7 +908,22 @@ const AgentInfoSidebar: React.FC<AgentInfoSidebarProps> = ({ blockContexts = [] 
   const context = useContext(AgentContext);
 
   if (!context?.agentInfo) {
-    return <Spin />;
+    return (
+      <Tabs defaultActiveKey="context" size="small">
+        <Tabs.TabPane tab="Context" key="context">
+          <Empty 
+            description="请先选择Agent类型和Agent Class" 
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          />
+        </Tabs.TabPane>
+        <Tabs.TabPane tab="Status" key="status">
+          <Empty 
+            description="请先选择Agent类型和Agent Class" 
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          />
+        </Tabs.TabPane>
+      </Tabs>
+    );
   }
 
   const { agentInfo } = context;
