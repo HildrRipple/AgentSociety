@@ -679,7 +679,7 @@ const AgentConfiguration: React.FC = () => {
 
   if (!context?.agentInfo) {
     return (
-      <Card title="Agent Configuration" bordered={false} style={{ marginBottom: '12px' }}>
+      <Card title={t('form.template.agentConfig')} bordered={false} style={{ marginBottom: '12px' }}>
         <Empty 
           description={t('form.template.selectAgentTypeAndClass')} 
           image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -691,7 +691,7 @@ const AgentConfiguration: React.FC = () => {
   const { agentInfo, suggestions } = context;
 
   return (
-    <Card title="Agent Configuration" bordered={false} style={{ marginBottom: '12px' }}>
+    <Card title={t('form.template.agentConfig')} bordered={false} style={{ marginBottom: '12px' }}>
       <Row gutter={[12, 12]}>
         {Object.entries(agentInfo.params_type).map(([paramName, paramInfo]) => (
           <Col 
@@ -749,6 +749,7 @@ const BlockConfiguration: React.FC<{
   const [blockSuggestions, setBlockSuggestions] = useState<Record<string, any[]>>({});
   const context = useContext(AgentContext);
   const suggestions = context?.suggestions || [];
+  const { t } = useTranslation();
 
   // 修改 generateBlockSuggestions 函数
   const generateBlockSuggestions = (blockName: string, blockContext: Record<string, any>) => {
@@ -849,11 +850,11 @@ const BlockConfiguration: React.FC<{
   }, []);
 
   return (
-    <Card title="Block Configuration" bordered={false}>
+    <Card title={t('form.template.blockConfig')} bordered={false}>
       <Space direction="vertical" style={{ width: '100%' }} size="small">
         {/* Block 选择框 */}
         <Form.Item
-          label="Select Blocks"
+          label={t('form.template.selectBlocks')}
           required
           style={{ marginBottom: '8px' }}
         >
