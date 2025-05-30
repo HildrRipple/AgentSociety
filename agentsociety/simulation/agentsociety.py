@@ -5,6 +5,7 @@ A clear version of the simulation.
 import asyncio
 import inspect
 import json
+import os
 import time
 import traceback
 import uuid
@@ -16,13 +17,21 @@ import ray.util.queue
 import yaml
 
 from ..agent import Agent, AgentToolbox, StatusAttribute, SupervisorBase
-from ..agent.distribution import (Distribution, DistributionConfig,
-                                  DistributionType)
-from ..agent.memory_config_generator import (MemoryConfigGenerator, MemoryT,
-                                             default_memory_config_citizen)
-from ..configs import (AgentConfig, AgentFilterConfig, Config,
-                       MessageInterceptConfig, MetricExtractorConfig,
-                       MetricType, WorkflowType)
+from ..agent.distribution import Distribution, DistributionConfig, DistributionType
+from ..agent.memory_config_generator import (
+    MemoryConfigGenerator,
+    MemoryT,
+    default_memory_config_citizen,
+)
+from ..configs import (
+    AgentConfig,
+    AgentFilterConfig,
+    Config,
+    MessageInterceptConfig,
+    MetricExtractorConfig,
+    MetricType,
+    WorkflowType,
+)
 from ..environment import EnvironmentStarter
 from ..llm import LLM, monitor_requests
 from ..llm.embeddings import init_embedding
@@ -196,6 +205,7 @@ class AgentSociety:
             self._config.advanced.simulator,
             self._config.exp.environment,
             self._config.env.s3,
+            os.path.join(self._config.env.home_dir, "simulator_log"),
         )
         await self._environment.init()
         get_logger().info(f"Environment initialized")
@@ -1291,8 +1301,8 @@ class AgentSociety:
             self._exp_info.cur_day = day
             self._exp_info.cur_t = t
             for log in all_logs.llm_log:
-                self._exp_info.input_tokens += log["input_tokens"]
-                self._exp_info.output_tokens += log["output_tokens"]
+                self._exp_info.input_tokens += log.get("input_tokens", 0)
+                self._exp_info.output_tokens += log.get("output_tokens", 0)
             await self._save_exp_info()
             self._save_context()
             # ======================

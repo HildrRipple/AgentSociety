@@ -429,6 +429,8 @@ class LLM:
                         ] += 1
                         log["input_tokens"] = response.usage.prompt_tokens
                         log["output_tokens"] = response.usage.completion_tokens
+                    else:
+                        get_logger().warning(f"No usage in response: {response}")
                     end_time = time.time()
                     log["consumption"] = end_time - start_time
                     self._log_list.append(log)
