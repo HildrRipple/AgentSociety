@@ -31,7 +31,7 @@ const AgentList: React.FC = () => {
             const data = (await res.json()).data;
             setAgents(data);
         } catch (error) {
-            message.error(`Failed to load agents: ${JSON.stringify(error.message)}`, 3);
+            message.error(t('form.agent.messages.loadFailed') + `: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         } finally {
             setLoading(false);
@@ -141,10 +141,10 @@ const AgentList: React.FC = () => {
             if (!res.ok) {
                 throw new Error(await res.text());
             }
-            message.success('Agent deleted successfully');
+            message.success(t('form.agent.messages.deleteSuccess'));
             loadAgents();
         } catch (error) {
-            message.error(`Failed to delete agent: ${JSON.stringify(error.message)}`, 3);
+            message.error(t('form.agent.messages.deleteFailed') + `: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         }
     };
@@ -194,11 +194,11 @@ const AgentList: React.FC = () => {
             if (!res.ok) {
                 throw new Error(await res.text());
             }
-            message.success(`Agent ${currentAgent ? 'updated' : 'created'} successfully`);
+            message.success(currentAgent ? t('form.agent.messages.updateSuccess') : t('form.agent.messages.createSuccess'));
             setIsModalVisible(false);
             loadAgents();
         } catch (error) {
-            message.error(`Agent ${currentAgent ? 'update' : 'create'} failed: ${JSON.stringify(error.message)}`, 3);
+            message.error((currentAgent ? t('form.agent.messages.updateFailed') : t('form.agent.messages.createFailed')) + `: ${JSON.stringify(error.message)}`, 3);
             console.error('Validation failed:', error);
         }
     };
@@ -271,8 +271,8 @@ const AgentList: React.FC = () => {
             title={t('form.agent.title')}
             extra={
                 <Space>
-                    <Button onClick={() => navigate('/agent-templates')}>Agent Templates</Button>
-                    <Button onClick={() => navigate('/profiles')}>Profiles</Button>
+                    <Button onClick={() => navigate('/agent-templates')}>{t('form.agent.templates')}</Button>
+                    <Button onClick={() => navigate('/profiles')}>{t('form.agent.profiles')}</Button>
                     <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>{t('form.agent.createNew')}</Button>
                 </Space>
             }
@@ -331,7 +331,7 @@ const AgentList: React.FC = () => {
                     </Form>
                 </Card>
 
-                <Card title="Agent Settings">
+                <Card title={t('form.agent.settingsTitle')}>
                     <AgentForm
                         value={formValues}
                         onChange={(newValues) => setFormValues(newValues)}

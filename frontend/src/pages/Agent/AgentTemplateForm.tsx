@@ -265,6 +265,7 @@ const profileOptions: Record<string, ProfileField> = {
 
 // Modify the distribution form rendering function
 const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, form: FormInstance) => {
+  const { t } = useTranslation();
   const distributionType = Form.useWatch(['profile', fieldName, 'type'], form);
 
   // 当分布类型改变时，初始化对应的参数
@@ -296,9 +297,9 @@ const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, 
     return (
       <div style={{ marginTop: 8 }}>
         <Form.Item
-          label="Choice Weights"
+          label={t('form.template.choiceWeights')}
           required
-          tooltip="Sum of weights should be 1"
+          tooltip={t('form.template.choiceWeightsTooltip')}
         >
           <Table
             size="small"
@@ -309,7 +310,7 @@ const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, 
               weight: (
                 <Form.Item
                   name={['profile', fieldName, 'weights', index]}
-                  rules={[{ required: true, message: 'Required' }]}
+                  rules={[{ required: true, message: t('form.template.required') }]}
                   style={{ margin: 0 }}
                 >
                   <InputNumber
@@ -324,12 +325,12 @@ const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, 
             }))}
             columns={[
               {
-                title: 'Option',
+                title: t('form.template.option'),
                 dataIndex: 'option',
                 width: '60%'
               },
               {
-                title: 'Weight',
+                title: t('form.template.weight'),
                 dataIndex: 'weight',
                 width: '40%'
               }
@@ -343,13 +344,13 @@ const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, 
       <div style={{ marginTop: 8 }}>
         <Form.Item
           name={['profile', fieldName, 'type']}
-          label="Distribution Type"
+          label={t('form.template.distributionType')}
           initialValue="uniform_int"
         >
           <Select
             options={[
-              { label: 'Uniform Distribution', value: 'uniform_int' },
-              { label: 'Normal Distribution', value: 'normal' }
+              { label: t('form.template.uniformDistribution'), value: 'uniform_int' },
+              { label: t('form.template.normalDistribution'), value: 'normal' }
             ]}
             onChange={handleDistributionTypeChange}
           />
@@ -359,9 +360,9 @@ const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, 
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                label="Minimum Value"
+                label={t('form.template.minValue')}
                 name={['profile', fieldName, 'min_value']}
-                rules={[{ required: true, message: 'Required' }]}
+                rules={[{ required: true, message: t('form.template.required') }]}
                 initialValue={fieldConfig.defaultParams?.min_value}
               >
                 <InputNumber style={{ width: '100%' }} />
@@ -369,9 +370,9 @@ const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, 
             </Col>
             <Col span={12}>
               <Form.Item
-                label="Maximum Value"
+                label={t('form.template.maxValue')}
                 name={['profile', fieldName, 'max_value']}
-                rules={[{ required: true, message: 'Required' }]}
+                rules={[{ required: true, message: t('form.template.required') }]}
                 initialValue={fieldConfig.defaultParams?.max_value}
               >
                 <InputNumber style={{ width: '100%' }} />
@@ -384,9 +385,9 @@ const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, 
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                label="Mean"
+                label={t('form.template.mean')}
                 name={['profile', fieldName, 'mean']}
-                rules={[{ required: true, message: 'Required' }]}
+                rules={[{ required: true, message: t('form.template.required') }]}
                 initialValue={fieldConfig.defaultParams?.mean}
               >
                 <InputNumber style={{ width: '100%' }} />
@@ -394,9 +395,9 @@ const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, 
             </Col>
             <Col span={12}>
               <Form.Item
-                label="Standard Deviation"
+                label={t('form.template.standardDeviation')}
                 name={['profile', fieldName, 'std']}
-                rules={[{ required: true, message: 'Required' }]}
+                rules={[{ required: true, message: t('form.template.required') }]}
                 initialValue={fieldConfig.defaultParams?.std}
               >
                 <InputNumber style={{ width: '100%' }} min={0} />
@@ -410,71 +411,77 @@ const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, 
 };
 
 // Modify Profile card section rendering
-const renderProfileSection = (form: FormInstance) => (
-  <Card title="Profile" bordered={false} style={{ marginBottom: '12px' }}>
-    <Row gutter={[12, 12]}>
-      {Object.entries(profileOptions).map(([key, config]) => (
-        <Col span={24} key={key}>
-          <Card size="small" title={config.label} style={{ marginBottom: '8px' }}>
-            {config.type === 'discrete' ? (
-              <>
-                <Form.Item
-                  name={['profile', key, 'type']}
-                  label="Distribution Type"
-                  initialValue="choice"
-                  style={{ marginBottom: '8px' }}
-                >
-                  <Select
-                    options={[{ label: 'Discrete Choice', value: 'choice' }]}
-                    disabled
-                  />
-                </Form.Item>
-                <Form.Item
-                  name={['profile', key, 'choices']}
-                  hidden
-                  initialValue={config.options}
-                >
-                  <Input />
-                </Form.Item>
-                {renderDistributionFields(key, config, form)}
-              </>
-            ) : (
-              renderDistributionFields(key, config, form)
-            )}
-          </Card>
-        </Col>
-      ))}
-    </Row>
-  </Card>
-);
+const renderProfileSection = (form: FormInstance) => {
+  const { t } = useTranslation();
+  return (
+    <Card title={t('form.template.profileSection')} bordered={false} style={{ marginBottom: '12px' }}>
+      <Row gutter={[12, 12]}>
+        {Object.entries(profileOptions).map(([key, config]) => (
+          <Col span={24} key={key}>
+            <Card size="small" title={config.label} style={{ marginBottom: '8px' }}>
+              {config.type === 'discrete' ? (
+                <>
+                  <Form.Item
+                    name={['profile', key, 'type']}
+                    label={t('form.template.distributionType')}
+                    initialValue="choice"
+                    style={{ marginBottom: '8px' }}
+                  >
+                    <Select
+                      options={[{ label: t('form.template.discreteChoice'), value: 'choice' }]}
+                      disabled
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name={['profile', key, 'choices']}
+                    hidden
+                    initialValue={config.options}
+                  >
+                    <Input />
+                  </Form.Item>
+                  {renderDistributionFields(key, config, form)}
+                </>
+              ) : (
+                renderDistributionFields(key, config, form)
+              )}
+            </Card>
+          </Col>
+        ))}
+      </Row>
+    </Card>
+  );
+};
 
 // Modify Base Location card
-const renderBaseLocation = () => (
-  <Card title="Base Location" bordered={false}>
-    <Row gutter={16}>
-      <Col span={12}>
-        <Form.Item
-          name={['base', 'home', 'aoi_position', 'aoi_id']}
-          label="Home Area ID"
-          rules={[{ required: true }]}
-          initialValue={0}
-        >
-          <InputNumber style={{ width: '100%' }} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item
-          name={['base', 'work', 'aoi_position', 'aoi_id']}
-          label="Work Area ID"
-          rules={[{ required: true }]}
-          initialValue={0}
-        >
-          <InputNumber style={{ width: '100%' }} />
-        </Form.Item>
-      </Col>
-    </Row>
-  </Card>
-);
+const renderBaseLocation = () => {
+  const { t } = useTranslation();
+  return (
+    <Card title={t('form.template.baseLocation')} bordered={false}>
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item
+            name={['base', 'home', 'aoi_position', 'aoi_id']}
+            label={t('form.template.homeAreaId')}
+            rules={[{ required: true }]}
+            initialValue={0}
+          >
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
+            name={['base', 'work', 'aoi_position', 'aoi_id']}
+            label={t('form.template.workAreaId')}
+            rules={[{ required: true }]}
+            initialValue={0}
+          >
+            <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+      </Row>
+    </Card>
+  );
+};
 
 
 // Add type definitions for context and status
