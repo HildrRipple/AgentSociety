@@ -411,17 +411,18 @@ const renderDistributionFields = (fieldName: string, fieldConfig: ProfileField, 
 
 // Modify Profile card section rendering
 const renderProfileSection = (form: FormInstance) => (
-  <Card title="Profile" bordered={false} style={{ marginBottom: '24px' }}>
-    <Row gutter={[16, 16]}>
+  <Card title="Profile" bordered={false} style={{ marginBottom: '12px' }}>
+    <Row gutter={[12, 12]}>
       {Object.entries(profileOptions).map(([key, config]) => (
         <Col span={24} key={key}>
-          <Card size="small" title={config.label}>
+          <Card size="small" title={config.label} style={{ marginBottom: '8px' }}>
             {config.type === 'discrete' ? (
               <>
                 <Form.Item
                   name={['profile', key, 'type']}
                   label="Distribution Type"
                   initialValue="choice"
+                  style={{ marginBottom: '8px' }}
                 >
                   <Select
                     options={[{ label: 'Discrete Choice', value: 'choice' }]}
@@ -682,8 +683,8 @@ const AgentConfiguration: React.FC = () => {
   const { agentInfo, suggestions } = context;
 
   return (
-    <Card title="Agent Configuration" bordered={false}>
-      <Row gutter={[16, 16]}>
+    <Card title="Agent Configuration" bordered={false} style={{ marginBottom: '12px' }}>
+      <Row gutter={[12, 12]}>
         {Object.entries(agentInfo.params_type).map(([paramName, paramInfo]) => (
           <Col 
             key={paramName} 
@@ -842,11 +843,12 @@ const BlockConfiguration: React.FC<{
 
   return (
     <Card title="Block Configuration" bordered={false}>
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space direction="vertical" style={{ width: '100%' }} size="small">
         {/* Block 选择框 */}
         <Form.Item
           label="Select Blocks"
           required
+          style={{ marginBottom: '8px' }}
         >
           <Select
             mode="multiple"
@@ -879,7 +881,7 @@ const BlockConfiguration: React.FC<{
               key={blockName}
               title={blockInfo.block_name}
               size="small"
-              style={{ marginBottom: 16 }}
+              style={{ marginBottom: '8px' }}
             >
               {Object.entries(params).map(([paramName, paramInfo]) => (
                 renderDynamicFormItem(
@@ -887,7 +889,6 @@ const BlockConfiguration: React.FC<{
                   paramInfo as ParamInfo,
                   {
                     name: ['blocks', blockName, 'params', paramName],
-                    // 使用block专属的suggestions
                     suggestions: blockSuggestions[blockName]
                   }
                 )
@@ -934,11 +935,11 @@ const AgentInfoSidebar: React.FC<AgentInfoSidebarProps> = ({ blockContexts = [] 
   ];
 
   return (
-    <Tabs defaultActiveKey="context">
+    <Tabs defaultActiveKey="context" size="small">
       <Tabs.TabPane tab="Context" key="context">
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space direction="vertical" style={{ width: '100%' }} size="small">
           {/* Agent Context */}
-          <Card size="small" title="Agent Context">
+          <Card size="small" title="Agent Context" style={{ marginBottom: '8px' }}>
             <Table
               size="small"
               pagination={false}
@@ -955,7 +956,7 @@ const AgentInfoSidebar: React.FC<AgentInfoSidebarProps> = ({ blockContexts = [] 
 
           {/* Block Contexts */}
           {blockContexts.map(({ blockName, context }) => (
-            <Card size="small" title={`${blockName} Context`} key={blockName}>
+            <Card size="small" title={`${blockName} Context`} key={blockName} style={{ marginBottom: '8px' }}>
               <Table
                 size="small"
                 pagination={false}
@@ -1306,7 +1307,7 @@ const AgentTemplateForm: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '16px' }}>
       <Card
         title={id ? t('form.template.editTitle') : t('form.template.createTitle')}
         extra={
@@ -1317,7 +1318,7 @@ const AgentTemplateForm: React.FC = () => {
             </Button>
           </Space>
         }
-        bodyStyle={{ padding: '24px 0' }}
+        bodyStyle={{ padding: '16px 0' }}
       >
         <Form
           form={form}
@@ -1325,14 +1326,14 @@ const AgentTemplateForm: React.FC = () => {
           onFinish={handleSubmit}
         >
           <Row gutter={0}>
-            <Col span={24} style={{ padding: '0 24px', marginBottom: '24px' }}>
+            <Col span={24} style={{ padding: '0 16px', marginBottom: '16px' }}>
               <Card
                 title={t('form.template.basicInfo')}
                 bordered={false}
-                bodyStyle={{ padding: '12px 24px' }}
-                headStyle={{ padding: '0 24px 8px' }}
+                bodyStyle={{ padding: '8px 16px' }}
+                headStyle={{ padding: '0 16px 4px' }}
               >
-                <Row gutter={16} align="middle">
+                <Row gutter={12} align="middle">
                   <Col span={6}>
                     <Form.Item
                       name="name"
@@ -1393,9 +1394,9 @@ const AgentTemplateForm: React.FC = () => {
             {/* Profile列 - 始终渲染，但supervisor模式下span为0实现隐藏 */}
             <Col span={agentType === 'citizen' ? 6 : 0} style={{ borderRight: agentType === 'citizen' ? '1px solid #f0f0f0' : 'none' }}>
               <div style={{
-                height: 'calc(100vh - 250px)',
+                height: 'calc(100vh - 200px)',
                 overflowY: 'auto',
-                padding: agentType === 'citizen' ? '0 24px' : '0',
+                padding: agentType === 'citizen' ? '0 16px' : '0',
                 position: 'sticky',
                 top: 0,
                 display: agentType === 'citizen' ? 'block' : 'none'
@@ -1407,9 +1408,9 @@ const AgentTemplateForm: React.FC = () => {
 
             <Col span={agentType === 'citizen' ? 12 : 18} style={{ borderRight: '1px solid #f0f0f0' }}>
               <div style={{
-                height: 'calc(100vh - 250px)',
+                height: 'calc(100vh - 200px)',
                 overflowY: 'auto',
-                padding: '0 24px',
+                padding: '0 16px',
                 position: 'sticky',
                 top: 0
               }}>
@@ -1422,9 +1423,9 @@ const AgentTemplateForm: React.FC = () => {
 
             <Col span={6}>
               <div style={{
-                height: 'calc(100vh - 250px)',
+                height: 'calc(100vh - 200px)',
                 overflowY: 'auto',
-                padding: '0 24px',
+                padding: '0 16px',
                 position: 'sticky',
                 top: 0
               }}>
