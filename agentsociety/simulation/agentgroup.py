@@ -300,7 +300,7 @@ class AgentGroup:
                     id=agent.id,
                     name=profile.get("name", ""),
                     profile=jsonc.dumps(
-                        {k: v for k, v in profile.items() if k not in {"id", "name"}},
+                        {k: v for k, v in profile.items() if k not in {"id", "name", "social_network"}},
                         ensure_ascii=False,
                     ),
                 )

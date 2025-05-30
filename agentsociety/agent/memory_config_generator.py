@@ -6,6 +6,7 @@ import jsonc
 from pydantic import BaseModel
 from ..s3 import S3Client, S3Config
 from .distribution import Distribution, DistributionConfig, sample_field_value
+from ..memory.const import SocialRelation
 
 __all__ = [
     "MemoryConfigGenerator",
@@ -67,6 +68,7 @@ def default_memory_config_citizen(
         "religion": (str, "unknown", True),
         "marriage_status": (str, "unknown", True),
         "background_story": (str, "No background story", True),
+        "social_network": (list[SocialRelation], [], False),
     }
 
     BASE = {

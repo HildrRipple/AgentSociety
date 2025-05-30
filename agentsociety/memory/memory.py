@@ -18,6 +18,8 @@ from .self_define import DynamicMemory
 from .state import StateMemory
 
 
+from ..memory.const import SocialRelation
+
 class MemoryTag(str, Enum):
     """Memory tag enumeration class"""
 
@@ -1000,12 +1002,14 @@ class Memory:
                             if isinstance(_type, type):
                                 _value = _type(_value)
                             else:
-                                if isinstance(_type, deque):
+                                if k == "social_network":
+                                    _value = [SocialRelation(**_v) for _v in _value]
+                                elif isinstance(_type, deque):
                                     _type.extend(_value)
                                     _value = deepcopy(_type)
                                 else:
                                     get_logger().warning(
-                                        f"type `{_type}` is not supported!"
+                                        f"[Profile] type `{_type}` is not supported!"
                                     )
                         except TypeError as e:
                             get_logger().warning(
@@ -1013,7 +1017,10 @@ class Memory:
                             )
                     else:
                         # Maintain compatibility with simple key-value pairs
-                        _value = v
+                        if k == "social_network":
+                            _value = [SocialRelation(**_v) for _v in v]
+                        else:
+                            _value = v
                         self._embedding_fields[k] = False
                 except TypeError as e:
                     if isinstance(v, type):
