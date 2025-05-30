@@ -675,12 +675,13 @@ const renderDynamicFormItem = (
 
 const AgentConfiguration: React.FC = () => {
   const context = useContext(AgentContext);
+  const { t } = useTranslation();
 
   if (!context?.agentInfo) {
     return (
       <Card title="Agent Configuration" bordered={false} style={{ marginBottom: '12px' }}>
         <Empty 
-          description="请先选择Agent类型和Agent Class" 
+          description={t('form.template.selectAgentTypeAndClass')} 
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         />
       </Card>
@@ -913,19 +914,20 @@ interface AgentInfoSidebarProps {
 
 const AgentInfoSidebar: React.FC<AgentInfoSidebarProps> = ({ blockContexts = [] }) => {
   const context = useContext(AgentContext);
+  const { t } = useTranslation();
 
   if (!context?.agentInfo) {
     return (
       <Tabs defaultActiveKey="context" size="small">
         <Tabs.TabPane tab="Context" key="context">
           <Empty 
-            description="请先选择Agent类型和Agent Class" 
+            description={t('form.template.selectAgentTypeAndClass')} 
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           />
         </Tabs.TabPane>
         <Tabs.TabPane tab="Status" key="status">
           <Empty 
-            description="请先选择Agent类型和Agent Class" 
+            description={t('form.template.selectAgentTypeAndClass')} 
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           />
         </Tabs.TabPane>

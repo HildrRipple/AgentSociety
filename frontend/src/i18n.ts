@@ -357,6 +357,7 @@ i18n
                             selectAgentTypeFirst: "Please select Agent Type first",
                             pleaseSelectAgentType: "Please select Agent Type",
                             pleaseSelectAgentClass: "Please select Agent Class",
+                            selectAgentTypeAndClass: "Please select Agent Type and Agent Class first",
                             agentTypes: {
                                 citizen: "Citizen",
                                 supervisor: "Supervisor"
@@ -786,6 +787,7 @@ i18n
                             selectAgentTypeFirst: "请先选择智能体类型",
                             pleaseSelectAgentType: "请选择智能体类型",
                             pleaseSelectAgentClass: "请选择智能体类",
+                            selectAgentTypeAndClass: "请先选择智能体类型和智能体类",
                             agentTypes: {
                                 citizen: "市民",
                                 supervisor: "监管者"
