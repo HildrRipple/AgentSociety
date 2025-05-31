@@ -10,7 +10,6 @@ from .env import EnvConfig
 from .exp import (
     EnvironmentConfig,
     ExpConfig,
-    MessageInterceptConfig,
     MetricExtractorConfig,
     MetricType,
     WorkflowStepConfig,
@@ -27,7 +26,6 @@ __all__ = [
     "ExpConfig",
     "MetricExtractorConfig",
     "EnvironmentConfig",
-    "MessageInterceptConfig",
     "Config",
     "load_config_from_file",
     "InstitutionAgentClass",

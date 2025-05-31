@@ -19,8 +19,15 @@ from .dispatcher import BlockDispatcher
 from .prompt import FormatPrompt
 from .trigger import EventTrigger, MemoryChangeTrigger, TimeTrigger
 from .decorator import register_get, param_docs
-from .context import AgentContext, BlockContext, DotDict, context_to_dot_dict, auto_deepcopy_dotdict
+from .context import (
+    AgentContext,
+    BlockContext,
+    DotDict,
+    context_to_dot_dict,
+    auto_deepcopy_dotdict,
+)
 from .memory_config_generator import StatusAttribute
+
 __all__ = [
     "Agent",
     "AgentParams",

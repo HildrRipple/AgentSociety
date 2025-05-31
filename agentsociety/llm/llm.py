@@ -75,7 +75,7 @@ class LLMConfig(BaseModel):
     @field_serializer("provider")
     def serialize_provider(self, provider: LLMProviderType, info):
         return provider.value
-    
+
     @model_validator(mode="after")
     def validate_configuration(self):
         if self.provider != LLMProviderType.VLLM and self.base_url is not None:

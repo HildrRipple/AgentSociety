@@ -349,7 +349,7 @@ def run(
 
     c = Config.model_validate(config_dict)
     c = default(c)
-    
+
     # Check if we need to import community modules
     need_community = False
     if c.agents.citizens:
@@ -357,16 +357,18 @@ def run(
             if isinstance(citizen.agent_class, str):
                 need_community = True
                 break
-    
-    if c.agents.supervisor is not None and isinstance(c.agents.supervisor.agent_class, str):
+
+    if c.agents.supervisor is not None and isinstance(
+        c.agents.supervisor.agent_class, str
+    ):
         need_community = True
-        
+
     if c.exp.workflow:
         for step in c.exp.workflow:
             if step.func is not None and isinstance(step.func, str):
                 need_community = True
                 break
-    
+
     if need_community:
         try:
             from agentsociety_community.agents import citizens, supervisors
@@ -376,26 +378,33 @@ def run(
             workflow_function_map = workflow_functions.get_type_to_cls_dict()
             citizens_class_map = citizens.get_type_to_cls_dict()
             supervisors_class_map = supervisors.get_type_to_cls_dict()
-            
+
             # 处理citizens中的agent_class
             for citizen in c.agents.citizens:
                 if isinstance(citizen.agent_class, str):
                     citizen.agent_class = citizens_class_map[citizen.agent_class]()
-                    
+
             # 处理supervisor中的agent_class
-            if c.agents.supervisor is not None and isinstance(c.agents.supervisor.agent_class, str):
-                c.agents.supervisor.agent_class = supervisors_class_map[c.agents.supervisor.agent_class]()
-            
+            if c.agents.supervisor is not None and isinstance(
+                c.agents.supervisor.agent_class, str
+            ):
+                c.agents.supervisor.agent_class = supervisors_class_map[
+                    c.agents.supervisor.agent_class
+                ]()
+
             # 遍历workflow中的每个步骤
             for step in c.exp.workflow:
                 if step.func is not None and isinstance(step.func, str):
                     # 如果func是字符串，尝试从function_map中获取对应的函数
                     imported_func = workflow_function_map[step.func]()  # 获取实际函数
-                    step.func = imported_func  # 替换为导入的函数  
+                    step.func = imported_func  # 替换为导入的函数
         except ImportError as e:
             import traceback
+
             print(traceback.format_exc())
-            print("agentsociety_community is not installed. Please install it with `pip install agentsociety-community`")
+            print(
+                "agentsociety_community is not installed. Please install it with `pip install agentsociety-community`"
+            )
             raise e
 
     society = AgentSociety(c, tenant_id)

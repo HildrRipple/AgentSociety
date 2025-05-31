@@ -93,10 +93,9 @@ class AgentTemplateDB(Base):
     )
 
 
-
 class AgentParams(BaseModel):
     """Agent parameters model with dynamic fields"""
-    
+
     class Config:
         extra = "allow"  # 允许额外的字段
         arbitrary_types_allowed = True  # 允许任意类型

@@ -165,51 +165,53 @@ def validate_and_process_ids(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     1. All records have IDs
     2. No records have IDs
     3. Some records have IDs while others don't
-    
+
     Args:
         data: List of dictionaries containing agent profile data
-        
+
     Returns:
         List of dictionaries with validated and processed IDs
-        
+
     Raises:
         HTTPException: If invalid or duplicate IDs are found
     """
     # Collect existing IDs
     existing_ids = set()
     max_id = 0
-    
+
     # First pass: validate existing IDs
     for record in data:
-        if 'id' in record:
-            id_value = record['id']
+        if "id" in record:
+            id_value = record["id"]
             # Check if ID is an integer
-            if not isinstance(id_value, (int, str)) or (isinstance(id_value, str) and not id_value.isdigit()):
+            if not isinstance(id_value, (int, str)) or (
+                isinstance(id_value, str) and not id_value.isdigit()
+            ):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="ID must be an integer"
+                    detail="ID must be an integer",
                 )
-            
+
             id_value = int(id_value)
             if id_value in existing_ids:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Duplicate ID found: {id_value}"
+                    detail=f"Duplicate ID found: {id_value}",
                 )
             existing_ids.add(id_value)
             max_id = max(max_id, id_value)
-    
+
     # Second pass: assign new IDs to records without IDs
     next_id = max_id + 1
     for record in data:
-        if 'id' not in record:
+        if "id" not in record:
             # Find next available ID
             while next_id in existing_ids:
                 next_id += 1
-            record['id'] = next_id
+            record["id"] = next_id
             existing_ids.add(next_id)
             next_id += 1
-    
+
     return data
 
 
@@ -255,7 +257,7 @@ async def upload_agent_profile(
             if not isinstance(data, list):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="JSON data must be a list of objects"
+                    detail="JSON data must be a list of objects",
                 )
             data = validate_and_process_ids(data)
             record_count = len(data)

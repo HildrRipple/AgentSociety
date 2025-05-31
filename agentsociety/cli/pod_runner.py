@@ -40,7 +40,7 @@ def main():
 
     # Parse command line arguments
     args = parser.parse_args()
-    
+
     # Run experiment
     executor = KubernetesExecutor([])
     pod_name = asyncio.run(

@@ -7,7 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
-from typing import (Any, NamedTuple, Optional, Self, Union)
+from typing import Any, NamedTuple, Optional, Self, Union
 
 import jsonc
 import ray
@@ -102,7 +102,9 @@ class Agent(ABC):
     """
 
     ParamsType: type[AgentParams] = AgentParams  # Determine agent parameters
-    Context: type[AgentContext] = AgentContext  # Agent Context for information retrieval
+    Context: type[AgentContext] = (
+        AgentContext  # Agent Context for information retrieval
+    )
     BlockOutputType: type[BlockOutput] = BlockOutput  # Block output
     StatusAttributes: list[StatusAttribute] = []  # Memory configuration
     description: str = ""  # Agent description: How this agent works
@@ -148,12 +150,16 @@ class Agent(ABC):
         self.context = context_to_dot_dict(context)
 
         # register blocks
-        self.dispatcher = BlockDispatcher(self.llm, self.memory, self.params.block_dispatch_prompt)
+        self.dispatcher = BlockDispatcher(
+            self.llm, self.memory, self.params.block_dispatch_prompt
+        )
         if blocks is not None:
             # Block output type checking
             for block in blocks:
                 if block.OutputType != self.BlockOutputType:
-                    raise ValueError(f"Block output type mismatch, expected {self.BlockOutputType}, got {block.OutputType}")
+                    raise ValueError(
+                        f"Block output type mismatch, expected {self.BlockOutputType}, got {block.OutputType}"
+                    )
                 if block.NeedAgent:
                     block.set_agent(self)
             self.blocks = blocks

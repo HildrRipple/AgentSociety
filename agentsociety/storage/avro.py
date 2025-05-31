@@ -144,10 +144,7 @@ class AvroSaver:
             get_logger().warning("AvroSaver is not enabled")
             return
         self._avro_path = (
-            Path(home_dir)
-            / "exps"
-            / f"{self._tenant_id}"
-            / f"{self._exp_id}"
+            Path(home_dir) / "exps" / f"{self._tenant_id}" / f"{self._exp_id}"
         )
         self._avro_path.mkdir(parents=True, exist_ok=True)
         if self._group_id is not None:

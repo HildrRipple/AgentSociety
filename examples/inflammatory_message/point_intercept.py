@@ -17,7 +17,6 @@ from agentsociety.configs import (
 )
 from agentsociety.configs.agent import AgentConfig
 from agentsociety.configs.exp import (
-    MessageInterceptConfig,
     WorkflowStepConfig,
     WorkflowType,
 )
@@ -126,9 +125,6 @@ config = Config(
                 func=gather_memory,
             ),
         ],
-        message_intercept=MessageInterceptConfig(
-            mode="point",
-        ),  # type: ignore
         environment=EnvironmentConfig(
             start_tick=6 * 60 * 60,
         ),

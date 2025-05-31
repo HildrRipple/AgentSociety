@@ -50,7 +50,9 @@ class EnvConfig(BaseModel):
             - `ValueError`: If both avro.enable_avro and s3.enabled are True.
         """
         if self.avro.enabled and self.s3.enabled:
-            raise ValueError("enable_avro and s3.enabled cannot both be True simultaneously")
+            raise ValueError(
+                "enable_avro and s3.enabled cannot both be True simultaneously"
+            )
         return self
 
     @property

@@ -20,6 +20,7 @@ from .state import StateMemory
 
 from ..memory.const import SocialRelation
 
+
 class MemoryTag(str, Enum):
     """Memory tag enumeration class"""
 
@@ -963,11 +964,10 @@ class Memory:
                     self._embedding_fields[k] = False
 
                 if (
-                    (k in PROFILE_ATTRIBUTES
+                    k in PROFILE_ATTRIBUTES
                     or k in STATE_ATTRIBUTES
-                    or k == TIME_STAMP_KEY)
-                    and k != "id"
-                ):
+                    or k == TIME_STAMP_KEY
+                ) and k != "id":
                     get_logger().warning(f"key `{k}` already declared in memory!")
                     continue
 

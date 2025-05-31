@@ -59,7 +59,6 @@ class Messager:
         config: RedisConfig,
         exp_id: str,
         message_interceptor: Optional[ray.ObjectRef] = None,
-        forward_strategy: Literal["outer_control", "inner_control"] = "inner_control",
     ):
         """
         Initialize the Messager with Redis connection parameters.
@@ -81,7 +80,6 @@ class Messager:
             single_connection_client=True,
         )
         self.exp_id = exp_id
-        self.forward_strategy = forward_strategy
         self.connected = False  # whether is messager connected
         self.message_queue = asyncio.Queue()  # store received messages
         self.receive_messages_task = None
@@ -227,60 +225,8 @@ class Messager:
             "sent": False,
         }
         message = jsonc.dumps(payload, default=str)
-        if self.forward_strategy == "outer_control":
-            interceptor = self.message_interceptor
-            assert (
-                interceptor is not None
-            ), "Message interceptor must be set when using `outer_control` strategy"
-            if (
-                from_id is not None and to_id is not None
-            ) and from_id != NONE_SENDER_ID:
-                # if all of from_id and to_id are not None, the message is intercepted by the message interceptor (agent-agent message)
-                interceptor.add_message.remote(from_id, to_id, message)  # type: ignore
-                # ATTENTION: the message is sent to the interceptor, but the message is not sent to the channel until forward() is called
-                async with self._lock:
-                    self._wait_for_send_message.append(
-                        {
-                            "channel": channel,
-                            "from_id": from_id,
-                            "to_id": to_id,
-                            "message": message,
-                        }
-                    )
-            else:
-                await self.client.publish(channel, message)
-                log["sent"] = True
-                get_logger().info(f"Message sent to {channel}: {message}")
-                log["consumption"] = time.time() - start_time
-                async with self._lock:
-                    self._log_list.append(log)
-        elif self.forward_strategy == "inner_control":
-            interceptor = self.message_interceptor
-            if (
-                interceptor is not None
-                and from_id is not None
-                and to_id is not None
-                and from_id != NONE_SENDER_ID
-            ):
-                # if all of from_id and to_id are not None, the message is intercepted by the message interceptor (agent-agent message)
-                is_valid = await interceptor.check_message.remote(from_id, to_id, message)  # type: ignore
-                if is_valid:
-                    await self.client.publish(channel, message)
-                    log["sent"] = True
-                    get_logger().info(f"Message sent to {channel}: {message}")
-                    log["consumption"] = time.time() - start_time
-                    async with self._lock:
-                        self._log_list.append(log)
-                else:
-                    get_logger().info(
-                        f"Message not sent to {channel}: {message} due to interceptor"
-                    )
-            else:
-                await self.client.publish(channel, message)
-                log["sent"] = True
-                get_logger().info(f"Message sent to {channel}: {message}")
-        else:
-            raise ValueError(f"Invalid forward strategy: {self.forward_strategy}")
+        await self.client.publish(channel, message)
+        log["sent"] = True
 
     async def _listen_for_messages(self, pubsub: PubSub, channels: List[str]):
         """
@@ -325,54 +271,7 @@ class Messager:
         """
         Forward the message to the channel if the message is valid.
         """
-        if self.forward_strategy == "outer_control":
-            assert (
-                validation_dict is not None
-            ), "Validation dict must be set when using `outer_control` strategy"
-            for _wait_for_send_message in self._wait_for_send_message:
-                from_id, to_id, message, channel = (
-                    _wait_for_send_message["from_id"],
-                    _wait_for_send_message["to_id"],
-                    _wait_for_send_message["message"],
-                    _wait_for_send_message["channel"],
-                )
-                is_valid = validation_dict.get(
-                    (
-                        from_id,
-                        to_id,
-                        message,
-                    ),
-                    True,
-                )
-                if is_valid:
-                    await self.client.publish(channel, message)
-                else:
-                    failed_payload = {
-                        "from": "interceptor",
-                        "content": f"Your message `{message}` is blocked by the interceptor.",
-                        "type": "social",
-                    }
-                    await self.client.publish(
-                        channel.replace(f":{to_id}:", f":{from_id}:"),
-                        jsonc.dumps(
-                            failed_payload,
-                            default=str,
-                        ),
-                    )
-                    get_logger().debug(
-                        f"Message not sent to {channel}: {message} due to interceptor"
-                    )
-            self._wait_for_send_message = []
-            if persuasion_messages is not None:
-                for msg in persuasion_messages:
-                    await self.client.publish(
-                        self.get_agent_chat_channel(msg["agent_id"]), msg["message"]
-                    )
-        elif self.forward_strategy == "inner_control":
-            # do nothing
-            pass
-        else:
-            raise ValueError(f"Invalid forward strategy: {self.forward_strategy}")
+        pass
 
     # utility
 

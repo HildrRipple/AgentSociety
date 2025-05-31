@@ -27,8 +27,12 @@ class AgentProfile(Base):
     agent_type: Mapped[str] = mapped_column()
     file_path: Mapped[str] = mapped_column()  # Path to the S3 file
     record_count: Mapped[int] = mapped_column()  # Number of records in the file
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False
+    )
 
 
 class ApiAgentProfile(BaseModel):

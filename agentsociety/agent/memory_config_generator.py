@@ -34,6 +34,7 @@ MemoryT is a tuple of (type, value, use embedding model, embedding template)
 - embedding template (optional): the template to generate the value
 """
 
+
 def default_memory_config_citizen(
     distributions: dict[str, Distribution],
     class_config: Optional[list[StatusAttribute]] = None,
@@ -46,9 +47,18 @@ def default_memory_config_citizen(
             if attr.name in EXTRA_ATTRIBUTES:
                 continue
             if attr.embedding_template:
-                EXTRA_ATTRIBUTES[attr.name] = (attr.type, attr.default, attr.whether_embedding, attr.embedding_template)
+                EXTRA_ATTRIBUTES[attr.name] = (
+                    attr.type,
+                    attr.default,
+                    attr.whether_embedding,
+                    attr.embedding_template,
+                )
             else:
-                EXTRA_ATTRIBUTES[attr.name] = (attr.type, attr.default, attr.whether_embedding)
+                EXTRA_ATTRIBUTES[attr.name] = (
+                    attr.type,
+                    attr.default,
+                    attr.whether_embedding,
+                )
 
     PROFILE = {
         "name": (str, "unknown", True),
@@ -95,9 +105,18 @@ def default_memory_config_supervisor(
             if attr.name in EXTRA_ATTRIBUTES:
                 continue
             if attr.embedding_template:
-                EXTRA_ATTRIBUTES[attr.name] = (attr.type, attr.default, attr.whether_embedding, attr.embedding_template)
+                EXTRA_ATTRIBUTES[attr.name] = (
+                    attr.type,
+                    attr.default,
+                    attr.whether_embedding,
+                    attr.embedding_template,
+                )
             else:
-                EXTRA_ATTRIBUTES[attr.name] = (attr.type, attr.default, attr.whether_embedding)
+                EXTRA_ATTRIBUTES[attr.name] = (
+                    attr.type,
+                    attr.default,
+                    attr.whether_embedding,
+                )
 
     PROFILE = {
         "name": (str, "unknown", True),
@@ -165,7 +184,9 @@ class MemoryConfigGenerator:
                 distributions[field] = Distribution.from_config(distribution)
         self._distributions = cast(dict[str, Distribution], distributions)
 
-    def merge_distributions(self, distributions: dict[str, Union[Distribution, DistributionConfig]]):
+    def merge_distributions(
+        self, distributions: dict[str, Union[Distribution, DistributionConfig]]
+    ):
         """
         Merge the distributions for the memory config generator.
         """
@@ -177,7 +198,7 @@ class MemoryConfigGenerator:
             else:
                 if isinstance(distribution, DistributionConfig):
                     distributions[field] = Distribution.from_config(distribution)
-                self._distributions[field] = distributions[field] # type: ignore
+                self._distributions[field] = distributions[field]  # type: ignore
 
     def generate(self, i: int):
         """

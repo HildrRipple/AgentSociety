@@ -27,7 +27,6 @@ from ..configs import (
     AgentConfig,
     AgentFilterConfig,
     Config,
-    MessageInterceptConfig,
     MetricExtractorConfig,
     MetricType,
     WorkflowType,
@@ -38,7 +37,6 @@ from ..llm.embeddings import init_embedding
 from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
 from ..message import MessageInterceptor, Messager
-from ..message.message_interceptor import MessageBlockListenerBase
 from ..metrics import MlflowClient
 from ..s3 import S3Config
 from ..storage import AvroSaver
@@ -140,7 +138,6 @@ class AgentSociety:
         # typing definition
         self._environment: Optional[EnvironmentStarter] = None
         self._message_interceptor: Optional[ray.ObjectRef] = None
-        self._message_interceptor_listener: Optional[MessageBlockListenerBase] = None
         self._messager: Optional[Messager] = None
         self._avro_saver: Optional[AvroSaver] = None
         self._mlflow: Optional[MlflowClient] = None
@@ -218,35 +215,11 @@ class AgentSociety:
         # Initialize the messager
         # ====================
         get_logger().info(f"Initializing messager...")
-        if (
-            self._config.exp.message_intercept is not None
-            or self._config.agents.supervisor is not None
-        ):
-            if self._config.exp.message_intercept is None:
-                self._config.exp.message_intercept = MessageInterceptConfig(
-                    forward_strategy="outer_control",
-                    blocks=[],
-                )
-            else:
-                self._config.exp.message_intercept.forward_strategy = "outer_control"
-            queue = ray.util.queue.Queue()
+        if self._config.agents.supervisor is not None:
             self._message_interceptor = MessageInterceptor.remote(
-                blocks=self._config.exp.message_intercept.blocks,  # type: ignore
-                llm_config=self._config.llm,
-                queue=queue,
-                black_set=set(),
+                self._config.llm,
             )
             await self._message_interceptor.init.remote()  # type: ignore
-            if self._config.exp.message_intercept.forward_strategy == "inner_control":
-                assert (
-                    self._config.exp.message_intercept.listener is not None
-                ), "listener is not set"
-                self._message_interceptor_listener = (
-                    self._config.exp.message_intercept.listener(
-                        queue=queue,
-                    )
-                )
-                self._message_interceptor_listener.init()
         self._messager = Messager(
             config=self._config.env.redis,
             exp_id=self.exp_id,
@@ -824,12 +797,6 @@ class AgentSociety:
             self._message_interceptor = None
             get_logger().info(f"Message interceptor closed")
 
-        if self._message_interceptor_listener is not None:
-            get_logger().info(f"Closing message interceptor listener...")
-            await self._message_interceptor_listener.close()
-            self._message_interceptor_listener = None
-            get_logger().info(f"Message interceptor listener closed")
-
         if self._messager is not None:
             get_logger().info(f"Closing messager...")
             await self._messager.close()
@@ -1343,46 +1310,14 @@ class AgentSociety:
             # ======================
             # forward message
             # ======================
-            message_intercept_config = self.config.exp.message_intercept
-            if message_intercept_config is not None:
-                if message_intercept_config.forward_strategy == "outer_control":
-                    assert (
-                        self.supervisor is not None
-                    ), "Supervisor must be set when using `outer_control` strategy"
-                    interceptor = self._message_interceptor
-                    supervisor_func = self.supervisor.supervisor_func
-                    # the logic of outer control
-                    current_round_dict = await interceptor.get_validation_dict.remote()  # type: ignore
-                    (
-                        validation_dict,
-                        blocked_agent_ids,
-                        blocked_social_edges,
-                        persuasion_messages,
-                    ) = await supervisor_func(list(current_round_dict.keys()))
-                    interceptor.update_blocked_agent_ids.remote(blocked_agent_ids)  # type: ignore
-                    interceptor.update_blocked_social_edges.remote(blocked_social_edges)  # type: ignore
-                    # modify validation_dict based on blocked_agent_ids and blocked_social_edges
-                    validation_dict = await interceptor.modify_validation_dict.remote(validation_dict)  # type: ignore
-                    message_tasks = [
-                        self.messager.forward(validation_dict, persuasion_messages)
-                    ]
-                    message_tasks.extend(
-                        [
-                            group.forward_message.remote(validation_dict)  # type: ignore
-                            for group in self._groups.values()
-                        ]
-                    )
-                    await asyncio.gather(*message_tasks)
-                    await interceptor.clear_validation_dict.remote()  # type: ignore
-            else:
-                message_tasks = [self.messager.forward()]
-                message_tasks.extend(
-                    [
-                        group.forward_message.remote(None)  # type: ignore
-                        for group in self._groups.values()
-                    ]
-                )
-                await asyncio.gather(*message_tasks)
+            message_tasks = [self.messager.forward()]
+            message_tasks.extend(
+                [
+                    group.forward_message.remote(None)  # type: ignore
+                    for group in self._groups.values()
+                ]
+            )
+            await asyncio.gather(*message_tasks)
             # ======================
             # go to next step
             # ======================

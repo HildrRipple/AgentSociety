@@ -110,7 +110,8 @@ async def run_experiment(
         if executor == KubernetesExecutor:
             if account.balance <= 0:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient balance"
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Insufficient balance",
                 )
         # ===== LLM config =====
         stmt = select(LLMConfig.config).where(

@@ -3,21 +3,23 @@ from typing import Union, cast
 
 from ..agent.distribution import Distribution, DistributionConfig
 from ..cityagent.blocks.economy_block import EconomyBlock, EconomyBlockParams
-from ..cityagent.blocks.mobility_block import (MobilityBlock,
-                                               MobilityBlockParams)
+from ..cityagent.blocks.mobility_block import MobilityBlock, MobilityBlockParams
 from ..cityagent.blocks.other_block import OtherBlock, OtherBlockParams
 from ..cityagent.blocks.social_block import SocialBlock, SocialBlockParams
-from ..configs import (InstitutionAgentClass, AgentConfig, Config,
-                       MessageInterceptConfig)
+from ..configs import InstitutionAgentClass, AgentConfig, Config
 from .bankagent import BankAgent
 from .firmagent import FirmAgent
 from .governmentagent import GovernmentAgent
 from .initial import bind_agent_info, initialize_social_network
-from .memory_config import (DEFAULT_DISTRIBUTIONS, memory_config_bank,
-                            memory_config_firm, memory_config_government,
-                            memory_config_nbs, memory_config_societyagent)
-from .message_intercept import (DoNothingListener, EdgeMessageBlock,
-                                PointMessageBlock)
+from .memory_config import (
+    DEFAULT_DISTRIBUTIONS,
+    memory_config_bank,
+    memory_config_firm,
+    memory_config_government,
+    memory_config_nbs,
+    memory_config_societyagent,
+)
+from .message_intercept import DoNothingListener, EdgeMessageBlock, PointMessageBlock
 from .nbsagent import NBSAgent
 from .societyagent import SocietyAgent
 from .sharing_params import (
@@ -113,34 +115,6 @@ def _fill_in_agent_class_and_memory_config(self: AgentConfig):
     return self
 
 
-def _fill_in_message_intercept_config(
-    self: MessageInterceptConfig,
-) -> MessageInterceptConfig:
-    if self.forward_strategy == "inner_control":
-        if self.mode is None and len(self.blocks) == 0:
-            raise ValueError("Either set blocks or mode")
-        if self.mode is not None and len(self.blocks) > 0:
-            raise ValueError("Either set blocks or mode, not both")
-    if self.mode is not None:
-        if self.mode == "point":
-            self.blocks = [
-                PointMessageBlock(
-                    name="default_point_message_block",
-                    max_violation_time=self.max_violation_time,
-                )
-            ]
-        else:
-            self.blocks = [
-                EdgeMessageBlock(
-                    name="default_edge_message_block",
-                    max_violation_time=self.max_violation_time,
-                )
-            ]
-    if len(self.blocks) > 0 and self.listener is None:
-        self.listener = DoNothingListener
-    return self
-
-
 def default(config: Config) -> Config:
     """
     Use the default values in cityagent to fill in the config.
@@ -169,13 +143,8 @@ def default(config: Config) -> Config:
         for agent_config in config.agents.nbs
     ]
     if config.agents.supervisor is not None:
-        config.agents.supervisor = _fill_in_agent_class_and_memory_config(config.agents.supervisor)
-    # =====================
-    # exp config
-    # =====================
-    if config.exp.message_intercept is not None:
-        config.exp.message_intercept = _fill_in_message_intercept_config(
-            config.exp.message_intercept
+        config.agents.supervisor = _fill_in_agent_class_and_memory_config(
+            config.agents.supervisor
         )
     # =====================
     # init functions
