@@ -19,7 +19,6 @@ from .memory_config import (
     memory_config_nbs,
     memory_config_societyagent,
 )
-from .message_intercept import DoNothingListener, EdgeMessageBlock, PointMessageBlock
 from .nbsagent import NBSAgent
 from .societyagent import SocietyAgent
 from .sharing_params import (

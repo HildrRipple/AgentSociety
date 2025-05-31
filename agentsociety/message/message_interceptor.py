@@ -8,7 +8,6 @@ from typing import Any, Optional, Set, TypeVar, Union
 import networkx as nx
 import ray
 
-from ..agent.agent import SupervisorBase
 from ..llm import LLM, LLMConfig, monitor_requests
 from ..logger import get_logger
 from ..utils.decorators import lock_decorator
@@ -66,12 +65,12 @@ class MessageInterceptor:
     async def close(self):
         pass
 
-    async def set_supervisor(self, supervisor: SupervisorBase):
+    async def set_supervisor(self, supervisor):
         self._supervisor = supervisor
 
     # Property accessors
     @property
-    def supervisor(self) -> SupervisorBase:
+    def supervisor(self):
         if self._supervisor is None:
             raise RuntimeError("Supervisor not set")
         return self._supervisor
