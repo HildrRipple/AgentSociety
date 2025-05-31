@@ -110,7 +110,8 @@ def _fill_in_agent_class_and_memory_config(self: AgentConfig):
             if self.memory_config_func is None:
                 self.memory_config_func = memory_config_nbs
         else:
-            raise ValueError(f"Invalid agent class: {self.agent_class}")
+            pass
+            # raise ValueError(f"Invalid agent class: {self.agent_class}")
     return self
 
 
