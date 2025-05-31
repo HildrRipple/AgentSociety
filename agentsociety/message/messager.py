@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+from enum import Enum
 from typing import Any, Optional
 
 import ray
@@ -10,15 +11,23 @@ from ..utils import NONE_SENDER_ID
 from ..utils.decorators import lock_decorator
 
 __all__ = [
+    "MessageKind",
     "Message",
     "Messager",
 ]
 
 
+class MessageKind(str, Enum):
+    AGENT_CHAT = "agent-chat"
+    USER_CHAT = "user-chat"
+    AOI_MESSAGE_REGISTER = "aoi-message-register"
+    AOI_MESSAGE_CANCEL = "aoi-message-cancel"
+
+
 class Message(BaseModel):
     from_id: Optional[int] = None
     to_id: Optional[int] = None
-    channel: str
+    kind: MessageKind
     payload: dict
     created_at: datetime = Field(default_factory=datetime.now)
 
@@ -94,28 +103,13 @@ class Messager:
         """
 
     @lock_decorator
-    async def send_message(
-        self,
-        channel: str,
-        payload: dict,
-        from_id: Optional[int] = None,
-        to_id: Optional[int] = None,
-    ):
+    async def send_message(self, message: Message):
         """
         Send a message.
 
         - **Args**:
-            - `channel` (str): Channel to which the message should be published.
-            - `payload` (dict): Payload of the message to send.
-            - `from_id` (Optional[int], optional): ID of the sender. Required for interception.
-            - `to_id` (Optional[int], optional): ID of the recipient. Required for interception.
+            - `message` (Message): Message to send.
         """
-        message = Message(
-            from_id=from_id,
-            to_id=to_id,
-            channel=channel,
-            payload=payload,
-        )
         self._pending_messages.append(message)
 
     @lock_decorator

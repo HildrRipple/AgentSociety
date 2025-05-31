@@ -6,11 +6,12 @@ Agent Message System including message interceptor and messager.
 """
 
 from .message_interceptor import MessageInterceptor, MessageIdentifier
-from .messager import Messager, Message
+from .messager import Messager, Message, MessageKind
 
 __all__ = [
     "Message",
     "Messager",
+    "MessageKind",
     "MessageInterceptor",
     "MessageIdentifier",
 ]
