@@ -20,8 +20,8 @@ from ..agent import Agent, AgentToolbox, StatusAttribute, SupervisorBase
 from ..agent.distribution import Distribution, DistributionConfig, DistributionType
 from ..agent.memory_config_generator import (
     MemoryConfigGenerator,
-    MemoryT,
     default_memory_config_citizen,
+    default_memory_config_supervisor,
 )
 from ..configs import (
     AgentConfig,
@@ -70,6 +70,10 @@ def _set_default_agent_config(self: Config):
     for agent_config in self.agents.citizens:
         if agent_config.memory_config_func is None:
             agent_config.memory_config_func = default_memory_config_citizen
+
+    if self.agents.supervisor is not None:
+        if self.agents.supervisor.memory_config_func is None:
+            self.agents.supervisor.memory_config_func = default_memory_config_supervisor
 
     return self
 
@@ -593,7 +597,7 @@ class AgentSociety:
                 assert agent_id not in defined_ids, f"id {agent_id} is already defined"
                 defined_ids.add(agent_id)
                 supervisor_ids.add(agent_id)
-                memory_dict = agent_datum
+                memory_dict = generator.generate(i=0)
                 extra_attributes = memory_dict.get("extra_attributes", {})
                 profile = memory_dict.get("profile", {})
                 base = memory_dict.get("base", {})

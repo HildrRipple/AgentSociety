@@ -83,6 +83,48 @@ def default_memory_config_citizen(
     return EXTRA_ATTRIBUTES, PROFILE, BASE
 
 
+def default_memory_config_supervisor(
+    distributions: dict[str, Distribution],
+    class_config: Optional[list[StatusAttribute]] = None,
+) -> tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]]:
+    EXTRA_ATTRIBUTES = {}
+
+    # extra attributes from class config
+    if class_config:
+        for attr in class_config:
+            if attr.name in EXTRA_ATTRIBUTES:
+                continue
+            if attr.embedding_template:
+                EXTRA_ATTRIBUTES[attr.name] = (attr.type, attr.default, attr.whether_embedding, attr.embedding_template)
+            else:
+                EXTRA_ATTRIBUTES[attr.name] = (attr.type, attr.default, attr.whether_embedding)
+
+    PROFILE = {
+        "name": (str, "unknown", True),
+        "gender": (str, "unknown", True),
+        "age": (int, 20, True),
+        "education": (str, "unknown", True),
+        "skill": (str, "unknown", True),
+        "occupation": (str, "unknown", True),
+        "family_consumption": (str, "unknown", True),
+        "consumption": (str, "unknown", True),
+        "personality": (str, "unknown", True),
+        "income": (float, 5000, True),
+        "currency": (float, 30000, True),
+        "residence": (str, "unknown", True),
+        "city": (str, "unknown", True),
+        "race": (str, "unknown", True),
+        "religion": (str, "unknown", True),
+        "marriage_status": (str, "unknown", True),
+        "background_story": (str, "No background story", True),
+        "social_network": (list[SocialRelation], [], False),
+    }
+
+    BASE = {}
+
+    return EXTRA_ATTRIBUTES, PROFILE, BASE
+
+
 class MemoryConfigGenerator:
     """
     Generate memory configuration.
