@@ -65,6 +65,7 @@ class AgentType(Enum):
     Unspecified = "Unspecified"
     Citizen = "Citizen"
     Institution = "Institution"
+    Supervisor = "Supervisor"
 
 
 def extract_json(output_str):
