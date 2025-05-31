@@ -3,7 +3,6 @@ A clear version of the simulation.
 """
 
 import asyncio
-from collections import defaultdict
 import inspect
 import itertools
 import json
@@ -11,6 +10,7 @@ import os
 import time
 import traceback
 import uuid
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Callable, Literal, Optional, Union, cast
 
@@ -38,7 +38,7 @@ from ..llm import LLM, monitor_requests
 from ..llm.embeddings import init_embedding
 from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
-from ..message import MessageInterceptor, Messager, Message, MessageKind
+from ..message import Message, MessageInterceptor, MessageKind, Messager
 from ..metrics import MlflowClient
 from ..s3 import S3Config
 from ..storage import AvroSaver
@@ -1309,8 +1309,8 @@ class AgentSociety:
                             payload={"content": pending_dialog.content},
                             created_at=pending_dialog.created_at,
                             kind=MessageKind.USER_CHAT,
-                            day=day,
-                            t=t,
+                            day=pending_dialog.day,
+                            t=pending_dialog.t,
                         )
                     )
                 all_messages += user_messages

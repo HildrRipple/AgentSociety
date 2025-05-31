@@ -123,12 +123,14 @@ PGSQL_DICT: dict[str, list[Any]] = {
     CREATE TABLE IF NOT EXISTS {table_name} (
         id SERIAL PRIMARY KEY,
         agent_id INT,
+        day INT4,
+        t FLOAT,
         content TEXT,
         created_at TIMESTAMPTZ,
         processed BOOLEAN DEFAULT FALSE
     )
 """,
-        "CREATE INDEX {table_name}_id_idx ON {table_name} (id)",
+        "CREATE INDEX {table_name}_day_t_idx ON {table_name} (day,t)",
         "CREATE INDEX {table_name}_agent_id_idx ON {table_name} (agent_id)",
         "CREATE INDEX {table_name}_processed_idx ON {table_name} (processed)",
     ],

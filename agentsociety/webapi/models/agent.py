@@ -19,7 +19,6 @@ __all__ = [
     "ApiAgentStatus",
     "ApiAgentSurvey",
     "ApiGlobalPrompt",
-    "ApiPendingDialog",
 ]
 
 # Database Models
@@ -107,10 +106,12 @@ def pending_dialog(table_name: str):
         metadata,
         Column("id", Integer, primary_key=True, autoincrement=True),
         Column("agent_id", Integer),
+        Column("day", Integer),
+        Column("t", Float),
         Column("content", String),
         Column("created_at", TIMESTAMP(timezone=True)),
         Column("processed", Boolean, default=False),
-    ), ["id", "agent_id", "content", "created_at", "processed"]
+    ), ["id", "agent_id", "day", "t", "content", "created_at", "processed"]
 
 
 class AgentDialogType(enum.IntEnum):

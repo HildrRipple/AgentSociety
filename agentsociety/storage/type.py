@@ -90,6 +90,10 @@ class StoragePendingDialog(BaseModel):
     """Pending dialog ID"""
     agent_id: int
     """Agent ID"""
+    day: int
+    """Day"""
+    t: float
+    """Time"""
     content: str
     """Content"""
     created_at: datetime

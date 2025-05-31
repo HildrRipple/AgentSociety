@@ -271,7 +271,8 @@ i18n
                                 startFailed: "Failed to start experiment: {{error}}",
                                 startSuccess: "Experiment started successfully",
                                 initSuccess: "Experiment initialized successfully",
-                                statusCheckFailed: "Failed to check experiment status"
+                                statusCheckFailed: "Failed to check experiment status",
+                                loadFailed: "Failed to load experiment"
                             }
                         },
                         agent: {
@@ -776,7 +777,8 @@ i18n
                                 startFailed: "启动实验失败",
                                 startSuccess: "实验启动成功",
                                 initSuccess: "实验初始化成功",
-                                statusCheckFailed: "检查实验状态失败"
+                                statusCheckFailed: "检查实验状态失败",
+                                loadFailed: "加载实验失败"
                             }
                         },
                         agent: {

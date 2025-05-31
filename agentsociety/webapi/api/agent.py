@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...configs import EnvConfig
 from ..models import ApiResponseWrapper
 from ..models.agent import (
+    AgentDialogType,
     ApiAgentDialog,
     ApiAgentProfile,
     ApiAgentStatus,
@@ -78,6 +79,30 @@ async def get_agent_dialog_by_exp_id_and_agent_id(
         for row in rows:
             dialog = {columns[i]: row[i] for i in range(len(columns))}
             dialogs.append(ApiAgentDialog(**dialog))
+
+        # Get pending dialogs
+        table_name = experiment.pending_dialog_tablename
+        pending_table, pending_columns = pending_dialog(table_name)
+        pending_stmt = (
+            select(pending_table)
+            .where(pending_table.c.agent_id == agent_id)
+            .where(pending_table.c.processed == False)
+            .order_by(pending_table.c.created_at)
+        )
+        pending_rows = (await db.execute(pending_stmt)).all()
+        for row in pending_rows:
+            dialog = {pending_columns[i]: row[i] for i in range(len(pending_columns))}
+
+            dialogs.append(ApiAgentDialog(
+                id=agent_id,
+                day=dialog["day"],
+                t=dialog["t"],
+                type=AgentDialogType.User,
+                speaker="user",
+                content=dialog["content"],
+                created_at=dialog["created_at"],
+            ))
+        dialogs.sort(key=lambda x: (x.day, x.t))
 
         return ApiResponseWrapper(data=dialogs)
 
@@ -246,6 +271,8 @@ async def get_global_prompt_by_day_t(
 
 class AgentChatMessage(BaseModel):
     content: str
+    day: int
+    t: float
 
 
 @router.post("/experiments/{exp_id}/agents/{agent_id}/dialog")
@@ -284,6 +311,8 @@ async def post_agent_dialog(
         table, _ = pending_dialog(table_name)
         stmt = table.insert().values(
             agent_id=agent_id,
+            day=message.day,
+            t=message.t,
             content=message.content,
             created_at=datetime.now(timezone.utc),
             processed=False,
