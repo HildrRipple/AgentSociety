@@ -862,7 +862,6 @@ const BlockConfiguration: React.FC<{
         {/* Block 选择框 */}
         <Form.Item
           label={t('form.template.selectBlocks')}
-          required
           style={{ marginBottom: '8px' }}
         >
           <Select
