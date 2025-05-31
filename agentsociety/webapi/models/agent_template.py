@@ -74,6 +74,8 @@ class AgentTemplateDB(Base):
     id: Mapped[str] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column()
     description: Mapped[Optional[str]] = mapped_column()
+    agent_type: Mapped[str] = mapped_column()
+    agent_class: Mapped[str] = mapped_column()
     profile: Mapped[Dict] = mapped_column(type_=JSONB)
     base: Mapped[Dict] = mapped_column(
         type_=JSONB,
@@ -150,6 +152,8 @@ class ApiAgentTemplate(BaseModel):
     id: Optional[str] = None
     name: str = Field(..., description="Template name")
     description: Optional[str] = Field(None, description="Template description")
+    agent_type: str = Field(..., description="Agent type (citizen or supervisor)")
+    agent_class: str = Field(..., description="Agent class name")
     memory_distributions: Dict[str, Union[Distribution, DistributionConfig]] = Field(
         ..., description="Memory distributions configuration"
     )

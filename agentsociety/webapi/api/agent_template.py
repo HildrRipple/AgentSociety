@@ -16,6 +16,7 @@ from ..models.agent_template import (
     UniformIntDistributionConfig,
     NormalDistributionConfig,
     AgentParams,
+    DistributionType,
 )
 from agentsociety.cityagent.blocks.economy_block import EconomyBlock
 from agentsociety.cityagent.blocks.mobility_block import MobilityBlock
@@ -70,7 +71,7 @@ async def list_agent_templates(
                         if dist_type == "choice":
                             if "params" in value:
                                 memory_distributions_dict[key] = ChoiceDistribution(
-                                    type="choice",
+                                    type=DistributionType.CHOICE,
                                     params={
                                         "choices": value["params"]["choices"],
                                         "weights": value["params"]["weights"],
@@ -79,7 +80,7 @@ async def list_agent_templates(
                             else:
                                 memory_distributions_dict[key] = (
                                     ChoiceDistributionConfig(
-                                        type="choice",
+                                        type=DistributionType.CHOICE,
                                         choices=value["choices"],
                                         weights=value["weights"],
                                     )
@@ -87,7 +88,7 @@ async def list_agent_templates(
                         elif dist_type == "uniform_int":
                             if "params" in value:
                                 memory_distributions_dict[key] = UniformIntDistribution(
-                                    type="uniform_int",
+                                    type=DistributionType.UNIFORM_INT,
                                     params={
                                         "min_value": value["params"]["min_value"],
                                         "max_value": value["params"]["max_value"],
@@ -96,7 +97,7 @@ async def list_agent_templates(
                             else:
                                 memory_distributions_dict[key] = (
                                     UniformIntDistributionConfig(
-                                        type="uniform_int",
+                                        type=DistributionType.UNIFORM_INT,
                                         min_value=value["min_value"],
                                         max_value=value["max_value"],
                                     )
@@ -104,7 +105,7 @@ async def list_agent_templates(
                         elif dist_type == "normal":
                             if "params" in value:
                                 memory_distributions_dict[key] = NormalDistribution(
-                                    type="normal",
+                                    type=DistributionType.NORMAL,
                                     params={
                                         "mean": value["params"]["mean"],
                                         "std": value["params"]["std"],
@@ -113,7 +114,7 @@ async def list_agent_templates(
                             else:
                                 memory_distributions_dict[key] = (
                                     NormalDistributionConfig(
-                                        type="normal",
+                                        type=DistributionType.NORMAL,
                                         mean=value["mean"],
                                         std=value["std"],
                                     )
@@ -124,6 +125,8 @@ async def list_agent_templates(
                     id=template.id,
                     name=template.name,
                     description=template.description,
+                    agent_type=template.agent_type,
+                    agent_class=template.agent_class,
                     memory_distributions=memory_distributions_dict,
                     agent_params=AgentParams(**template.agent_params),
                     blocks=template.blocks,
@@ -174,7 +177,7 @@ async def get_agent_template(
                     if dist_type == "choice":
                         if "params" in value:
                             memory_distributions_dict[key] = ChoiceDistribution(
-                                type="choice",
+                                type=DistributionType.CHOICE,
                                 params={
                                     "choices": value["params"]["choices"],
                                     "weights": value["params"]["weights"],
@@ -182,14 +185,14 @@ async def get_agent_template(
                             )
                         else:
                             memory_distributions_dict[key] = ChoiceDistributionConfig(
-                                type="choice",
+                                type=DistributionType.CHOICE,
                                 choices=value["choices"],
                                 weights=value["weights"],
                             )
                     elif dist_type == "uniform_int":
                         if "params" in value:
                             memory_distributions_dict[key] = UniformIntDistribution(
-                                type="uniform_int",
+                                type=DistributionType.UNIFORM_INT,
                                 params={
                                     "min_value": value["params"]["min_value"],
                                     "max_value": value["params"]["max_value"],
@@ -198,7 +201,7 @@ async def get_agent_template(
                         else:
                             memory_distributions_dict[key] = (
                                 UniformIntDistributionConfig(
-                                    type="uniform_int",
+                                    type=DistributionType.UNIFORM_INT,
                                     min_value=value["min_value"],
                                     max_value=value["max_value"],
                                 )
@@ -206,7 +209,7 @@ async def get_agent_template(
                     elif dist_type == "normal":
                         if "params" in value:
                             memory_distributions_dict[key] = NormalDistribution(
-                                type="normal",
+                                type=DistributionType.NORMAL,
                                 params={
                                     "mean": value["params"]["mean"],
                                     "std": value["params"]["std"],
@@ -214,7 +217,7 @@ async def get_agent_template(
                             )
                         else:
                             memory_distributions_dict[key] = NormalDistributionConfig(
-                                type="normal", mean=value["mean"], std=value["std"]
+                                type=DistributionType.NORMAL, mean=value["mean"], std=value["std"]
                             )
 
             api_template = ApiAgentTemplate(
@@ -222,6 +225,8 @@ async def get_agent_template(
                 id=template.id,
                 name=template.name,
                 description=template.description,
+                agent_type=template.agent_type,
+                agent_class=template.agent_class,
                 memory_distributions=memory_distributions_dict,
                 agent_params=AgentParams(**template.agent_params),
                 blocks=template.blocks,
@@ -295,6 +300,8 @@ async def create_agent_template(
                 id=template_id,
                 name=template.name,
                 description=template.description,
+                agent_type=template.agent_type,
+                agent_class=template.agent_class,
                 profile=profile_dict,
                 base=base_config,
                 states=states_config,
@@ -312,6 +319,8 @@ async def create_agent_template(
                 id=new_template.id,
                 name=new_template.name,
                 description=new_template.description,
+                agent_type=new_template.agent_type,
+                agent_class=new_template.agent_class,
                 memory_distributions=new_template.profile,
                 base=new_template.base,
                 states=new_template.states,
@@ -356,6 +365,8 @@ async def update_agent_template(
             .values(
                 name=template.name,
                 description=template.description,
+                agent_type=template.agent_type,
+                agent_class=template.agent_class,
                 profile=template.memory_distributions,
                 agent_params=template.agent_params.model_dump(),
                 blocks=template.blocks,

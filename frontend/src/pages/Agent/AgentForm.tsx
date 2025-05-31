@@ -143,7 +143,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
 
                   if (citizen.memory_from_file) {
                     return {
-                      agent_class: 'citizen',
+                      agent_class: template.agent_class || 'citizen',
                       memory_from_file: citizen.memory_from_file,
                       agent_params: template.agent_params,
                       blocks: convertedBlocks
@@ -152,7 +152,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
 
                   return {
                     number: citizen.number,
-                    agent_class: 'citizen',
+                    agent_class: template.agent_class || 'citizen',
                     agent_params: template.agent_params,
                     blocks: convertedBlocks
                   };
