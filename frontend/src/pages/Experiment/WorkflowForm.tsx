@@ -328,6 +328,29 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                         </Col>
                                     </Row>
                                 )}
+
+                                {/* FUNCTION 类型字段 */}
+                                {stepTypes[name] === WorkflowType.FUNCTION && (
+                                    <Row gutter={16}>
+                                        <Col span={24}>
+                                            <Form.Item
+                                                {...restField}
+                                                name={[name, 'function_name']}
+                                                label={t('form.workflow.functionName')}
+                                                rules={[{ required: true, message: t('form.workflow.pleaseSelectFunction') }]}
+                                                tooltip={t('form.workflow.functionNameTooltip')}
+                                            >
+                                                <Select
+                                                    placeholder={t('form.workflow.selectFunction')}
+                                                    options={functionList.map(func => ({
+                                                        value: func,
+                                                        label: func
+                                                    }))}
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+                                )}
                             </Card>
                         ))}
                         <Form.Item>
