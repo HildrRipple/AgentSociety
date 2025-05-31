@@ -7,8 +7,8 @@ from typing import Any, Optional, Set, TypeVar, Union
 
 import networkx as nx
 import ray
-from ray.util.queue import Empty, Queue
 
+from ..agent.agent import SupervisorBase
 from ..llm import LLM, LLMConfig, monitor_requests
 from ..logger import get_logger
 from ..utils.decorators import lock_decorator
@@ -53,13 +53,12 @@ class MessageInterceptor:
         self._violation_counts: dict[int, int] = defaultdict(int)
         self._llm = LLM(llm_config)
         # round related
-        self.round_blocked_messages_count = 0
-        self.round_communicated_agents_count = 0
         self.validation_dict: MessageIdentifier = {}
         # blocked agent ids and blocked social edges
         self.blocked_agent_ids = []
         self.blocked_social_edges = []
         self._lock = asyncio.Lock()
+        self._supervisor = None
 
     async def init(self):
         asyncio.create_task(monitor_requests(self._llm))
@@ -67,7 +66,16 @@ class MessageInterceptor:
     async def close(self):
         pass
 
+    async def set_supervisor(self, supervisor: SupervisorBase):
+        self._supervisor = supervisor
+
     # Property accessors
+    @property
+    def supervisor(self) -> SupervisorBase:
+        if self._supervisor is None:
+            raise RuntimeError("Supervisor not set")
+        return self._supervisor
+
     @property
     def llm(self) -> LLM:
         """

@@ -17,20 +17,13 @@ import ray.util.queue
 import yaml
 
 from ..agent import Agent, AgentToolbox, StatusAttribute, SupervisorBase
-from ..agent.distribution import Distribution, DistributionConfig, DistributionType
-from ..agent.memory_config_generator import (
-    MemoryConfigGenerator,
-    default_memory_config_citizen,
-    default_memory_config_supervisor,
-)
-from ..configs import (
-    AgentConfig,
-    AgentFilterConfig,
-    Config,
-    MetricExtractorConfig,
-    MetricType,
-    WorkflowType,
-)
+from ..agent.distribution import (Distribution, DistributionConfig,
+                                  DistributionType)
+from ..agent.memory_config_generator import (MemoryConfigGenerator,
+                                             default_memory_config_citizen,
+                                             default_memory_config_supervisor)
+from ..configs import (AgentConfig, AgentFilterConfig, Config,
+                       MetricExtractorConfig, MetricType, WorkflowType)
 from ..environment import EnvironmentStarter
 from ..llm import LLM, monitor_requests
 from ..llm.embeddings import init_embedding
@@ -544,7 +537,7 @@ class AgentSociety:
         assert (
             len(agent_configs_from_file["supervisor"]) <= 1
         ), "only one or zero supervisor is allowed"
-        self.supervisor: Optional[SupervisorBase] = None
+        supervisor: Optional[SupervisorBase] = None
         for agent_config in agent_configs_from_file["supervisor"]:
             generator = MemoryConfigGenerator(
                 agent_config.memory_config_func,  # type: ignore
@@ -583,7 +576,7 @@ class AgentSociety:
                     profile=profile,
                     base=base,
                 )
-                # # build blocks
+                # build blocks
                 if agent_config.blocks is not None:
                     blocks = [
                         block_type(
@@ -597,7 +590,7 @@ class AgentSociety:
                 else:
                     blocks = None
                 # build agent
-                self.supervisor = agent_config.agent_class(
+                supervisor = agent_config.agent_class(
                     id=agent_id,
                     name=f"{agent_config.agent_class.__name__}_{agent_id}",
                     toolbox=AgentToolbox(
@@ -612,6 +605,9 @@ class AgentSociety:
                     agent_params=agent_config.agent_params,
                     blocks=blocks,
                 )
+                # set supervisor
+                assert self._message_interceptor is not None, "message interceptor is not set"
+                await self._message_interceptor.set_supervisor.remote(supervisor)  # type: ignore
                 break
 
         get_logger().info(
