@@ -326,6 +326,11 @@ class AgentGroup:
 
     async def close(self):
         """Close the AgentGroupV2."""
+        tasks = []
+        for agent in self._agents:
+            tasks.append(agent.close())
+        await asyncio.gather(*tasks)
+
         if self._mlflow_client is not None:
             self._mlflow_client.close()
             self._mlflow_client = None
@@ -770,15 +775,6 @@ class AgentGroup:
                     if add:
                         filtered_ids.append(agent.id)
         return filtered_ids
-
-    async def close(self):
-        """
-        Finalize the agent group.
-        """
-        tasks = []
-        for agent in self._agents:
-            tasks.append(agent.close())
-        await asyncio.gather(*tasks)
 
     async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None):
         """
