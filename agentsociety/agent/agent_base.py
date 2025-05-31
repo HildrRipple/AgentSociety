@@ -142,8 +142,6 @@ class Agent(ABC):
         if agent_params is None:
             agent_params = self.default_params()
         self.params = agent_params
-        for key, value in agent_params.model_dump().items():
-            setattr(self, key, value)
 
         # initialize context
         context = self.default_context()
