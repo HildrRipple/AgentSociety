@@ -981,9 +981,7 @@ class AgentSociety:
         self,
         survey: Survey,
         agent_ids: list[int] = [],
-        poll_interval: float = 3,
-        timeout: float = -1,
-    ):
+    ) -> dict[int, str]:
         """
         Send a survey to specified agents.
 
@@ -994,80 +992,47 @@ class AgentSociety:
             - `timeout` (float, optional): The timeout for the survey. Defaults to -1 (no timeout).
 
         - **Returns**:
-            - None
+            - `dict[int, str]`: A dictionary mapping agent IDs to their survey responses.
         """
-        survey_dict = survey.model_dump()
-        _date_time = datetime.now(timezone.utc)
-        payload = {
-            "from": NONE_SENDER_ID,
-            "survey_id": survey_dict["id"],
-            "timestamp": int(_date_time.timestamp() * 1000),
-            "data": survey_dict,
-            "_date_time": _date_time,
-        }
+        group_to_agent_ids = defaultdict(list)
+        for agent_id in agent_ids:
+            group_to_agent_ids[self._agent_id2group[agent_id]].append(agent_id)
         tasks = []
-        for id in agent_ids:
-            channel = self.messager.get_user_survey_channel(id)
-            tasks.append(self.messager.send_message(channel, payload))
-        await asyncio.gather(*tasks)
-        remain_payback = len(agent_ids)
-        start_t = time.time()
-        while True:
-            messages = await self.messager.fetch_messages()
-            get_logger().info(f"Received {len(messages)} payback messages [survey]")
-            remain_payback -= len(messages)
-            if remain_payback <= 0:
-                break
-            await asyncio.sleep(poll_interval)
-            if timeout > 0:
-                if time.time() - start_t > timeout:
-                    get_logger().warning(f"Survey timeout after {timeout} seconds")
-                    break
+        for group, agent_ids in group_to_agent_ids.items():
+            tasks.append(group.handle_survey.remote(survey, agent_ids))  # type:ignore
+        results = await asyncio.gather(*tasks)
+        all_responses = {}
+        for result in results:
+            all_responses.update(result)
+        return all_responses
+
 
     async def send_interview_message(
         self,
-        content: str,
+        question: str,
         agent_ids: list[int],
-        poll_interval: float = 3,
-        timeout: float = -1,
     ):
         """
         Send an interview message to specified agents.
 
         - **Args**:
-            - `content` (str): The content of the message to send.
+            - `question` (str): The content of the message to send.
             - `agent_ids` (list[int]): A list of IDs for the agents to receive the message.
-            - `poll_interval` (float, optional): The interval to poll for messages. Defaults to 3 seconds.
-            - `timeout` (float, optional): The timeout for the survey. Defaults to -1 (no timeout).
 
         - **Returns**:
             - None
         """
-        _date_time = datetime.now(timezone.utc)
-        payload = {
-            "from": NONE_SENDER_ID,
-            "content": content,
-            "timestamp": int(_date_time.timestamp() * 1000),
-            "_date_time": _date_time,
-        }
+        group_to_agent_ids = defaultdict(list)
+        for agent_id in agent_ids:
+            group_to_agent_ids[self._agent_id2group[agent_id]].append(agent_id)
         tasks = []
-        for id in agent_ids:
-            channel = self.messager.get_user_chat_channel(id)
-            tasks.append(self.messager.send_message(channel, payload))
-        await asyncio.gather(*tasks)
-        remain_payback = len(agent_ids)
-        start_t = time.time()
-        while True:
-            messages = await self.messager.fetch_messages()
-            get_logger().info(f"Received {len(messages)} payback messages [interview]")
-            remain_payback -= len(messages)
-            if remain_payback <= 0:
-                break
-            await asyncio.sleep(poll_interval)
-            if timeout > 0:
-                if time.time() - start_t > timeout:
-                    get_logger().warning(f"Interview timeout after {timeout} seconds")
-                    break
+        for group, agent_ids in group_to_agent_ids.items():
+            tasks.append(group.handle_interview.remote(question, agent_ids))  # type:ignore
+        results = await asyncio.gather(*tasks)
+        all_responses = {}
+        for result in results:
+            all_responses.update(result)
+        return all_responses
 
     async def send_intervention_message(
         self, intervention_message: str, agent_ids: list[int]

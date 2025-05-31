@@ -1,9 +1,11 @@
+import enum
 from typing import Any, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
 __all__ = [
     "StorageSurvey",
+    "StorageDialogType",
     "StorageDialog",
     "StorageGlobalPrompt",
     "StorageProfile",
@@ -34,6 +36,14 @@ class StorageSurvey(BaseModel):
     survey_id: str
     result: str
     created_at: datetime
+
+
+class StorageDialogType(enum.IntEnum):
+    """Storage dialog type"""
+
+    Thought = 0  # Dialog in agent self
+    Talk = 1  # Dialog with other agents
+    User = 2  # Dialog with user
 
 
 class StorageDialog(BaseModel):

@@ -5,7 +5,7 @@ Agent Message System including message interceptor and messager.
 - **Messager**: Sends and receives messages using Redis pub/sub.
 """
 
-from .message_interceptor import MessageInterceptor, MessageIdentifier
+from .message_interceptor import MessageInterceptor
 from .messager import Messager, Message, MessageKind
 
 __all__ = [
@@ -13,5 +13,4 @@ __all__ = [
     "Messager",
     "MessageKind",
     "MessageInterceptor",
-    "MessageIdentifier",
 ]

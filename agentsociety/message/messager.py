@@ -20,16 +20,23 @@ __all__ = [
 class MessageKind(str, Enum):
     AGENT_CHAT = "agent-chat"
     USER_CHAT = "user-chat"
+    GATHER = "gather"
+    GATHER_RECEIVE = "gather-receive"
     AOI_MESSAGE_REGISTER = "aoi-message-register"
     AOI_MESSAGE_CANCEL = "aoi-message-cancel"
 
 
 class Message(BaseModel):
     from_id: Optional[int] = None
+    """sender id"""
     to_id: Optional[int] = None
+    """target agent id or aoi id"""
     kind: MessageKind
+    """message kind"""
     payload: dict
+    """message payload"""
     created_at: datetime = Field(default_factory=datetime.now)
+    """message created at"""
 
 
 class Messager:

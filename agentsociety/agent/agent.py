@@ -9,7 +9,7 @@ from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from ..environment.sim.person_service import PersonService
 from ..logger import get_logger
 from ..memory import Memory
-from ..message import Message
+from ..message import Message, MessageKind
 from .agent_base import Agent, AgentToolbox, AgentType
 from .block import Block
 from .decorator import register_get
@@ -168,7 +168,7 @@ class CitizenAgentBase(Agent):
             "from": self.id,
             "content": content,
         }
-        await self._send_message(sender_id, payload, "gather_receive")
+        await self._send_message(sender_id, payload, MessageKind.GATHER_RECEIVE)
 
     async def get_aoi_info(self):
         """Get the surrounding environment information - aoi information"""

@@ -18,13 +18,12 @@ from ..environment import Environment
 from ..llm import LLM
 from ..logger import get_logger
 from ..memory import Memory
-from ..message import Messager
+from ..message import Messager, Message, MessageKind
 from ..metrics import MlflowClient
-from ..storage import AvroSaver, StorageDialog, StorageSurvey
+from ..storage import AvroSaver, StorageDialog, StorageDialogType, StorageSurvey
 from ..survey.models import Survey
 from .context import AgentContext, context_to_dot_dict
 from .block import Block, BlockOutput
-from .decorator import register_get
 from .dispatcher import DISPATCHER_PROMPT, BlockDispatcher
 from .memory_config_generator import MemoryT, StatusAttribute
 
@@ -306,7 +305,7 @@ class Agent(ABC):
         """
         raise NotImplementedError("This method should be implemented by subclasses")
 
-    async def generate_user_survey_response(self, survey: Survey) -> str:
+    async def generate_survey_response(self, survey: Survey) -> str:
         """
         Generate a response to a user survey based on the agent's memory and current state.
 
@@ -382,7 +381,7 @@ class Agent(ABC):
             - Sends a message through the Messager indicating user feedback has been processed.
             - Handles asynchronous tasks and ensures thread-safe operations when writing to PostgreSQL.
         """
-        survey_response = await self.generate_user_survey_response(survey)
+        survey_response = await self.generate_survey_response(survey)
         date_time = datetime.now(timezone.utc)
         # Avro
         day, t = self.environment.get_datetime()
@@ -412,14 +411,11 @@ class Agent(ABC):
             mode="merge",
             protect_llm_read_only_fields=False,
         )
-        await self.messager.send_message(
-            self.messager.get_user_payback_channel(), {"count": 1}
-        )
-        get_logger().info(f"Sent payback message for survey {survey.id}")
+        return survey_response
 
-    async def generate_user_chat_response(self, question: str) -> str:
+    async def generate_interview_response(self, question: str) -> str:
         """
-        Generate a response to a user's chat question based on the agent's memory and current state.
+        Generate a response to a user's interview question based on the agent's memory and current state.
 
         - **Args**:
             - `question` (`str`): The question that needs to be answered.
@@ -460,20 +456,12 @@ class Agent(ABC):
 
         return response
 
-    async def _process_interview(self, payload: dict):
+    async def _process_interview(self, question: str) -> str:
         """
         Process an interview interaction by generating a response and recording it in Avro format and PostgreSQL.
 
         - **Args**:
-            - `payload` (`dict`): The interview data containing the content of the user's message.
-
-        - **Description**:
-            - Logs the user's message as part of the interview process.
-            - Generates a response to the user's question using `generate_user_chat_response`.
-            - Records both the user's message and the generated response with metadata (such as timestamp, speaker, etc.) in Avro format and appends it to an Avro file if `_avro_file` is set.
-            - Writes the messages and metadata into a PostgreSQL database asynchronously through `_pgsql_writer`, ensuring any previous write operation has completed.
-            - Sends a message through the Messager indicating that user feedback has been processed.
-            - Handles asynchronous tasks and ensures thread-safe operations when writing to PostgreSQL.
+            - `question` (`str`): The interview data containing the content of the user's message.
         """
         date_time = datetime.now(timezone.utc)
         day, t = self.environment.get_datetime()
@@ -481,9 +469,9 @@ class Agent(ABC):
             id=self.id,
             day=day,
             t=t,
-            type=2,
+            type=StorageDialogType.User,
             speaker="user",
-            content=payload["content"],
+            content=question,
             created_at=date_time,
         )
         if self.avro_saver is not None:
@@ -496,14 +484,13 @@ class Agent(ABC):
                     [storage_dialog]
                 )
             )
-        question = payload["content"]
-        response = await self.generate_user_chat_response(question)
+        response = await self.generate_interview_response(question)
         date_time = datetime.now(timezone.utc)
         storage_dialog = StorageDialog(
             id=self.id,
             day=day,
             t=t,
-            type=2,
+            type=StorageDialogType.User,
             speaker="",
             content=response,
             created_at=date_time,
@@ -520,10 +507,7 @@ class Agent(ABC):
                     [storage_dialog]
                 )
             )
-        await self.messager.send_message(
-            self.messager.get_user_payback_channel(), {"count": 1}
-        )
-        get_logger().info(f"Sent payback message for interview {question}")
+        return response
 
     async def save_agent_thought(self, thought: str):
         """
@@ -541,7 +525,7 @@ class Agent(ABC):
             id=self.id,
             day=day,
             t=t,
-            type=0,
+            type=StorageDialogType.Thought,
             speaker="",
             content=thought,
             created_at=datetime.now(timezone.utc),
@@ -594,7 +578,7 @@ class Agent(ABC):
             id=self.id,
             day=payload["day"],
             t=payload["t"],
-            type=1,
+            type=StorageDialogType.Talk,
             speaker=str(payload["from"]),
             content=payload["content"],
             created_at=datetime.now(timezone.utc),
@@ -631,12 +615,12 @@ class Agent(ABC):
         get_logger().info(f"Agent {self.id} received agent chat message: {payload}")
         await self._process_agent_chat(payload)
 
-    async def handle_user_chat_message(self, payload: dict):
+    async def handle_interview(self, question: str) -> str:
         """
         Handle an incoming chat message from a user.
 
         - **Args**:
-            - `payload` (`dict`): The received message payload containing the chat data.
+            - `question` (`str`): The received message payload containing the chat data.
 
         - **Description**:
             - Logs receipt of a chat message from a user.
@@ -645,26 +629,21 @@ class Agent(ABC):
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
-        get_logger().info(f"Agent {self.id} received user chat message: {payload}")
-        await self._process_interview(payload)
+        get_logger().info(f"Agent {self.id} received user chat message: {question}")
+        response = await self._process_interview(question)
+        return response
 
-    async def handle_user_survey_message(self, payload: dict):
+    async def handle_survey(self, survey: Survey):
         """
         Handle an incoming survey message from a user.
 
         - **Args**:
-            - `payload` (`dict`): The received message payload containing the survey data.
-
-        - **Description**:
-            - Logs receipt of a survey message from a user.
-            - Extracts the survey data from the payload and delegates its processing to `_process_survey`.
-            - This method is typically used as a callback function for Redis messages.
+            - `survey` (`Survey`): The survey data that includes an ID and other relevant information.
         """
         # Process the received message, identify the sender
         # Parse sender ID and message content from the message
-        get_logger().info(f"Agent {self.id} received user survey message: {payload}")
-        survey = Survey.model_validate(payload["data"])
-        await self._process_survey(survey)
+        get_logger().info(f"Agent {self.id} received user survey message: {survey}")
+        return await self._process_survey(survey)
 
     async def handle_gather_message(self, payload: dict):
         """
@@ -696,7 +675,7 @@ class Agent(ABC):
             "from": self.id,
             "content": content,
         }
-        await self._send_message(sender_id, payload, "gather_receive")
+        await self._send_message(sender_id, payload, MessageKind.GATHER_RECEIVE)
 
     async def handle_gather_receive_message(self, payload: Any):
         """
@@ -746,7 +725,7 @@ class Agent(ABC):
             "target": target,
         }
         for agent_id in agent_ids:
-            await self._send_message(agent_id, payload, "gather")
+            await self._send_message(agent_id, payload, MessageKind.GATHER)
 
         try:
             # Wait for all responses
@@ -758,14 +737,14 @@ class Agent(ABC):
                 self._gather_responses.pop(key, None)
 
     # Redis send message
-    async def _send_message(self, to_agent_id: int, payload: dict, sub_topic: str):
+    async def _send_message(self, to_agent_id: int, payload: dict, kind: MessageKind):
         """
         Send a message to another agent through the Messager.
 
         - **Args**:
             - `to_agent_id` (`int`): The ID of the recipient agent.
             - `payload` (`dict`): The content of the message to send.
-            - `sub_topic` (`str`): The sub-topic for the Redis topic structure.
+            - `kind` (`MessageKind`): The kind of the message.
 
         - **Raises**:
             - `RuntimeError`: If the Messager is not set.
@@ -776,12 +755,13 @@ class Agent(ABC):
             - Used internally by other methods like `send_message_to_agent`.
         """
         # send message with `Messager`
-        topic = self.messager.get_subtopic_channel(to_agent_id, sub_topic)
         await self.messager.send_message(
-            topic,
-            payload,
-            self.id,
-            to_agent_id,
+            Message(
+                from_id=self.id,
+                to_id=to_agent_id,
+                kind=kind,
+                payload=payload,
+            )
         )
 
     async def send_message_to_agent(
@@ -817,12 +797,12 @@ class Agent(ABC):
             "day": day,
             "t": t,
         }
-        await self._send_message(to_agent_id, payload, "agent-chat")
+        await self._send_message(to_agent_id, payload, MessageKind.AGENT_CHAT)
         storage_dialog = StorageDialog(
             id=self.id,
             day=day,
             t=t,
-            type=1,
+            type=StorageDialogType.Talk,
             speaker=str(self.id),
             content=content,
             created_at=datetime.now(timezone.utc),
@@ -855,6 +835,8 @@ class Agent(ABC):
         """
         day, t = self.environment.get_datetime()
         if isinstance(target_aoi, int):
+            target_aoi = [target_aoi]
+        for aoi in target_aoi:
             payload = {
                 "from": self.id,
                 "content": content,
@@ -864,21 +846,13 @@ class Agent(ABC):
                 "t": t,
             }
             await self.messager.send_message(
-                self.messager.get_aoi_channel(target_aoi), payload
-            )
-        else:
-            for aoi in target_aoi:
-                payload = {
-                    "from": self.id,
-                    "content": content,
-                    "type": "aoi_message_register",
-                    "timestamp": int(datetime.now().timestamp() * 1000),
-                    "day": day,
-                    "t": t,
-                }
-                await self.messager.send_message(
-                    self.messager.get_aoi_channel(aoi), payload
+                Message(
+                    from_id=self.id,
+                    to_id=aoi,
+                    kind=MessageKind.AOI_MESSAGE_REGISTER,
+                    payload=payload,
                 )
+            )
 
     async def cancel_aoi_message(self, target_aoi: Union[int, list[int]]):
         """
@@ -886,6 +860,8 @@ class Agent(ABC):
         """
         day, t = self.environment.get_datetime()
         if isinstance(target_aoi, int):
+            target_aoi = [target_aoi]
+        for aoi in target_aoi:
             payload = {
                 "from": self.id,
                 "type": "aoi_message_cancel",
@@ -894,20 +870,13 @@ class Agent(ABC):
                 "t": t,
             }
             await self.messager.send_message(
-                self.messager.get_aoi_channel(target_aoi), payload
-            )
-        else:
-            for aoi in target_aoi:
-                payload = {
-                    "from": self.id,
-                    "type": "aoi_message_cancel",
-                    "timestamp": int(datetime.now().timestamp() * 1000),
-                    "day": day,
-                    "t": t,
-                }
-                await self.messager.send_message(
-                    self.messager.get_aoi_channel(aoi), payload
+                Message(
+                    from_id=self.id,
+                    to_id=aoi,
+                    kind=MessageKind.AOI_MESSAGE_CANCEL,
+                    payload=payload,
                 )
+            )
 
     # Agent logic
     @abstractmethod

@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Optional, Union, cast
 
@@ -17,13 +18,14 @@ from ..agent import (
     GovernmentAgentBase,
     NBSAgentBase,
 )
+from ..survey import Survey
 from ..agent.memory_config_generator import MemoryConfigGenerator
 from ..configs import Config
 from ..environment import Environment
 from ..llm import LLM, init_embedding, monitor_requests
 from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
-from ..message import Messager, Message
+from ..message import Messager, Message, MessageKind
 from ..metrics import MlflowClient
 from ..storage import AvroSaver
 from ..storage.type import StorageProfile, StorageStatus
@@ -422,41 +424,34 @@ class AgentGroup:
         try:
             # Step 2: Distribute messages to corresponding Agents
             # Separate messages into agent messages and aoi messages
-            agent_messages = {}  # Dict[agent_id, list[tuple[message, topic_type]]]
-            aoi_messages = []  # List[tuple[message, aoi_id]]
+            agent_messages = defaultdict(list)  # Dict[agent_id, list[Message]]
+            aoi_messages = []  # List[Message]
 
             for message in messages:
-                channel = message.channel
-                payload = message.payload
-
-                # Parse channel format
-                parts = channel.strip(":").split(":")
-                if len(parts) >= 4 and parts[2] == "agents":
-                    # Channel format: exps:{exp_id}:agents:{agent_id}:{topic_type}
-                    agent_id = int(parts[3])
-                    topic_type = parts[4] if len(parts) > 4 else None
-                    if agent_id in self._id2agent and topic_type:
-                        if agent_id not in agent_messages:
-                            agent_messages[agent_id] = []
-                        agent_messages[agent_id].append((message, topic_type))
-                elif len(parts) >= 4 and parts[2] == "aoi":
-                    # Channel format: exps:{exp_id}:aoi:{aoi_id}
-                    aoi_id = int(parts[3])
-                    aoi_messages.append((message, aoi_id))
+                if message.kind in [MessageKind.AGENT_CHAT, MessageKind.USER_CHAT]:
+                    agent_id = message.to_id
+                    if agent_id in self._id2agent:
+                        agent_messages[agent_id].append(message)
+                elif message.kind in [
+                    MessageKind.AOI_MESSAGE_REGISTER,
+                    MessageKind.AOI_MESSAGE_CANCEL,
+                ]:
+                    aoi_messages.append(message)
 
             # Process agent messages in parallel for different agents
-            async def process_agent_messages(agent_id: int, messages: list[tuple[Any, str]]):
+            async def process_agent_messages(agent_id: int, messages: list[Message]):
                 agent = self._id2agent[agent_id]
-                for message, topic_type in messages:
-                    if topic_type == "agent-chat":
+                agent = cast(Agent, agent)
+                for message in messages:
+                    if message.kind == MessageKind.AGENT_CHAT:
                         await agent.handle_agent_chat_message(message.payload)
-                    elif topic_type == "user-chat":
+                    elif message.kind == MessageKind.USER_CHAT:
+                        # TODO: implement user chat message
+                        raise NotImplementedError("User chat message is not implemented")
                         await agent.handle_user_chat_message(message.payload)
-                    elif topic_type == "user-survey":
-                        await agent.handle_user_survey_message(message.payload)
-                    elif topic_type == "gather":
+                    elif message.kind == MessageKind.GATHER:
                         await agent.handle_gather_message(message.payload)
-                    elif topic_type == "gather_receive":
+                    elif message.kind == MessageKind.GATHER_RECEIVE:
                         await agent.handle_gather_receive_message(message.payload)
 
             # Process agent messages in parallel
@@ -467,23 +462,55 @@ class AgentGroup:
             await asyncio.gather(*agent_tasks)
 
             # Process aoi messages
-            for message, aoi_id in aoi_messages:
-                payload = message.payload
-                agent_id = payload["agent_id"]
-                operation = payload["type"]
-                if operation == "aoi_message_register":
+            for message in aoi_messages:
+                agent_id = message.from_id
+                if message.kind == MessageKind.AOI_MESSAGE_REGISTER:
                     self.environment.register_aoi_message(
-                        agent_id, aoi_id, payload["content"]
+                        agent_id, message.payload["aoi_id"], message.payload["content"]
                     )
-                elif operation == "aoi_message_cancel":
-                    self.environment.cancel_aoi_message(agent_id, aoi_id)
+                elif message.kind == MessageKind.AOI_MESSAGE_CANCEL:
+                    self.environment.cancel_aoi_message(
+                        agent_id, message.payload["aoi_id"]
+                    )
         except Exception as e:
             get_logger().error(f"Error dispatching message: {e}")
             import traceback
 
-            get_logger().error(
-                f"Error dispatching message: {traceback.format_exc()}"
-            )
+            get_logger().error(f"Error dispatching message: {traceback.format_exc()}")
+
+    async def handle_survey(
+        self, survey: Survey, agent_ids: list[int]
+    ) -> dict[int, str]:
+        """
+        Handle a user survey.
+        """
+        survey_tasks = []
+        for agent_id in agent_ids:
+            agent = self._id2agent[agent_id]
+            agent = cast(Agent, agent)
+            survey_tasks.append(agent.handle_survey(survey))
+        survey_responses = await asyncio.gather(*survey_tasks)
+        return {
+            agent_id: response
+            for agent_id, response in zip(agent_ids, survey_responses)
+        }
+
+    async def handle_interview(
+        self, question: str, agent_ids: list[int]
+    ) -> dict[int, str]:
+        """
+        Handle a user interview.
+        """
+        interview_tasks = []
+        for agent_id in agent_ids:
+            agent = self._id2agent[agent_id]
+            agent = cast(Agent, agent)
+            interview_tasks.append(agent.handle_interview(question))
+        interview_responses = await asyncio.gather(*interview_tasks)
+        return {
+            agent_id: response
+            for agent_id, response in zip(agent_ids, interview_responses)
+        }
 
     # ====================
     # Status Management Methods
