@@ -1,7 +1,7 @@
 import math
 from typing import Any, Awaitable, Callable, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, field_serializer, model_validator
+from pydantic import BaseModel, Field, field_serializer
 import psutil
 from ..environment import MapConfig, SimulatorConfig
 from ..llm import LLMConfig
@@ -17,7 +17,6 @@ from .exp import (
     AgentFilterConfig,
 )
 from .utils import load_config_from_file
-from ..agent.memory_config_generator import default_memory_config_citizen
 
 __all__ = [
     "EnvConfig",
