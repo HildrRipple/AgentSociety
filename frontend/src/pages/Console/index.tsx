@@ -152,6 +152,27 @@ const Page = () => {
                                     }
                                 },
                                 {
+                                    key: 'exportArtifacts',
+                                    label: t('console.buttons.exportArtifacts'),
+                                    onClick: () => {
+                                        const token = getAccessToken();
+                                        if (!token) {
+                                            message.error(t('console.messages.noToken'));
+                                            return;
+                                        }
+                                        const authorization = `Bearer ${token}`;
+                                        const url = `/api/experiments/${record.id}/artifacts`
+                                        const form = document.createElement('form');
+                                        form.action = url;
+                                        form.method = 'GET';
+                                        form.target = '_blank';
+                                        form.innerHTML = '<input type="hidden" name="authorization" value="' + authorization + '">';
+                                        document.body.appendChild(form);
+                                        form.submit();
+                                        document.body.removeChild(form);
+                                    }
+                                },
+                                {
                                     key: 'export',
                                     label: t('console.buttons.export'),
                                     onClick: () => {

@@ -105,7 +105,8 @@ i18n
                             stop: "Stop",
                             detail: "Detail",
                             viewLog: "View Log",
-                            export: "Export",
+                            export: "Export All",
+                            exportArtifacts: "Export Artifacts",
                             delete: "Delete",
                             createExperiment: "Create Experiment"
                         },
@@ -611,7 +612,8 @@ i18n
                             stop: "停止",
                             detail: "详情",
                             viewLog: "查看日志",
-                            export: "导出",
+                            export: "全部导出",
+                            exportArtifacts: "导出产物",
                             delete: "删除",
                             createExperiment: "创建实验"
                         },
