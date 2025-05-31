@@ -89,19 +89,6 @@ The National Bureau of Statistics Agent simulating economic data collection and 
             return True
         return False
 
-    async def gather_messages(self, agent_ids: list[int], target: str) -> list[Any]:
-        """Collect messages from specified agents and extract content.
-
-        Args:
-            agent_ids: List of agent identifiers to query
-            target: Message content field to retrieve
-
-        Returns:
-            List of message contents from target agents
-        """
-        infos = await super().gather_messages(agent_ids, target)
-        return [info["content"] for info in infos]
-
     async def forward(self):
         """Execute monthly economic data collection and update cycle.
 

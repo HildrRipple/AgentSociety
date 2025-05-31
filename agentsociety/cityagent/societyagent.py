@@ -24,6 +24,7 @@ from .sharing_params import (
     SocietyAgentBlockOutput,
     SocietyAgentContext,
 )
+from ..message import Message
 
 ENVIRONMENT_REFLECTION_PROMPT = """
 You are a citizen of the city.
@@ -472,13 +473,14 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         # The previous step has not been completed
         return False
 
-    async def process_agent_chat_response(self, payload: dict) -> str:
+    async def do_chat(self, message: Message) -> str:
         """Process incoming social/economic messages and generate responses."""
-        if payload["type"] == "social":
+        payload = message.payload
+        if payload.get("type", "social") == "social":
             resp = f"Agent {self.id} received agent chat response: {payload}"
             try:
                 # Extract basic info
-                sender_id = payload.get("from")
+                sender_id = message.from_id
                 if not sender_id:
                     return ""
 

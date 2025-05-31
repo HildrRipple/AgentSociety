@@ -84,20 +84,6 @@ A government institution agent that handles periodic economic operations such as
             return True
         return False
 
-    async def gather_messages(self, agent_ids: list[int], target: str) -> list[Any]:
-        """
-        Collect messages from specified agents filtered by content type.
-
-        Args:
-            agent_ids: List of agent IDs to gather messages from.
-            target: Message content type to filter (e.g., "forward", "income_currency").
-
-        Returns:
-            List of message contents from the specified agents.
-        """
-        infos = await super().gather_messages(agent_ids, target)
-        return [info["content"] for info in infos]
-
     async def forward(self):
         """Execute the government's periodic tax collection and notification cycle."""
         if await self.month_trigger():

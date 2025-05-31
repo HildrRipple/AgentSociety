@@ -150,30 +150,7 @@ class CitizenAgentBase(Agent):
                 )
                 continue
 
-    async def handle_gather_message(self, payload: dict):
-        """
-        Handle a gather message received by the agent.
-
-        - **Args**:
-            - `payload` (`dict`): The message payload containing the target attribute and sender ID.
-
-        - **Description**:
-            - Extracts the target attribute and sender ID from the payload.
-            - Retrieves the content associated with the target attribute from the agent's status.
-            - Prepares a response payload with the retrieved content and sends it back to the sender using `_send_message`.
-        """
-        # Process the received message, identify the sender
-        # Parse sender ID and message content from the message
-        target = payload["target"]
-        sender_id = payload["from"]
-        content = await self.status.get(f"{target}")
-        payload = {
-            "from": self.id,
-            "content": content,
-        }
-        await self._send_message(sender_id, payload, MessageKind.GATHER_RECEIVE)
-
-    async def generate_survey_response(self, survey: Survey) -> str:
+    async def do_survey(self, survey: Survey) -> str:
         """
         Generate a response to a user survey based on the agent's memory and current state.
 
@@ -235,7 +212,7 @@ class CitizenAgentBase(Agent):
             json_str = ""
         return json_str
 
-    async def _process_survey(self, survey: Survey) -> str:
+    async def _handle_survey_with_storage(self, survey: Survey) -> str:
         """
         Process a survey by generating a response and recording it in Avro format and PostgreSQL.
 
@@ -249,7 +226,7 @@ class CitizenAgentBase(Agent):
             - Sends a message through the Messager indicating user feedback has been processed.
             - Handles asynchronous tasks and ensures thread-safe operations when writing to PostgreSQL.
         """
-        survey_response = await self.generate_survey_response(survey)
+        survey_response = await self.do_survey(survey)
         date_time = datetime.now(timezone.utc)
         # Avro
         day, t = self.environment.get_datetime()
@@ -281,7 +258,7 @@ class CitizenAgentBase(Agent):
         )
         return survey_response
 
-    async def generate_interview_response(self, question: str) -> str:
+    async def do_interview(self, question: str) -> str:
         """
         Generate a response to a user's chat question based on the agent's memory and current state.
 
@@ -324,7 +301,7 @@ class CitizenAgentBase(Agent):
 
         return response
 
-    async def _process_interview(self, question: str) -> str:
+    async def _handle_interview_with_storage(self, question: str) -> str:
         """
         Process an interview interaction by generating a response and recording it in Avro format and PostgreSQL.
 
@@ -352,7 +329,7 @@ class CitizenAgentBase(Agent):
                     [storage_dialog]
                 )
             )
-        response = await self.generate_interview_response(question)
+        response = await self.do_interview(question)
         date_time = datetime.now(timezone.utc)
         storage_dialog = StorageDialog(
             id=self.id,
@@ -411,25 +388,18 @@ class CitizenAgentBase(Agent):
                 )
             )
 
-    async def process_agent_chat_response(self, payload: dict) -> str:
+    async def do_chat(self, message: Message) -> str:
         """
-        Log the reception of an agent chat response.
+        Process a chat message received from another agent and record it.
 
         - **Args**:
-            - `payload` (`dict`): The chat response data received from another agent.
-
-        - **Returns**:
-            - `str`: A log message indicating the reception of the chat response.
-
-        - **Description**:
-            - Logs the receipt of a chat response from another agent.
-            - Returns a formatted string for logging purposes.
+            - `message` (`Message`): The chat message data received from another agent.
         """
-        resp = f"Agent {self.id} received agent chat response: {payload}"
-        get_logger().info(resp)
+        resp = f"Agent {self.id} received agent chat response: {message.payload}"
+        get_logger().debug(resp)
         return resp
 
-    async def _process_agent_chat(self, payload: dict):
+    async def _handle_agent_chat_with_storage(self, message: Message):
         """
         Process a chat message received from another agent and record it.
 
@@ -442,16 +412,20 @@ class CitizenAgentBase(Agent):
             - Writes the chat message and metadata into an Avro file if `_avro_file` is set.
             - Ensures thread-safe operations when writing to PostgreSQL by waiting for any previous write task to complete before starting a new one.
         """
+        try:
+            content = jsonc.dumps(message.payload, ensure_ascii=False)
+        except:
+            content = str(message.payload)
         storage_dialog = StorageDialog(
             id=self.id,
-            day=payload["day"],
-            t=payload["t"],
+            day=message.day,
+            t=message.t,
             type=StorageDialogType.Talk,
-            speaker=str(payload["from"]),
-            content=payload["content"],
+            speaker=str(message.from_id),
+            content=content,
             created_at=datetime.now(timezone.utc),
         )
-        await self.process_agent_chat_response(payload)
+        await self.do_chat(message)
         # Avro
         if self.avro_saver is not None:
             self.avro_saver.append_dialogs([storage_dialog])
@@ -464,54 +438,6 @@ class CitizenAgentBase(Agent):
                     [storage_dialog]
                 )
             )
-
-    # Callback functions for Redis message
-    async def handle_agent_chat_message(self, payload: dict):
-        """
-        Handle an incoming chat message from another agent.
-
-        - **Args**:
-            - `payload` (`dict`): The received message payload containing the chat data.
-
-        - **Description**:
-            - Logs receipt of a chat message from another agent.
-            - Delegates the processing of the chat message to `_process_agent_chat`.
-            - This method is typically used as a callback function for Redis messages.
-        """
-        # Process the received message, identify the sender
-        # Parse sender ID and message content from the message
-        get_logger().info(f"Agent {self.id} received agent chat message: {payload}")
-        await self._process_agent_chat(payload)
-
-    async def handle_interview(self, question: str) -> str:
-        """
-        Handle an incoming chat message from a user.
-
-        - **Args**:
-            - `question` (`str`): The received message payload containing the chat data.
-
-        - **Description**:
-            - Logs receipt of a chat message from a user.
-            - Delegates the processing of the interview (which includes generating a response) to `_process_interview`.
-            - This method is typically used as a callback function for Redis messages.
-        """
-        # Process the received message, identify the sender
-        # Parse sender ID and message content from the message
-        get_logger().info(f"Agent {self.id} received user chat message: {question}")
-        response = await self._process_interview(question)
-        return response
-
-    async def handle_survey(self, survey: Survey):
-        """
-        Handle an incoming survey message from a user.
-
-        - **Args**:
-            - `survey` (`Survey`): The survey data that includes an ID and other relevant information.
-        """
-        # Process the received message, identify the sender
-        # Parse sender ID and message content from the message
-        get_logger().info(f"Agent {self.id} received user survey message: {survey}")
-        return await self._process_survey(survey)
 
     async def get_aoi_info(self):
         """Get the surrounding environment information - aoi information"""

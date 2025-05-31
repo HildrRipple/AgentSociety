@@ -367,7 +367,6 @@ async def post_agent_survey(
         payload = {
             "from": tenant_id,
             "survey_id": str(message.survey_id),
-            "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000),
             "data": survey_dict,
         }
         await redis_client.publish(channel, json.dumps(payload))

@@ -447,15 +447,11 @@ class AgentGroup:
                 if isinstance(agent, CitizenAgentBase):
                     for message in messages:
                         if message.kind == MessageKind.AGENT_CHAT:
-                            await agent.handle_agent_chat_message(message.payload)
+                            await agent._handle_agent_chat_with_storage(message)
                         elif message.kind == MessageKind.USER_CHAT:
                             # TODO: implement user chat message
                             raise NotImplementedError("User chat message is not implemented")
                             await agent.handle_user_chat_message(message.payload)
-                        elif message.kind == MessageKind.GATHER:
-                            await agent.handle_gather_message(message.payload)
-                        elif message.kind == MessageKind.GATHER_RECEIVE:
-                            await agent.handle_gather_receive_message(message.payload)
                 else:
                     get_logger().error(f"Agent {agent_id} is not a citizen agent, so skip the message dispatch")
 
@@ -493,7 +489,7 @@ class AgentGroup:
         for agent_id in agent_ids:
             agent = self._id2agent[agent_id]
             if isinstance(agent, CitizenAgentBase):
-                survey_tasks.append(agent.handle_survey(survey))
+                survey_tasks.append(agent._handle_survey_with_storage(survey))
             else:
                 get_logger().error(f"Agent {agent_id} is not a citizen agent, so skip the survey")
         survey_responses = await asyncio.gather(*survey_tasks)
@@ -512,7 +508,7 @@ class AgentGroup:
         for agent_id in agent_ids:
             agent = self._id2agent[agent_id]
             if isinstance(agent, CitizenAgentBase):
-                interview_tasks.append(agent.handle_interview(question))
+                interview_tasks.append(agent._handle_interview_with_storage(question))
             else:
                 get_logger().error(f"Agent {agent_id} is not a citizen agent, so skip the interview")
         interview_responses = await asyncio.gather(*interview_tasks)

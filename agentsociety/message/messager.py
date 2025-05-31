@@ -20,8 +20,6 @@ __all__ = [
 class MessageKind(str, Enum):
     AGENT_CHAT = "agent-chat"
     USER_CHAT = "user-chat"
-    GATHER = "gather"
-    GATHER_RECEIVE = "gather-receive"
     AOI_MESSAGE_REGISTER = "aoi-message-register"
     AOI_MESSAGE_CANCEL = "aoi-message-cancel"
 
@@ -31,6 +29,10 @@ class Message(BaseModel):
     """sender id"""
     to_id: Optional[int] = None
     """target agent id or aoi id"""
+    day: int
+    """day"""
+    t: int
+    """tick"""
     kind: MessageKind
     """message kind"""
     payload: dict

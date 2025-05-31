@@ -20,12 +20,11 @@ from ..logger import get_logger
 from ..memory import Memory
 from ..message import Messager, Message, MessageKind
 from ..metrics import MlflowClient
-from ..storage import AvroSaver, StorageDialog, StorageDialogType, StorageSurvey
-from ..survey.models import Survey
+from ..storage import AvroSaver, StorageDialog, StorageDialogType
 from .context import AgentContext, context_to_dot_dict
 from .block import Block, BlockOutput
 from .dispatcher import DISPATCHER_PROMPT, BlockDispatcher
-from .memory_config_generator import MemoryT, StatusAttribute
+from .memory_config_generator import StatusAttribute
 
 __all__ = [
     "Agent",
@@ -305,93 +304,6 @@ class Agent(ABC):
         """
         raise NotImplementedError("This method should be implemented by subclasses")
 
-    async def handle_gather_receive_message(self, payload: Any):
-        """
-        Handle a gather receive message.
-        """
-        content = payload["content"]
-        sender_id = payload["from"]
-
-        # Store the response into the corresponding Future
-        response_key = sender_id
-        if response_key in self._gather_responses:
-            self._gather_responses[response_key].set_result(
-                {
-                    "from": sender_id,
-                    "content": content,
-                }
-            )
-
-    async def gather_messages(
-        self, agent_ids: list[int], target: Union[str, list[str]]
-    ) -> list[Any]:
-        """
-        Gather messages from multiple agents.
-
-        - **Args**:
-            - `agent_ids` (`list[int]`): A list of IDs for the target agents.
-            - `target` (`Union[str, list[str]]`): The type of information to collect from each agent.
-
-        - **Returns**:
-            - `list[Any]`: A list of collected responses.
-
-        - **Description**:
-            - For each agent ID provided, creates a `Future` object to wait for its response.
-            - Sends a gather request to each specified agent.
-            - Waits for all responses and returns them as a list of dictionaries.
-            - Ensures cleanup of Futures after collecting responses.
-        """
-        # Create a Future for each agent
-        futures = {}
-        for agent_id in agent_ids:
-            futures[agent_id] = asyncio.Future()
-            self._gather_responses[agent_id] = futures[agent_id]
-
-        # Send gather requests
-        payload = {
-            "from": self.id,
-            "target": target,
-        }
-        for agent_id in agent_ids:
-            await self._send_message(agent_id, payload, MessageKind.GATHER)
-
-        try:
-            # Wait for all responses
-            responses = await asyncio.gather(*futures.values())
-            return responses
-        finally:
-            # Cleanup Futures
-            for key in futures:
-                self._gather_responses.pop(key, None)
-
-    # Redis send message
-    async def _send_message(self, to_agent_id: int, payload: dict, kind: MessageKind):
-        """
-        Send a message to another agent through the Messager.
-
-        - **Args**:
-            - `to_agent_id` (`int`): The ID of the recipient agent.
-            - `payload` (`dict`): The content of the message to send.
-            - `kind` (`MessageKind`): The kind of the message.
-
-        - **Raises**:
-            - `RuntimeError`: If the Messager is not set.
-
-        - **Description**:
-            - Constructs the full Redis topic based on the experiment ID, recipient ID, and sub-topic.
-            - Sends the message asynchronously through the Messager.
-            - Used internally by other methods like `send_message_to_agent`.
-        """
-        # send message with `Messager`
-        await self.messager.send_message(
-            Message(
-                from_id=self.id,
-                to_id=to_agent_id,
-                kind=kind,
-                payload=payload,
-            )
-        )
-
     async def send_message_to_agent(
         self, to_agent_id: int, content: str, type: str = "social"
     ):
@@ -418,14 +330,19 @@ class Agent(ABC):
         if type not in ["social", "economy"]:
             get_logger().warning(f"Invalid message type: {type}, sent from {self.id}")
         payload = {
-            "from": self.id,
             "content": content,
             "type": type,
-            "timestamp": int(datetime.now().timestamp() * 1000),
-            "day": day,
-            "t": t,
         }
-        await self._send_message(to_agent_id, payload, MessageKind.AGENT_CHAT)
+        await self.messager.send_message(
+            Message(
+                from_id=self.id,
+                to_id=to_agent_id,
+                kind=MessageKind.AGENT_CHAT,
+                payload=payload,
+                day=day,
+                t=t,
+            )
+        )
         storage_dialog = StorageDialog(
             id=self.id,
             day=day,
@@ -466,17 +383,14 @@ class Agent(ABC):
             target_aoi = [target_aoi]
         for aoi in target_aoi:
             payload = {
-                "from": self.id,
                 "content": content,
-                "type": "aoi_message_register",
-                "timestamp": int(datetime.now().timestamp() * 1000),
-                "day": day,
-                "t": t,
             }
             await self.messager.send_message(
                 Message(
                     from_id=self.id,
                     to_id=aoi,
+                    day=day,
+                    t=t,
                     kind=MessageKind.AOI_MESSAGE_REGISTER,
                     payload=payload,
                 )
@@ -490,19 +404,14 @@ class Agent(ABC):
         if isinstance(target_aoi, int):
             target_aoi = [target_aoi]
         for aoi in target_aoi:
-            payload = {
-                "from": self.id,
-                "type": "aoi_message_cancel",
-                "timestamp": int(datetime.now().timestamp() * 1000),
-                "day": day,
-                "t": t,
-            }
             await self.messager.send_message(
                 Message(
                     from_id=self.id,
                     to_id=aoi,
+                    day=day,
+                    t=t,
                     kind=MessageKind.AOI_MESSAGE_CANCEL,
-                    payload=payload,
+                    payload={},
                 )
             )
 
