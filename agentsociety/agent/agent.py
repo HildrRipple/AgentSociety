@@ -751,6 +751,18 @@ class SupervisorBase(Agent):
             blocks=blocks,
         )
 
+    async def reset(self):
+        """
+        Reset the agent.
+        """
+        pass
+
+    async def react_to_intervention(self, intervention_message: str):
+        """
+        React to an intervention.
+        """
+        pass
+
     async def forward(
         self,
         current_round_messages: list[Message],
