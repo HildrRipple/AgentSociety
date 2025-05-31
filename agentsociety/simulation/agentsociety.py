@@ -1276,6 +1276,7 @@ class AgentSociety:
             for group in self._groups.values():
                 tasks.append(group.fetch_pending_messages.remote())  # type: ignore
             all_messages = list(itertools.chain(*await asyncio.gather(*tasks)))
+            get_logger().info(f"({day}-{t}) Finished fetching pending messages. {len(all_messages)} messages fetched.")
 
             if self._message_interceptor is not None:
                 all_messages = await self._message_interceptor.forward(
@@ -1287,10 +1288,12 @@ class AgentSociety:
                 if message.to_id is not None:
                     group_actor = self._agent_id2group[message.to_id]
                     group_to_messages[group_actor].append(message)
+            get_logger().info(f"({day}:{t}) Finished grouping messages.")
             tasks = []
             for group_actor, messages in group_to_messages.items():
                 tasks.append(group_actor.set_received_messages.remote(messages))  # type: ignore
             await asyncio.gather(*tasks)
+            get_logger().info(f"({day}-{t}) Finished setting received messages")
             # ======================
             # go to next step
             # ======================

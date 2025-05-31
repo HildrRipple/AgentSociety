@@ -521,7 +521,7 @@ class Agent(ABC):
         """
         raise NotImplementedError
 
-    async def final(self):
+    async def close(self):
         """Execute when the agent is deleted or the simulation is finished."""
         pass
 
