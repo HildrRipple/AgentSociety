@@ -38,6 +38,9 @@ class Message(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     """message created at"""
 
+    def __hash__(self):
+        return hash((self.from_id, self.to_id, self.kind, self.created_at))
+
 
 class Messager:
     """

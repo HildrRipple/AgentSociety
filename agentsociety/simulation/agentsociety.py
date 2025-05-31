@@ -996,6 +996,8 @@ class AgentSociety:
         """
         group_to_agent_ids = defaultdict(list)
         for agent_id in agent_ids:
+            if agent_id not in self._agent_id2group:
+                continue
             group_to_agent_ids[self._agent_id2group[agent_id]].append(agent_id)
         tasks = []
         for group, agent_ids in group_to_agent_ids.items():
@@ -1005,7 +1007,6 @@ class AgentSociety:
         for result in results:
             all_responses.update(result)
         return all_responses
-
 
     async def send_interview_message(
         self,
@@ -1024,10 +1025,14 @@ class AgentSociety:
         """
         group_to_agent_ids = defaultdict(list)
         for agent_id in agent_ids:
+            if agent_id not in self._agent_id2group:
+                continue
             group_to_agent_ids[self._agent_id2group[agent_id]].append(agent_id)
         tasks = []
         for group, agent_ids in group_to_agent_ids.items():
-            tasks.append(group.handle_interview.remote(question, agent_ids))  # type:ignore
+            tasks.append(
+                group.handle_interview.remote(question, agent_ids)
+            )  # type:ignore
         results = await asyncio.gather(*tasks)
         all_responses = {}
         for result in results:
@@ -1047,12 +1052,17 @@ class AgentSociety:
             - `intervention_message` (str): The content of the intervention message to send.
             - `agent_ids` (list[int]): A list of agent IDs to receive the intervention message.
         """
+        group_to_agent_ids = defaultdict(list)
+        for agent_id in agent_ids:
+            if agent_id not in self._agent_id2group:
+                continue
+            group_to_agent_ids[self._agent_id2group[agent_id]].append(agent_id)
         tasks = []
-        for group in self._groups.values():
+        for group, agent_ids in group_to_agent_ids.items():
             tasks.append(
-                group.react_to_intervention.remote(  # type:ignore
+                group.react_to_intervention.remote(
                     intervention_message, agent_ids
-                )
+                )  # type:ignore
             )
         await asyncio.gather(*tasks)
 
@@ -1279,13 +1289,11 @@ class AgentSociety:
             get_logger().info(f"({day}-{t}) Finished fetching pending messages. {len(all_messages)} messages fetched.")
 
             if self._message_interceptor is not None:
-                all_messages = await self._message_interceptor.forward(
-                    all_messages
-                )
+                all_messages = await self._message_interceptor.forward(all_messages)
             # dispatch messages to each agent group based on their to_id
             group_to_messages = defaultdict(list)
             for message in all_messages:
-                if message.to_id is not None:
+                if message.to_id is not None and message.to_id in self._agent_id2group:
                     group_actor = self._agent_id2group[message.to_id]
                     group_to_messages[group_actor].append(message)
             get_logger().info(f"({day}:{t}) Finished grouping messages.")

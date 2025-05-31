@@ -398,9 +398,12 @@ class AgentGroup:
         React to an intervention.
         """
         react_tasks = []
-        for agent in self._agents:
-            if agent.id in agent_ids:
+        for agent_id in agent_ids:
+            agent = self._id2agent[agent_id]
+            if isinstance(agent, CitizenAgentBase):
                 react_tasks.append(agent.react_to_intervention(intervention_message))
+            else:
+                get_logger().error(f"Agent {agent_id} is not in the group, so skip the intervention")
         await asyncio.gather(*react_tasks)
 
     # ====================
