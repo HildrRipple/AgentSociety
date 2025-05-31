@@ -10,6 +10,7 @@ __all__ = [
     "StorageGlobalPrompt",
     "StorageProfile",
     "StorageStatus",
+    "StoragePendingDialog",
 ]
 
 
@@ -80,3 +81,18 @@ class StorageStatus(BaseModel):
     action: str
     status: str
     created_at: datetime
+
+
+class StoragePendingDialog(BaseModel):
+    """Pending dialog storage type"""
+
+    id: int
+    """Pending dialog ID"""
+    agent_id: int
+    """Agent ID"""
+    content: str
+    """Content"""
+    created_at: datetime
+    """Created time"""
+    processed: bool
+    """Whether the dialog has been processed"""

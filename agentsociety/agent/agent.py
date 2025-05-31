@@ -309,7 +309,6 @@ class CitizenAgentBase(Agent):
         - **Args**:
             - `question` (`str`): The interview data containing the content of the user's message.
         """
-        date_time = datetime.now(timezone.utc)
         day, t = self.environment.get_datetime()
         storage_dialog = StorageDialog(
             id=self.id,
@@ -318,7 +317,7 @@ class CitizenAgentBase(Agent):
             type=StorageDialogType.User,
             speaker="user",
             content=question,
-            created_at=date_time,
+            created_at=datetime.now(timezone.utc),
         )
         if self.avro_saver is not None:
             self.avro_saver.append_dialogs([storage_dialog])
@@ -331,7 +330,6 @@ class CitizenAgentBase(Agent):
                 )
             )
         response = await self.do_interview(question)
-        date_time = datetime.now(timezone.utc)
         storage_dialog = StorageDialog(
             id=self.id,
             day=day,
@@ -339,7 +337,7 @@ class CitizenAgentBase(Agent):
             type=StorageDialogType.User,
             speaker="",
             content=response,
-            created_at=date_time,
+            created_at=datetime.now(timezone.utc),
         )
         # Avro
         if self.avro_saver is not None:

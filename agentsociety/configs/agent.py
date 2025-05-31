@@ -38,7 +38,7 @@ class AgentConfig(BaseModel):
     agent_class: Union[type[Agent], str]
     """The class of the agent"""
 
-    number: Optional[int] = Field(default=None, gt=0)
+    number: Optional[int] = Field(default=None, ge=0)
     """The number of agents. Required when using memory_distributions, ignored when using memory_from_file."""
 
     agent_params: Optional[Any] = None

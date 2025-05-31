@@ -269,7 +269,9 @@ i18n
                             statusPreparingDesc: "Experiment is preparing, please wait...",
                             messages: {
                                 startFailed: "Failed to start experiment: {{error}}",
-                                startSuccess: "Experiment started successfully"
+                                startSuccess: "Experiment started successfully",
+                                initSuccess: "Experiment initialized successfully",
+                                statusCheckFailed: "Failed to check experiment status"
                             }
                         },
                         agent: {
@@ -297,6 +299,10 @@ i18n
                             numberPlaceholder: "Enter number of agents",
                             selectProfile: "Select Profile",
                             selectProfilePlaceholder: "Select agent profile",
+                            pleaseInputFirmNumber: "Please input firm number",
+                            pleaseInputGovernmentNumber: "Please input government number",
+                            pleaseInputBankNumber: "Please input bank number",
+                            pleaseInputNbsNumber: "Please input NBS number",
                             messages: {
                                 loadFailed: "Failed to load agents",
                                 deleteSuccess: "Agent deleted successfully",
@@ -767,8 +773,10 @@ i18n
                             statusFailedDesc: "实验启动失败，请检查配置后重试",
                             statusPreparingDesc: "实验正在准备中，请稍候...",
                             messages: {
-                                startFailed: "启动实验失败：{{error}}",
-                                startSuccess: "实验启动成功"
+                                startFailed: "启动实验失败",
+                                startSuccess: "实验启动成功",
+                                initSuccess: "实验初始化成功",
+                                statusCheckFailed: "检查实验状态失败"
                             }
                         },
                         agent: {
@@ -796,6 +804,10 @@ i18n
                             numberPlaceholder: "请输入智能体数量",
                             selectProfile: "选择画像",
                             selectProfilePlaceholder: "请选择智能体画像",
+                            pleaseInputFirmNumber: "请输入企业数量",
+                            pleaseInputGovernmentNumber: "请输入政府数量",
+                            pleaseInputBankNumber: "请输入银行数量",
+                            pleaseInputNbsNumber: "请输入统计局数量",
                             messages: {
                                 loadFailed: "加载智能体失败",
                                 deleteSuccess: "智能体删除成功",

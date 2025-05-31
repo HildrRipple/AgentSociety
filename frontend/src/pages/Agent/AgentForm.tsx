@@ -169,10 +169,10 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
 
         const transformedValues = {
           citizens: validCitizens,
-          firms: [{ number: allValues.firmNumber || 1, agent_class: 'firm' }],
-          governments: [{ number: allValues.governmentNumber || 1, agent_class: 'government' }],
-          banks: [{ number: allValues.bankNumber || 1, agent_class: 'bank' }],
-          nbs: [{ number: allValues.nbsNumber || 1, agent_class: 'nbs' }],
+          firms: [{ number: allValues.firmNumber >= 0 ? allValues.firmNumber : 1, agent_class: 'firm' }],
+          governments: [{ number: allValues.governmentNumber >= 0 ? allValues.governmentNumber : 1, agent_class: 'government' }],
+          banks: [{ number: allValues.bankNumber >= 0 ? allValues.bankNumber : 1, agent_class: 'bank' }],
+          nbs: [{ number: allValues.nbsNumber >= 0 ? allValues.nbsNumber : 1, agent_class: 'nbs' }],
         };
 
         onChange(transformedValues);
@@ -310,7 +310,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
             rules={[{ required: true, message: t('form.agent.pleaseInputFirmNumber') }]}
             style={{ marginBottom: 8 }}
           >
-            <InputNumber min={1} style={{ width: '100%' }} />
+            <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
@@ -321,7 +321,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
             rules={[{ required: true, message: t('form.agent.pleaseInputGovernmentNumber') }]}
             style={{ marginBottom: 8 }}
           >
-            <InputNumber min={1} style={{ width: '100%' }} />
+            <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
@@ -332,7 +332,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
             rules={[{ required: true, message: t('form.agent.pleaseInputBankNumber') }]}
             style={{ marginBottom: 8 }}
           >
-            <InputNumber min={1} style={{ width: '100%' }} />
+            <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
@@ -343,7 +343,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
             rules={[{ required: true, message: t('form.agent.pleaseInputNbsNumber') }]}
             style={{ marginBottom: 8 }}
           >
-            <InputNumber min={1} style={{ width: '100%' }} />
+            <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
       </Row>

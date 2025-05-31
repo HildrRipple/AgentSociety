@@ -1,7 +1,7 @@
 import asyncio
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, Union
 
 import jsonc
 import ray
@@ -458,9 +458,7 @@ class AgentGroup:
                         if message.kind == MessageKind.AGENT_CHAT:
                             await agent._handle_agent_chat_with_storage(message)
                         elif message.kind == MessageKind.USER_CHAT:
-                            # TODO: implement user chat message
-                            raise NotImplementedError("User chat message is not implemented")
-                            await agent.handle_user_chat_message(message.payload)
+                            await agent._handle_interview_with_storage(message.payload["content"])
                 else:
                     get_logger().error(f"Agent {agent_id} is not a citizen agent, so skip the message dispatch")
 

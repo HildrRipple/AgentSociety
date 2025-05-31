@@ -22,6 +22,7 @@ from ..models.agent import (
     agent_status,
     agent_survey,
     global_prompt,
+    pending_dialog,
 )
 from ..models.experiment import Experiment, ExperimentStatus
 from ..models.survey import Survey
@@ -278,24 +279,17 @@ async def post_agent_dialog(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Experiment not running"
             )
 
-        env: EnvConfig = request.app.state.env
-
-        # Get Redis client from app state
-        redis_client = aioredis.Redis(
-            host=env.redis.server,
-            port=env.redis.port,
-            db=env.redis.db,
-            password=env.redis.password,
-            socket_timeout=env.redis.timeout,
-            socket_keepalive=True,
-            health_check_interval=5,
-            single_connection_client=True,
+        # Store the dialog request in pending_dialog table
+        table_name = experiment.pending_dialog_tablename
+        table, _ = pending_dialog(table_name)
+        stmt = table.insert().values(
+            agent_id=agent_id,
+            content=message.content,
+            created_at=datetime.now(timezone.utc),
+            processed=False,
         )
-
-        # Send message through Redis
-        channel = f"exps:{exp_id}:agents:{agent_id}:user-chat"
-        await redis_client.publish(channel, message.model_dump_json())
-        await redis_client.close()
+        await db.execute(stmt)
+        await db.commit()
 
         return ApiResponseWrapper(data=None)
 

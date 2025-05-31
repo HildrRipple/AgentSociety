@@ -38,7 +38,7 @@ from ..llm import LLM, monitor_requests
 from ..llm.embeddings import init_embedding
 from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
-from ..message import MessageInterceptor, Messager
+from ..message import MessageInterceptor, Messager, Message, MessageKind
 from ..metrics import MlflowClient
 from ..s3 import S3Config
 from ..storage import AvroSaver
@@ -1286,10 +1286,34 @@ class AgentSociety:
             for group in self._groups.values():
                 tasks.append(group.fetch_pending_messages.remote())  # type: ignore
             all_messages = list(itertools.chain(*await asyncio.gather(*tasks)))
-            get_logger().info(f"({day}-{t}) Finished fetching pending messages. {len(all_messages)} messages fetched.")
+            get_logger().info(
+                f"({day}-{t}) Finished fetching pending messages. {len(all_messages)} messages fetched."
+            )
 
             if self._message_interceptor is not None:
                 all_messages = await self._message_interceptor.forward(all_messages)
+            # ======================
+            # fetch pending dialogs from USER
+            # ======================
+            if self.enable_pgsql:
+                pending_dialogs = await self._pgsql_writers[0].fetch_pending_dialogs.remote()  # type: ignore
+                get_logger().info(
+                    f"({day}-{t}) Finished fetching pending dialogs. {len(pending_dialogs)} dialogs fetched."
+                )
+                user_messages = []
+                for pending_dialog in pending_dialogs:
+                    user_messages.append(
+                        Message(
+                            from_id=None,
+                            to_id=pending_dialog.agent_id,
+                            payload={"content": pending_dialog.content},
+                            created_at=pending_dialog.created_at,
+                            kind=MessageKind.USER_CHAT,
+                            day=day,
+                            t=t,
+                        )
+                    )
+                all_messages += user_messages
             # dispatch messages to each agent group based on their to_id
             group_to_messages = defaultdict(list)
             for message in all_messages:

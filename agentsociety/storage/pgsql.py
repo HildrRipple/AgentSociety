@@ -13,6 +13,7 @@ from .type import (
     StorageDialog,
     StorageExpInfo,
     StorageGlobalPrompt,
+    StoragePendingDialog,
     StorageProfile,
     StorageStatus,
     StorageSurvey,
@@ -115,6 +116,21 @@ PGSQL_DICT: dict[str, list[Any]] = {
 """,
         "CREATE INDEX {table_name}_id_idx ON {table_name} (id)",
         "CREATE INDEX {table_name}_day_t_idx ON {table_name} (day,t)",
+    ],
+    # Pending Dialog
+    "pending_dialog": [
+        """
+    CREATE TABLE IF NOT EXISTS {table_name} (
+        id SERIAL PRIMARY KEY,
+        agent_id INT,
+        content TEXT,
+        created_at TIMESTAMPTZ,
+        processed BOOLEAN DEFAULT FALSE
+    )
+""",
+        "CREATE INDEX {table_name}_id_idx ON {table_name} (id)",
+        "CREATE INDEX {table_name}_agent_id_idx ON {table_name} (agent_id)",
+        "CREATE INDEX {table_name}_processed_idx ON {table_name} (processed)",
     ],
 }
 
@@ -383,3 +399,42 @@ class PgWriter:
 
                 await cur.execute(upsert_sql, params)
                 await aconn.commit()
+
+    async def fetch_pending_dialogs(self):
+        """
+        Fetch pending dialogs from the database.
+
+        - **Returns**:
+            - `list[StoragePendingDialog]`: A list of pending dialogs.
+        """
+        table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_pending_dialog"
+        async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
+            async with aconn.cursor(row_factory=dict_row) as cur:
+                # Start transaction
+                await cur.execute("BEGIN")
+                try:
+                    # First fetch unprocessed dialogs
+                    await cur.execute(
+                        psycopg.sql.SQL("SELECT * FROM {} WHERE processed = FALSE").format(
+                            psycopg.sql.Identifier(table_name)
+                        )
+                    )
+                    rows = await cur.fetchall()
+                    
+                    # Then mark fetched rows as processed using their IDs
+                    if rows:
+                        ids = [row['id'] for row in rows]
+                        await cur.execute(
+                            psycopg.sql.SQL(
+                                "UPDATE {} SET processed = TRUE WHERE id = ANY(%s)"
+                            ).format(psycopg.sql.Identifier(table_name)),
+                            (ids,)
+                        )
+                    
+                    # Commit transaction
+                    await aconn.commit()
+                    return [StoragePendingDialog(**row) for row in rows]
+                except Exception as e:
+                    # Rollback on error
+                    await aconn.rollback()
+                    raise e

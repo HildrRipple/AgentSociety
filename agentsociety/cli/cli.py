@@ -311,7 +311,6 @@ def run(
     from ..cityagent import default
 
     c = Config.model_validate(config_dict)
-    c = default(c)
 
     # Check if we need to import community modules
     need_community = False
@@ -320,6 +319,12 @@ def run(
             if isinstance(citizen.agent_class, str):
                 need_community = True
                 break
+            # go to check blocks
+            if citizen.blocks is not None:
+                for block in citizen.blocks.keys():
+                    if isinstance(block, str):
+                        need_community = True
+                        break
 
     if c.agents.supervisor is not None and isinstance(
         c.agents.supervisor.agent_class, str
@@ -335,19 +340,29 @@ def run(
     if need_community:
         try:
             from agentsociety_community.agents import citizens, supervisors
+            from agentsociety_community.blocks import citizens as citizen_blocks
             from agentsociety_community.workflows import functions as workflow_functions
 
-            # 获取映射字典
+            # get the mapping of the agent class
             workflow_function_map = workflow_functions.get_type_to_cls_dict()
             citizens_class_map = citizens.get_type_to_cls_dict()
+            citizen_blocks_class_map = citizen_blocks.get_type_to_cls_dict()
             supervisors_class_map = supervisors.get_type_to_cls_dict()
 
-            # 处理citizens中的agent_class
+            # process the agent_class in citizens
             for citizen in c.agents.citizens:
                 if isinstance(citizen.agent_class, str):
                     citizen.agent_class = citizens_class_map[citizen.agent_class]()
+                if citizen.blocks is not None:
+                    new_blocks = {}
+                    for block_name, block_params in citizen.blocks.items():
+                        if isinstance(block_name, str):
+                            new_blocks[block_name] = citizen_blocks_class_map[block_name]()
+                        else:
+                            new_blocks[block_name] = block_params
+                    citizen.blocks = new_blocks
 
-            # 处理supervisor中的agent_class
+            # process the agent_class in supervisor
             if c.agents.supervisor is not None and isinstance(
                 c.agents.supervisor.agent_class, str
             ):
@@ -355,12 +370,12 @@ def run(
                     c.agents.supervisor.agent_class
                 ]()
 
-            # 遍历workflow中的每个步骤
+            # process the func in workflow
             for step in c.exp.workflow:
                 if step.func is not None and isinstance(step.func, str):
-                    # 如果func是字符串，尝试从function_map中获取对应的函数
-                    imported_func = workflow_function_map[step.func]()  # 获取实际函数
-                    step.func = imported_func  # 替换为导入的函数
+                    # if func is a string, try to get the corresponding function from function_map
+                    imported_func = workflow_function_map[step.func]()
+                    step.func = imported_func
         except ImportError as e:
             import traceback
 
@@ -370,6 +385,7 @@ def run(
             )
             raise e
 
+    c = default(c)
     society = AgentSociety(c, tenant_id)
 
     async def _run():
