@@ -12,7 +12,7 @@ from ..agent.agent import SupervisorBase
 from ..llm import LLM, LLMConfig, monitor_requests
 from ..logger import get_logger
 from ..utils.decorators import lock_decorator
-from .messager import Message
+from .messager import Message, MessageKind
 
 DEFAULT_ERROR_STRING = """
 From `{from_id}` To `{to_id}` abort due to block `{block_name}`
@@ -23,16 +23,6 @@ logger = logging.getLogger("message_interceptor")
 __all__ = [
     "MessageInterceptor",
 ]
-
-BlackSetEntry = TypeVar(
-    "BlackSetEntry", bound=tuple[Union[int, None], Union[int, None]]
-)
-BlackSet = Set[BlackSetEntry]
-
-MessageIdentifierEntry = TypeVar(
-    "MessageIdentifierEntry", bound=tuple[Union[int, None], Union[int, None], str]
-)
-MessageIdentifier = dict[MessageIdentifierEntry, bool]
 
 
 class MessageInterceptor:
@@ -53,10 +43,7 @@ class MessageInterceptor:
         self._violation_counts: dict[int, int] = defaultdict(int)
         self._llm = LLM(llm_config)
         # round related
-        self.validation_dict: MessageIdentifier = {}
-        # blocked agent ids and blocked social edges
-        self.blocked_agent_ids = []
-        self.blocked_social_edges = []
+        self.validation_dict: dict[Message, bool] = {}
         self._lock = asyncio.Lock()
         self._supervisor = None
 
@@ -109,61 +96,28 @@ class MessageInterceptor:
         return deepcopy(self._violation_counts)
 
     @lock_decorator
-    async def add_message(self, from_id: int, to_id: int, msg: str) -> None:
-        self.validation_dict[(from_id, to_id, msg)] = True
-
-    @lock_decorator
     async def forward(self, messages: list[Message]) -> list[Message]:
         # reset round related variables
-        self.round_blocked_messages_count = 0
-        self.round_communicated_agents_count = 0
-        self.validation_dict = {}
-
-        return messages
-
-    @lock_decorator
-    async def update_blocked_agent_ids(
-        self, blocked_agent_ids: Optional[list[int]] = None
-    ):
-        if blocked_agent_ids is not None:
-            self.blocked_agent_ids.extend(blocked_agent_ids)
-            self.blocked_agent_ids = list(set(self.blocked_agent_ids))
-
-    @lock_decorator
-    async def update_blocked_social_edges(
-        self, blocked_social_edges: Optional[list[tuple[int, int]]] = None
-    ):
-        if blocked_social_edges is not None:
-            self.blocked_social_edges.extend(blocked_social_edges)
-            self.blocked_social_edges = list(set(self.blocked_social_edges))
-            # check can be blocked social edges (not in private network)
-            self.blocked_social_edges = [edge for edge in self.blocked_social_edges]
-
-    @lock_decorator
-    async def modify_validation_dict(
-        self, validation_dict: MessageIdentifier
-    ) -> MessageIdentifier:
-        # update validation_dict
-        self.validation_dict.update(validation_dict)
-        # modify validation_dict
-        for (from_id, to_id, msg), is_valid in list(self.validation_dict.items()):
-            # blocked agent ids
-            if from_id in self.blocked_agent_ids:
-                is_valid = False
-            # blocked social edges
-            if (from_id, to_id) in self.blocked_social_edges:
-                is_valid = False
-            self.validation_dict[(from_id, to_id, msg)] = is_valid
-        return self.validation_dict
-
-    @lock_decorator
-    async def get_blocked_agent_ids(self) -> list[int]:
-        return self.blocked_agent_ids
-
-    @lock_decorator
-    async def clear_validation_dict(self) -> None:
-        self.validation_dict = {}
-
-    @lock_decorator
-    async def get_validation_dict(self) -> MessageIdentifier:
-        return self.validation_dict
+        new_round_validation_dict, persuasion_messages = await self.supervisor.forward(
+            messages
+        )
+        result_messages: list[Message] = []
+        for msg in messages:
+            if msg.kind == MessageKind.AGENT_CHAT:
+                is_valid = new_round_validation_dict.get(msg, True)
+                if is_valid:
+                    result_messages.append(msg)
+                else:
+                    # add message to from_id
+                    result_messages.append(
+                        Message(
+                            from_id=msg.to_id,
+                            to_id=msg.from_id,
+                            kind=MessageKind.AGENT_CHAT,
+                            payload={"content": "Message sent failed"},
+                        )
+                    )
+            else:
+                result_messages.append(msg)
+        result_messages.extend(persuasion_messages)
+        return result_messages

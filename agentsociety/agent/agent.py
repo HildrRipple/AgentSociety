@@ -9,6 +9,7 @@ from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from ..environment.sim.person_service import PersonService
 from ..logger import get_logger
 from ..memory import Memory
+from ..message import Message
 from .agent_base import Agent, AgentToolbox, AgentType
 from .block import Block
 from .decorator import register_get
@@ -409,12 +410,10 @@ class SupervisorBase(Agent):
 
     async def forward(
         self,
-        current_round_messages: list[tuple[int, int, str]],
+        current_round_messages: list[Message],
     ) -> tuple[
-        dict[tuple[int, int, str], bool],
-        list[int],
-        list[tuple[int, int]],
-        list[dict[str, Any]],
+        dict[Message, bool],
+        list[Message],
     ]:
         """
         Process and validate messages from the current round, performing validation and intervention
@@ -424,8 +423,6 @@ class SupervisorBase(Agent):
 
         Returns:
             validation_dict: Dictionary of message validation results, key is message tuple, value is whether validation passed
-            blocked_agent_ids: List of blocked agent IDs
-            blocked_social_edges: List of blocked social edges
             persuasion_messages: List of persuasion messages
         """
         raise NotImplementedError(
