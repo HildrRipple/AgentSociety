@@ -15,6 +15,10 @@ from .type import (
 
 __all__ = ["AvroSaver"]
 
+class AvroConfig(BaseModel):
+    enable_avro: bool = Field(default=False, description="Enable avro storage")
+    home_dir: str = Field(default="./agentsociety_data", description="Home directory for avro storage")
+
 PROFILE_SCHEMA = {
     "doc": "Agent属性",
     "name": "AgentProfile",
@@ -114,7 +118,7 @@ SCHEMA_MAP = {
 class AvroSaver:
     """Save data to avro file as local storage saving and logging"""
 
-    def __init__(self, config: Any, tenant_id: str, exp_id: str, group_id: Optional[str]):
+    def __init__(self, config: AvroConfig, tenant_id: str, exp_id: str, group_id: Optional[str]):
         """
         Initialize the AvroSaver.
 

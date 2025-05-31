@@ -257,10 +257,10 @@ class AgentSociety:
         # ====================
         # Initialize the avro saver
         # ====================
-        if self._config.env.enable_avro:
+        if self._config.env.avro.enable_avro:
             get_logger().info(f"Initializing avro saver...")
             self._avro_saver = AvroSaver(
-                config=self._config.env,
+                config=self._config.env.avro,
                 tenant_id=self.tenant_id,
                 exp_id=self.exp_id,
                 group_id=None,
@@ -847,7 +847,7 @@ class AgentSociety:
 
     @property
     def enable_avro(self):
-        return self._config.env.enable_avro
+        return self._config.env.avro.enable_avro
 
     @property
     def enable_pgsql(self):

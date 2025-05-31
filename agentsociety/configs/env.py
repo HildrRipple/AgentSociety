@@ -7,6 +7,7 @@ from ..metrics import MlflowConfig
 from ..storage import PostgreSQLConfig
 from ..s3 import S3Config, S3Client
 from ..filesystem import FileSystemClient
+from ..storage.avro import AvroConfig
 
 __all__ = [
     "EnvConfig",
@@ -22,6 +23,9 @@ class EnvConfig(BaseModel):
     pgsql: PostgreSQLConfig
     """PostgreSQL configuration"""
 
+    avro: AvroConfig
+    """Avro configuration"""
+
     mlflow: MlflowConfig
     """MLflow configuration"""
 
@@ -31,24 +35,23 @@ class EnvConfig(BaseModel):
     home_dir: str = Field(default="./agentsociety_data")
     """Home directory for AgentSociety's webui if s3 is not enabled"""
 
-    enable_avro: bool = Field(default=False)
-    """Enable avro storage"""
-
     @model_validator(mode="after")
     def validate_storage_mutually_exclusive(self):
         """
-        Validates that enable_avro and s3.enabled are mutually exclusive.
+        Validates that avro.enable_avro and s3.enabled are mutually exclusive.
         - **Description**:
-            - Ensures that enable_avro and s3.enabled cannot both be True simultaneously.
+            - Ensures that avro.enable_avro and s3.enabled cannot both be True simultaneously.
             - This prevents conflicts between different storage backends.
 
         - **Returns**:
             - `EnvConfig`: The validated configuration instance.
 
         - **Raises**:
-            - `ValueError`: If both enable_avro and s3.enabled are True.
+            - `ValueError`: If both avro.enable_avro and s3.enabled are True.
         """
-        if self.enable_avro and self.s3.enabled:
+        if self.home_dir != self.avro.home_dir:
+            raise ValueError("home_dir and avro.home_dir must be the same")
+        if self.avro.enable_avro and self.s3.enabled:
             raise ValueError("enable_avro and s3.enabled cannot both be True simultaneously")
         return self
 

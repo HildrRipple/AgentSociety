@@ -7,7 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
-from typing import (Any, NamedTuple, Optional, Union)
+from typing import (Any, NamedTuple, Optional, Self, Union)
 
 import jsonc
 import ray
@@ -23,7 +23,7 @@ from ..metrics import MlflowClient
 from ..storage import AvroSaver, StorageDialog, StorageSurvey
 from ..survey.models import Survey
 from .context import AgentContext, context_to_dot_dict
-from .block import Block
+from .block import Block, BlockOutput
 from .decorator import register_get
 from .dispatcher import DISPATCHER_PROMPT, BlockDispatcher
 from .memory_config_generator import MemoryT, StatusAttribute
@@ -100,9 +100,9 @@ class Agent(ABC):
     Agent base class
     """
 
-    ParamsType = AgentParams  # Determine agent parameters
-    Context = AgentContext  # Agent Context for information retrieval
-    BlockOutputType = None  # Block output
+    ParamsType: type[AgentParams] = AgentParams  # Determine agent parameters
+    Context: type[AgentContext] = AgentContext  # Agent Context for information retrieval
+    BlockOutputType: type[BlockOutput] = BlockOutput  # Block output
     StatusAttributes: list[StatusAttribute] = []  # Memory configuration
     description: str = ""  # Agent description: How this agent works
 
@@ -161,11 +161,11 @@ class Agent(ABC):
             self.blocks = []
 
     @classmethod
-    def default_params(cls) -> ParamsType:
+    def default_params(cls):
         return cls.ParamsType()
 
     @classmethod
-    def default_context(cls) -> Context:
+    def default_context(cls):
         return cls.Context()
 
     @classmethod
