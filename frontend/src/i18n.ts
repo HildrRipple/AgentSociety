@@ -268,7 +268,8 @@ i18n
                             statusFailedDesc: "Failed to start experiment, please check configuration and try again",
                             statusPreparingDesc: "Experiment is preparing, please wait...",
                             messages: {
-                                startFailed: "Failed to start experiment: {{error}}"
+                                startFailed: "Failed to start experiment: {{error}}",
+                                startSuccess: "Experiment started successfully"
                             }
                         },
                         agent: {
@@ -290,6 +291,12 @@ i18n
                             bankGroup: "Bank Group",
                             nbsGroup: "NBS Group",
                             addGroup: "Add Group",
+                            selectTemplate: "Select Template",
+                            selectTemplatePlaceholder: "Select agent template",
+                            numberLabel: "Number",
+                            numberPlaceholder: "Enter number of agents",
+                            selectProfile: "Select Profile",
+                            selectProfilePlaceholder: "Select agent profile",
                             messages: {
                                 loadFailed: "Failed to load agents",
                                 deleteSuccess: "Agent deleted successfully",
@@ -756,7 +763,8 @@ i18n
                             statusFailedDesc: "实验启动失败，请检查配置后重试",
                             statusPreparingDesc: "实验正在准备中，请稍候...",
                             messages: {
-                                startFailed: "启动实验失败：{{error}}"
+                                startFailed: "启动实验失败：{{error}}",
+                                startSuccess: "实验启动成功"
                             }
                         },
                         agent: {
@@ -778,6 +786,12 @@ i18n
                             bankGroup: "银行群体",
                             nbsGroup: "央行群体",
                             addGroup: "添加群体",
+                            selectTemplate: "选择模板",
+                            selectTemplatePlaceholder: "请选择智能体模板",
+                            numberLabel: "数量",
+                            numberPlaceholder: "请输入智能体数量",
+                            selectProfile: "选择画像",
+                            selectProfilePlaceholder: "请选择智能体画像",
                             messages: {
                                 loadFailed: "加载智能体失败",
                                 deleteSuccess: "智能体删除成功",

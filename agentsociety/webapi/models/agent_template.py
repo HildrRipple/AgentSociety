@@ -93,20 +93,25 @@ class AgentTemplateDB(Base):
     )
 
 
-# TODO: 需要修改
-class AgentParams(BaseModel):
-    """Agent parameters model"""
 
-    enable_cognition: bool = Field(default=True)
-    UBI: float = Field(default=0.0)
-    num_labor_hours: float = Field(default=8.0)
-    productivity_per_labor: float = Field(default=1.0)
-    time_diff: float = Field(default=1.0)
-    max_plan_steps: int = Field(default=5)
-    need_initialization_prompt: Optional[str] = None
-    need_evaluation_prompt: Optional[str] = None
-    need_reflection_prompt: Optional[str] = None
-    plan_generation_prompt: Optional[str] = None
+class AgentParams(BaseModel):
+    """Agent parameters model with dynamic fields"""
+    
+    class Config:
+        extra = "allow"  # 允许额外的字段
+        arbitrary_types_allowed = True  # 允许任意类型
+
+    def __init__(self, **data):
+        super().__init__(**data)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AgentParams":
+        """从字典创建 AgentParams 实例"""
+        return cls(**data)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """将 AgentParams 实例转换为字典"""
+        return self.model_dump()
 
 
 class TemplateBlock(BaseModel):
