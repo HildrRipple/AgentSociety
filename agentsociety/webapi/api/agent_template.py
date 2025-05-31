@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict, List, cast, Any
+from typing import Dict, List, cast, Any, Type
 
 from fastapi import APIRouter, Body, HTTPException, Request, status
 from sqlalchemy import delete, insert, select, update
@@ -18,14 +18,11 @@ from ..models.agent_template import (
     AgentParams,
     DistributionType,
 )
-from agentsociety.cityagent.blocks.economy_block import EconomyBlock
-from agentsociety.cityagent.blocks.mobility_block import MobilityBlock
-from agentsociety.cityagent.blocks.other_block import OtherBlock
-from agentsociety.cityagent.blocks.social_block import SocialBlock
 
 try:
     from agentsociety_community.agents import citizens, supervisors
     from agentsociety_community.workflows import functions as workflow_functions
+    from agentsociety_community.blocks import citizens as citizen_blocks
 except ImportError:
     import warnings
 
@@ -36,6 +33,7 @@ except ImportError:
     citizens = None
     supervisors = None
     workflow_functions = None
+    citizen_blocks = None
 
 __all__ = ["router"]
 
@@ -415,24 +413,20 @@ async def delete_agent_template(
 @router.get("/agent-blocks")
 async def get_agent_blocks(
     request: Request,
-) -> ApiResponseWrapper[List[Dict[str, Any]]]:
-    """Get available blocks basic information including name and description"""
+) -> ApiResponseWrapper[List[str]]:
+    """Get available block types"""
     try:
-        block_classes = [
-            # CognitionBlock,
-            EconomyBlock,
-            MobilityBlock,
-            OtherBlock,
-            SocialBlock,
-        ]
-
         blocks = []
-        for block_class in block_classes:
-            block_info = {
-                "block_name": block_class.name,
-                "description": block_class.description,
-            }
-            blocks.append(block_info)
+        
+        # 获取citizen blocks
+        if citizen_blocks is not None:
+            # for block_name, block_class in citizen_blocks.get_type_to_cls_dict().items():
+            #     block_info = {
+            #         "block_name": block_class.name,
+            #         "description": block_class.description,
+            #     }
+            #     blocks.append(block_info)
+            blocks = list(citizen_blocks.get_type_to_cls_dict().keys())
 
         return ApiResponseWrapper(data=blocks)
     except Exception as e:
@@ -597,21 +591,18 @@ async def get_block_param(
 ) -> ApiResponseWrapper[Dict[str, Any]]:
     """Get Block's parameters including ParamsType and Context for specified block type"""
     try:
-        # Map block type string to block class
-        block_map = {
-            "EconomyBlock": EconomyBlock,
-            "MobilityBlock": MobilityBlock,
-            "OtherBlock": OtherBlock,
-            "SocialBlock": SocialBlock,
-        }
+        # 在citizen blocks中查找
+        if citizen_blocks is not None:
+            block_map = citizen_blocks.get_type_to_cls_dict()
+            if block_type in block_map:
+                block_class_factory = block_map[block_type]
+                block_class = block_class_factory()
 
-        if block_type not in block_map:
+        if block_class is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid block type. Available types: {', '.join(block_map.keys())}",
+                detail=f"Invalid block type: {block_type}",
             )
-
-        block_class = block_map[block_type]
 
         # Get Block parameters information
         param_data = {

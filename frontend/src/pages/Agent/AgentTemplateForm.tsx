@@ -727,7 +727,7 @@ interface BlockParam {
 
 interface BlockInfo {
   block_name: string;
-  description: string;
+  description: string;  // 保留字段，但暂时不使用
   // functions: BlockFunction[];
   params: Record<string, BlockParam>;
 }
@@ -840,7 +840,14 @@ const BlockConfiguration: React.FC<{
       .then(res => res.json())
       .then(response => {
         if (response.data && Array.isArray(response.data)) {
-          setBlocks(response.data);
+          // setBlocks(response.data);
+          // 将返回的block名称列表转换为BlockInfo格式
+          const blockInfos = response.data.map(blockName => ({
+            block_name: blockName,
+            description: '',  // 暂时为空
+            params: {}
+          }));
+          setBlocks(blockInfos);
         }
       })
       .catch(err => {
@@ -867,9 +874,11 @@ const BlockConfiguration: React.FC<{
               label: (
                 <Space>
                   {block.block_name}
+                  {/* 暂时注释掉description的显示
                   <Tooltip title={block.description}>
                     <QuestionCircleOutlined />
                   </Tooltip>
+                  */}
                 </Space>
               ),
               value: block.block_name
@@ -1239,7 +1248,12 @@ const AgentTemplateForm: React.FC = () => {
       }
 
       // 验证表单数据
-      validateFormData(values, agentInfo);
+      try {
+        validateFormData(values, agentInfo);
+      } catch (validationError) {
+        message.error(validationError.message || '表单数据验证失败');
+        return;
+      }
       
       // 构造 memory_distributions
       const memory_distributions: Record<string, any> = {};
@@ -1317,7 +1331,16 @@ const AgentTemplateForm: React.FC = () => {
       if (!res.ok) {
         const errorData = await res.json();
         console.log('API error response:', JSON.stringify(errorData, null, 2));
-        throw new Error(errorData.detail || 'Failed to create template');
+        // 检查错误数据的结构
+        if (errorData.detail) {
+          if (typeof errorData.detail === 'object') {
+            throw new Error(JSON.stringify(errorData.detail));
+          } else {
+            throw new Error(errorData.detail);
+          }
+        } else {
+          throw new Error('创建模板失败: ' + JSON.stringify(errorData));
+        }
       }
 
       const data = await res.json();
@@ -1326,7 +1349,9 @@ const AgentTemplateForm: React.FC = () => {
       navigate('/agent-templates');
     } catch (error) {
       console.log('Error occurred during form submission:', error);
-      message.error(error.message || t('form.template.messages.createFailed'));
+      // 确保错误消息是字符串
+      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+      message.error(errorMessage || t('form.template.messages.createFailed'));
     }
   };
 
