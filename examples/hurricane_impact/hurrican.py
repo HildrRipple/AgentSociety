@@ -23,7 +23,7 @@ from agentsociety.llm import LLMProviderType
 from agentsociety.message import RedisConfig
 from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
-from agentsociety.storage import PostgreSQLConfig
+from agentsociety.storage import AvroConfig, PostgreSQLConfig
 
 ray.init(logging_level=logging.INFO)
 
@@ -64,7 +64,6 @@ config = Config(
             num_workers="auto",
         ),
         avro=AvroConfig(
-            path="<SAVE-PATH>",
             enabled=True,
         ),
         mlflow=MlflowConfig(

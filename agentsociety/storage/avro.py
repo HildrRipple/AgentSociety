@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 import fastavro
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from ..logger import get_logger
 from .type import (
@@ -13,11 +13,12 @@ from .type import (
     StorageSurvey,
 )
 
-__all__ = ["AvroSaver"]
+__all__ = ["AvroSaver", "AvroConfig"]
+
 
 class AvroConfig(BaseModel):
-    enable_avro: bool = Field(default=False, description="Enable avro storage")
-    home_dir: str = Field(default="./agentsociety_data", description="Home directory for avro storage")
+    enabled: bool = Field(default=False, description="Enable avro storage")
+
 
 PROFILE_SCHEMA = {
     "doc": "Agent属性",
@@ -118,12 +119,20 @@ SCHEMA_MAP = {
 class AvroSaver:
     """Save data to avro file as local storage saving and logging"""
 
-    def __init__(self, config: AvroConfig, tenant_id: str, exp_id: str, group_id: Optional[str]):
+    def __init__(
+        self,
+        config: AvroConfig,
+        home_dir: str,
+        tenant_id: str,
+        exp_id: str,
+        group_id: Optional[str],
+    ):
         """
         Initialize the AvroSaver.
 
         - **Args**:
             - `config` (AvroConfig): The configuration for the AvroSaver.
+            - `home_dir` (str): The home directory for the avro storage.
             - `exp_id` (str): The ID of the experiment.
             - `group_id` (Optional[str]): The ID of the group.
         """
@@ -134,7 +143,12 @@ class AvroSaver:
         if not self.enabled:
             get_logger().warning("AvroSaver is not enabled")
             return
-        self._avro_path = Path(self._config.home_dir) / "exps" / f"{self._tenant_id}" / f"{self._exp_id}"
+        self._avro_path = (
+            Path(home_dir)
+            / "exps"
+            / f"{self._tenant_id}"
+            / f"{self._exp_id}"
+        )
         self._avro_path.mkdir(parents=True, exist_ok=True)
         if self._group_id is not None:
             self._avro_path = self._avro_path / f"{self._group_id}"
@@ -165,7 +179,7 @@ class AvroSaver:
 
     @property
     def enabled(self):
-        return self._config.enable_avro
+        return self._config.enabled
 
     @property
     def exp_info_file(self):

@@ -198,10 +198,14 @@ class AgentGroup:
         # ====================
         # Initialize the avro saver
         # ====================
-        if self._config.env.avro.enable_avro:
+        if self._config.env.avro.enabled:
             get_logger().info(f"Initializing the avro saver...")
             self._avro_saver = AvroSaver(
-                self._config.env.avro, self._tenant_id, self._exp_id, self._group_id
+                self._config.env.avro,
+                self._config.env.home_dir,
+                self._tenant_id,
+                self._exp_id,
+                self._group_id,
             )
             get_logger().info(f"Avro saver initialized")
 
@@ -300,7 +304,11 @@ class AgentGroup:
                     id=agent.id,
                     name=profile.get("name", ""),
                     profile=jsonc.dumps(
-                        {k: v for k, v in profile.items() if k not in {"id", "name", "social_network"}},
+                        {
+                            k: v
+                            for k, v in profile.items()
+                            if k not in {"id", "name", "social_network"}
+                        },
                         ensure_ascii=False,
                     ),
                 )

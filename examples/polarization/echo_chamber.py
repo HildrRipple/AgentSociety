@@ -109,7 +109,6 @@ config = Config(
             num_workers="auto",
         ),
         avro=AvroConfig(
-            path="<SAVE-PATH>",
             enabled=True,
         ),
         mlflow=MlflowConfig(

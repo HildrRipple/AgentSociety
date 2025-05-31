@@ -49,9 +49,7 @@ class EnvConfig(BaseModel):
         - **Raises**:
             - `ValueError`: If both avro.enable_avro and s3.enabled are True.
         """
-        if self.home_dir != self.avro.home_dir:
-            raise ValueError("home_dir and avro.home_dir must be the same")
-        if self.avro.enable_avro and self.s3.enabled:
+        if self.avro.enabled and self.s3.enabled:
             raise ValueError("enable_avro and s3.enabled cannot both be True simultaneously")
         return self
 
