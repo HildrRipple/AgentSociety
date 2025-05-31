@@ -474,11 +474,11 @@ class AgentGroup:
                 agent_id = message.from_id
                 if message.kind == MessageKind.AOI_MESSAGE_REGISTER:
                     self.environment.register_aoi_message(
-                        agent_id, message.payload["aoi_id"], message.payload["content"]
+                        agent_id, message.to_id, message.payload["content"]
                     )
                 elif message.kind == MessageKind.AOI_MESSAGE_CANCEL:
                     self.environment.cancel_aoi_message(
-                        agent_id, message.payload["aoi_id"]
+                        agent_id, message.to_id
                     )
         except Exception as e:
             get_logger().error(f"Error dispatching message: {e}")
