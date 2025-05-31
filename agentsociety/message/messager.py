@@ -49,17 +49,13 @@ class Message(BaseModel):
 
 class Messager:
     """
-    A class to manage message sending and receiving using Redis pub/sub.
+    A class to manage message sending and receiving.
 
     - **Attributes**:
-        - `client` (aioredis.Redis): An instance of the Redis async client.
-        - `connected` (bool): Indicates whether the connection to Redis is established.
-        - `message_queue` (asyncio.Queue): Queue for storing received messages.
-        - `receive_messages_task` (Optional[Task]): Task for listening to incoming messages.
         - `_message_interceptor` (Optional[ray.ObjectRef]): Reference to a remote message interceptor object.
-        - `_log_list` (list): List to store message logs.
+        - `_pending_messages` (list): List to store pending messages.
+        - `_received_messages` (list): List to store received messages.
         - `_lock` (asyncio.Lock): Lock for thread-safe operations.
-        - `_topics` (set[str]): Set of topics the client is subscribed to.
     """
 
     def __init__(
@@ -67,10 +63,9 @@ class Messager:
         exp_id: str,
     ):
         """
-        Initialize the Messager with Redis connection parameters.
+        Initialize the Messager.
 
         - **Args**:
-            - `config` (RedisConfig): Redis configuration.
             - `exp_id` (str): Experiment ID.
             - `message_interceptor` (Optional[ray.ObjectRef], optional): Reference to a message interceptor object.
         """
@@ -101,21 +96,15 @@ class Messager:
 
     async def init(self):
         """
-        Attempt to connect to the Redis server up to three times.
-
-        - **Description**:
-            - Tries to establish a connection to Redis. Retries up to three times with delays between attempts.
-            - Logs success or failure accordingly.
+        Initialize the messager.
         """
+        pass
 
     async def close(self):
         """
-        Stop the listener and disconnect from Redis.
-
-        - **Description**:
-            - Cancels the receive_messages_task if it exists and ensures the Redis connection is closed.
-            - Gracefully handles any exceptions during the task cancellation.
+        Close the messager.
         """
+        pass
 
     @lock_decorator
     async def send_message(self, message: Message):

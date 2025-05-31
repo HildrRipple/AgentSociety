@@ -489,7 +489,13 @@ class AgentGroup:
             get_logger().error(f"Error dispatching message: {traceback.format_exc()}")
 
     async def handle_survey(
-        self, survey: Survey, agent_ids: list[int]
+        self,
+        survey: Survey,
+        agent_ids: list[int],
+        survey_day: Optional[int] = None,
+        survey_t: Optional[float] = None,
+        is_pending_survey: bool = False,
+        pending_survey_id: Optional[int] = None,
     ) -> dict[int, str]:
         """
         Handle a user survey.
@@ -498,7 +504,15 @@ class AgentGroup:
         for agent_id in agent_ids:
             agent = self._id2agent[agent_id]
             if isinstance(agent, CitizenAgentBase):
-                survey_tasks.append(agent._handle_survey_with_storage(survey))
+                survey_tasks.append(
+                    agent._handle_survey_with_storage(
+                        survey,
+                        survey_day,
+                        survey_t,
+                        is_pending_survey,
+                        pending_survey_id,
+                    )
+                )
             else:
                 get_logger().error(
                     f"Agent {agent_id} is not a citizen agent, so skip the survey"

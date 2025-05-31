@@ -10,7 +10,7 @@ from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from ..environment.sim.person_service import PersonService
 from ..logger import get_logger
 from ..memory import Memory
-from ..message import Message, MessageKind
+from ..message import Message
 from ..storage import StorageDialog, StorageDialogType, StorageSurvey
 from ..survey.models import Survey
 from .agent_base import Agent, AgentToolbox, AgentType, extract_json
@@ -212,12 +212,23 @@ class CitizenAgentBase(Agent):
             json_str = ""
         return json_str
 
-    async def _handle_survey_with_storage(self, survey: Survey) -> str:
+    async def _handle_survey_with_storage(
+        self,
+        survey: Survey,
+        survey_day: Optional[int] = None,
+        survey_t: Optional[float] = None,
+        is_pending_survey: bool = False,
+        pending_survey_id: Optional[int] = None,
+    ) -> str:
         """
         Process a survey by generating a response and recording it in Avro format and PostgreSQL.
 
         - **Args**:
             - `survey` (`Survey`): The survey data that includes an ID and other relevant information.
+            - `survey_day` (`Optional[int]`): The day of the survey.
+            - `survey_t` (`Optional[float]`): The time of the survey.
+            - `is_pending_survey` (`bool`): Whether the survey is a pending survey.
+            - `pending_survey_id` (`Optional[int]`): The ID of the pending survey.
 
         - **Description**:
             - Generates a survey response using `generate_user_survey_response`.
@@ -232,8 +243,8 @@ class CitizenAgentBase(Agent):
         day, t = self.environment.get_datetime()
         storage_survey = StorageSurvey(
             id=self.id,
-            day=day,
-            t=t,
+            day=survey_day if survey_day is not None else day,
+            t=survey_t if survey_t is not None else t,
             survey_id=str(survey.id),
             result=survey_response,
             created_at=date_time,
@@ -244,11 +255,22 @@ class CitizenAgentBase(Agent):
         if self.pgsql_writer is not None:
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
-            self._last_asyncio_pg_task = (
-                self.pgsql_writer.write_surveys.remote(  # type:ignore
+                self._last_asyncio_pg_task = None
+            if is_pending_survey:
+                await self.pgsql_writer.write_surveys.remote(  # type:ignore
                     [storage_survey]
                 )
-            )
+                self._last_asyncio_pg_task = (
+                    self.pgsql_writer.mark_surveys_as_processed.remote(  # type:ignore
+                        [pending_survey_id]
+                    )
+                )
+            else:
+                self._last_asyncio_pg_task = (
+                    self.pgsql_writer.write_surveys.remote(  # type:ignore
+                        [storage_survey]
+                    )
+                )
         # status memory
         old_survey_responses = await self.memory.status.get("survey_responses", [])
         new_survey_responses = old_survey_responses + [survey_response]
@@ -313,8 +335,8 @@ class CitizenAgentBase(Agent):
         day, t = self.environment.get_datetime()
         storage_dialog = StorageDialog(
             id=self.id,
-            day=day,
-            t=t,
+            day=message.day,
+            t=message.t,
             type=StorageDialogType.User,
             speaker="user",
             content=question,

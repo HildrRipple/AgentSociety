@@ -15,8 +15,8 @@
 :class: autosummary longtable
 :align: left
 
-* - {py:obj}`AgentClassType <agentsociety.configs.agent.AgentClassType>`
-  - ```{autodoc2-docstring} agentsociety.configs.agent.AgentClassType
+* - {py:obj}`InstitutionAgentClass <agentsociety.configs.agent.InstitutionAgentClass>`
+  - ```{autodoc2-docstring} agentsociety.configs.agent.InstitutionAgentClass
     :summary:
     ```
 * - {py:obj}`AgentConfig <agentsociety.configs.agent.AgentConfig>`
@@ -49,66 +49,56 @@
 
 ````
 
-`````{py:class} AgentClassType()
-:canonical: agentsociety.configs.agent.AgentClassType
+`````{py:class} InstitutionAgentClass()
+:canonical: agentsociety.configs.agent.InstitutionAgentClass
 
 Bases: {py:obj}`str`, {py:obj}`enum.Enum`
 
-```{autodoc2-docstring} agentsociety.configs.agent.AgentClassType
+```{autodoc2-docstring} agentsociety.configs.agent.InstitutionAgentClass
 ```
 
 ```{rubric} Initialization
 ```
 
-```{autodoc2-docstring} agentsociety.configs.agent.AgentClassType.__init__
+```{autodoc2-docstring} agentsociety.configs.agent.InstitutionAgentClass.__init__
 ```
-
-````{py:attribute} CITIZEN
-:canonical: agentsociety.configs.agent.AgentClassType.CITIZEN
-:value: >
-   'citizen'
-
-```{autodoc2-docstring} agentsociety.configs.agent.AgentClassType.CITIZEN
-```
-
-````
 
 ````{py:attribute} FIRM
-:canonical: agentsociety.configs.agent.AgentClassType.FIRM
+:canonical: agentsociety.configs.agent.InstitutionAgentClass.FIRM
 :value: >
    'firm'
 
-```{autodoc2-docstring} agentsociety.configs.agent.AgentClassType.FIRM
+```{autodoc2-docstring} agentsociety.configs.agent.InstitutionAgentClass.FIRM
 ```
 
 ````
 
 ````{py:attribute} GOVERNMENT
-:canonical: agentsociety.configs.agent.AgentClassType.GOVERNMENT
+:canonical: agentsociety.configs.agent.InstitutionAgentClass.GOVERNMENT
 :value: >
    'government'
 
-```{autodoc2-docstring} agentsociety.configs.agent.AgentClassType.GOVERNMENT
+```{autodoc2-docstring} agentsociety.configs.agent.InstitutionAgentClass.GOVERNMENT
 ```
 
 ````
 
 ````{py:attribute} BANK
-:canonical: agentsociety.configs.agent.AgentClassType.BANK
+:canonical: agentsociety.configs.agent.InstitutionAgentClass.BANK
 :value: >
    'bank'
 
-```{autodoc2-docstring} agentsociety.configs.agent.AgentClassType.BANK
+```{autodoc2-docstring} agentsociety.configs.agent.InstitutionAgentClass.BANK
 ```
 
 ````
 
 ````{py:attribute} NBS
-:canonical: agentsociety.configs.agent.AgentClassType.NBS
+:canonical: agentsociety.configs.agent.InstitutionAgentClass.NBS
 :value: >
    'nbs'
 
-```{autodoc2-docstring} agentsociety.configs.agent.AgentClassType.NBS
+```{autodoc2-docstring} agentsociety.configs.agent.InstitutionAgentClass.NBS
 ```
 
 ````
@@ -141,7 +131,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} agent_class
 :canonical: agentsociety.configs.agent.AgentConfig.agent_class
-:type: typing.Union[type[agentsociety.agent.Agent], agentsociety.configs.agent.AgentClassType]
+:type: typing.Union[type[agentsociety.agent.Agent], str]
 :value: >
    None
 
@@ -152,7 +142,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} number
 :canonical: agentsociety.configs.agent.AgentConfig.number
-:type: int
+:type: typing.Optional[int]
 :value: >
    'Field(...)'
 
@@ -161,13 +151,24 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:attribute} param_config
-:canonical: agentsociety.configs.agent.AgentConfig.param_config
-:type: typing.Optional[dict[str, typing.Any]]
+````{py:attribute} agent_params
+:canonical: agentsociety.configs.agent.AgentConfig.agent_params
+:type: typing.Optional[typing.Any]
 :value: >
    None
 
-```{autodoc2-docstring} agentsociety.configs.agent.AgentConfig.param_config
+```{autodoc2-docstring} agentsociety.configs.agent.AgentConfig.agent_params
+```
+
+````
+
+````{py:attribute} blocks
+:canonical: agentsociety.configs.agent.AgentConfig.blocks
+:type: typing.Optional[dict[typing.Union[type[agentsociety.agent.Block], str], typing.Any]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.agent.AgentConfig.blocks
 ```
 
 ````
@@ -201,6 +202,14 @@ Bases: {py:obj}`pydantic.BaseModel`
    None
 
 ```{autodoc2-docstring} agentsociety.configs.agent.AgentConfig.memory_distributions
+```
+
+````
+
+````{py:method} validate_configuration()
+:canonical: agentsociety.configs.agent.AgentConfig.validate_configuration
+
+```{autodoc2-docstring} agentsociety.configs.agent.AgentConfig.validate_configuration
 ```
 
 ````

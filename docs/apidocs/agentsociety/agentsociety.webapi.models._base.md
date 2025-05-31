@@ -9,6 +9,16 @@
 
 ## Module Contents
 
+### Classes
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`BillDecimal <agentsociety.webapi.models._base.BillDecimal>`
+  -
+````
+
 ### Data
 
 ````{list-table}
@@ -23,6 +33,10 @@
   - ```{autodoc2-docstring} agentsociety.webapi.models._base.Base
     :summary:
     ```
+* - {py:obj}`BaseNoInit <agentsociety.webapi.models._base.BaseNoInit>`
+  - ```{autodoc2-docstring} agentsociety.webapi.models._base.BaseNoInit
+    :summary:
+    ```
 * - {py:obj}`TABLE_PREFIX <agentsociety.webapi.models._base.TABLE_PREFIX>`
   - ```{autodoc2-docstring} agentsociety.webapi.models._base.TABLE_PREFIX
     :summary:
@@ -34,12 +48,19 @@
 ````{py:data} __all__
 :canonical: agentsociety.webapi.models._base.__all__
 :value: >
-   ['Base', 'TABLE_PREFIX']
+   ['Base', 'BaseNoInit', 'TABLE_PREFIX']
 
 ```{autodoc2-docstring} agentsociety.webapi.models._base.__all__
 ```
 
 ````
+
+```{py:class} BillDecimal()
+:canonical: agentsociety.webapi.models._base.BillDecimal
+
+Bases: {py:obj}`decimal.Decimal`
+
+```
 
 ````{py:data} Base
 :canonical: agentsociety.webapi.models._base.Base
@@ -47,6 +68,16 @@
    'declarative_base(...)'
 
 ```{autodoc2-docstring} agentsociety.webapi.models._base.Base
+```
+
+````
+
+````{py:data} BaseNoInit
+:canonical: agentsociety.webapi.models._base.BaseNoInit
+:value: >
+   'declarative_base(...)'
+
+```{autodoc2-docstring} agentsociety.webapi.models._base.BaseNoInit
 ```
 
 ````

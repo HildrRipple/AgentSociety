@@ -90,6 +90,11 @@ class Experiment(Base):
         """Get pending dialog table name"""
         return f"{TABLE_PREFIX}{str(self.id).replace('-', '_')}_pending_dialog"
 
+    @property
+    def pending_survey_tablename(self):
+        """Get pending survey table name"""
+        return f"{TABLE_PREFIX}{str(self.id).replace('-', '_')}_pending_survey"
+
     def to_dict(self):
         return {
             "id": str(self.id),

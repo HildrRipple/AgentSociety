@@ -22,12 +22,12 @@ agentsociety.cityagent.blocks
 :titlesonly:
 :maxdepth: 1
 
-agentsociety.cityagent.message_intercept
 agentsociety.cityagent.societyagent
 agentsociety.cityagent.memory_config
 agentsociety.cityagent.initial
 agentsociety.cityagent.governmentagent
 agentsociety.cityagent.bankagent
+agentsociety.cityagent.sharing_params
 agentsociety.cityagent.firmagent
 agentsociety.cityagent.metrics
 agentsociety.cityagent.nbsagent
@@ -43,10 +43,6 @@ agentsociety.cityagent.nbsagent
 
 * - {py:obj}`_fill_in_agent_class_and_memory_config <agentsociety.cityagent._fill_in_agent_class_and_memory_config>`
   - ```{autodoc2-docstring} agentsociety.cityagent._fill_in_agent_class_and_memory_config
-    :summary:
-    ```
-* - {py:obj}`_fill_in_message_intercept_config <agentsociety.cityagent._fill_in_message_intercept_config>`
-  - ```{autodoc2-docstring} agentsociety.cityagent._fill_in_message_intercept_config
     :summary:
     ```
 * - {py:obj}`default <agentsociety.cityagent.default>`
@@ -65,6 +61,10 @@ agentsociety.cityagent.nbsagent
   - ```{autodoc2-docstring} agentsociety.cityagent.__all__
     :summary:
     ```
+* - {py:obj}`BLOCK_MAPPING <agentsociety.cityagent.BLOCK_MAPPING>`
+  - ```{autodoc2-docstring} agentsociety.cityagent.BLOCK_MAPPING
+    :summary:
+    ```
 ````
 
 ### API
@@ -79,17 +79,20 @@ agentsociety.cityagent.nbsagent
 
 ````
 
+````{py:data} BLOCK_MAPPING
+:canonical: agentsociety.cityagent.BLOCK_MAPPING
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.cityagent.BLOCK_MAPPING
+```
+
+````
+
 ````{py:function} _fill_in_agent_class_and_memory_config(self: agentsociety.configs.AgentConfig)
 :canonical: agentsociety.cityagent._fill_in_agent_class_and_memory_config
 
 ```{autodoc2-docstring} agentsociety.cityagent._fill_in_agent_class_and_memory_config
-```
-````
-
-````{py:function} _fill_in_message_intercept_config(self: agentsociety.configs.MessageInterceptConfig) -> agentsociety.configs.MessageInterceptConfig
-:canonical: agentsociety.cityagent._fill_in_message_intercept_config
-
-```{autodoc2-docstring} agentsociety.cityagent._fill_in_message_intercept_config
 ```
 ````
 

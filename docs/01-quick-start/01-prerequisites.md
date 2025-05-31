@@ -104,18 +104,8 @@ After the vLLM server is running, you can set the `base_url` as the address of t
 ## Dependencies
 
 Before using this framework, several prerequisite dependencies need to be prepared:
-- [Redis](https://redis.io/)
 - [PostgreSQL](https://www.postgresql.org/)
 - [MLflow](https://mlflow.org/)
-
-### Redis
-
-Redis is a high-performance, in-memory key-value store used as a database, cache, and message server. In this framework, Redis facilitates efficient X-to-agent communication through its pub/sub messaging feature. Redis offers data persistence and additional capabilities, making it ideal for real-time data processing and fast message exchanges.
-
-The "X" contains agents and the GUI.
-
-Due to the open-source license problem, you can also use valkey as a substitute for Redis.
-But we have not tested it yet.
 
 ### PostgreSQL
 
@@ -140,7 +130,6 @@ In short, the steps are as follows:
 5. Access the services by the following URLs:
    - MLflow: directly visit `http://localhost:59000`
    - PostgreSQL: use [dbeaver](https://dbeaver.io/) or other GUI tools to connect to `postgresql://postgres:YOUR_PASSWORD@localhost:5432/postgres`
-   - Redis Server: use `redis-cli` to connect to `localhost:6379`
 6. Go ahead and start your first simulation!
 
 ## For Windows Users

@@ -45,7 +45,7 @@
 
 ````
 
-`````{py:class} AgentGroup(tenant_id: str, exp_name: str, exp_id: str, group_id: str, config: agentsociety.configs.Config, agent_inits: list[tuple[int, type[typing.Union[agentsociety.agent.CitizenAgentBase, agentsociety.agent.FirmAgentBase, agentsociety.agent.BankAgentBase, agentsociety.agent.NBSAgentBase, agentsociety.agent.GovernmentAgentBase]], agentsociety.agent.memory_config_generator.MemoryConfigGenerator, int, dict[str, typing.Any]]], environment_init: dict, pgsql_writer: typing.Optional[ray.ObjectRef], message_interceptor: ray.ObjectRef, mlflow_run_id: typing.Optional[str], agent_config_file: typing.Optional[dict[type[agentsociety.agent.Agent], typing.Any]] = None)
+`````{py:class} AgentGroup(tenant_id: str, exp_name: str, exp_id: str, group_id: str, config: agentsociety.configs.Config, agent_inits: list[tuple[int, type[typing.Union[agentsociety.agent.CitizenAgentBase, agentsociety.agent.FirmAgentBase, agentsociety.agent.BankAgentBase, agentsociety.agent.NBSAgentBase, agentsociety.agent.GovernmentAgentBase]], agentsociety.agent.memory_config_generator.MemoryConfigGenerator, int, agentsociety.agent.AgentParams, dict[type[agentsociety.agent.Block], agentsociety.agent.BlockParams]]], environment_init: dict, pgsql_writer: typing.Optional[ray.ObjectRef], mlflow_run_id: typing.Optional[str], agent_config_file: typing.Optional[dict[type[agentsociety.agent.Agent], typing.Any]] = None)
 :canonical: agentsociety.simulation.agentgroup.AgentGroup
 
 ```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup
@@ -175,6 +175,24 @@
 
 ````
 
+````{py:method} handle_survey(survey: agentsociety.survey.Survey, agent_ids: list[int], survey_day: typing.Optional[int] = None, survey_t: typing.Optional[float] = None, is_pending_survey: bool = False, pending_survey_id: typing.Optional[int] = None) -> dict[int, str]
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.handle_survey
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.handle_survey
+```
+
+````
+
+````{py:method} handle_interview(question: str, agent_ids: list[int]) -> dict[int, str]
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.handle_interview
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.handle_interview
+```
+
+````
+
 ````{py:method} save(day: int, t: int)
 :canonical: agentsociety.simulation.agentgroup.AgentGroup.save
 :async:
@@ -228,7 +246,7 @@
 
 ````
 
-````{py:method} filter(types: typing.Optional[tuple[type[agentsociety.agent.Agent]]] = None, keys: typing.Optional[list[str]] = None, values: typing.Optional[list[typing.Any]] = None) -> list[int]
+````{py:method} filter(types: typing.Optional[tuple[type[agentsociety.agent.Agent]]] = None, memory_kv: typing.Optional[dict[str, typing.Any]] = None) -> list[int]
 :canonical: agentsociety.simulation.agentgroup.AgentGroup.filter
 :async:
 
@@ -242,6 +260,33 @@
 :async:
 
 ```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.gather
+```
+
+````
+
+````{py:method} delete_agents(target_agent_ids: list[int])
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.delete_agents
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.delete_agents
+```
+
+````
+
+````{py:method} fetch_pending_messages()
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.fetch_pending_messages
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.fetch_pending_messages
+```
+
+````
+
+````{py:method} set_received_messages(messages: list[agentsociety.message.Message])
+:canonical: agentsociety.simulation.agentgroup.AgentGroup.set_received_messages
+:async:
+
+```{autodoc2-docstring} agentsociety.simulation.agentgroup.AgentGroup.set_received_messages
 ```
 
 ````

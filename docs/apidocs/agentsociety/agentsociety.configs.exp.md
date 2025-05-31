@@ -19,6 +19,10 @@
   - ```{autodoc2-docstring} agentsociety.configs.exp.WorkflowType
     :summary:
     ```
+* - {py:obj}`AgentFilterConfig <agentsociety.configs.exp.AgentFilterConfig>`
+  - ```{autodoc2-docstring} agentsociety.configs.exp.AgentFilterConfig
+    :summary:
+    ```
 * - {py:obj}`WorkflowStepConfig <agentsociety.configs.exp.WorkflowStepConfig>`
   - ```{autodoc2-docstring} agentsociety.configs.exp.WorkflowStepConfig
     :summary:
@@ -29,10 +33,6 @@
     ```
 * - {py:obj}`MetricExtractorConfig <agentsociety.configs.exp.MetricExtractorConfig>`
   - ```{autodoc2-docstring} agentsociety.configs.exp.MetricExtractorConfig
-    :summary:
-    ```
-* - {py:obj}`MessageInterceptConfig <agentsociety.configs.exp.MessageInterceptConfig>`
-  - ```{autodoc2-docstring} agentsociety.configs.exp.MessageInterceptConfig
     :summary:
     ```
 * - {py:obj}`ExpConfig <agentsociety.configs.exp.ExpConfig>`
@@ -58,7 +58,7 @@
 ````{py:data} __all__
 :canonical: agentsociety.configs.exp.__all__
 :value: >
-   ['WorkflowStepConfig', 'MetricExtractorConfig', 'EnvironmentConfig', 'MessageInterceptConfig', 'ExpC...
+   ['WorkflowStepConfig', 'MetricExtractorConfig', 'EnvironmentConfig', 'ExpConfig', 'WorkflowType', 'M...
 
 ```{autodoc2-docstring} agentsociety.configs.exp.__all__
 ```
@@ -159,6 +159,16 @@ Bases: {py:obj}`str`, {py:obj}`enum.Enum`
 
 ````
 
+````{py:attribute} DELETE_AGENT
+:canonical: agentsociety.configs.exp.WorkflowType.DELETE_AGENT
+:value: >
+   'delete_agent'
+
+```{autodoc2-docstring} agentsociety.configs.exp.WorkflowType.DELETE_AGENT
+```
+
+````
+
 ````{py:attribute} INTERVENE
 :canonical: agentsociety.configs.exp.WorkflowType.INTERVENE
 :value: >
@@ -175,6 +185,52 @@ Bases: {py:obj}`str`, {py:obj}`enum.Enum`
    'function'
 
 ```{autodoc2-docstring} agentsociety.configs.exp.WorkflowType.FUNCTION
+```
+
+````
+
+`````
+
+`````{py:class} AgentFilterConfig(/, **data: typing.Any)
+:canonical: agentsociety.configs.exp.AgentFilterConfig
+
+Bases: {py:obj}`pydantic.BaseModel`
+
+```{autodoc2-docstring} agentsociety.configs.exp.AgentFilterConfig
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} agentsociety.configs.exp.AgentFilterConfig.__init__
+```
+
+````{py:attribute} agent_class
+:canonical: agentsociety.configs.exp.AgentFilterConfig.agent_class
+:type: typing.Optional[tuple[type[agentsociety.agent.Agent]]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp.AgentFilterConfig.agent_class
+```
+
+````
+
+````{py:attribute} memory_kv
+:canonical: agentsociety.configs.exp.AgentFilterConfig.memory_kv
+:type: typing.Optional[dict[str, typing.Any]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.configs.exp.AgentFilterConfig.memory_kv
+```
+
+````
+
+````{py:method} validate_func()
+:canonical: agentsociety.configs.exp.AgentFilterConfig.validate_func
+
+```{autodoc2-docstring} agentsociety.configs.exp.AgentFilterConfig.validate_func
 ```
 
 ````
@@ -262,7 +318,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} target_agent
 :canonical: agentsociety.configs.exp.WorkflowStepConfig.target_agent
-:type: typing.Optional[list[int]]
+:type: typing.Optional[typing.Union[list[int], agentsociety.configs.exp.AgentFilterConfig]]
 :value: >
    None
 
@@ -341,14 +397,6 @@ Bases: {py:obj}`pydantic.BaseModel`
 :canonical: agentsociety.configs.exp.WorkflowStepConfig.serialize_func
 
 ```{autodoc2-docstring} agentsociety.configs.exp.WorkflowStepConfig.serialize_func
-```
-
-````
-
-````{py:method} serialize_survey(survey: typing.Optional[agentsociety.survey.Survey], info)
-:canonical: agentsociety.configs.exp.WorkflowStepConfig.serialize_survey
-
-```{autodoc2-docstring} agentsociety.configs.exp.WorkflowStepConfig.serialize_survey
 ```
 
 ````
@@ -529,92 +577,6 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 `````
 
-`````{py:class} MessageInterceptConfig(/, **data: typing.Any)
-:canonical: agentsociety.configs.exp.MessageInterceptConfig
-
-Bases: {py:obj}`pydantic.BaseModel`
-
-```{autodoc2-docstring} agentsociety.configs.exp.MessageInterceptConfig
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} agentsociety.configs.exp.MessageInterceptConfig.__init__
-```
-
-````{py:attribute} model_config
-:canonical: agentsociety.configs.exp.MessageInterceptConfig.model_config
-:value: >
-   'ConfigDict(...)'
-
-```{autodoc2-docstring} agentsociety.configs.exp.MessageInterceptConfig.model_config
-```
-
-````
-
-````{py:attribute} mode
-:canonical: agentsociety.configs.exp.MessageInterceptConfig.mode
-:type: typing.Optional[typing.Union[typing.Literal[point], typing.Literal[edge]]]
-:value: >
-   None
-
-```{autodoc2-docstring} agentsociety.configs.exp.MessageInterceptConfig.mode
-```
-
-````
-
-````{py:attribute} max_violation_time
-:canonical: agentsociety.configs.exp.MessageInterceptConfig.max_violation_time
-:type: int
-:value: >
-   3
-
-```{autodoc2-docstring} agentsociety.configs.exp.MessageInterceptConfig.max_violation_time
-```
-
-````
-
-````{py:attribute} blocks
-:canonical: agentsociety.configs.exp.MessageInterceptConfig.blocks
-:type: list[agentsociety.message.message_interceptor.MessageBlockBase]
-:value: >
-   'Field(...)'
-
-```{autodoc2-docstring} agentsociety.configs.exp.MessageInterceptConfig.blocks
-```
-
-````
-
-````{py:attribute} listener
-:canonical: agentsociety.configs.exp.MessageInterceptConfig.listener
-:type: typing.Optional[type[agentsociety.message.message_interceptor.MessageBlockListenerBase]]
-:value: >
-   None
-
-```{autodoc2-docstring} agentsociety.configs.exp.MessageInterceptConfig.listener
-```
-
-````
-
-````{py:method} serialize_blocks(blocks, info)
-:canonical: agentsociety.configs.exp.MessageInterceptConfig.serialize_blocks
-
-```{autodoc2-docstring} agentsociety.configs.exp.MessageInterceptConfig.serialize_blocks
-```
-
-````
-
-````{py:method} serialize_listener(listener, info)
-:canonical: agentsociety.configs.exp.MessageInterceptConfig.serialize_listener
-
-```{autodoc2-docstring} agentsociety.configs.exp.MessageInterceptConfig.serialize_listener
-```
-
-````
-
-`````
-
 `````{py:class} ExpConfig(/, **data: typing.Any)
 :canonical: agentsociety.configs.exp.ExpConfig
 
@@ -679,17 +641,6 @@ Bases: {py:obj}`pydantic.BaseModel`
    None
 
 ```{autodoc2-docstring} agentsociety.configs.exp.ExpConfig.environment
-```
-
-````
-
-````{py:attribute} message_intercept
-:canonical: agentsociety.configs.exp.ExpConfig.message_intercept
-:type: typing.Optional[agentsociety.configs.exp.MessageInterceptConfig]
-:value: >
-   None
-
-```{autodoc2-docstring} agentsociety.configs.exp.ExpConfig.message_intercept
 ```
 
 ````

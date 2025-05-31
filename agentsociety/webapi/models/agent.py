@@ -3,7 +3,16 @@ import uuid
 from typing import Any, Optional
 
 from pydantic import BaseModel, AwareDatetime
-from sqlalchemy import TIMESTAMP, Column, Float, Integer, MetaData, String, Table, Boolean
+from sqlalchemy import (
+    TIMESTAMP,
+    Column,
+    Float,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Boolean,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 __all__ = [
@@ -13,6 +22,7 @@ __all__ = [
     "agent_survey",
     "global_prompt",
     "pending_dialog",
+    "pending_survey",
     "AgentDialogType",
     "ApiAgentDialog",
     "ApiAgentProfile",
@@ -112,6 +122,23 @@ def pending_dialog(table_name: str):
         Column("created_at", TIMESTAMP(timezone=True)),
         Column("processed", Boolean, default=False),
     ), ["id", "agent_id", "day", "t", "content", "created_at", "processed"]
+
+
+def pending_survey(table_name: str):
+    """Create pending survey table"""
+    metadata = MetaData()
+    return Table(
+        table_name,
+        metadata,
+        Column("id", Integer, primary_key=True, autoincrement=True),
+        Column("agent_id", Integer),
+        Column("day", Integer),
+        Column("t", Float),
+        Column("survey_id", UUID),
+        Column("data", JSONB),
+        Column("created_at", TIMESTAMP(timezone=True)),
+        Column("processed", Boolean, default=False),
+    ), ["id", "agent_id", "day", "t", "survey_id", "data", "created_at", "processed"]
 
 
 class AgentDialogType(enum.IntEnum):

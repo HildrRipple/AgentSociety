@@ -181,4 +181,12 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
+````{py:method} delete(remote_path: str)
+:canonical: agentsociety.s3.client.S3Client.delete
+
+```{autodoc2-docstring} agentsociety.s3.client.S3Client.delete
+```
+
+````
+
 `````

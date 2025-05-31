@@ -43,7 +43,7 @@ from ..metrics import MlflowClient
 from ..s3 import S3Config
 from ..storage import AvroSaver
 from ..storage.pgsql import PgWriter
-from ..storage.type import StorageExpInfo, StorageGlobalPrompt
+from ..storage.type import StorageExpInfo, StorageGlobalPrompt, StoragePendingSurvey
 from ..survey.models import Survey
 from ..utils import NONE_SENDER_ID
 from .agentgroup import AgentGroup
@@ -155,7 +155,6 @@ class AgentSociety:
                         "__all__": {"api_key": True},
                     },
                     "env": {
-                        "redis": True,
                         "pgsql": {"dsn": True},
                         "mlflow": {
                             "username": True,
@@ -981,6 +980,10 @@ class AgentSociety:
         self,
         survey: Survey,
         agent_ids: list[int] = [],
+        survey_day: Optional[int] = None,
+        survey_t: Optional[float] = None,
+        is_pending_survey: bool = False,
+        pending_survey_id: Optional[int] = None,
     ) -> dict[int, str]:
         """
         Send a survey to specified agents.
@@ -988,8 +991,10 @@ class AgentSociety:
         - **Args**:
             - `survey` (Survey): The survey object to send.
             - `agent_ids` (List[int], optional): List of agent IDs to receive the survey. Defaults to an empty list.
-            - `poll_interval` (float, optional): The interval to poll for messages. Defaults to 3 seconds.
-            - `timeout` (float, optional): The timeout for the survey. Defaults to -1 (no timeout).
+            - `survey_day` (int, optional): The day of the survey. Defaults to None.
+            - `survey_t` (float, optional): The time of the survey. Defaults to None.
+            - `is_pending_survey` (bool, optional): Whether the survey is a pending survey. Defaults to False.
+            - `pending_survey_id` (int, optional): The ID of the pending survey. Defaults to None.
 
         - **Returns**:
             - `dict[int, str]`: A dictionary mapping agent IDs to their survey responses.
@@ -1001,7 +1006,16 @@ class AgentSociety:
             group_to_agent_ids[self._agent_id2group[agent_id]].append(agent_id)
         tasks = []
         for group, agent_ids in group_to_agent_ids.items():
-            tasks.append(group.handle_survey.remote(survey, agent_ids))  # type:ignore
+            tasks.append(
+                group.handle_survey.remote(
+                    survey,
+                    agent_ids,
+                    survey_day,
+                    survey_t,
+                    is_pending_survey,
+                    pending_survey_id,
+                )  # type:ignore
+            )
         results = await asyncio.gather(*tasks)
         all_responses = {}
         for result in results:
@@ -1327,6 +1341,32 @@ class AgentSociety:
                 tasks.append(group_actor.set_received_messages.remote(messages))  # type: ignore
             await asyncio.gather(*tasks)
             get_logger().info(f"({day}-{t}) Finished setting received messages")
+            # ======================
+            # handle pending surveys
+            # ======================
+            if self.enable_pgsql:
+                pending_surveys = await self._pgsql_writers[0].fetch_pending_surveys.remote()  # type: ignore
+                get_logger().info(
+                    f"({day}-{t}) Finished fetching pending surveys. {len(pending_surveys)} surveys fetched."
+                )
+                pending_surveys = cast(list[StoragePendingSurvey], pending_surveys)
+                for pending_survey in pending_surveys:
+                    try:
+                        pending_survey.data["id"] = pending_survey.survey_id
+                        survey = Survey.model_validate(pending_survey.data)
+                    except Exception as e:
+                        get_logger().error(
+                            f"Error validating survey data: {str(e)}\n{traceback.format_exc()}"
+                        )
+                        continue
+                    await self.send_survey(
+                        survey,
+                        [pending_survey.agent_id],
+                        pending_survey.day,
+                        pending_survey.t,
+                        is_pending_survey=True,
+                        pending_survey_id=pending_survey.id,
+                    )
             # ======================
             # go to next step
             # ======================

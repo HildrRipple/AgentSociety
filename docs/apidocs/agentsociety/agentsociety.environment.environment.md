@@ -87,17 +87,6 @@ Bases: {py:obj}`pydantic.BaseModel`
 ```{autodoc2-docstring} agentsociety.environment.environment.SimulatorConfig.__init__
 ```
 
-````{py:attribute} log_dir
-:canonical: agentsociety.environment.environment.SimulatorConfig.log_dir
-:type: str
-:value: >
-   'Field(...)'
-
-```{autodoc2-docstring} agentsociety.environment.environment.SimulatorConfig.log_dir
-```
-
-````
-
 ````{py:attribute} primary_node_ip
 :canonical: agentsociety.environment.environment.SimulatorConfig.primary_node_ip
 :type: str
@@ -284,7 +273,18 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} init()
+````{py:attribute} _aoi_message
+:canonical: agentsociety.environment.environment.Environment._aoi_message
+:type: dict[int, dict[int, list[str]]]
+:value: >
+   None
+
+```{autodoc2-docstring} agentsociety.environment.environment.Environment._aoi_message
+```
+
+````
+
+````{py:method} init() -> typing.Any
 :canonical: agentsociety.environment.environment.Environment.init
 
 ```{autodoc2-docstring} agentsociety.environment.environment.Environment.init
@@ -292,7 +292,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:method} close()
+````{py:method} close() -> typing.Any
 :canonical: agentsociety.environment.environment.Environment.close
 
 ```{autodoc2-docstring} agentsociety.environment.environment.Environment.close
@@ -372,6 +372,22 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
+````{py:method} register_aoi_message(agent_id: int, target_aoi: typing.Union[int, list[int]], content: str)
+:canonical: agentsociety.environment.environment.Environment.register_aoi_message
+
+```{autodoc2-docstring} agentsociety.environment.environment.Environment.register_aoi_message
+```
+
+````
+
+````{py:method} cancel_aoi_message(agent_id: int, target_aoi: typing.Union[int, list[int]])
+:canonical: agentsociety.environment.environment.Environment.cancel_aoi_message
+
+```{autodoc2-docstring} agentsociety.environment.environment.Environment.cancel_aoi_message
+```
+
+````
+
 ````{py:property} environment
 :canonical: agentsociety.environment.environment.Environment.environment
 :type: dict[str, str]
@@ -393,6 +409,14 @@ Bases: {py:obj}`pydantic.BaseModel`
 :canonical: agentsociety.environment.environment.Environment.sense
 
 ```{autodoc2-docstring} agentsociety.environment.environment.Environment.sense
+```
+
+````
+
+````{py:method} sense_aoi(aoi_id: int) -> str
+:canonical: agentsociety.environment.environment.Environment.sense_aoi
+
+```{autodoc2-docstring} agentsociety.environment.environment.Environment.sense_aoi
 ```
 
 ````
@@ -491,7 +515,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 `````
 
-`````{py:class} EnvironmentStarter(map_config: agentsociety.environment.mapdata.MapConfig, simulator_config: agentsociety.environment.environment.SimulatorConfig, environment_config: agentsociety.environment.environment.EnvironmentConfig, s3config: agentsociety.s3.S3Config)
+`````{py:class} EnvironmentStarter(map_config: agentsociety.environment.mapdata.MapConfig, simulator_config: agentsociety.environment.environment.SimulatorConfig, environment_config: agentsociety.environment.environment.EnvironmentConfig, s3config: agentsociety.s3.S3Config, log_dir: str)
 :canonical: agentsociety.environment.environment.EnvironmentStarter
 
 Bases: {py:obj}`agentsociety.environment.environment.Environment`

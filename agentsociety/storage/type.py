@@ -1,5 +1,5 @@
 import enum
-from typing import Any, Optional
+from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -11,6 +11,7 @@ __all__ = [
     "StorageProfile",
     "StorageStatus",
     "StoragePendingDialog",
+    "StoragePendingSurvey",
 ]
 
 
@@ -100,3 +101,24 @@ class StoragePendingDialog(BaseModel):
     """Created time"""
     processed: bool
     """Whether the dialog has been processed"""
+
+
+class StoragePendingSurvey(BaseModel):
+    """Pending survey storage type"""
+
+    id: int
+    """Pending survey ID"""
+    agent_id: int
+    """Agent ID"""
+    day: int
+    """Day"""
+    t: float
+    """Time"""
+    survey_id: str
+    """Survey ID"""
+    data: dict
+    """Data"""
+    created_at: datetime
+    """Created time"""
+    processed: bool
+    """Whether the survey has been processed"""

@@ -7,21 +7,18 @@ from typing import Any, Dict, List, Optional, cast
 
 from fastapi import (
     APIRouter,
-    Body,
     File,
     Form,
     HTTPException,
-    Query,
     Request,
     UploadFile,
     status,
 )
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...configs import EnvConfig
-from ...s3 import S3Client
 from ..models import ApiResponseWrapper
 from ..models.agent_profiles import AgentProfile, ApiAgentProfile
 from .const import DEMO_USER_ID
