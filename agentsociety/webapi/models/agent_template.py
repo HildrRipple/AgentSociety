@@ -172,8 +172,8 @@ class ApiAgentTemplate(BaseModel):
     blocks: Dict[str, Dict[str, Any]] = Field(
         default_factory=dict, description="Block configurations with block type as key"
     )
-    created_at: AwareDatetime
-    updated_at: AwareDatetime
+    created_at: Optional[AwareDatetime] = None
+    updated_at: Optional[AwareDatetime] = None
 
     class Config:
         from_attributes = True
