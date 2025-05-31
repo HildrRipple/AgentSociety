@@ -15,7 +15,7 @@ from agentsociety.configs import (
     LLMConfig,
     MapConfig,
 )
-from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.agent import InstitutionAgentClass, AgentConfig
 from agentsociety.configs.exp import (
     MetricExtractorConfig,
     MetricType,
@@ -79,7 +79,7 @@ config = Config(
     agents=AgentsConfig(
         citizens=[
             AgentConfig(
-                agent_class=AgentClassType.CITIZEN,
+                agent_class="citizen",
                 number=1,
                 agent_params=SocietyAgentConfig(
                     UBI=1000,
@@ -90,7 +90,7 @@ config = Config(
         ],
         firms=[
             AgentConfig(
-                agent_class=AgentClassType.FIRM,
+                agent_class=InstitutionAgentClass.FIRM,
                 number=1,
             )
         ],

@@ -9,50 +9,28 @@ from ..models import ApiResponseWrapper
 from ..models.agent_template import (
     AgentTemplateDB,
     ApiAgentTemplate,
-    TemplateBlock,
-    Distribution,
-    DistributionConfig,
     ChoiceDistribution,
     UniformIntDistribution,
     NormalDistribution,
     ChoiceDistributionConfig,
     UniformIntDistributionConfig,
     NormalDistributionConfig,
-    BaseConfig,
-    StatesConfig,
     AgentParams,
 )
-from agentsociety.cityagent.societyagent import SocietyAgent
-from agentsociety.cityagent.blocks.economy_block import (
-    EconomyBlock,
-    WorkBlock,
-    ConsumptionBlock,
-    EconomyNoneBlock,
-)
-from agentsociety.cityagent.blocks.mobility_block import (
-    MobilityBlock,
-    PlaceSelectionBlock,
-    MoveBlock,
-    MobilityNoneBlock,
-)
-from agentsociety.cityagent.blocks.other_block import (
-    OtherBlock,
-    SleepBlock,
-    OtherNoneBlock,
-)
-from agentsociety.cityagent.blocks.social_block import (
-    SocialBlock,
-    FindPersonBlock,
-    MessageBlock,
-    SocialNoneBlock,
-)
+from agentsociety.cityagent.blocks.economy_block import EconomyBlock
+from agentsociety.cityagent.blocks.mobility_block import MobilityBlock
+from agentsociety.cityagent.blocks.other_block import OtherBlock
+from agentsociety.cityagent.blocks.social_block import SocialBlock
 
 try:
     from agentsociety_community.agents import citizens, supervisors
     from agentsociety_community.workflows import functions as workflow_functions
 except ImportError:
     import warnings
-    warnings.warn("agentsociety_community is not installed. Please install it with `pip install agentsociety-community`")
+
+    warnings.warn(
+        "agentsociety_community is not installed. Please install it with `pip install agentsociety-community`"
+    )
 
     citizens = None
     supervisors = None
@@ -457,35 +435,35 @@ async def get_agent_blocks(
 def simplify_type(type_annotation):
     """Convert type annotation to a simplified string format"""
     type_str = str(type_annotation)
-    
+
     # Handle class format
     if type_str.startswith("<class '") and type_str.endswith("'>"):
         return type_str[8:-2]
-        
+
     # Handle typing.Optional
     if type_str.startswith("typing.Optional["):
-        inner_type = type_str[len("typing.Optional["):-1]
+        inner_type = type_str[len("typing.Optional[") : -1]
         return f"{simplify_type(inner_type)}?"
-        
+
     # Handle typing.List
     if type_str.startswith("typing.List["):
-        inner_type = type_str[len("typing.List["):-1]
+        inner_type = type_str[len("typing.List[") : -1]
         return f"List<{simplify_type(inner_type)}>"
-        
+
     # Handle typing.Dict
     if type_str.startswith("typing.Dict["):
         # Extract key and value types
-        inner_types = type_str[len("typing.Dict["):-1].split(", ")
+        inner_types = type_str[len("typing.Dict[") : -1].split(", ")
         if len(inner_types) == 2:
             key_type = simplify_type(inner_types[0])
             value_type = simplify_type(inner_types[1])
             return f"Dict<{key_type}, {value_type}>"
-        
+
     # Handle Union type
     if type_str.startswith("typing.Union["):
-        inner_types = type_str[len("typing.Union["):-1].split(", ")
+        inner_types = type_str[len("typing.Union[") : -1].split(", ")
         return " | ".join(simplify_type(t) for t in inner_types)
-        
+
     return type_str.replace("typing.", "")
 
 
@@ -499,19 +477,15 @@ def get_field_info(field):
                 default_value = None
             else:
                 default_value = field.default
-        
+
         return {
             "type": simplify_type(field.annotation),
             "description": field.description if hasattr(field, "description") else None,
-            "default": default_value
+            "default": default_value,
         }
     except Exception as e:
         print(f"Error processing field: {str(e)}")
-        return {
-            "type": "unknown",
-            "description": None,
-            "default": None
-        }
+        return {"type": "unknown", "description": None, "default": None}
 
 
 @router.get("/agent-param")
@@ -538,58 +512,62 @@ async def get_agent_param(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid agent_type. Must be 'citizen' or 'supervisor', got: {agent_type}",
             )
-        
+
         if agent_class not in type_dict:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid agent_class '{agent_class}' for agent_type '{agent_type}'. Available classes: {list(type_dict.keys())}",
             )
-        
+
         # Get the agent class
         agent_cls_factory = type_dict[agent_class]
         agent_cls = agent_cls_factory()
-        
+
         # Get agent parameters information
         param_data = {
             "params_type": {},
             "block_output_type": {},
             "context": {},
-            "status_attributes": []
+            "status_attributes": [],
         }
-        
+
         # Process ParamsType
         if hasattr(agent_cls.ParamsType, "model_fields"):
             param_data["params_type"] = {
                 field_name: get_field_info(field)
                 for field_name, field in agent_cls.ParamsType.model_fields.items()
             }
-            
+
         # Process BlockOutputType
         if hasattr(agent_cls.BlockOutputType, "model_fields"):
             param_data["block_output_type"] = {
                 field_name: get_field_info(field)
                 for field_name, field in agent_cls.BlockOutputType.model_fields.items()
             }
-            
+
         # Process Context
         if hasattr(agent_cls.Context, "model_fields"):
             param_data["context"] = {
                 field_name: get_field_info(field)
                 for field_name, field in agent_cls.Context.model_fields.items()
             }
-            
+
         # Process StatusAttributes
         param_data["status_attributes"] = [
             {
                 "name": attr.name,
                 "type": simplify_type(attr.type),
-                "default": None if str(attr.default.__class__).endswith("PydanticUndefinedType'>") else attr.default,
+                "default": (
+                    None
+                    if str(attr.default.__class__).endswith("PydanticUndefinedType'>")
+                    else attr.default
+                ),
                 "description": attr.description,
                 # "whether_embedding": attr.whether_embedding if hasattr(attr, "whether_embedding") else False
             }
             for attr in agent_cls.StatusAttributes
         ]
-        
+
         return ApiResponseWrapper(data=param_data)
     except HTTPException:
         raise
@@ -615,36 +593,40 @@ async def get_block_param(
             "OtherBlock": OtherBlock,
             "SocialBlock": SocialBlock,
         }
-        
+
         if block_type not in block_map:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid block type. Available types: {', '.join(block_map.keys())}"
+                detail=f"Invalid block type. Available types: {', '.join(block_map.keys())}",
             )
-            
+
         block_class = block_map[block_type]
-        
+
         # Get Block parameters information
         param_data = {
             "params_type": {},
             "context": {},
         }
-        
+
         # Process ParamsType
-        if hasattr(block_class, "ParamsType") and hasattr(block_class.ParamsType, "model_fields"):
+        if hasattr(block_class, "ParamsType") and hasattr(
+            block_class.ParamsType, "model_fields"
+        ):
             param_data["params_type"] = {
                 field_name: get_field_info(field)
                 for field_name, field in block_class.ParamsType.model_fields.items()
                 if field_name != "block_memory"  # 排除 block_memory 字段
             }
-            
+
         # Process Context
-        if hasattr(block_class, "ContextType") and hasattr(block_class.ContextType, "model_fields"):
+        if hasattr(block_class, "ContextType") and hasattr(
+            block_class.ContextType, "model_fields"
+        ):
             param_data["context"] = {
                 field_name: get_field_info(field)
                 for field_name, field in block_class.ContextType.model_fields.items()
             }
-        
+
         return ApiResponseWrapper(data=param_data)
     except HTTPException:
         raise
@@ -678,11 +660,10 @@ async def get_agent_classes(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid agent_type. Must be 'citizen' or 'supervisor', got: {agent_type}",
             )
-        
+
         # Convert to list of dicts with value and label for frontend Select component
         agent_type_result = [
-            {"value": type_name, "label": type_name}
-            for type_name in type_dict.keys()
+            {"value": type_name, "label": type_name} for type_name in type_dict.keys()
         ]
         return ApiResponseWrapper(data=agent_type_result)
     except HTTPException:
@@ -713,4 +694,3 @@ async def get_workflow_functions(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get workflow functions: {str(e)}",
         )
-

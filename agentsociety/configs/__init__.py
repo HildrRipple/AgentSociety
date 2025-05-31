@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_serializer, model_validator
 import psutil
 from ..environment import MapConfig, SimulatorConfig
 from ..llm import LLMConfig
-from .agent import AgentClassType, AgentConfig
+from .agent import InstitutionAgentClass, AgentConfig
 from .env import EnvConfig
 from .exp import (
     EnvironmentConfig,
@@ -30,7 +30,7 @@ __all__ = [
     "MessageInterceptConfig",
     "Config",
     "load_config_from_file",
-    "AgentClassType",
+    "InstitutionAgentClass",
     "MetricType",
     "WorkflowType",
     "AgentFilterConfig",
@@ -57,7 +57,7 @@ class AgentsConfig(BaseModel):
 
     others: list[AgentConfig] = Field([])
     """Other Agent configuration"""
-    
+
     supervisor: Optional[AgentConfig] = Field(None)
     """Supervisor Agent configuration"""
 
@@ -67,40 +67,6 @@ class AgentsConfig(BaseModel):
     @field_serializer("init_funcs")
     def serialize_init_funcs(self, init_funcs, info):
         return [func.__name__ for func in init_funcs]
-    
-    @model_validator(mode="after")
-    def validate_configuration(self):
-        """
-        Validates configuration options to ensure the user selects the correct combination.
-        - **Description**:
-            - If citizens contains at least one CITIZEN type agent, automatically fills 
-              empty institution agent lists with default configurations.
-            - Sets default memory_config_func for citizen agents if not specified.
-
-        - **Returns**:
-            - `AgentsConfig`: The validated configuration instance.
-        """
-        # Check if there's at least one CITIZEN type agent in citizens
-        has_citizen_type = any(
-            agent_config.agent_class == AgentClassType.CITIZEN 
-            for agent_config in self.citizens
-        )
-        
-        if has_citizen_type:
-            # Auto-fill empty institution lists with default configurations
-            if len(self.firms) == 0:
-                self.firms = [AgentConfig(agent_class=AgentClassType.FIRM, number=1)]
-            
-            if len(self.banks) == 0:
-                self.banks = [AgentConfig(agent_class=AgentClassType.BANK, number=1)]
-            
-            if len(self.nbs) == 0:
-                self.nbs = [AgentConfig(agent_class=AgentClassType.NBS, number=1)]
-            
-            if len(self.governments) == 0:
-                self.governments = [AgentConfig(agent_class=AgentClassType.GOVERNMENT, number=1)]
-
-        return self
 
 
 class AdvancedConfig(BaseModel):

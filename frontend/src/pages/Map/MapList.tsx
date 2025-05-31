@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form } from 'antd';
+import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form, Row, Col } from 'antd';
 import {
     PlusOutlined,
     EditOutlined,
@@ -103,35 +103,6 @@ const MapList: React.FC = () => {
             loadMaps();
         } catch (error) {
             message.error(`Failed to delete map: ${JSON.stringify(error.message)}`, 3);
-            console.error(error);
-        }
-    };
-
-    // Handle duplicate map
-    const handleDuplicate = async (map: ConfigItem) => {
-        try {
-            const duplicateData = {
-                ...map,
-                name: `${map.name} (Copy)`,
-                id: undefined,
-            };
-
-            const res = await fetchCustom('/api/map-configs', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(duplicateData),
-            });
-
-            if (!res.ok) {
-                throw new Error(await res.text());
-            }
-
-            message.success('Map duplicated successfully');
-            loadMaps();
-        } catch (error) {
-            message.error(`Failed to duplicate map: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         }
     };
@@ -307,30 +278,36 @@ const MapList: React.FC = () => {
                 open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
-                width={800}
+                width="80vw"
                 destroyOnHidden
             >
-                <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 16 }}>
+                <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 8 }}>
                     <Form
                         form={metaForm}
                         layout="vertical"
                     >
-                        <Form.Item
-                            name="name"
-                            label={t('form.common.name')}
-                            rules={[{ required: true, message: t('form.common.nameRequired') }]}
-                        >
-                            <Input placeholder={t('form.common.namePlaceholder')} />
-                        </Form.Item>
-                        <Form.Item
-                            name="description"
-                            label={t('form.common.description')}
-                        >
-                            <Input.TextArea
-                                rows={2}
-                                placeholder={t('form.common.descriptionPlaceholder')}
-                            />
-                        </Form.Item>
+                        <Row gutter={16}>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="name"
+                                    label={t('form.common.name')}
+                                    rules={[{ required: true, message: t('form.common.nameRequired') }]}
+                                >
+                                    <Input placeholder={t('form.common.namePlaceholder')} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={16}>
+                                <Form.Item
+                                    name="description"
+                                    label={t('form.common.description')}
+                                >
+                                    <Input.TextArea
+                                        rows={1}
+                                        placeholder={t('form.common.descriptionPlaceholder')}
+                                    />
+                                </Form.Item>
+                            </Col>
+                        </Row>
                     </Form>
                 </Card>
 

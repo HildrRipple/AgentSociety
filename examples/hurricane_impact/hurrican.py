@@ -16,14 +16,14 @@ from agentsociety.configs import (
     LLMConfig,
     MapConfig,
 )
-from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.agent import AgentConfig
 from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
 from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
 from agentsociety.message import RedisConfig
 from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
-from agentsociety.storage import AvroConfig, PostgreSQLConfig
+from agentsociety.storage import PostgreSQLConfig
 
 ray.init(logging_level=logging.INFO)
 
@@ -81,7 +81,7 @@ config = Config(
     agents=AgentsConfig(
         citizens=[
             AgentConfig(
-                agent_class=AgentClassType.CITIZEN,
+                agent_class="citizen",
                 number=1000,
                 memory_config_func=memory_config_societyagent_hurrican,
             )

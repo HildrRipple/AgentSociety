@@ -15,7 +15,7 @@ from agentsociety.configs import (
     LLMConfig,
     MapConfig,
 )
-from agentsociety.configs.agent import AgentClassType, AgentConfig
+from agentsociety.configs.agent import AgentConfig
 from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
 from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
@@ -101,7 +101,7 @@ config = Config(
     agents=AgentsConfig(
         citizens=[
             AgentConfig(
-                agent_class=AgentClassType.CITIZEN,
+                agent_class="citizen",
                 number=100,
             )
         ]
