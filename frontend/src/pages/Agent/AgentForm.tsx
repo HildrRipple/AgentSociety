@@ -120,6 +120,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
       layout="vertical"
       initialValues={{
         citizens: [],
+        supervisor: [],
         firms: [{ number: 1, agent_class: 'firm' }],
         governments: [{ number: 1, agent_class: 'government' }],
         banks: [{ number: 1, agent_class: 'bank' }],
@@ -128,47 +129,57 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
       onValuesChange={async (_, allValues) => {
         const citizenAgents = allValues.citizens || [];
 
-        const citizens = await Promise.all(
-          citizenAgents.map(async (citizen) => {
-            if (citizen.templateId) {
-              try {
-                const response = await fetchCustom(`/api/agent-templates/${citizen.templateId}`);
-                if (response.ok) {
-                  const template = (await response.json()).data;
-                  const convertedBlocks = {};
-                  Object.entries(template.blocks).forEach(([key, value]) => {
-                    const blockKey = key.toLowerCase();
-                    convertedBlocks[blockKey] = value;
-                  });
+        const processAgents = async (agents) => {
+          const citizens = [];
+          let supervisor = null;
 
-                  if (citizen.memory_from_file) {
-                    return {
+          await Promise.all(
+            agents.map(async (agent) => {
+              if (agent.templateId) {
+                try {
+                  const response = await fetchCustom(`/api/agent-templates/${agent.templateId}`);
+                  if (response.ok) {
+                    const template = (await response.json()).data;
+                    const convertedBlocks = {};
+                    Object.entries(template.blocks).forEach(([key, value]) => {
+                      const blockKey = key.toLowerCase();
+                      convertedBlocks[blockKey] = value;
+                    });
+
+                    const processedAgent = agent.memory_from_file ? {
                       agent_class: template.agent_class || 'citizen',
-                      memory_from_file: citizen.memory_from_file,
+                      memory_from_file: agent.memory_from_file,
+                      agent_params: template.agent_params,
+                      blocks: convertedBlocks
+                    } : {
+                      number: agent.number,
+                      agent_class: template.agent_class || 'citizen',
                       agent_params: template.agent_params,
                       blocks: convertedBlocks
                     };
+
+                    if (template.agent_type === 'supervisor') {
+                      supervisor = processedAgent;
+                    } else {
+                      citizens.push(processedAgent);
+                    }
                   }
-
-                  return {
-                    number: citizen.number,
-                    agent_class: template.agent_class || 'citizen',
-                    agent_params: template.agent_params,
-                    blocks: convertedBlocks
-                  };
+                } catch (error) {
+                  console.error('Error fetching template:', error);
                 }
-              } catch (error) {
-                console.error('Error fetching template:', error);
               }
-            }
-            return null;
-          })
-        );
+            })
+          );
 
-        const validCitizens = citizens.filter(Boolean);
+          return { citizens, supervisor };
+        };
 
+        const { citizens, supervisor } = await processAgents(citizenAgents);
+
+        // 确保 citizens 至少有一个元素
         const transformedValues = {
-          citizens: validCitizens,
+          citizens: citizens.length > 0 ? citizens : [{ agent_class: 'citizen', number: 1 }],
+          supervisor: supervisor,
           firms: [{ number: allValues.firmNumber >= 0 ? allValues.firmNumber : 1, agent_class: 'firm' }],
           governments: [{ number: allValues.governmentNumber >= 0 ? allValues.governmentNumber : 1, agent_class: 'government' }],
           banks: [{ number: allValues.bankNumber >= 0 ? allValues.bankNumber : 1, agent_class: 'bank' }],
