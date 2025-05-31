@@ -164,7 +164,7 @@ const Page = () => {
                                         const url = `/api/experiments/${record.id}/artifacts`
                                         const form = document.createElement('form');
                                         form.action = url;
-                                        form.method = 'GET';
+                                        form.method = 'POST';
                                         form.target = '_blank';
                                         form.innerHTML = '<input type="hidden" name="authorization" value="' + authorization + '">';
                                         document.body.appendChild(form);

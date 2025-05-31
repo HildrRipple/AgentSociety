@@ -310,15 +310,11 @@ async def export_experiment_data(
                 zip_file.writestr("metrics.json", metrics_json)
 
             # Export artifacts data
-            try:
-                fs_client = request.app.state.fs_client
-                artifacts_path = f"exps/{tenant_id}/{exp_id}/artifacts.json"
-                artifacts_data = fs_client.download(artifacts_path)
-                if artifacts_data:
-                    zip_file.writestr("artifacts.json", artifacts_data)
-            except Exception as e:
-                logging.warning(f"Failed to download artifacts: {str(e)}")
-                # Continue execution without interruption
+            fs_client = request.app.state.env.fs_client
+            artifacts_path = f"exps/{tenant_id}/{exp_id}/artifacts.json"
+            artifacts_data = fs_client.download(artifacts_path)
+            if artifacts_data:
+                zip_file.writestr("artifacts.json", artifacts_data)
 
             # get all tables
             tables = {
@@ -357,7 +353,7 @@ async def export_experiment_data(
         )
 
 
-@router.get("/experiments/{exp_id}/artifacts")
+@router.post("/experiments/{exp_id}/artifacts")
 async def export_experiment_artifacts(
     request: Request,
     exp_id: uuid.UUID,
@@ -380,27 +376,20 @@ async def export_experiment_artifacts(
             )
 
         # Get artifacts from S3
-        fs_client = request.app.state.fs_client
-        try:
-            artifacts_path = f"exps/{tenant_id}/{exp_id}/artifacts.json"
-            artifacts_data = fs_client.download(artifacts_path)
-            
-            if not artifacts_data:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Artifacts not found"
-                )
-
-            return StreamingResponse(
-                iter([artifacts_data]),
-                media_type="application/json",
-                headers={
-                    "Content-Disposition": f"attachment; filename=experiment_{exp_id}_artifacts.json"
-                },
-            )
-        except Exception as e:
-            logging.error(f"Error downloading artifacts: {str(e)}")
+        fs_client = request.app.state.env.fs_client
+        artifacts_path = f"exps/{tenant_id}/{exp_id}/artifacts.json"
+        artifacts_data = fs_client.download(artifacts_path)
+        
+        if not artifacts_data:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to download artifacts: {str(e)}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Artifacts not found"
             )
+
+        return StreamingResponse(
+            iter([artifacts_data]),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f"attachment; filename=experiment_{exp_id}_artifacts.json"
+            },
+        )
