@@ -11,7 +11,7 @@ from ..environment.sim.person_service import PersonService
 from ..logger import get_logger
 from ..memory import Memory
 from ..message import Message, MessageKind
-from ..storage import StorageDialog, StorageSurvey, StorageDialogType
+from ..storage import StorageDialog, StorageDialogType, StorageSurvey
 from ..survey.models import Survey
 from .agent_base import Agent, AgentToolbox, AgentType, extract_json
 from .block import Block
@@ -250,10 +250,11 @@ class CitizenAgentBase(Agent):
                 )
             )
         # status memory
+        old_survey_responses = await self.memory.status.get("survey_responses", [])
+        new_survey_responses = old_survey_responses + [survey_response]
         await self.memory.status.update(
             "survey_responses",
-            survey_response,
-            mode="merge",
+            new_survey_responses,
             protect_llm_read_only_fields=False,
         )
         return survey_response
