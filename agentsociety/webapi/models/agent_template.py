@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -92,6 +92,7 @@ class AgentTemplateDB(Base):
         default=datetime.now, onupdate=datetime.now
     )
 
+
 # TODO: 需要修改
 class AgentParams(BaseModel):
     """Agent parameters model"""
@@ -163,8 +164,8 @@ class ApiAgentTemplate(BaseModel):
     blocks: Dict[str, Dict[str, Any]] = Field(
         default_factory=dict, description="Block configurations with block type as key"
     )
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
 
     class Config:
         from_attributes = True

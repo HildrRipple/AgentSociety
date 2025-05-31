@@ -47,8 +47,16 @@ from agentsociety.cityagent.blocks.social_block import (
     SocialNoneBlock,
 )
 
-from agentsociety_community.agents import citizens, supervisors
-from agentsociety_community.workflows import functions as workflow_functions
+try:
+    from agentsociety_community.agents import citizens, supervisors
+    from agentsociety_community.workflows import functions as workflow_functions
+except ImportError:
+    import warnings
+    warnings.warn("agentsociety_community is not installed. Please install it with `pip install agentsociety-community`")
+
+    citizens = None
+    supervisors = None
+    workflow_functions = None
 
 __all__ = ["router"]
 
@@ -141,12 +149,8 @@ async def list_agent_templates(
                     memory_distributions=memory_distributions_dict,
                     agent_params=AgentParams(**template.agent_params),
                     blocks=template.blocks,
-                    created_at=(
-                        template.created_at.isoformat() if template.created_at else None
-                    ),
-                    updated_at=(
-                        template.updated_at.isoformat() if template.updated_at else None
-                    ),
+                    created_at=template.created_at,
+                    updated_at=template.updated_at,
                 )
                 api_templates.append(api_template)
 
@@ -243,12 +247,8 @@ async def get_agent_template(
                 memory_distributions=memory_distributions_dict,
                 agent_params=AgentParams(**template.agent_params),
                 blocks=template.blocks,
-                created_at=(
-                    template.created_at.isoformat() if template.created_at else None
-                ),
-                updated_at=(
-                    template.updated_at.isoformat() if template.updated_at else None
-                ),
+                created_at=template.created_at,
+                updated_at=template.updated_at,
             )
 
             return ApiResponseWrapper(data=api_template)
@@ -290,12 +290,12 @@ async def create_agent_template(
                 ),
             ):
                 # 如果是Config类型，直接转换为字典
-                profile_dict[key] = value.dict()
+                profile_dict[key] = value.model_dump()
             elif isinstance(
                 value, (ChoiceDistribution, UniformIntDistribution, NormalDistribution)
             ):
                 # 如果是Distribution类型，保持params结构
-                profile_dict[key] = value.dict()
+                profile_dict[key] = value.model_dump()
             else:
                 # 如果已经是字典格式，直接使用
                 profile_dict[key] = value
@@ -339,8 +339,8 @@ async def create_agent_template(
                 states=new_template.states,
                 agent_params=AgentParams(**new_template.agent_params),
                 blocks=new_template.blocks,
-                created_at=new_template.created_at.isoformat(),
-                updated_at=new_template.updated_at.isoformat(),
+                created_at=new_template.created_at,
+                updated_at=new_template.updated_at,
             )
 
             return ApiResponseWrapper(data=response_template)
@@ -379,7 +379,7 @@ async def update_agent_template(
                 name=template.name,
                 description=template.description,
                 profile=template.memory_distributions,
-                agent_params=template.agent_params.dict(),
+                agent_params=template.agent_params.model_dump(),
                 blocks=template.blocks,
             )
         )
@@ -524,9 +524,15 @@ async def get_agent_param(
     try:
         # Get the appropriate agent class based on agent_type and agent_class
         if agent_type == "citizen":
-            type_dict = citizens.get_type_to_cls_dict()
+            if citizens is None:
+                type_dict = {}
+            else:
+                type_dict = citizens.get_type_to_cls_dict()
         elif agent_type == "supervisor":
-            type_dict = supervisors.get_type_to_cls_dict()
+            if supervisors is None:
+                type_dict = {}
+            else:
+                type_dict = supervisors.get_type_to_cls_dict()
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -658,9 +664,15 @@ async def get_agent_classes(
     """Get available agent classes base on agent type"""
     try:
         if agent_type == "citizen":
-            type_dict = citizens.get_type_to_cls_dict()
+            if citizens is None:
+                type_dict = {}
+            else:
+                type_dict = citizens.get_type_to_cls_dict()
         elif agent_type == "supervisor":
-            type_dict = supervisors.get_type_to_cls_dict()
+            if supervisors is None:
+                type_dict = {}
+            else:
+                type_dict = supervisors.get_type_to_cls_dict()
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -668,12 +680,11 @@ async def get_agent_classes(
             )
         
         # Convert to list of dicts with value and label for frontend Select component
-        agent_type = [
+        agent_type_result = [
             {"value": type_name, "label": type_name}
             for type_name in type_dict.keys()
         ]
-        
-        return ApiResponseWrapper(data=agent_type)
+        return ApiResponseWrapper(data=agent_type_result)
     except HTTPException:
         raise
     except Exception as e:
@@ -690,7 +701,10 @@ async def get_workflow_functions(
 ) -> ApiResponseWrapper[List[str]]:
     """Get available workflow function names"""
     try:
-        function_map = workflow_functions.get_type_to_cls_dict()
+        if workflow_functions is None:
+            function_map = {}
+        else:
+            function_map = workflow_functions.get_type_to_cls_dict()
         function_names = list(function_map.keys())
         return ApiResponseWrapper(data=function_names)
     except Exception as e:
