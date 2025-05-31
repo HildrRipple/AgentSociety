@@ -114,6 +114,8 @@ class MessageInterceptor:
                             to_id=msg.from_id,
                             kind=MessageKind.AGENT_CHAT,
                             payload={"content": "Message sent failed"},
+                            day=msg.day,
+                            t=msg.t,
                         )
                     )
             else:
