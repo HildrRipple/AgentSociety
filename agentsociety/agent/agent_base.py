@@ -476,4 +476,7 @@ class Agent(ABC):
         await self.after_blocks()
         await self.after_forward()
         end_time = time.time()
+        # wait for all asyncio tasks to complete
+        if self._last_asyncio_pg_task is not None:
+            await self._last_asyncio_pg_task
         return end_time - start_time

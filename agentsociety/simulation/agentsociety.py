@@ -1311,6 +1311,7 @@ class AgentSociety:
                             kind=MessageKind.USER_CHAT,
                             day=pending_dialog.day,
                             t=pending_dialog.t,
+                            extra={"pending_dialog_id": pending_dialog.id},
                         )
                     )
                 all_messages += user_messages

@@ -412,7 +412,9 @@ class AgentGroup:
             if isinstance(agent, CitizenAgentBase):
                 react_tasks.append(agent.react_to_intervention(intervention_message))
             else:
-                get_logger().error(f"Agent {agent_id} is not in the group, so skip the intervention")
+                get_logger().error(
+                    f"Agent {agent_id} is not in the group, so skip the intervention"
+                )
         await asyncio.gather(*react_tasks)
 
     # ====================
@@ -458,9 +460,11 @@ class AgentGroup:
                         if message.kind == MessageKind.AGENT_CHAT:
                             await agent._handle_agent_chat_with_storage(message)
                         elif message.kind == MessageKind.USER_CHAT:
-                            await agent._handle_interview_with_storage(message.payload["content"])
+                            await agent._handle_interview_with_storage(message)
                 else:
-                    get_logger().error(f"Agent {agent_id} is not a citizen agent, so skip the message dispatch")
+                    get_logger().error(
+                        f"Agent {agent_id} is not a citizen agent, so skip the message dispatch"
+                    )
 
             # Process agent messages in parallel
             agent_tasks = [
@@ -477,9 +481,7 @@ class AgentGroup:
                         agent_id, message.to_id, message.payload["content"]
                     )
                 elif message.kind == MessageKind.AOI_MESSAGE_CANCEL:
-                    self.environment.cancel_aoi_message(
-                        agent_id, message.to_id
-                    )
+                    self.environment.cancel_aoi_message(agent_id, message.to_id)
         except Exception as e:
             get_logger().error(f"Error dispatching message: {e}")
             import traceback
@@ -498,7 +500,9 @@ class AgentGroup:
             if isinstance(agent, CitizenAgentBase):
                 survey_tasks.append(agent._handle_survey_with_storage(survey))
             else:
-                get_logger().error(f"Agent {agent_id} is not a citizen agent, so skip the survey")
+                get_logger().error(
+                    f"Agent {agent_id} is not a citizen agent, so skip the survey"
+                )
         survey_responses = await asyncio.gather(*survey_tasks)
         return {
             agent_id: response
@@ -511,13 +515,27 @@ class AgentGroup:
         """
         Handle a user interview.
         """
+        day, t = self.environment.get_datetime()
         interview_tasks = []
         for agent_id in agent_ids:
             agent = self._id2agent[agent_id]
             if isinstance(agent, CitizenAgentBase):
-                interview_tasks.append(agent._handle_interview_with_storage(question))
+                interview_tasks.append(
+                    agent._handle_interview_with_storage(
+                        Message(
+                            from_id=None,
+                            to_id=agent_id,
+                            payload={"content": question},
+                            kind=MessageKind.USER_CHAT,
+                            day=day,
+                            t=t,
+                        )
+                    )
+                )
             else:
-                get_logger().error(f"Agent {agent_id} is not a citizen agent, so skip the interview")
+                get_logger().error(
+                    f"Agent {agent_id} is not a citizen agent, so skip the interview"
+                )
         interview_responses = await asyncio.gather(*interview_tasks)
         return {
             agent_id: response

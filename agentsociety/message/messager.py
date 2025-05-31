@@ -1,9 +1,10 @@
 import asyncio
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional, Union
 
 import ray
+import ray.actor
 from pydantic import BaseModel, Field
 
 from ..logger import get_logger
@@ -39,9 +40,11 @@ class Message(BaseModel):
     """message payload"""
     created_at: datetime = Field(default_factory=datetime.now)
     """message created at"""
+    extra: Optional[dict] = None
+    """extra information"""
 
     def __hash__(self):
-        return hash((self.from_id, self.to_id, self.kind, self.created_at))
+        return hash((self.from_id, self.to_id, self.day, self.t, self.kind, self.created_at))
 
 
 class Messager:

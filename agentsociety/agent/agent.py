@@ -302,13 +302,14 @@ class CitizenAgentBase(Agent):
 
         return response
 
-    async def _handle_interview_with_storage(self, question: str) -> str:
+    async def _handle_interview_with_storage(self, message: Message) -> str:
         """
         Process an interview interaction by generating a response and recording it in Avro format and PostgreSQL.
 
         - **Args**:
             - `question` (`str`): The interview data containing the content of the user's message.
         """
+        question = message.payload["content"]
         day, t = self.environment.get_datetime()
         storage_dialog = StorageDialog(
             id=self.id,
@@ -346,11 +347,16 @@ class CitizenAgentBase(Agent):
         if self.pgsql_writer is not None:
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
-            self._last_asyncio_pg_task = (
-                self.pgsql_writer.write_dialogs.remote(  # type:ignore
-                    [storage_dialog]
-                )
+                self._last_asyncio_pg_task = None
+            await self.pgsql_writer.write_dialogs.remote(  # type:ignore
+                [storage_dialog]
             )
+            if message.extra is not None and "pending_dialog_id" in message.extra:
+                self._last_asyncio_pg_task = (
+                    self.pgsql_writer.mark_dialogs_as_processed.remote(  # type:ignore
+                        [message.extra["pending_dialog_id"]]
+                    )
+                )
         return response
 
     async def save_agent_thought(self, thought: str):

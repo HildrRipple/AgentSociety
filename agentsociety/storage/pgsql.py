@@ -404,7 +404,7 @@ class PgWriter:
 
     async def fetch_pending_dialogs(self):
         """
-        Fetch pending dialogs from the database.
+        Fetch all unprocessed pending dialogs from the database.
 
         - **Returns**:
             - `list[StoragePendingDialog]`: A list of pending dialogs.
@@ -412,31 +412,37 @@ class PgWriter:
         table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_pending_dialog"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             async with aconn.cursor(row_factory=dict_row) as cur:
-                # Start transaction
+                await cur.execute(
+                    psycopg.sql.SQL("SELECT * FROM {} WHERE processed = FALSE").format(
+                        psycopg.sql.Identifier(table_name)
+                    )
+                )
+                rows = await cur.fetchall()
+                return [StoragePendingDialog(**row) for row in rows]
+
+    @lock_decorator
+    async def mark_dialogs_as_processed(self, dialog_ids: list[int]):
+        """
+        Mark specified dialogs as processed in the database.
+
+        - **Args**:
+            - `dialog_ids` (list[int]): List of dialog IDs to mark as processed.
+        """
+        if not dialog_ids:
+            return
+            
+        table_name = f"{TABLE_PREFIX}{self.exp_id.replace('-', '_')}_pending_dialog"
+        async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
+            async with aconn.cursor(row_factory=dict_row) as cur:
                 await cur.execute("BEGIN")
                 try:
-                    # First fetch unprocessed dialogs
                     await cur.execute(
-                        psycopg.sql.SQL("SELECT * FROM {} WHERE processed = FALSE").format(
-                            psycopg.sql.Identifier(table_name)
-                        )
+                        psycopg.sql.SQL(
+                            "UPDATE {} SET processed = TRUE WHERE id = ANY(%s)"
+                        ).format(psycopg.sql.Identifier(table_name)),
+                        (dialog_ids,)
                     )
-                    rows = await cur.fetchall()
-                    
-                    # Then mark fetched rows as processed using their IDs
-                    if rows:
-                        ids = [row['id'] for row in rows]
-                        await cur.execute(
-                            psycopg.sql.SQL(
-                                "UPDATE {} SET processed = TRUE WHERE id = ANY(%s)"
-                            ).format(psycopg.sql.Identifier(table_name)),
-                            (ids,)
-                        )
-                    
-                    # Commit transaction
                     await aconn.commit()
-                    return [StoragePendingDialog(**row) for row in rows]
                 except Exception as e:
-                    # Rollback on error
                     await aconn.rollback()
                     raise e
