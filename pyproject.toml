@@ -53,7 +53,6 @@ dependencies = [
     "python-multipart>=0.0.20",
     "PyYAML>=6.0.2",
     "ray[default]>=2.40.0",
-    "redis >=5.2.1",
     "requests>=2.32.3",
     "Shapely>=2.0.6",
     "sqlalchemy[asyncio]>=2.0.20",

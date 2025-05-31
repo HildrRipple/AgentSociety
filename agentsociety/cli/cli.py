@@ -201,43 +201,6 @@ def check(config: str, config_base64: str):
     click.echo(f"Config format check. {click.style('Passed.', fg='green')}")
 
     # =================
-    # check the connection to the redis server
-    # =================
-    from redis import Redis
-    from redis.exceptions import AuthenticationError, ConnectionError
-
-    try:
-        redis = Redis(
-            host=c.env.redis.server,
-            port=c.env.redis.port,
-            db=c.env.redis.db,
-            password=c.env.redis.password,
-        )
-        redis.ping()
-        click.echo(f"Redis connection check. {click.style('Passed.', fg='green')}")
-    except AuthenticationError as e:
-        click.echo(f"Redis connection check. {click.style('Failed:', fg='red')} {e}")
-        click.echo(
-            f"Explanation: Please check the password of the redis server. Current password: {c.env.redis.password}"
-        )
-    except ConnectionError as e:
-        click.echo(f"Redis connection check. {click.style('Failed:', fg='red')} {e}")
-        error_msg = str(e)
-        if (
-            "Temporary failure in name resolution" in error_msg
-            or "Name or service not known" in error_msg
-        ):
-            click.echo(
-                f"Explanation: The `server` (value={c.env.redis.server}) in the config is an invalid hostname. Please check the config. Maybe you should use `localhost` or `127.0.0.1` instead if you are running the simulation on a single machine (used to run docker compose)."
-            )
-        else:
-            click.echo(
-                f"Explanation: Please check the `server` (value={c.env.redis.server}) and `port` (value={c.env.redis.port}) of the redis server."
-            )
-    except Exception as e:
-        click.echo(f"Redis connection check. {click.style('Failed:', fg='red')} {e}")
-
-    # =================
     # check the connection to the pgsql server
     # =================
     from psycopg import connect

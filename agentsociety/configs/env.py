@@ -2,7 +2,6 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, model_validator
 
-from ..message import RedisConfig
 from ..metrics import MlflowConfig
 from ..storage import PostgreSQLConfig
 from ..s3 import S3Config, S3Client
@@ -16,9 +15,6 @@ __all__ = [
 
 class EnvConfig(BaseModel):
     """Environment configuration class."""
-
-    redis: RedisConfig
-    """Redis configuration"""
 
     pgsql: PostgreSQLConfig
     """PostgreSQL configuration"""

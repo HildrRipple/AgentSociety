@@ -12,6 +12,7 @@ from ..agent.agent import SupervisorBase
 from ..llm import LLM, LLMConfig, monitor_requests
 from ..logger import get_logger
 from ..utils.decorators import lock_decorator
+from .messager import Message
 
 DEFAULT_ERROR_STRING = """
 From `{from_id}` To `{to_id}` abort due to block `{block_name}`
@@ -34,7 +35,6 @@ MessageIdentifierEntry = TypeVar(
 MessageIdentifier = dict[MessageIdentifierEntry, bool]
 
 
-@ray.remote
 class MessageInterceptor:
     """
     A class to intercept and process messages based on configured rules.
@@ -113,11 +113,13 @@ class MessageInterceptor:
         self.validation_dict[(from_id, to_id, msg)] = True
 
     @lock_decorator
-    async def forward(self):
+    async def forward(self, messages: list[Message]) -> list[Message]:
         # reset round related variables
         self.round_blocked_messages_count = 0
         self.round_communicated_agents_count = 0
         self.validation_dict = {}
+
+        return messages
 
     @lock_decorator
     async def update_blocked_agent_ids(

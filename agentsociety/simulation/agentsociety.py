@@ -3,7 +3,9 @@ A clear version of the simulation.
 """
 
 import asyncio
+from collections import defaultdict
 import inspect
+import itertools
 import json
 import os
 import time
@@ -17,13 +19,20 @@ import ray.util.queue
 import yaml
 
 from ..agent import Agent, AgentToolbox, StatusAttribute, SupervisorBase
-from ..agent.distribution import (Distribution, DistributionConfig,
-                                  DistributionType)
-from ..agent.memory_config_generator import (MemoryConfigGenerator,
-                                             default_memory_config_citizen,
-                                             default_memory_config_supervisor)
-from ..configs import (AgentConfig, AgentFilterConfig, Config,
-                       MetricExtractorConfig, MetricType, WorkflowType)
+from ..agent.distribution import Distribution, DistributionConfig, DistributionType
+from ..agent.memory_config_generator import (
+    MemoryConfigGenerator,
+    default_memory_config_citizen,
+    default_memory_config_supervisor,
+)
+from ..configs import (
+    AgentConfig,
+    AgentFilterConfig,
+    Config,
+    MetricExtractorConfig,
+    MetricType,
+    WorkflowType,
+)
 from ..environment import EnvironmentStarter
 from ..llm import LLM, monitor_requests
 from ..llm.embeddings import init_embedding
@@ -130,8 +139,7 @@ class AgentSociety:
 
         # typing definition
         self._environment: Optional[EnvironmentStarter] = None
-        self._message_interceptor: Optional[ray.ObjectRef] = None
-        self._messager: Optional[Messager] = None
+        self._message_interceptor: Optional[MessageInterceptor] = None
         self._avro_saver: Optional[AvroSaver] = None
         self._mlflow: Optional[MlflowClient] = None
         self._pgsql_writers: list[ray.ObjectRef] = []
@@ -209,19 +217,12 @@ class AgentSociety:
         # ====================
         get_logger().info(f"Initializing messager...")
         if self._config.agents.supervisor is not None:
-            self._message_interceptor = MessageInterceptor.remote(
+            self._message_interceptor = MessageInterceptor(
                 self._config.llm,
             )
-            await self._message_interceptor.init.remote()  # type: ignore
-        self._messager = Messager(
-            config=self._config.env.redis,
-            exp_id=self.exp_id,
-            message_interceptor=self._message_interceptor,
-        )
+            await self._message_interceptor.init()
+        self._messager = Messager(exp_id=self.exp_id)
         await self._messager.init()
-        await self._messager.subscribe_and_start_listening(
-            [self._messager.get_user_payback_channel()]
-        )
         get_logger().info(f"Messager initialized")
 
         # ====================
@@ -606,8 +607,10 @@ class AgentSociety:
                     blocks=blocks,
                 )
                 # set supervisor
-                assert self._message_interceptor is not None, "message interceptor is not set"
-                await self._message_interceptor.set_supervisor.remote(supervisor)  # type: ignore
+                assert (
+                    self._message_interceptor is not None
+                ), "message interceptor is not set"
+                await self._message_interceptor.set_supervisor(supervisor)
                 break
 
         get_logger().info(
@@ -721,7 +724,6 @@ class AgentSociety:
                 config=self._config,
                 agent_inits=group_agents,
                 environment_init=environment_init,
-                message_interceptor=self._messager.message_interceptor,
                 pgsql_writer=(
                     self._pgsql_writers[i % len(self._pgsql_writers)]
                     if len(self._pgsql_writers) > 0
@@ -789,7 +791,7 @@ class AgentSociety:
 
         if self._message_interceptor is not None:
             get_logger().info(f"Closing message interceptor...")
-            await self._message_interceptor.close.remote()  # type: ignore
+            await self._message_interceptor.close()
             self._message_interceptor = None
             get_logger().info(f"Message interceptor closed")
 
@@ -1256,7 +1258,6 @@ class AgentSociety:
             # ======================
             all_logs = Logs(
                 llm_log=[],
-                redis_log=[],
                 simulator_log=[],
                 agent_time_log=[],
             )
@@ -1306,14 +1307,25 @@ class AgentSociety:
             # ======================
             # forward message
             # ======================
-            message_tasks = [self.messager.forward()]
-            message_tasks.extend(
-                [
-                    group.forward_message.remote(None)  # type: ignore
-                    for group in self._groups.values()
-                ]
-            )
-            await asyncio.gather(*message_tasks)
+            tasks = []
+            for group in self._groups.values():
+                tasks.append(group.fetch_pending_messages.remote())  # type: ignore
+            all_messages = list(itertools.chain(*await asyncio.gather(*tasks)))
+
+            if self._message_interceptor is not None:
+                all_messages = await self._message_interceptor.forward(
+                    all_messages
+                )
+            # dispatch messages to each agent group based on their to_id
+            group_to_messages = defaultdict(list)
+            for message in all_messages:
+                if message.to_id is not None:
+                    group_actor = self._agent_id2group[message.to_id]
+                    group_to_messages[group_actor].append(message)
+            tasks = []
+            for group_actor, messages in group_to_messages.items():
+                tasks.append(group_actor.set_received_messages.remote(messages))  # type: ignore
+            await asyncio.gather(*tasks)
             # ======================
             # go to next step
             # ======================
@@ -1348,7 +1360,6 @@ class AgentSociety:
         """
         logs = Logs(
             llm_log=[],
-            redis_log=[],
             simulator_log=[],
             agent_time_log=[],
         )
@@ -1367,7 +1378,6 @@ class AgentSociety:
         """
         logs = Logs(
             llm_log=[],
-            redis_log=[],
             simulator_log=[],
             agent_time_log=[],
         )

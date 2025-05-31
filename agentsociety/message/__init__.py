@@ -6,11 +6,11 @@ Agent Message System including message interceptor and messager.
 """
 
 from .message_interceptor import MessageInterceptor, MessageIdentifier
-from .messager import Messager, RedisConfig
+from .messager import Messager, Message
 
 __all__ = [
+    "Message",
     "Messager",
-    "RedisConfig",
     "MessageInterceptor",
     "MessageIdentifier",
 ]

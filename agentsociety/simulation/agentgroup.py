@@ -23,7 +23,7 @@ from ..environment import Environment
 from ..llm import LLM, init_embedding, monitor_requests
 from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
-from ..message import Messager, MessageIdentifier
+from ..message import Messager, Message
 from ..metrics import MlflowClient
 from ..storage import AvroSaver
 from ..storage.type import StorageProfile, StorageStatus
@@ -62,8 +62,6 @@ class AgentGroup:
         environment_init: dict,
         # PostgreSQL
         pgsql_writer: Optional[ray.ObjectRef],
-        # Message Interceptor
-        message_interceptor: ray.ObjectRef,
         # MLflow
         mlflow_run_id: Optional[str],
         # Others
@@ -93,8 +91,6 @@ class AgentGroup:
             get_logger().debug(f"Environment init loaded")
             self._pgsql_writer = pgsql_writer
             get_logger().debug(f"PGSQL writer reference set")
-            self._message_interceptor = message_interceptor
-            get_logger().debug(f"Message interceptor reference set")
             self._mlflow_run_id = mlflow_run_id
             get_logger().debug(f"MLflow run ID set: {mlflow_run_id}")
             self._agent_config_file = agent_config_file
@@ -115,7 +111,6 @@ class AgentGroup:
 
             self._agents = []
             self._id2agent = {}
-            self._message_dispatch_task = None
             self._last_asyncio_pg_task = None
             get_logger().info("AgentGroup initialization completed successfully")
         except Exception as e:
@@ -189,9 +184,7 @@ class AgentGroup:
         # Initialize messager
         # ====================
         get_logger().info(f"Initializing messager...")
-        self._messager = Messager(
-            self._config.env.redis, self._exp_id, self._message_interceptor
-        )
+        self._messager = Messager(self._exp_id)
         await self._messager.init()
         get_logger().info(f"Messager initialized")
 
@@ -289,8 +282,6 @@ class AgentGroup:
             tasks.append(agent.init())
             channels.append(f"exps:{self._exp_id}:agents:{agent.id}:*")
         await asyncio.gather(*tasks)
-        await self.messager.subscribe_and_start_listening(channels)
-        self._message_dispatch_task = asyncio.create_task(self._message_dispatch())
         get_logger().info(
             f"-----Initializing by exporting profiles in AgentGroup {self._group_id} ..."
         )
@@ -329,15 +320,6 @@ class AgentGroup:
 
     async def close(self):
         """Close the AgentGroupV2."""
-
-        if self._message_dispatch_task is not None:
-            self._message_dispatch_task.cancel()
-            try:
-                await self._message_dispatch_task
-            except asyncio.CancelledError:
-                pass
-            self._message_dispatch_task = None
-
         if self._mlflow_client is not None:
             self._mlflow_client.close()
             self._mlflow_client = None
@@ -384,6 +366,7 @@ class AgentGroup:
         """
         self.environment.set_tick(tick)
         try:
+            await self._message_dispatch()
             tasks = [agent.run() for agent in self._agents]
             agent_time_log = await asyncio.gather(*tasks)
             simulator_log = (
@@ -392,12 +375,10 @@ class AgentGroup:
             )
             group_logs = Logs(
                 llm_log=self.llm.get_log_list(),
-                redis_log=self.messager.get_log_list(),
                 simulator_log=simulator_log,
                 agent_time_log=agent_time_log,
             )
             self.llm.clear_log_list()
-            self.messager.clear_log_list()
             self.environment.clear_log_list()
             self.environment.economy_client.clear_log_list()
 
@@ -425,70 +406,84 @@ class AgentGroup:
     # ====================
     async def _message_dispatch(self):
         """
-        Dispatches messages received via Redis to the appropriate agents.
-
-        - **Description**:
-            - Continuously listens for incoming Redis messages and dispatches them to the relevant agents based on the topic.
-            - Messages are expected to have a topic formatted as "exps:{exp_id}:agents:{agent.id}:{topic_type}".
-            - The payload is decoded from bytes to string and then parsed as JSON.
-            - Depending on the `topic_type`, different handler methods on the agent are called to process the message.
+        Dispatches messages received via Message to the appropriate agents.
         """
-        get_logger().info(f"-----Starting message dispatch for group {self._group_id}")
-        while True:
-            # Step 1: Fetch messages
-            messages = await self.messager.fetch_messages()
-            if len(messages) > 0:
-                get_logger().info(
-                    f"Group {self._group_id} received {len(messages)} messages"
-                )
-            else:
-                get_logger().debug(
-                    f"Group {self._group_id} received no messages, waiting..."
-                )
+        # Step 1: Fetch messages
+        messages = await self.messager.fetch_received_messages()
+        if len(messages) > 0:
+            get_logger().info(
+                f"Group {self._group_id} received {len(messages)} messages"
+            )
+        else:
+            get_logger().debug(
+                f"Group {self._group_id} received no messages in this step"
+            )
 
-            try:
-                # Step 2: Distribute messages to corresponding Agents
-                for message in messages:
-                    channel = cast(bytes, message["channel"]).decode("utf-8")
-                    payload = cast(bytes, message["data"])
-                    payload = jsonc.loads(payload.decode("utf-8"))
+        try:
+            # Step 2: Distribute messages to corresponding Agents
+            # Separate messages into agent messages and aoi messages
+            agent_messages = {}  # Dict[agent_id, list[tuple[message, topic_type]]]
+            aoi_messages = []  # List[tuple[message, aoi_id]]
 
-                    if "agents" in channel:
-                        # Extract agent_id (channel format is "exps:{exp_id}:agents:{agent_id}:{topic_type}")
-                        _, _, _, agent_id, topic_type = channel.strip(":").split(":")
-                        agent_id = int(agent_id)
-                        if agent_id in self._id2agent:
-                            agent = self._id2agent[agent_id]
-                            # topic_type: agent-chat, user-chat, user-survey, gather
-                            if topic_type == "agent-chat":
-                                await agent.handle_agent_chat_message(payload)
-                            elif topic_type == "user-chat":
-                                await agent.handle_user_chat_message(payload)
-                            elif topic_type == "user-survey":
-                                await agent.handle_user_survey_message(payload)
-                            elif topic_type == "gather":
-                                await agent.handle_gather_message(payload)
-                            elif topic_type == "gather_receive":
-                                await agent.handle_gather_receive_message(payload)
-                    elif "aoi" in channel:
-                        _, _, _, aoi_id = channel.strip(":").split(":")
-                        aoi_id = int(aoi_id)
-                        agent_id = payload["agent_id"]
-                        operation = payload["type"]
-                        if operation == "aoi_message_register":
-                            self.environment.register_aoi_message(
-                                agent_id, aoi_id, payload
-                            )
-                        elif operation == "aoi_message_cancel":
-                            self.environment.cancel_aoi_message(agent_id, aoi_id)
-            except Exception as e:
-                get_logger().error(f"Error dispatching message: {e}")
-                import traceback
+            for message in messages:
+                channel = message.channel
+                payload = message.payload
 
-                get_logger().error(
-                    f"Error dispatching message: {traceback.format_exc()}"
-                )
-            await asyncio.sleep(3)
+                # Parse channel format
+                parts = channel.strip(":").split(":")
+                if len(parts) >= 4 and parts[2] == "agents":
+                    # Channel format: exps:{exp_id}:agents:{agent_id}:{topic_type}
+                    agent_id = int(parts[3])
+                    topic_type = parts[4] if len(parts) > 4 else None
+                    if agent_id in self._id2agent and topic_type:
+                        if agent_id not in agent_messages:
+                            agent_messages[agent_id] = []
+                        agent_messages[agent_id].append((message, topic_type))
+                elif len(parts) >= 4 and parts[2] == "aoi":
+                    # Channel format: exps:{exp_id}:aoi:{aoi_id}
+                    aoi_id = int(parts[3])
+                    aoi_messages.append((message, aoi_id))
+
+            # Process agent messages in parallel for different agents
+            async def process_agent_messages(agent_id: int, messages: list[tuple[Any, str]]):
+                agent = self._id2agent[agent_id]
+                for message, topic_type in messages:
+                    if topic_type == "agent-chat":
+                        await agent.handle_agent_chat_message(message.payload)
+                    elif topic_type == "user-chat":
+                        await agent.handle_user_chat_message(message.payload)
+                    elif topic_type == "user-survey":
+                        await agent.handle_user_survey_message(message.payload)
+                    elif topic_type == "gather":
+                        await agent.handle_gather_message(message.payload)
+                    elif topic_type == "gather_receive":
+                        await agent.handle_gather_receive_message(message.payload)
+
+            # Process agent messages in parallel
+            agent_tasks = [
+                process_agent_messages(agent_id, msgs)
+                for agent_id, msgs in agent_messages.items()
+            ]
+            await asyncio.gather(*agent_tasks)
+
+            # Process aoi messages
+            for message, aoi_id in aoi_messages:
+                payload = message.payload
+                agent_id = payload["agent_id"]
+                operation = payload["type"]
+                if operation == "aoi_message_register":
+                    self.environment.register_aoi_message(
+                        agent_id, aoi_id, payload["content"]
+                    )
+                elif operation == "aoi_message_cancel":
+                    self.environment.cancel_aoi_message(agent_id, aoi_id)
+        except Exception as e:
+            get_logger().error(f"Error dispatching message: {e}")
+            import traceback
+
+            get_logger().error(
+                f"Error dispatching message: {traceback.format_exc()}"
+            )
 
     # ====================
     # Status Management Methods
@@ -813,8 +808,14 @@ class AgentGroup:
                     f"Attempted to delete non-existent agent with ID {agent_id}"
                 )
 
-    async def forward_message(self, validation_dict: MessageIdentifier):
+    async def fetch_pending_messages(self):
         """
-        Forward the message to the channel if the message is valid.
+        Fetch the pending messages from the messager.
         """
-        await self.messager.forward(validation_dict)
+        return await self.messager.fetch_pending_messages()
+
+    async def set_received_messages(self, messages: list[Message]):
+        """
+        Set the received messages.
+        """
+        await self.messager.set_received_messages(messages)
