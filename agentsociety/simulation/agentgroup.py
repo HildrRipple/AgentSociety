@@ -767,13 +767,13 @@ class AgentGroup:
                         filtered_ids.append(agent.id)
         return filtered_ids
 
-    async def final(self):
+    async def close(self):
         """
         Finalize the agent group.
         """
         tasks = []
         for agent in self._agents:
-            tasks.append(agent.final())
+            tasks.append(agent.close())
         await asyncio.gather(*tasks)
 
     async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None):
@@ -823,7 +823,7 @@ class AgentGroup:
         ]
         final_tasks = []
         for agent in agents_to_delete:
-            final_tasks.append(agent.final())
+            final_tasks.append(agent.close())
         await asyncio.gather(*final_tasks)
 
         # Create a new list with agents that should be kept

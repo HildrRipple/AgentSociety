@@ -1445,7 +1445,7 @@ class AgentSociety:
             # Finalize the agents
             tasks = []
             for group in self._groups.values():
-                tasks.append(group.final.remote())  # type:ignore
+                tasks.append(group.close.remote())  # type:ignore
             await asyncio.gather(*tasks)
 
         except Exception as e:
