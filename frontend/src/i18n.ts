@@ -913,7 +913,7 @@ i18n
                             deleteConfirm: "确定要删除这个工作流吗？",
                             workflowSteps: "工作流步骤",
                             defaultRunDescription: "运行1天的模拟",
-                            step: "运行一步",
+                            step: "步骤",
                             stepTooltip: "运行单步模拟",
                             stepType: "步骤类型",
                             pleaseSelectStepType: "请选择步骤类型",
