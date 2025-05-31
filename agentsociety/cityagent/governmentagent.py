@@ -90,6 +90,7 @@ A government institution agent that handles periodic economic operations such as
             get_logger().debug(
                 f"Agent {self.id}: Start main workflow - government forward"
             )
+            # TODO: move gather_messages to simulator
             citizen_ids = await self.memory.status.get("citizen_ids")
             agents_forward = await self.gather_messages(citizen_ids, "forward")
             if not np.all(np.array(agents_forward) > self.forward_times):

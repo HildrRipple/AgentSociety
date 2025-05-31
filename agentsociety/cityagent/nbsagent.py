@@ -106,6 +106,7 @@ The National Bureau of Statistics Agent simulating economic data collection and 
             nbs_id = self.id
             await self.environment.economy_client.calculate_real_gdp(nbs_id)
             citizens_ids = await self.memory.status.get("citizen_ids")
+            # TODO: move gather_messages to simulator
             work_propensity = await self.gather_messages(
                 citizens_ids, "work_propensity"
             )
@@ -122,6 +123,7 @@ The National Bureau of Statistics Agent simulating economic data collection and 
             await self.environment.economy_client.update(
                 nbs_id, "prices", {t_now: float(np.mean(prices))}, mode="merge"
             )
+            # TODO: move gather_messages to simulator
             depression = await self.gather_messages(citizens_ids, "depression")
             if sum(depression) == 0.0:
                 depression = 0.0
