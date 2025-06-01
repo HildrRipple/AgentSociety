@@ -19,20 +19,13 @@ import ray.util.queue
 import yaml
 
 from ..agent import Agent, AgentToolbox, StatusAttribute, SupervisorBase
-from ..agent.distribution import Distribution, DistributionConfig, DistributionType
-from ..agent.memory_config_generator import (
-    MemoryConfigGenerator,
-    default_memory_config_citizen,
-    default_memory_config_supervisor,
-)
-from ..configs import (
-    AgentConfig,
-    AgentFilterConfig,
-    Config,
-    MetricExtractorConfig,
-    MetricType,
-    WorkflowType,
-)
+from ..agent.distribution import (Distribution, DistributionConfig,
+                                  DistributionType)
+from ..agent.memory_config_generator import (MemoryConfigGenerator,
+                                             default_memory_config_citizen,
+                                             default_memory_config_supervisor)
+from ..configs import (AgentConfig, AgentFilterConfig, Config,
+                       MetricExtractorConfig, MetricType, WorkflowType)
 from ..environment import EnvironmentStarter
 from ..llm import LLM, monitor_requests
 from ..llm.embeddings import init_embedding
@@ -43,7 +36,8 @@ from ..metrics import MlflowClient
 from ..s3 import S3Config
 from ..storage import AvroSaver
 from ..storage.pgsql import PgWriter
-from ..storage.type import StorageExpInfo, StorageGlobalPrompt, StoragePendingSurvey
+from ..storage.type import (StorageExpInfo, StorageGlobalPrompt,
+                            StoragePendingSurvey)
 from ..survey.models import Survey
 from ..utils import NONE_SENDER_ID
 from .agentgroup import AgentGroup
@@ -590,6 +584,9 @@ class AgentSociety:
                 else:
                     blocks = None
                 # build agent
+                agent_params = agent_config.agent_class.ParamsType.model_validate(
+                    agent_config.agent_params
+                )
                 supervisor = agent_config.agent_class(
                     id=agent_id,
                     name=f"{agent_config.agent_class.__name__}_{agent_id}",
@@ -602,7 +599,7 @@ class AgentSociety:
                         self._mlflow,
                     ),
                     memory=memory_init,
-                    agent_params=agent_config.agent_params,
+                    agent_params=agent_params,
                     blocks=blocks,
                 )
                 # set supervisor
