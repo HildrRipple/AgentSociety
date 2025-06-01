@@ -141,7 +141,7 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                 initialValue={[{
                     type: WorkflowType.RUN,
                     days: 1,
-                    description: t('form.workflow.defaultRunDescription')
+                    description: t('workflow.defaultRunDescription')
                 }]}
             >
                 {(fields, { add, remove }) => (
@@ -149,7 +149,7 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                         {fields.map(({ key, name, ...restField }) => (
                             <Card
                                 key={key}
-                                title={t('form.workflow.step', { number: name + 1 })}
+                                title={t('workflow.step', { number: name + 1 })}
                                 style={{ marginBottom: 16 }}
                                 extra={
                                     <Button
@@ -165,18 +165,18 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                         <Form.Item
                                             {...restField}
                                             name={[name, 'type']}
-                                            label={t('form.workflow.stepType')}
-                                            rules={[{ required: true, message: t('form.workflow.pleaseSelectStepType') }]}
+                                            label={t('workflow.stepType')}
+                                            rules={[{ required: true, message: t('workflow.pleaseSelectStepType') }]}
                                         >
                                             <Select
-                                                placeholder={t('form.workflow.selectStepType')}
+                                                placeholder={t('workflow.selectStepType')}
                                                 options={[
                                                     {
                                                         value: WorkflowType.RUN,
                                                         label: (
                                                             <Space>
-                                                                {t('form.workflow.run')}
-                                                                <Tooltip title={t('form.workflow.runTooltip')}>
+                                                                {t('workflow.run')}
+                                                                <Tooltip title={t('workflow.runTooltip')}>
                                                                     <QuestionCircleOutlined style={{ color: '#1890ff' }} />
                                                                 </Tooltip>
                                                             </Space>
@@ -186,8 +186,8 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                         value: WorkflowType.STEP,
                                                         label: (
                                                             <Space>
-                                                                {t('form.workflow.step')}
-                                                                <Tooltip title={t('form.workflow.stepTooltip')}>
+                                                                {t('workflow.step')}
+                                                                <Tooltip title={t('workflow.stepTooltip')}>
                                                                     <QuestionCircleOutlined style={{ color: '#1890ff' }} />
                                                                 </Tooltip>
                                                             </Space>
@@ -197,8 +197,8 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                         value: WorkflowType.ENVIRONMENT_INTERVENE,
                                                         label: (
                                                             <Space>
-                                                                {t('form.workflow.environmentIntervene')}
-                                                                <Tooltip title={t('form.workflow.environmentInterveneTooltip')}>
+                                                                {t('workflow.environmentIntervene')}
+                                                                <Tooltip title={t('workflow.environmentInterveneTooltip')}>
                                                                     <QuestionCircleOutlined style={{ color: '#1890ff' }} />
                                                                 </Tooltip>
                                                             </Space>
@@ -208,8 +208,8 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                         value: WorkflowType.NEXT_ROUND,
                                                         label: (
                                                             <Space>
-                                                                {t('form.workflow.nextRound')}
-                                                                <Tooltip title={t('form.workflow.nextRoundTooltip')}>
+                                                                {t('workflow.nextRound')}
+                                                                <Tooltip title={t('workflow.nextRoundTooltip')}>
                                                                     <QuestionCircleOutlined style={{ color: '#1890ff' }} />
                                                                 </Tooltip>
                                                             </Space>
@@ -219,8 +219,8 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                                         value: WorkflowType.FUNCTION,
                                                         label: (
                                                             <Space>
-                                                                {t('form.workflow.function')}
-                                                                <Tooltip title={t('form.workflow.functionTooltip')}>
+                                                                {t('workflow.function')}
+                                                                <Tooltip title={t('workflow.functionTooltip')}>
                                                                     <QuestionCircleOutlined style={{ color: '#1890ff' }} />
                                                                 </Tooltip>
                                                             </Space>
@@ -235,10 +235,10 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                         <Form.Item
                                             {...restField}
                                             name={[name, 'description']}
-                                            label={t('form.workflow.description')}
-                                            tooltip={t('form.workflow.descriptionTooltip')}
+                                            label={t('workflow.description')}
+                                            tooltip={t('workflow.descriptionTooltip')}
                                         >
-                                            <Input placeholder={t('form.workflow.enterStepDescription')} />
+                                            <Input placeholder={t('workflow.enterStepDescription')} />
                                         </Form.Item>
                                     </Col>
                                 </Row>
@@ -251,9 +251,9 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                             <Form.Item
                                                 {...restField}
                                                 name={[name, 'days']}
-                                                label={t('form.workflow.days')}
-                                                rules={[{ required: true, message: t('form.workflow.pleaseEnterDays') }]}
-                                                tooltip={t('form.workflow.daysTooltip')}
+                                                label={t('workflow.days')}
+                                                rules={[{ required: true, message: t('workflow.pleaseEnterDays') }]}
+                                                tooltip={t('workflow.daysTooltip')}
                                             >
                                                 <InputNumber min={0} style={{ width: '100%' }} />
                                             </Form.Item>
@@ -262,9 +262,9 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                             <Form.Item
                                                 {...restField}
                                                 name={[name, 'ticks_per_step']}
-                                                label={t('form.workflow.ticksPerStep')}
+                                                label={t('workflow.ticksPerStep')}
                                                 initialValue={300}
-                                                tooltip={t('form.workflow.ticksPerStepTooltip')}
+                                                tooltip={t('workflow.ticksPerStepTooltip')}
                                             >
                                                 <InputNumber min={1} style={{ width: '100%' }} />
                                             </Form.Item>
@@ -279,10 +279,10 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                             <Form.Item
                                                 {...restField}
                                                 name={[name, 'steps']}
-                                                label={t('form.workflow.steps')}
+                                                label={t('workflow.steps')}
                                                 initialValue={1}
-                                                rules={[{ required: true, message: t('form.workflow.pleaseEnterSteps') }]}
-                                                tooltip={t('form.workflow.stepsTooltip')}
+                                                rules={[{ required: true, message: t('workflow.pleaseEnterSteps') }]}
+                                                tooltip={t('workflow.stepsTooltip')}
                                             >
                                                 <InputNumber min={1} style={{ width: '100%' }} />
                                             </Form.Item>
@@ -291,9 +291,9 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                             <Form.Item
                                                 {...restField}
                                                 name={[name, 'ticks_per_step']}
-                                                label={t('form.workflow.ticksPerStep')}
+                                                label={t('workflow.ticksPerStep')}
                                                 initialValue={300}
-                                                tooltip={t('form.workflow.ticksPerStepTooltip')}
+                                                tooltip={t('workflow.ticksPerStepTooltip')}
                                             >
                                                 <InputNumber min={1} style={{ width: '100%' }} />
                                             </Form.Item>
@@ -308,22 +308,22 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                             <Form.Item
                                                 {...restField}
                                                 name={[name, 'key']}
-                                                label={t('form.workflow.environmentKey')}
-                                                rules={[{ required: true, message: t('form.workflow.pleaseEnterEnvironmentKey') }]}
-                                                tooltip={t('form.workflow.environmentKeyTooltip')}
+                                                label={t('workflow.environmentKey')}
+                                                rules={[{ required: true, message: t('workflow.pleaseEnterEnvironmentKey') }]}
+                                                tooltip={t('workflow.environmentKeyTooltip')}
                                             >
-                                                <Input placeholder={t('form.workflow.enterEnvironmentKey')} />
+                                                <Input placeholder={t('workflow.enterEnvironmentKey')} />
                                             </Form.Item>
                                         </Col>
                                         <Col span={16}>
                                             <Form.Item
                                                 {...restField}
                                                 name={[name, 'value']}
-                                                label={t('form.workflow.environmentValue')}
-                                                rules={[{ required: true, message: t('form.workflow.pleaseEnterEnvironmentValue') }]}
-                                                tooltip={t('form.workflow.environmentValueTooltip')}
+                                                label={t('workflow.environmentValue')}
+                                                rules={[{ required: true, message: t('workflow.pleaseEnterEnvironmentValue') }]}
+                                                tooltip={t('workflow.environmentValueTooltip')}
                                             >
-                                                <Input.TextArea rows={1} placeholder={t('form.workflow.enterEnvironmentValue')} />
+                                                <Input.TextArea rows={1} placeholder={t('workflow.enterEnvironmentValue')} />
                                             </Form.Item>
                                         </Col>
                                     </Row>
@@ -336,12 +336,12 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                             <Form.Item
                                                 {...restField}
                                                 name={[name, 'func']}
-                                                label={t('form.workflow.functionName')}
-                                                rules={[{ required: true, message: t('form.workflow.pleaseSelectFunction') }]}
-                                                tooltip={t('form.workflow.functionNameTooltip')}
+                                                label={t('workflow.functionName')}
+                                                rules={[{ required: true, message: t('workflow.pleaseSelectFunction') }]}
+                                                tooltip={t('workflow.functionNameTooltip')}
                                             >
                                                 <Select
-                                                    placeholder={t('form.workflow.selectFunction')}
+                                                    placeholder={t('workflow.selectFunction')}
                                                     options={functionList.map(func => ({
                                                         value: func,
                                                         label: func
@@ -355,7 +355,7 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                         ))}
                         <Form.Item>
                             <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                {t('form.workflow.addWorkflowStep')}
+                                {t('workflow.addWorkflowStep')}
                             </Button>
                         </Form.Item>
                     </>

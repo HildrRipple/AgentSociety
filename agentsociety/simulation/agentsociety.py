@@ -1503,6 +1503,7 @@ class AgentSociety:
                     )
                 elif step.type == WorkflowType.FUNCTION:
                     assert step.func is not None
+                    assert not isinstance(step.func, str)
                     await step.func(self)
                 else:
                     raise ValueError(f"Unknown workflow type: {step.type}")

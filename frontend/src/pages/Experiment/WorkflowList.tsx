@@ -2,19 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form, Col, Row } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
 import WorkflowForm from './WorkflowForm';
-import { ConfigItem } from '../../services/storageService';
-import { WorkflowStepConfig } from '../../types/config';
+import { ConfigWrapper, WorkflowStepConfig, ExpConfig } from '../../types/config';
 import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 
 const WorkflowList: React.FC = () => {
     const { t } = useTranslation();
-    const [workflows, setWorkflows] = useState<ConfigItem[]>([]);
+    const [workflows, setWorkflows] = useState<ConfigWrapper<ExpConfig>[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [currentWorkflow, setCurrentWorkflow] = useState<ConfigItem | null>(null);
+    const [currentWorkflow, setCurrentWorkflow] = useState<ConfigWrapper<ExpConfig> | null>(null);
     const [formValues, setFormValues] = useState<{ workflow: WorkflowStepConfig[] }>({ workflow: [] });
     const [metaForm] = Form.useForm();
 
@@ -29,7 +28,7 @@ const WorkflowList: React.FC = () => {
             const data = (await res.json()).data;
             setWorkflows(data);
         } catch (error) {
-            message.error(t('form.workflow.messages.loadFailed') + `: ${JSON.stringify(error.message)}`, 3);
+            message.error(t('workflow.messages.loadFailed') + `: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         } finally {
             setLoading(false);
@@ -67,10 +66,10 @@ const WorkflowList: React.FC = () => {
     };
 
     // Handle edit workflow
-    const handleEdit = (workflow: ConfigItem) => {
+    const handleEdit = (workflow: ConfigWrapper<ExpConfig>) => {
         setCurrentWorkflow(workflow);
         setFormValues({
-            workflow: workflow.config
+            workflow: workflow.config.workflow
         });
         metaForm.setFieldsValue({
             name: workflow.name,
@@ -80,10 +79,10 @@ const WorkflowList: React.FC = () => {
     };
 
     // Handle duplicate workflow
-    const handleDuplicate = (workflow: ConfigItem) => {
+    const handleDuplicate = (workflow: ConfigWrapper<ExpConfig>) => {
         setCurrentWorkflow(null);
         setFormValues({
-            workflow: workflow.config
+            workflow: workflow.config.workflow
         });
         metaForm.setFieldsValue({
             name: `${workflow.name} (Copy)`,
@@ -101,16 +100,16 @@ const WorkflowList: React.FC = () => {
             if (!res.ok) {
                 throw new Error(await res.text());
             }
-            message.success(t('form.workflow.messages.deleteSuccess'));
+            message.success(t('workflow.messages.deleteSuccess'));
             loadWorkflows();
         } catch (error) {
-            message.error(t('form.workflow.messages.deleteFailed') + `: ${JSON.stringify(error.message)}`, 3);
+            message.error(t('workflow.messages.deleteFailed') + `: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         }
     };
 
     // Handle export workflow
-    const handleExport = (workflow: ConfigItem) => {
+    const handleExport = (workflow: ConfigWrapper<ExpConfig>) => {
         const dataStr = JSON.stringify(workflow, null, 2);
         const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
 
@@ -154,11 +153,11 @@ const WorkflowList: React.FC = () => {
             if (!res.ok) {
                 throw new Error(await res.text());
             }
-            message.success(currentWorkflow ? t('form.workflow.messages.updateSuccess') : t('form.workflow.messages.createSuccess'));
+            message.success(currentWorkflow ? t('workflow.messages.updateSuccess') : t('workflow.messages.createSuccess'));
             setIsModalVisible(false);
             loadWorkflows();
         } catch (error) {
-            message.error((currentWorkflow ? t('form.workflow.messages.updateFailed') : t('form.workflow.messages.createFailed')) + `: ${JSON.stringify(error.message)}`, 3);
+            message.error((currentWorkflow ? t('workflow.messages.updateFailed') : t('workflow.messages.createFailed')) + `: ${JSON.stringify(error.message)}`, 3);
             console.error('Validation failed:', error);
         }
     };
@@ -171,50 +170,50 @@ const WorkflowList: React.FC = () => {
     // Table columns
     const columns = [
         {
-            title: t('form.common.name'),
+            title: t('common.name'),
             dataIndex: 'name',
             key: 'name',
-            sorter: (a: ConfigItem, b: ConfigItem) => a.name.localeCompare(b.name)
+            sorter: (a: ConfigWrapper<ExpConfig>, b: ConfigWrapper<ExpConfig>) => a.name.localeCompare(b.name)
         },
         {
-            title: t('form.common.description'),
+            title: t('common.description'),
             dataIndex: 'description',
             key: 'description',
             ellipsis: true
         },
         {
-            title: t('form.common.lastUpdated'),
+            title: t('common.lastUpdated'),
             dataIndex: 'updated_at',
             key: 'updated_at',
             render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-            sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updated_at).valueOf() - dayjs(b.updated_at).valueOf()
+            sorter: (a: ConfigWrapper<ExpConfig>, b: ConfigWrapper<ExpConfig>) => dayjs(a.updated_at).valueOf() - dayjs(b.updated_at).valueOf()
         },
         {
-            title: t('form.common.actions'),
+            title: t('common.actions'),
             key: 'actions',
-            render: (_: any, record: ConfigItem) => (
+            render: (_: any, record: ConfigWrapper<ExpConfig>) => (
                 <Space size="small">
                     {
                         (record.tenant_id ?? '') !== '' && (
-                            <Tooltip title={t('form.common.edit')}>
+                            <Tooltip title={t('common.edit')}>
                                 <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
                             </Tooltip>
                         )
                     }
-                    <Tooltip title={t('form.common.duplicate')}>
+                    <Tooltip title={t('common.duplicate')}>
                         <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
                     </Tooltip>
-                    <Tooltip title={t('form.common.export')}>
+                    <Tooltip title={t('common.export')}>
                         <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
                     </Tooltip>
                     {
                         (record.tenant_id ?? '') !== '' && (
-                            <Tooltip title={t('form.common.delete')}>
+                            <Tooltip title={t('common.delete')}>
                                 <Popconfirm
-                                    title={t('form.workflow.deleteConfirm')}
+                                    title={t('workflow.deleteConfirm')}
                                     onConfirm={() => handleDelete(record.id)}
-                                    okText={t('form.common.submit')}
-                                    cancelText={t('form.common.cancel')}
+                                    okText={t('common.submit')}
+                                    cancelText={t('common.cancel')}
                                 >
                                     <Button icon={<DeleteOutlined />} size="small" danger />
                                 </Popconfirm>
@@ -228,11 +227,11 @@ const WorkflowList: React.FC = () => {
 
     return (
         <Card
-            title={t('form.workflow.title')}
-            extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>{t('form.workflow.createNew')}</Button>}
+            title={t('workflow.title')}
+            extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>{t('workflow.createNew')}</Button>}
         >
             <Input.Search
-                placeholder={t('form.workflow.searchPlaceholder')}
+                placeholder={t('workflow.searchPlaceholder')}
                 onChange={handleSearch}
                 style={{ marginBottom: 16 }}
             />
@@ -246,14 +245,14 @@ const WorkflowList: React.FC = () => {
             />
 
             <Modal
-                title={currentWorkflow ? t('form.workflow.editTitle') : t('form.workflow.createTitle')}
+                title={currentWorkflow ? t('workflow.editTitle') : t('workflow.createTitle')}
                 open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
                 width="80vw"
                 destroyOnHidden
             >
-                <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 8 }}>
+                <Card title={t('common.metadataTitle')} style={{ marginBottom: 8 }}>
                     <Form
                         form={metaForm}
                         layout="vertical"
@@ -262,20 +261,20 @@ const WorkflowList: React.FC = () => {
                             <Col span={8}>
                                 <Form.Item
                                     name="name"
-                                    label={t('form.common.name')}
-                                    rules={[{ required: true, message: t('form.common.nameRequired') }]}
+                                    label={t('common.name')}
+                                    rules={[{ required: true, message: t('common.nameRequired') }]}
                                 >
-                                    <Input placeholder={t('form.common.namePlaceholder')} />
+                                    <Input placeholder={t('common.namePlaceholder')} />
                                 </Form.Item>
                             </Col>
                             <Col span={16}>
                                 <Form.Item
                                     name="description"
-                                    label={t('form.common.description')}
+                                    label={t('common.description')}
                                 >
                                     <Input.TextArea
                                         rows={1}
-                                        placeholder={t('form.common.descriptionPlaceholder')}
+                                        placeholder={t('common.descriptionPlaceholder')}
                                     />
                                 </Form.Item>
                             </Col>
@@ -283,7 +282,7 @@ const WorkflowList: React.FC = () => {
                     </Form>
                 </Card>
 
-                <Card title={t('form.workflow.settingsTitle')}>
+                <Card title={t('workflow.settingsTitle')}>
                     <WorkflowForm
                         value={formValues}
                         onChange={setFormValues}

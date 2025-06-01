@@ -26,7 +26,6 @@ dependencies = [
     "boto3>=1.37",
     "casdoor>=1.29.0",
     "click>=8.0.0",
-    "cramjam>=2.9.0",
     "faiss-cpu>=1.9.0.post1",
     "fastapi>=0.103.1",
     "fastavro>=1.10.0",

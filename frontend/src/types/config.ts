@@ -112,4 +112,14 @@ export interface Config {
   map: MapConfig;
   agents: AgentsConfig;
   exp: ExpConfig;
-} 
+}
+
+export interface ConfigWrapper<T> {
+  tenant_id?: string;
+  id?: string;
+  name: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+  config: T;
+}

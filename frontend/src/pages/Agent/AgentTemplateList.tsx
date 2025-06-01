@@ -5,47 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
+import { ApiAgentTemplate } from '../../types/agentTemplate';
 
-interface AgentTemplate {
-  id: string;
-  name: string;
-  description: string;
-  // agent_class: string;
-  // number: number;
-  memory_distributions: {
-    [key: string]: {
-      dist_type: 'choice' | 'uniform_int' | 'normal';
-      choices?: string[];
-      weights?: number[];
-      min_value?: number;
-      max_value?: number;
-      mean?: number;
-      std?: number;
-    };
-  };
-  agent_params: {
-    enable_cognition: boolean;
-    UBI: number;
-    num_labor_hours: number;
-    productivity_per_labor: number;
-    time_diff: number;
-    max_plan_steps: number;
-    environment_reflection_prompt?: string;
-    need_initialization_prompt?: string;
-    need_evaluation_prompt?: string;
-    need_reflection_prompt?: string;
-    plan_generation_prompt?: string;
-  };
-  blocks: {
-    [key: string]: Record<string, any>;
-  };
-  created_at: string;
-  updated_at: string;
-  tenant_id?: string;
-}
 
 const AgentTemplateList: React.FC = () => {
-  const [templates, setTemplates] = useState<AgentTemplate[]>([]);
+  const [templates, setTemplates] = useState<ApiAgentTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const navigate = useNavigate();
@@ -57,11 +21,11 @@ const AgentTemplateList: React.FC = () => {
       setLoading(true);
       const res = await fetchCustom('/api/agent-templates');
       console.log('API response for template list:', await res.clone().json());
-      
+
       if (!res.ok) {
         throw new Error('Failed to load templates');
       }
-      
+
       const data = await res.json();
       console.log('Processed template data:', data);
       setTemplates(data.data);
@@ -90,7 +54,7 @@ const AgentTemplateList: React.FC = () => {
   );
 
   // Duplicate template
-  const handleDuplicate = async (template: AgentTemplate) => {
+  const handleDuplicate = async (template: ApiAgentTemplate) => {
     try {
       console.log('Duplicating template:', template);
       const duplicateData = {
@@ -98,7 +62,7 @@ const AgentTemplateList: React.FC = () => {
         name: `${template.name} (Copy)`,
         id: undefined,
       };
-      
+
       const res = await fetchCustom('/api/agent-templates', {
         method: 'POST',
         headers: {
@@ -128,7 +92,7 @@ const AgentTemplateList: React.FC = () => {
       const res = await fetchCustom(`/api/agent-templates/${id}`, {
         method: 'DELETE'
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json();
         console.error('Delete API error response:', errorData);
@@ -144,11 +108,11 @@ const AgentTemplateList: React.FC = () => {
   };
 
   // Export template
-  const handleExport = (template: AgentTemplate) => {
+  const handleExport = (template: ApiAgentTemplate) => {
     const dataStr = JSON.stringify(template, null, 2);
     const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
     const exportFileDefaultName = `${template.name.replace(/\s+/g, '_')}_template.json`;
-    
+
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
@@ -158,48 +122,48 @@ const AgentTemplateList: React.FC = () => {
   // Table columns
   const columns = [
     {
-      title: t('form.common.name'),
+      title: t('common.name'),
       dataIndex: 'name',
       key: 'name',
     },
     {
-      title: t('form.common.description'),
+      title: t('common.description'),
       dataIndex: 'description',
       key: 'description',
       ellipsis: true
     },
     {
-      title: t('form.common.lastUpdated'),
+      title: t('common.lastUpdated'),
       dataIndex: 'updated_at',
       key: 'updated_at',
       render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss')
     },
     {
-      title: t('form.common.actions'),
+      title: t('common.actions'),
       key: 'action',
-      render: (_: any, record: AgentTemplate) => (
+      render: (_: any, record: ApiAgentTemplate) => (
         <Space size="small">
           {
             (record.tenant_id ?? '') !== '' && (
-              <Tooltip title={t('form.common.edit')}>
+              <Tooltip title={t('common.edit')}>
                 <Button icon={<EditOutlined />} size="small" onClick={() => navigate(`/agent-templates/edit/${record.id}`)} />
               </Tooltip>
             )
           }
-          <Tooltip title={t('form.common.duplicate')}>
+          <Tooltip title={t('common.duplicate')}>
             <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
           </Tooltip>
-          <Tooltip title={t('form.common.export')}>
+          <Tooltip title={t('common.export')}>
             <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
           </Tooltip>
           {
             (record.tenant_id ?? '') !== '' && (
-              <Tooltip title={t('form.common.delete')}>
+              <Tooltip title={t('common.delete')}>
                 <Popconfirm
-                  title={t('form.common.deleteConfirm')}
+                  title={t('common.deleteConfirm')}
                   onConfirm={() => handleDelete(record.id)}
-                  okText={t('form.common.submit')}
-                  cancelText={t('form.common.cancel')}
+                  okText={t('common.submit')}
+                  cancelText={t('common.cancel')}
                 >
                   <Button icon={<DeleteOutlined />} size="small" danger />
                 </Popconfirm>
@@ -213,15 +177,15 @@ const AgentTemplateList: React.FC = () => {
 
   return (
     <Card
-      title={t('form.template.title')}
-      extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/agent-templates/create')}>{t('form.template.createNew')}</Button>}
+      title={t('template.title')}
+      extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/agent-templates/create')}>{t('template.createNew')}</Button>}
     >
       <Input.Search
-        placeholder={t('form.template.searchPlaceholder')}
+        placeholder={t('template.searchPlaceholder')}
         onChange={handleSearch}
         style={{ marginBottom: 16 }}
       />
-      
+
       <Table
         columns={columns}
         dataSource={filteredTemplates}

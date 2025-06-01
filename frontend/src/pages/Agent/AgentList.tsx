@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form, Row, Col } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
 import AgentForm from './AgentForm';
-import { ConfigItem } from '../../services/storageService';
-import { AgentsConfig } from '../../types/config';
+import { AgentsConfig, ConfigWrapper } from '../../types/config';
 import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -12,11 +11,11 @@ import { useNavigate } from 'react-router-dom';
 const AgentList: React.FC = () => {
     const navigate = useNavigate();
     const { t } = useTranslation();
-    const [agents, setAgents] = useState<ConfigItem[]>([]);
+    const [agents, setAgents] = useState<ConfigWrapper<AgentsConfig>[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [currentAgent, setCurrentAgent] = useState<ConfigItem | null>(null);
+    const [currentAgent, setCurrentAgent] = useState<ConfigWrapper<AgentsConfig> | null>(null);
     const [formValues, setFormValues] = useState<Partial<AgentsConfig>>({});
     const [metaForm] = Form.useForm();
 
@@ -31,7 +30,7 @@ const AgentList: React.FC = () => {
             const data = (await res.json()).data;
             setAgents(data);
         } catch (error) {
-            message.error(t('form.agent.messages.loadFailed') + `: ${JSON.stringify(error.message)}`, 3);
+            message.error(t('agent.messages.loadFailed') + `: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         } finally {
             setLoading(false);
@@ -111,7 +110,7 @@ const AgentList: React.FC = () => {
     };
 
     // Handle edit agent
-    const handleEdit = (agent: ConfigItem) => {
+    const handleEdit = (agent: ConfigWrapper<AgentsConfig>) => {
         setCurrentAgent(agent);
         setFormValues(agent.config);
         metaForm.setFieldsValue({
@@ -122,7 +121,7 @@ const AgentList: React.FC = () => {
     };
 
     // Handle duplicate agent
-    const handleDuplicate = (agent: ConfigItem) => {
+    const handleDuplicate = (agent: ConfigWrapper<AgentsConfig>) => {
         setCurrentAgent(null);
         setFormValues(agent.config);
         metaForm.setFieldsValue({
@@ -141,16 +140,16 @@ const AgentList: React.FC = () => {
             if (!res.ok) {
                 throw new Error(await res.text());
             }
-            message.success(t('form.agent.messages.deleteSuccess'));
+            message.success(t('agent.messages.deleteSuccess'));
             loadAgents();
         } catch (error) {
-            message.error(t('form.agent.messages.deleteFailed') + `: ${JSON.stringify(error.message)}`, 3);
+            message.error(t('agent.messages.deleteFailed') + `: ${JSON.stringify(error.message)}`, 3);
             console.error(error);
         }
     };
 
     // Handle export agent
-    const handleExport = (agent: ConfigItem) => {
+    const handleExport = (agent: ConfigWrapper<AgentsConfig>) => {
         const dataStr = JSON.stringify(agent, null, 2);
         const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
 
@@ -194,11 +193,11 @@ const AgentList: React.FC = () => {
             if (!res.ok) {
                 throw new Error(await res.text());
             }
-            message.success(currentAgent ? t('form.agent.messages.updateSuccess') : t('form.agent.messages.createSuccess'));
+            message.success(currentAgent ? t('agent.messages.updateSuccess') : t('agent.messages.createSuccess'));
             setIsModalVisible(false);
             loadAgents();
         } catch (error) {
-            message.error((currentAgent ? t('form.agent.messages.updateFailed') : t('form.agent.messages.createFailed')) + `: ${JSON.stringify(error.message)}`, 3);
+            message.error((currentAgent ? t('agent.messages.updateFailed') : t('agent.messages.createFailed')) + `: ${JSON.stringify(error.message)}`, 3);
             console.error('Validation failed:', error);
         }
     };
@@ -211,50 +210,50 @@ const AgentList: React.FC = () => {
     // Table columns
     const columns = [
         {
-            title: t('form.common.name'),
+            title: t('common.name'),
             dataIndex: 'name',
             key: 'name',
-            sorter: (a: ConfigItem, b: ConfigItem) => a.name.localeCompare(b.name)
+            sorter: (a: ConfigWrapper<AgentsConfig>, b: ConfigWrapper<AgentsConfig>) => a.name.localeCompare(b.name)
         },
         {
-            title: t('form.common.description'),
+            title: t('common.description'),
             dataIndex: 'description',
             key: 'description',
             ellipsis: true
         },
         {
-            title: t('form.common.lastUpdated'),
+            title: t('common.lastUpdated'),
             dataIndex: 'updated_at',
             key: 'updated_at',
             render: (text: string) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-            sorter: (a: ConfigItem, b: ConfigItem) => dayjs(a.updated_at).valueOf() - dayjs(b.updated_at).valueOf()
+            sorter: (a: ConfigWrapper<AgentsConfig>, b: ConfigWrapper<AgentsConfig>) => dayjs(a.updated_at).valueOf() - dayjs(b.updated_at).valueOf()
         },
         {
-            title: t('form.common.actions'),
+            title: t('common.actions'),
             key: 'actions',
-            render: (_: any, record: ConfigItem) => (
+            render: (_: any, record: ConfigWrapper<AgentsConfig>) => (
                 <Space size="small">
                     {
                         (record.tenant_id ?? '') !== '' && (
-                            <Tooltip title={t('form.common.edit')}>
+                            <Tooltip title={t('common.edit')}>
                                 <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
                             </Tooltip>
                         )
                     }
-                    <Tooltip title={t('form.common.duplicate')}>
+                    <Tooltip title={t('common.duplicate')}>
                         <Button icon={<CopyOutlined />} size="small" onClick={() => handleDuplicate(record)} />
                     </Tooltip>
-                    <Tooltip title={t('form.common.export')}>
+                    <Tooltip title={t('common.export')}>
                         <Button icon={<ExportOutlined />} size="small" onClick={() => handleExport(record)} />
                     </Tooltip>
                     {
                         (record.tenant_id ?? '') !== '' && (
-                            <Tooltip title={t('form.common.delete')}>
+                            <Tooltip title={t('common.delete')}>
                                 <Popconfirm
-                                    title={t('form.common.deleteConfirm')}
+                                    title={t('common.deleteConfirm')}
                                     onConfirm={() => handleDelete(record.id)}
-                                    okText={t('form.common.submit')}
-                                    cancelText={t('form.common.cancel')}
+                                    okText={t('common.submit')}
+                                    cancelText={t('common.cancel')}
                                 >
                                     <Button icon={<DeleteOutlined />} size="small" danger />
                                 </Popconfirm>
@@ -268,17 +267,17 @@ const AgentList: React.FC = () => {
 
     return (
         <Card
-            title={t('form.agent.title')}
+            title={t('agent.title')}
             extra={
                 <Space>
-                    <Button onClick={() => navigate('/agent-templates')}>{t('form.agent.templates')}</Button>
-                    <Button onClick={() => navigate('/profiles')}>{t('form.agent.profiles')}</Button>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>{t('form.agent.createNew')}</Button>
+                    <Button onClick={() => navigate('/agent-templates')}>{t('agent.templates')}</Button>
+                    <Button onClick={() => navigate('/profiles')}>{t('agent.profiles')}</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>{t('agent.createNew')}</Button>
                 </Space>
             }
         >
             <Input.Search
-                placeholder={t('form.agent.searchPlaceholder')}
+                placeholder={t('agent.searchPlaceholder')}
                 onChange={handleSearch}
                 style={{ marginBottom: 16 }}
             />
@@ -292,14 +291,14 @@ const AgentList: React.FC = () => {
             />
 
             <Modal
-                title={currentAgent ? t('form.agent.editTitle') : t('form.agent.createTitle')}
+                title={currentAgent ? t('agent.editTitle') : t('agent.createTitle')}
                 open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
                 width="80vw"
                 destroyOnHidden
             >
-                <Card title={t('form.common.metadataTitle')} style={{ marginBottom: 8 }}>
+                <Card title={t('common.metadataTitle')} style={{ marginBottom: 8 }}>
                     <Form
                         form={metaForm}
                         layout="vertical"
@@ -308,22 +307,22 @@ const AgentList: React.FC = () => {
                             <Col span={8}>
                                 <Form.Item
                                     name="name"
-                                    label={t('form.common.name')}
-                                    rules={[{ required: true, message: t('form.common.nameRequired') }]}
+                                    label={t('common.name')}
+                                    rules={[{ required: true, message: t('common.nameRequired') }]}
                                     style={{ marginBottom: 8 }}
                                 >
-                                    <Input placeholder={t('form.common.namePlaceholder')} />
+                                    <Input placeholder={t('common.namePlaceholder')} />
                                 </Form.Item>
                             </Col>
                             <Col span={16}>
                                 <Form.Item
                                     name="description"
-                                    label={t('form.common.description')}
+                                    label={t('common.description')}
                                     style={{ marginBottom: 0 }}
                                 >
                                     <Input.TextArea
                                         rows={1}
-                                        placeholder={t('form.common.descriptionPlaceholder')}
+                                        placeholder={t('common.descriptionPlaceholder')}
                                     />
                                 </Form.Item>
                             </Col>
@@ -331,7 +330,7 @@ const AgentList: React.FC = () => {
                     </Form>
                 </Card>
 
-                <Card title={t('form.agent.settingsTitle')}>
+                <Card title={t('agent.settingsTitle')}>
                     <AgentForm
                         value={formValues}
                         onChange={(newValues) => setFormValues(newValues)}

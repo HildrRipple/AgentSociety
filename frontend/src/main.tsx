@@ -7,10 +7,10 @@ import RootLayout from './Layout'
 import Console from './pages/Console/index'
 import Replay from './pages/Replay/index'
 import Survey from './pages/Survey/index'
-import LLMList from './pages/LLM/LLMList'
+import LLM from './pages/LLM'
 import AgentList from './pages/Agent/AgentList'
 import WorkflowList from './pages/Experiment/WorkflowList'
-import MapList from './pages/Map/MapList'
+import Map from './pages/Map'
 import CreateExperiment from './pages/Experiment/CreateExperiment'
 import ProfileList from './pages/Agent/ProfileList'
 import AgentTemplate from './pages/Agent/AgentTemplateList'
@@ -65,7 +65,7 @@ const router = createBrowserRouter([
         path: "/llms",
         element: (
             <AuthProvider sdkConfig={sdkConfig}>
-                <RootLayout selectedKey='/llms'><LLMList /></RootLayout>
+                <RootLayout selectedKey='/llms'><LLM /></RootLayout>
             </AuthProvider>
         ),
     },
@@ -97,7 +97,7 @@ const router = createBrowserRouter([
         path: "/maps",
         element: (
             <AuthProvider sdkConfig={sdkConfig}>
-                <RootLayout selectedKey='/maps'><MapList /></RootLayout>
+                <RootLayout selectedKey='/maps'><Map /></RootLayout>
             </AuthProvider>
         ),
     },

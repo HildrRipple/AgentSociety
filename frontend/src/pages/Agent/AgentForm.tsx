@@ -190,7 +190,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
       }}
     >
       <div style={{ marginBottom: 8 }}>
-        <Text strong>{t('form.agent.citizenGroup')}</Text>
+        <Text strong>{t('agent.citizenGroup')}</Text>
       </div>
       <Form.List name="citizens" initialValue={[{}]}>
         {(fields, { add, remove }) => (
@@ -201,13 +201,13 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                   <Form.Item
                     {...restField}
                     name={[name, 'templateId']}
-                    label={t('form.agent.selectTemplate')}
-                    rules={[{ required: true, message: t('form.agent.pleaseSelectTemplate') }]}
+                    label={t('agent.selectTemplate')}
+                    rules={[{ required: true, message: t('agent.pleaseSelectTemplate') }]}
                     style={{ marginBottom: 8 }}
                   >
                     <Select
                       loading={loading}
-                      placeholder={t('form.agent.selectTemplatePlaceholder')}
+                      placeholder={t('agent.selectTemplatePlaceholder')}
                       style={{ width: '100%' }}
                     >
                       {templates.map(template => (
@@ -225,16 +225,16 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                   <Form.Item
                     {...restField}
                     name={[name, 'number']}
-                    label={t('form.agent.numberLabel')}
+                    label={t('agent.numberLabel')}
                     rules={[
                       ({ getFieldValue }) => ({
                         validator(_, value) {
                           const profile = getFieldValue(['citizens', name, 'memory_from_file']);
                           if (!value && !profile) {
-                            return Promise.reject(new Error(t('form.agent.numberOrProfileRequired')));
+                            return Promise.reject(new Error(t('agent.numberOrProfileRequired')));
                           }
                           if (value && profile) {
-                            return Promise.reject(new Error(t('form.agent.numberOrProfileExclusive')));
+                            return Promise.reject(new Error(t('agent.numberOrProfileExclusive')));
                           }
                           return Promise.resolve();
                         },
@@ -250,16 +250,16 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                   <Form.Item
                     {...restField}
                     name={[name, 'memory_from_file']}
-                    label={t('form.agent.selectProfile')}
+                    label={t('agent.selectProfile')}
                     rules={[
                       ({ getFieldValue }) => ({
                         validator(_, value) {
                           const number = getFieldValue(['citizens', name, 'number']);
                           if (!value && !number) {
-                            return Promise.reject(new Error(t('form.agent.numberOrProfileRequired')));
+                            return Promise.reject(new Error(t('agent.numberOrProfileRequired')));
                           }
                           if (value && number) {
-                            return Promise.reject(new Error(t('form.agent.numberOrProfileExclusive')));
+                            return Promise.reject(new Error(t('agent.numberOrProfileExclusive')));
                           }
                           return Promise.resolve();
                         },
@@ -269,7 +269,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                     style={{ marginBottom: 8 }}
                   >
                     <Select
-                      placeholder={t('form.agent.selectProfilePlaceholder')}
+                      placeholder={t('agent.selectProfilePlaceholder')}
                       loading={loading}
                       value={selectedCustomProfiles[name]}
                       onChange={(value) => handleCustomProfileSelect(value, name)}
@@ -279,7 +279,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         <Option key={profile.id} value={profile.file_path}>
                           {profile.name}
                           <span style={{ color: '#999', marginLeft: 8 }}>
-                            ({profile.count} {t('form.agent.records')})
+                            ({profile.count} {t('agent.records')})
                           </span>
                         </Option>
                       ))}
@@ -304,21 +304,21 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
               icon={<PlusOutlined />}
               style={{ marginBottom: 16 }}
             >
-              {t('form.agent.addGroup')}
+              {t('agent.addGroup')}
             </Button>
           </>
         )}
       </Form.List>
       <div style={{ marginBottom: 8 }}>
-        <Text strong>{t('form.agent.institutions')}</Text>
+        <Text strong>{t('agent.institutions')}</Text>
       </div>
       <Row gutter={16}>
         <Col span={6}>
           <Form.Item
             name="firmNumber"
-            label={t('form.agent.firmGroup')}
+            label={t('agent.firmGroup')}
             initialValue={1}
-            rules={[{ required: true, message: t('form.agent.pleaseInputFirmNumber') }]}
+            rules={[{ required: true, message: t('agent.pleaseInputFirmNumber') }]}
             style={{ marginBottom: 8 }}
           >
             <InputNumber min={0} style={{ width: '100%' }} />
@@ -327,9 +327,9 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
         <Col span={6}>
           <Form.Item
             name="governmentNumber"
-            label={t('form.agent.governmentGroup')}
+            label={t('agent.governmentGroup')}
             initialValue={1}
-            rules={[{ required: true, message: t('form.agent.pleaseInputGovernmentNumber') }]}
+            rules={[{ required: true, message: t('agent.pleaseInputGovernmentNumber') }]}
             style={{ marginBottom: 8 }}
           >
             <InputNumber min={0} style={{ width: '100%' }} />
@@ -338,9 +338,9 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
         <Col span={6}>
           <Form.Item
             name="bankNumber"
-            label={t('form.agent.bankGroup')}
+            label={t('agent.bankGroup')}
             initialValue={1}
-            rules={[{ required: true, message: t('form.agent.pleaseInputBankNumber') }]}
+            rules={[{ required: true, message: t('agent.pleaseInputBankNumber') }]}
             style={{ marginBottom: 8 }}
           >
             <InputNumber min={0} style={{ width: '100%' }} />
@@ -349,9 +349,9 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
         <Col span={6}>
           <Form.Item
             name="nbsNumber"
-            label={t('form.agent.nbsGroup')}
+            label={t('agent.nbsGroup')}
             initialValue={1}
-            rules={[{ required: true, message: t('form.agent.pleaseInputNbsNumber') }]}
+            rules={[{ required: true, message: t('agent.pleaseInputNbsNumber') }]}
             style={{ marginBottom: 8 }}
           >
             <InputNumber min={0} style={{ width: '100%' }} />
