@@ -335,7 +335,7 @@ const WorkflowForm: React.FC<WorkflowFormProps> = ({ value, onChange }) => {
                                         <Col span={24}>
                                             <Form.Item
                                                 {...restField}
-                                                name={[name, 'function_name']}
+                                                name={[name, 'func']}
                                                 label={t('form.workflow.functionName')}
                                                 rules={[{ required: true, message: t('form.workflow.pleaseSelectFunction') }]}
                                                 tooltip={t('form.workflow.functionNameTooltip')}
