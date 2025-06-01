@@ -27,6 +27,12 @@ export default {
     pleaseInputGovernmentNumber: "Please input government number",
     pleaseInputBankNumber: "Please input bank number",
     pleaseInputNbsNumber: "Please input NBS number",
+    supervisor: "Supervisor",
+    selectSupervisorTemplate: "Select supervisor template",
+    pleaseSelectTemplate: "Please select template",
+    numberOrProfileRequired: "Please input number or select profile",
+    numberOrProfileExclusive: "Cannot input both number and profile",
+    records: "records",
     messages: {
         loadFailed: "Failed to load agents",
         deleteSuccess: "Agent deleted successfully",
@@ -34,6 +40,7 @@ export default {
         updateSuccess: "Agent updated successfully",
         updateFailed: "Failed to update agent",
         createSuccess: "Agent created successfully",
-        createFailed: "Failed to create agent"
+        createFailed: "Failed to create agent",
+        supervisorProfileRequired: "Please select a profile when template is selected"
     }
 }; 

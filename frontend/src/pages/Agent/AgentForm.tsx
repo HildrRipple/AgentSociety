@@ -1,28 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Form, InputNumber, Select, Button, message, Row, Col, Typography } from 'antd';
+import { Form, InputNumber, Select, Button, message, Row, Col, Typography, Divider } from 'antd';
 import { AgentConfig, AgentsConfig } from '../../types/config';
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import { fetchCustom } from '../../components/fetch';
 import { useTranslation } from 'react-i18next';
+import { ApiAgentTemplate } from '../../types/agentTemplate';
+import { ApiAgentProfile } from '../../types/profile';
 
 const { Option } = Select;
 const { Text } = Typography;
-
-interface AgentTemplate {
-  id: string;
-  name: string;
-  description: string;
-}
-
-interface AgentProfile {
-  id: string;
-  name: string;
-  description: string;
-  agent_type: string;
-  count: number;
-  created_at: string;
-  file_path: string;
-}
 
 interface AgentFormProps {
   value: Partial<AgentsConfig>;
@@ -33,8 +19,8 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
   const [form] = Form.useForm();
   const [selectedCitizenProfile, setSelectedCitizenProfile] = React.useState({});
   const [selectedCustomProfiles, setSelectedCustomProfiles] = React.useState<{ [key: number]: string }>({});
-  const [templates, setTemplates] = useState<AgentTemplate[]>([]);
-  const [profiles, setProfiles] = useState<AgentProfile[]>([]);
+  const [templates, setTemplates] = useState<ApiAgentTemplate[]>([]);
+  const [profiles, setProfiles] = useState<ApiAgentProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const { t } = useTranslation();
 
@@ -120,7 +106,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
       layout="vertical"
       initialValues={{
         citizens: [],
-        supervisor: [],
+        supervisor: null,
         firms: [{ number: 1, agent_class: 'firm' }],
         governments: [{ number: 1, agent_class: 'government' }],
         banks: [{ number: 1, agent_class: 'bank' }],
@@ -128,8 +114,9 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
       }}
       onValuesChange={async (_, allValues) => {
         const citizenAgents = allValues.citizens || [];
+        const supervisorAgent = allValues.supervisor;
 
-        const processAgents = async (agents) => {
+        const processAgents = async (agents, isSupervisor = false) => {
           const citizens = [];
           let supervisor = null;
 
@@ -147,18 +134,18 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                     });
 
                     const processedAgent = agent.memory_from_file ? {
-                      agent_class: template.agent_class || 'citizen',
+                      agent_class: template.agent_class || (isSupervisor ? 'supervisor' : 'citizen'),
                       memory_from_file: agent.memory_from_file,
                       agent_params: template.agent_params,
                       blocks: convertedBlocks
                     } : {
                       number: agent.number,
-                      agent_class: template.agent_class || 'citizen',
+                      agent_class: template.agent_class || (isSupervisor ? 'supervisor' : 'citizen'),
                       agent_params: template.agent_params,
                       blocks: convertedBlocks
                     };
 
-                    if (template.agent_type === 'supervisor') {
+                    if (isSupervisor) {
                       supervisor = processedAgent;
                     } else {
                       citizens.push(processedAgent);
@@ -174,12 +161,12 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
           return { citizens, supervisor };
         };
 
-        const { citizens, supervisor } = await processAgents(citizenAgents);
+        const { citizens: processedCitizens } = await processAgents(citizenAgents);
+        const { supervisor: processedSupervisor } = supervisorAgent ? await processAgents([supervisorAgent], true) : { supervisor: null };
 
-        // 确保 citizens 至少有一个元素
         const transformedValues = {
-          citizens: citizens.length > 0 ? citizens : [{ agent_class: 'citizen', number: 1 }],
-          supervisor: supervisor,
+          citizens: processedCitizens.length > 0 ? processedCitizens : [{ agent_class: 'citizen', number: 1 }],
+          supervisor: processedSupervisor,
           firms: [{ number: allValues.firmNumber >= 0 ? allValues.firmNumber : 1, agent_class: 'firm' }],
           governments: [{ number: allValues.governmentNumber >= 0 ? allValues.governmentNumber : 1, agent_class: 'government' }],
           banks: [{ number: allValues.bankNumber >= 0 ? allValues.bankNumber : 1, agent_class: 'bank' }],
@@ -210,14 +197,16 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                       placeholder={t('agent.selectTemplatePlaceholder')}
                       style={{ width: '100%' }}
                     >
-                      {templates.map(template => (
-                        <Option key={template.id} value={template.id}>
-                          {template.name}
-                          <span style={{ color: '#999', marginLeft: 8 }}>
-                            {template.description}
-                          </span>
-                        </Option>
-                      ))}
+                      {templates
+                        .filter(template => template.agent_type === 'citizen')
+                        .map(template => (
+                          <Option key={template.id} value={template.id}>
+                            {template.name}
+                            <span style={{ color: '#999', marginLeft: 8 }}>
+                              {template.description}
+                            </span>
+                          </Option>
+                        ))}
                     </Select>
                   </Form.Item>
                 </Col>
@@ -279,7 +268,7 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
                         <Option key={profile.id} value={profile.file_path}>
                           {profile.name}
                           <span style={{ color: '#999', marginLeft: 8 }}>
-                            ({profile.count} {t('agent.records')})
+                            ({profile.record_count} {t('agent.records')})
                           </span>
                         </Option>
                       ))}
@@ -309,6 +298,9 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
           </>
         )}
       </Form.List>
+
+      <Divider />
+
       <div style={{ marginBottom: 8 }}>
         <Text strong>{t('agent.institutions')}</Text>
       </div>
@@ -355,6 +347,74 @@ const AgentForm: React.FC<AgentFormProps> = ({ value, onChange }) => {
             style={{ marginBottom: 8 }}
           >
             <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Divider />
+
+      <div style={{ marginBottom: 8 }}>
+        <Text strong>{t('agent.supervisor')}</Text>
+      </div>
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item
+            name={['supervisor', 'templateId']}
+            label={t('agent.selectTemplate')}
+            style={{ marginBottom: 8 }}
+          >
+            <Select
+              loading={loading}
+              placeholder={t('agent.selectSupervisorTemplate')}
+              style={{ width: '100%' }}
+              allowClear
+            >
+              {templates
+                .filter(template => template.agent_type === 'supervisor')
+                .map(template => (
+                  <Option key={template.id} value={template.id}>
+                    {template.name}
+                    <span style={{ color: '#999', marginLeft: 8 }}>
+                      {template.description}
+                    </span>
+                  </Option>
+                ))}
+            </Select>
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
+            name={['supervisor', 'memory_from_file']}
+            label={t('agent.selectProfile')}
+            style={{ marginBottom: 8 }}
+            rules={[
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  const templateId = getFieldValue(['supervisor', 'templateId']);
+                  if (templateId && !value) {
+                    return Promise.reject(new Error(t('agent.messages.supervisorProfileRequired')));
+                  }
+                  return Promise.resolve();
+                },
+              }),
+            ]}
+            dependencies={[['supervisor', 'templateId']]}
+          >
+            <Select
+              placeholder={t('agent.selectProfilePlaceholder')}
+              loading={loading}
+              allowClear
+            >
+              {profiles
+                .map(profile => (
+                  <Option key={profile.id} value={profile.file_path}>
+                    {profile.name}
+                    <span style={{ color: '#999', marginLeft: 8 }}>
+                      ({profile.record_count} {t('agent.records')})
+                    </span>
+                  </Option>
+                ))}
+            </Select>
           </Form.Item>
         </Col>
       </Row>

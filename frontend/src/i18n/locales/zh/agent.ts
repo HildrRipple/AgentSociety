@@ -27,6 +27,12 @@ export default {
     pleaseInputGovernmentNumber: "请输入政府数量",
     pleaseInputBankNumber: "请输入银行数量",
     pleaseInputNbsNumber: "请输入统计局数量",
+    supervisor: "监督者",
+    selectSupervisorTemplate: "请选择监督者模板",
+    pleaseSelectTemplate: "请选择模板",
+    numberOrProfileRequired: "请输入数量或选择画像",
+    numberOrProfileExclusive: "不能同时输入数量和选择画像",
+    records: "条记录",
     messages: {
         loadFailed: "加载智能体失败",
         deleteSuccess: "智能体删除成功",
@@ -34,6 +40,7 @@ export default {
         updateSuccess: "智能体更新成功",
         updateFailed: "更新智能体失败",
         createSuccess: "智能体创建成功",
-        createFailed: "创建智能体失败"
+        createFailed: "创建智能体失败",
+        supervisorProfileRequired: "选择模板后必须选择画像"
     }
 }; 

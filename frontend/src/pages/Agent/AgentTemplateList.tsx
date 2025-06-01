@@ -133,6 +133,17 @@ const AgentTemplateList: React.FC = () => {
       ellipsis: true
     },
     {
+      title: t('template.agentType'),
+      dataIndex: 'agent_type',
+      key: 'agent_type',
+      render: (text: string) => t(`template.agentTypes.${text}`)
+    },
+    {
+      title: t('template.agentClass'),
+      dataIndex: 'agent_class',
+      key: 'agent_class'
+    },
+    {
       title: t('common.lastUpdated'),
       dataIndex: 'updated_at',
       key: 'updated_at',

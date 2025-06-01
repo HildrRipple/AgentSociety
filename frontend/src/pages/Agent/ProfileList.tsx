@@ -5,22 +5,11 @@ import { fetchCustom } from '../../components/fetch';
 import { getAccessToken } from '../../components/Auth';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
-
-interface AgentProfile {
-    tenant_id?: string;
-    id?: string;
-    name: string;
-    description?: string;
-    agent_type: string;
-    file_path: string;
-    record_count: number;
-    created_at?: string;
-    updated_at?: string;
-}
+import { ApiAgentProfile } from '../../types/profile';
 
 const ProfileList: React.FC = () => {
     const { t } = useTranslation();
-    const [profiles, setProfiles] = useState<AgentProfile[]>([]);
+    const [profiles, setProfiles] = useState<ApiAgentProfile[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [uploadModalVisible, setUploadModalVisible] = useState(false);
@@ -34,7 +23,7 @@ const ProfileList: React.FC = () => {
         try {
             const response = await fetchCustom('/api/agent-profiles');
             const data = await response.json();
-            setProfiles(data.data as AgentProfile[] || []);
+            setProfiles(data.data as ApiAgentProfile[] || []);
         } catch (error) {
             console.error('Failed to fetch profiles:', error);
             message.error(t('profile.messages.loadFailed'));
