@@ -81,8 +81,8 @@ class WorkflowStepConfig(BaseModel):
     type: WorkflowType = Field(...)
     """The type of the workflow step"""
 
-    func: Optional[Callable] = None
-    """Optional function to be executed during this step - used for [FUNCTION, INTERVENE] type"""
+    func: Optional[Union[Callable, str]] = None
+    """The function that extracts the metric - used for [FUNCTION] type"""
 
     days: float = 1
     """Duration (in days) for which this step lasts - used for [RUN] type"""
