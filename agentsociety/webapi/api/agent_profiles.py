@@ -53,7 +53,7 @@ async def list_agent_profiles(
         # Query profiles from database
         stmt = (
             select(AgentProfile)
-            .where(AgentProfile.tenant_id == tenant_id)
+            .where(AgentProfile.tenant_id.in_([tenant_id, ""]))
             .order_by(AgentProfile.created_at.desc())
         )
 
