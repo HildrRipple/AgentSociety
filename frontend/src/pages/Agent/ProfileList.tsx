@@ -52,13 +52,13 @@ const ProfileList: React.FC = () => {
         try {
             // Call the API to get profile data
             const response = await fetchCustom(`/api/agent-profiles/${profileId}`);
-            
+
             if (!response.ok) {
                 throw new Error(`Failed to fetch profile: ${response.statusText}`);
             }
-            
+
             const data = await response.json();
-            
+
             if (data && data.data) {
                 // 创建 JSON 格式的 blob
                 const jsonContent = JSON.stringify(data.data, null, 2); // 使用 2 空格缩进，使输出更易读
@@ -86,11 +86,11 @@ const ProfileList: React.FC = () => {
             const response = await fetchCustom(`/api/agent-profiles/${profileId}`, {
                 method: 'DELETE',
             });
-            
+
             if (!response.ok) {
                 throw new Error(`Failed to delete profile: ${response.statusText}`);
             }
-            
+
             message.success(t('profile.messages.deleteSuccess'));
             loadProfiles(); // Refresh the list
         } catch (error) {
@@ -177,22 +177,26 @@ const ProfileList: React.FC = () => {
             render: (_, record) => (
                 <Space>
                     <Tooltip title={t('profile.table.download')}>
-                        <Button 
-                            icon={<DownloadOutlined />} 
-                            size="small" 
+                        <Button
+                            icon={<DownloadOutlined />}
+                            size="small"
                             onClick={() => handleDownload(record.id, record.name)}
                         />
                     </Tooltip>
-                    <Tooltip title={t('profile.table.delete')}>
-                        <Popconfirm
-                            title={t('profile.messages.deleteConfirm')}
-                            onConfirm={() => handleDelete(record.id)}
-                            okText={t('common.submit')}
-                            cancelText={t('common.cancel')}
-                        >
-                            <Button icon={<DeleteOutlined />} size="small" danger />
-                        </Popconfirm>
-                    </Tooltip>
+                    {
+                        (record.tenant_id ?? '') !== '' && (
+                            <Tooltip title={t('profile.table.delete')}>
+                                <Popconfirm
+                                    title={t('profile.messages.deleteConfirm')}
+                                    onConfirm={() => handleDelete(record.id)}
+                                    okText={t('common.submit')}
+                                    cancelText={t('common.cancel')}
+                                >
+                                    <Button icon={<DeleteOutlined />} size="small" danger />
+                                </Popconfirm>
+                            </Tooltip>
+                        )
+                    }
                 </Space>
             ),
         },
@@ -203,7 +207,7 @@ const ProfileList: React.FC = () => {
             title={t('profile.title')}
             extra={
                 <Space>
-                    <Button 
+                    <Button
                         type="primary"
                         icon={<UploadOutlined />}
                         onClick={() => setUploadModalVisible(true)}
@@ -244,9 +248,9 @@ const ProfileList: React.FC = () => {
                     }}>
                         {t('profile.cancel')}
                     </Button>,
-                    <Button 
-                        key="upload" 
-                        type="primary" 
+                    <Button
+                        key="upload"
+                        type="primary"
                         onClick={handleUpload}
                         loading={uploading}
                         disabled={fileList.length === 0}
