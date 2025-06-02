@@ -39,8 +39,9 @@ export interface MemoryConfig {
 
 export interface AgentConfig {
   agent_class: string;
-  number: number;
-  agent_config?: Record<string, any>;
+  number?: number;
+  agent_params?: Record<string, any>;
+  blocks?: Record<string, any>;
   memory_config_func?: string;
   memory_from_file?: string;
   memory_distributions?: Record<string, DistributionConfig>;
@@ -52,7 +53,7 @@ export interface AgentsConfig {
   banks?: AgentConfig[];
   nbs?: AgentConfig[];
   governments?: AgentConfig[];
-  init_funcs?: string[];
+  supervisor?: AgentConfig;
 }
 
 // Experiment Configuration

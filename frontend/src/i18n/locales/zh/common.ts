@@ -31,11 +31,15 @@ export default {
         deleteConfirm: "确定要删除此配置吗？",
         duplicate: "复制",
         export: "导出",
+        preview: "预览",
+        close: "关闭",
         lastUpdated: "最后更新时间",
+        createdAt: "创建时间",
         actions: "操作",
         submit: "提交",
         cancel: "取消",
         metadataTitle: "基本信息",
+        basicInfo: "基本信息",
         view: "查看"
     }
 }; 

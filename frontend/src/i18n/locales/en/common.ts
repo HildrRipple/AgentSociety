@@ -31,11 +31,15 @@ export default {
         deleteConfirm: "Are you sure you want to delete this configuration?",
         duplicate: "Duplicate",
         export: "Export",
+        preview: "Preview",
+        close: "Close",
         lastUpdated: "Last Updated",
+        createdAt: "Created At",
         actions: "Actions",
         submit: "Submit",
         cancel: "Cancel",
         metadataTitle: "Basic Information",
+        basicInfo: "Basic Information",
         view: "View"
     }
 }; 

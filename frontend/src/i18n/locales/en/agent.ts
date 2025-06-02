@@ -33,6 +33,11 @@ export default {
     numberOrProfileRequired: "Please input number or select profile",
     numberOrProfileExclusive: "Cannot input both number and profile",
     records: "records",
+    agentClass: "Agent Class",
+    number: "Number",
+    memoryFromFile: "Profile File",
+    agentParams: "Agent Parameters",
+    blocks: "Block Parameters",
     messages: {
         loadFailed: "Failed to load agents",
         deleteSuccess: "Agent deleted successfully",
