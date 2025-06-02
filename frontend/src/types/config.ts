@@ -75,6 +75,7 @@ export interface MessageInterceptConfig {
 export interface WorkflowStepConfig {
   type: WorkflowType;
   func?: string;
+  days?: number;
   steps?: number;
   ticks_per_step?: number;
   target_agent?: number[];
