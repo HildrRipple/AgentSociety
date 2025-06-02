@@ -28,7 +28,7 @@ export default {
         createFailed: '创建支付订单失败',
         alipayOnly: '本平台支付目前仅支持支付宝',
         refundInvoice: '退款与发票开具功能正在开发中，如有需要请联系平台工作人员',
-        billingItems: '计费项目目前包括大模型输入Token（1.5元/百万Token）、输出Token（1.5元/百万Token）、运行时长（0.001元/秒）'
+        billingItems: '计费项目目前包括大模型输入Token（3元/百万Token）、输出Token（3元/百万Token）、运行时长（0.001元/秒）'
     },
     table: {
         title: '账单详情',

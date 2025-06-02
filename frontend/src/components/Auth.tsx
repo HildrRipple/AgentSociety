@@ -174,6 +174,11 @@ export interface AuthProviderProps {
     loading?: ReactNode;
     /** 用户登录后显示的内容。*/
     children: ReactNode;
+    /**
+     * 是否立即跳转到登录页面。
+     * @default true
+     */
+    gotoLoginImmediately?: boolean;
 }
 
 /**
@@ -186,7 +191,9 @@ export function AuthProvider(props: AuthProviderProps): ReactNode {
     useEffect(
         () => {
             if (token === null) {
-                location.href = sdk.getSigninUrl();
+                if (props.gotoLoginImmediately === true || props.gotoLoginImmediately === undefined) {
+                    location.href = sdk.getSigninUrl();
+                }
             } else {
                 if (props.onlineCheck) {
                     sdk.getUserInfo(token).then((_resp) => {
@@ -203,6 +210,13 @@ export function AuthProvider(props: AuthProviderProps): ReactNode {
         },
         [token, props.onlineCheck], // eslint-disable-line react-hooks/exhaustive-deps
     );
+    if (props.gotoLoginImmediately === false) {
+        return (
+            <AuthContext.Provider value={userInfo}>
+                {props.children}
+            </AuthContext.Provider>
+        );
+    }
     return token === null ? (
         "Skipping login……"
     ) : props.onlineCheck && userInfo === undefined ? (

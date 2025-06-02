@@ -393,9 +393,9 @@ async def finish_experiment(
 async def _compute_bill(db: AsyncSession, experiment: Experiment) -> None:
     tenant_id = experiment.tenant_id
     input_tokens = experiment.input_tokens / 1_000_000
-    input_token_price = 1.5
+    input_token_price = 3
     output_tokens = experiment.output_tokens / 1_000_000
-    output_token_price = 1.5
+    output_token_price = 3
     time = experiment.updated_at - experiment.created_at
     time_seconds = time.total_seconds()
     time_second_price = 0.001

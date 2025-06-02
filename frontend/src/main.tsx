@@ -104,7 +104,7 @@ const router = createBrowserRouter([
     {
         path: "/bill",
         element: (
-            <AuthProvider sdkConfig={sdkConfig}>
+            <AuthProvider sdkConfig={sdkConfig} gotoLoginImmediately={false}>
                 <RootLayout selectedKey='/bill'><Bill /></RootLayout>
             </AuthProvider>
         ),

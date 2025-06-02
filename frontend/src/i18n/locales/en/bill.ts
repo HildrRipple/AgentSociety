@@ -28,7 +28,7 @@ export default {
         createFailed: 'Create Payment Order Failed',
         alipayOnly: 'Currently only Alipay payment is supported',
         refundInvoice: 'Refund and invoice functions are under development. Please contact platform staff if needed',
-        billingItems: 'Billing items include LLM input tokens (¥1.5/million tokens), output tokens (¥1.5/million tokens), and runtime (¥0.001/second)'
+        billingItems: 'Billing items include LLM input tokens (¥3/million tokens), output tokens (¥3/million tokens), and runtime (¥0.001/second)'
     },
     table: {
         title: 'Bill Details',
