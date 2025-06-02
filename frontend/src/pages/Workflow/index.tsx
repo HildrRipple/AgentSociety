@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form, Col, Row, InputNumber, Select } from 'antd';
+import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Form, Col, Row, InputNumber, Select, Divider } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, ExportOutlined, MinusCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { ConfigWrapper, WorkflowStepConfig, ExpConfig } from '../../types/config';
 import { WorkflowType } from '../../utils/enums';
@@ -250,7 +250,7 @@ const WorkflowList: React.FC = () => {
             <Input.Search
                 placeholder={t('workflow.searchPlaceholder')}
                 onChange={handleSearch}
-                style={{ marginBottom: 16 }}
+                style={{ marginBottom: 8 }}
             />
 
             <Table
@@ -258,7 +258,7 @@ const WorkflowList: React.FC = () => {
                 dataSource={filteredWorkflows}
                 rowKey="id"
                 loading={loading}
-                pagination={{ pageSize: 10 }}
+                pagination={{ pageSize: 10, size: 'small', showSizeChanger: false }}
             />
 
             <Modal
@@ -266,7 +266,7 @@ const WorkflowList: React.FC = () => {
                 open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
-                width="80vw"
+                width="75vw"
                 destroyOnHidden
             >
                 <Form
@@ -274,13 +274,19 @@ const WorkflowList: React.FC = () => {
                     layout="vertical"
                 >
                     {/* 元数据部分 */}
-                    <Card title={t('common.metadataTitle')} style={{ marginBottom: 16 }}>
-                        <Row gutter={16}>
+                    <Card
+                        title={t('common.metadataTitle')}
+                        style={{ marginBottom: 8 }}
+                        bodyStyle={{ padding: '12px' }}
+                        headStyle={{ padding: '8px 12px' }}
+                    >
+                        <Row gutter={8}>
                             <Col span={8}>
                                 <Form.Item
                                     name="name"
                                     label={t('common.name')}
                                     rules={[{ required: true, message: t('common.nameRequired') }]}
+                                    style={{ marginBottom: 8 }}
                                 >
                                     <Input placeholder={t('common.namePlaceholder')} />
                                 </Form.Item>
@@ -289,6 +295,7 @@ const WorkflowList: React.FC = () => {
                                 <Form.Item
                                     name="description"
                                     label={t('common.description')}
+                                    style={{ marginBottom: 8 }}
                                 >
                                     <Input.TextArea
                                         rows={1}
@@ -300,33 +307,25 @@ const WorkflowList: React.FC = () => {
                     </Card>
 
                     {/* 工作流配置部分 */}
-                    <Card title={t('workflow.settingsTitle')}>
+                    <Card
+                        title={t('workflow.settingsTitle')}
+                    >
                         <Form.List
                             name="config"
                         >
                             {(fields, { add, remove }) => (
                                 <>
-                                    {fields.map(({ key, name, ...restField }) => (
-                                        <Card
-                                            key={key}
-                                            title={t('workflow.step', { number: name + 1 })}
-                                            style={{ marginBottom: 16 }}
-                                            extra={
-                                                <Button
-                                                    type="text"
-                                                    danger
-                                                    icon={<MinusCircleOutlined />}
-                                                    onClick={() => remove(name)}
-                                                />
-                                            }
-                                        >
-                                            <Row gutter={16}>
-                                                <Col span={8}>
+                                    {fields.map(({ key, name, ...restField }, index) => (
+                                        <>
+                                            {/* 基本配置行 */}
+                                            <Row gutter={8} align="middle" style={{ marginBottom: 8 }}>
+                                                <Col span={4}>
                                                     <Form.Item
                                                         {...restField}
                                                         name={[name, 'type']}
-                                                        label={t('workflow.stepType')}
+                                                        label={t('workflow.stepType', { number: name + 1 })}
                                                         rules={[{ required: true, message: t('workflow.pleaseSelectStepType') }]}
+                                                        style={{ marginBottom: 8 }}
                                                     >
                                                         <Select
                                                             placeholder={t('workflow.selectStepType')}
@@ -334,7 +333,7 @@ const WorkflowList: React.FC = () => {
                                                                 {
                                                                     value: WorkflowType.RUN,
                                                                     label: (
-                                                                        <Space>
+                                                                        <Space size={4}>
                                                                             {t('workflow.run')}
                                                                             <Tooltip title={t('workflow.runTooltip')}>
                                                                                 <QuestionCircleOutlined style={{ color: '#1890ff' }} />
@@ -345,7 +344,7 @@ const WorkflowList: React.FC = () => {
                                                                 {
                                                                     value: WorkflowType.STEP,
                                                                     label: (
-                                                                        <Space>
+                                                                        <Space size={4}>
                                                                             {t('workflow.step')}
                                                                             <Tooltip title={t('workflow.stepTooltip')}>
                                                                                 <QuestionCircleOutlined style={{ color: '#1890ff' }} />
@@ -356,7 +355,7 @@ const WorkflowList: React.FC = () => {
                                                                 {
                                                                     value: WorkflowType.ENVIRONMENT_INTERVENE,
                                                                     label: (
-                                                                        <Space>
+                                                                        <Space size={4}>
                                                                             {t('workflow.environmentIntervene')}
                                                                             <Tooltip title={t('workflow.environmentInterveneTooltip')}>
                                                                                 <QuestionCircleOutlined style={{ color: '#1890ff' }} />
@@ -367,7 +366,7 @@ const WorkflowList: React.FC = () => {
                                                                 {
                                                                     value: WorkflowType.NEXT_ROUND,
                                                                     label: (
-                                                                        <Space>
+                                                                        <Space size={4}>
                                                                             {t('workflow.nextRound')}
                                                                             <Tooltip title={t('workflow.nextRoundTooltip')}>
                                                                                 <QuestionCircleOutlined style={{ color: '#1890ff' }} />
@@ -378,7 +377,7 @@ const WorkflowList: React.FC = () => {
                                                                 {
                                                                     value: WorkflowType.FUNCTION,
                                                                     label: (
-                                                                        <Space>
+                                                                        <Space size={4}>
                                                                             {t('workflow.function')}
                                                                             <Tooltip title={t('workflow.functionTooltip')}>
                                                                                 <QuestionCircleOutlined style={{ color: '#1890ff' }} />
@@ -390,144 +389,160 @@ const WorkflowList: React.FC = () => {
                                                         />
                                                     </Form.Item>
                                                 </Col>
-                                                <Col span={16}>
+                                                <Col span={7}>
                                                     <Form.Item
                                                         {...restField}
                                                         name={[name, 'description']}
                                                         label={t('workflow.description')}
                                                         tooltip={t('workflow.descriptionTooltip')}
+                                                        style={{ marginBottom: 8 }}
                                                     >
                                                         <Input placeholder={t('workflow.enterStepDescription')} />
                                                     </Form.Item>
                                                 </Col>
+                                                {/* 动态字段渲染 */}
+                                                <Form.Item shouldUpdate noStyle>
+                                                    {() => {
+                                                        const workflowSteps = form.getFieldValue('config') || [];
+                                                        const currentStep = workflowSteps[name];
+                                                        const stepType = currentStep?.type;
+
+                                                        if (stepType === WorkflowType.RUN) {
+                                                            return (
+                                                                <>
+                                                                    <Col span={6}>
+                                                                        <Form.Item
+                                                                            {...restField}
+                                                                            name={[name, 'days']}
+                                                                            label={t('workflow.days')}
+                                                                            rules={[{ required: true, message: t('workflow.pleaseEnterDays') }]}
+                                                                            tooltip={t('workflow.daysTooltip')}
+                                                                            style={{ marginBottom: 8 }}
+                                                                        >
+                                                                            <InputNumber min={0} style={{ width: '100%' }} />
+                                                                        </Form.Item>
+                                                                    </Col>
+                                                                    <Col span={6}>
+                                                                        <Form.Item
+                                                                            {...restField}
+                                                                            name={[name, 'ticks_per_step']}
+                                                                            label={t('workflow.ticksPerStep')}
+                                                                            initialValue={300}
+                                                                            tooltip={t('workflow.ticksPerStepTooltip')}
+                                                                            style={{ marginBottom: 8 }}
+                                                                        >
+                                                                            <InputNumber min={1} style={{ width: '100%' }} />
+                                                                        </Form.Item>
+                                                                    </Col>
+                                                                </>
+                                                            );
+                                                        }
+
+                                                        if (stepType === WorkflowType.STEP) {
+                                                            return (
+                                                                <>
+                                                                    <Col span={6}>
+                                                                        <Form.Item
+                                                                            {...restField}
+                                                                            name={[name, 'steps']}
+                                                                            label={t('workflow.steps')}
+                                                                            initialValue={1}
+                                                                            rules={[{ required: true, message: t('workflow.pleaseEnterSteps') }]}
+                                                                            tooltip={t('workflow.stepsTooltip')}
+                                                                            style={{ marginBottom: 8 }}
+                                                                        >
+                                                                            <InputNumber min={1} style={{ width: '100%' }} />
+                                                                        </Form.Item>
+                                                                    </Col>
+                                                                    <Col span={6}>
+                                                                        <Form.Item
+                                                                            {...restField}
+                                                                            name={[name, 'ticks_per_step']}
+                                                                            label={t('workflow.ticksPerStep')}
+                                                                            initialValue={300}
+                                                                            tooltip={t('workflow.ticksPerStepTooltip')}
+                                                                            style={{ marginBottom: 8 }}
+                                                                        >
+                                                                            <InputNumber min={1} style={{ width: '100%' }} />
+                                                                        </Form.Item>
+                                                                    </Col>
+                                                                </>
+                                                            );
+                                                        }
+
+                                                        if (stepType === WorkflowType.ENVIRONMENT_INTERVENE) {
+                                                            return (
+                                                                <>
+                                                                    <Col span={6}>
+                                                                        <Form.Item
+                                                                            {...restField}
+                                                                            name={[name, 'key']}
+                                                                            label={t('workflow.environmentKey')}
+                                                                            rules={[{ required: true, message: t('workflow.pleaseEnterEnvironmentKey') }]}
+                                                                            tooltip={t('workflow.environmentKeyTooltip')}
+                                                                            style={{ marginBottom: 8 }}
+                                                                        >
+                                                                            <Input placeholder={t('workflow.enterEnvironmentKey')} />
+                                                                        </Form.Item>
+                                                                    </Col>
+                                                                    <Col span={6}>
+                                                                        <Form.Item
+                                                                            {...restField}
+                                                                            name={[name, 'value']}
+                                                                            label={t('workflow.environmentValue')}
+                                                                            rules={[{ required: true, message: t('workflow.pleaseEnterEnvironmentValue') }]}
+                                                                            tooltip={t('workflow.environmentValueTooltip')}
+                                                                            style={{ marginBottom: 8 }}
+                                                                        >
+                                                                            <Input.TextArea rows={1} placeholder={t('workflow.enterEnvironmentValue')} />
+                                                                        </Form.Item>
+                                                                    </Col>
+                                                                </>
+                                                            );
+                                                        }
+
+                                                        if (stepType === WorkflowType.FUNCTION) {
+                                                            return (
+                                                                <>
+                                                                    <Col span={12}>
+                                                                        <Form.Item
+                                                                            {...restField}
+                                                                            name={[name, 'func']}
+                                                                            label={t('workflow.functionName')}
+                                                                            rules={[{ required: true, message: t('workflow.pleaseSelectFunction') }]}
+                                                                            tooltip={t('workflow.functionNameTooltip')}
+                                                                            style={{ marginBottom: 8 }}
+                                                                        >
+                                                                            <Select
+                                                                                placeholder={t('workflow.selectFunction')}
+                                                                                options={functionList.map(func => ({
+                                                                                    value: func,
+                                                                                    label: func
+                                                                                }))}
+                                                                            />
+                                                                        </Form.Item>
+                                                                    </Col>
+                                                                </>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    }}
+                                                </Form.Item>
+                                                <Col span={1}>
+                                                    <Button
+                                                        type="text"
+                                                        danger
+                                                        icon={<MinusCircleOutlined />}
+                                                        onClick={() => remove(name)}
+                                                        size="small"
+                                                    />
+                                                </Col>
                                             </Row>
-
-                                            {/* 动态字段渲染 */}
-                                            <Form.Item shouldUpdate noStyle>
-                                                {() => {
-                                                    const workflowSteps = form.getFieldValue('config') || [];
-                                                    const currentStep = workflowSteps[name];
-                                                    const stepType = currentStep?.type;
-
-                                                    if (stepType === WorkflowType.RUN) {
-                                                        return (
-                                                            <Row gutter={16}>
-                                                                <Col span={12}>
-                                                                    <Form.Item
-                                                                        {...restField}
-                                                                        name={[name, 'days']}
-                                                                        label={t('workflow.days')}
-                                                                        rules={[{ required: true, message: t('workflow.pleaseEnterDays') }]}
-                                                                        tooltip={t('workflow.daysTooltip')}
-                                                                    >
-                                                                        <InputNumber min={0} style={{ width: '100%' }} />
-                                                                    </Form.Item>
-                                                                </Col>
-                                                                <Col span={12}>
-                                                                    <Form.Item
-                                                                        {...restField}
-                                                                        name={[name, 'ticks_per_step']}
-                                                                        label={t('workflow.ticksPerStep')}
-                                                                        initialValue={300}
-                                                                        tooltip={t('workflow.ticksPerStepTooltip')}
-                                                                    >
-                                                                        <InputNumber min={1} style={{ width: '100%' }} />
-                                                                    </Form.Item>
-                                                                </Col>
-                                                            </Row>
-                                                        );
-                                                    }
-
-                                                    if (stepType === WorkflowType.STEP) {
-                                                        return (
-                                                            <Row gutter={16}>
-                                                                <Col span={12}>
-                                                                    <Form.Item
-                                                                        {...restField}
-                                                                        name={[name, 'steps']}
-                                                                        label={t('workflow.steps')}
-                                                                        initialValue={1}
-                                                                        rules={[{ required: true, message: t('workflow.pleaseEnterSteps') }]}
-                                                                        tooltip={t('workflow.stepsTooltip')}
-                                                                    >
-                                                                        <InputNumber min={1} style={{ width: '100%' }} />
-                                                                    </Form.Item>
-                                                                </Col>
-                                                                <Col span={12}>
-                                                                    <Form.Item
-                                                                        {...restField}
-                                                                        name={[name, 'ticks_per_step']}
-                                                                        label={t('workflow.ticksPerStep')}
-                                                                        initialValue={300}
-                                                                        tooltip={t('workflow.ticksPerStepTooltip')}
-                                                                    >
-                                                                        <InputNumber min={1} style={{ width: '100%' }} />
-                                                                    </Form.Item>
-                                                                </Col>
-                                                            </Row>
-                                                        );
-                                                    }
-
-                                                    if (stepType === WorkflowType.ENVIRONMENT_INTERVENE) {
-                                                        return (
-                                                            <Row gutter={16}>
-                                                                <Col span={8}>
-                                                                    <Form.Item
-                                                                        {...restField}
-                                                                        name={[name, 'key']}
-                                                                        label={t('workflow.environmentKey')}
-                                                                        rules={[{ required: true, message: t('workflow.pleaseEnterEnvironmentKey') }]}
-                                                                        tooltip={t('workflow.environmentKeyTooltip')}
-                                                                    >
-                                                                        <Input placeholder={t('workflow.enterEnvironmentKey')} />
-                                                                    </Form.Item>
-                                                                </Col>
-                                                                <Col span={16}>
-                                                                    <Form.Item
-                                                                        {...restField}
-                                                                        name={[name, 'value']}
-                                                                        label={t('workflow.environmentValue')}
-                                                                        rules={[{ required: true, message: t('workflow.pleaseEnterEnvironmentValue') }]}
-                                                                        tooltip={t('workflow.environmentValueTooltip')}
-                                                                    >
-                                                                        <Input.TextArea rows={1} placeholder={t('workflow.enterEnvironmentValue')} />
-                                                                    </Form.Item>
-                                                                </Col>
-                                                            </Row>
-                                                        );
-                                                    }
-
-                                                    if (stepType === WorkflowType.FUNCTION) {
-                                                        return (
-                                                            <Row gutter={16}>
-                                                                <Col span={24}>
-                                                                    <Form.Item
-                                                                        {...restField}
-                                                                        name={[name, 'func']}
-                                                                        label={t('workflow.functionName')}
-                                                                        rules={[{ required: true, message: t('workflow.pleaseSelectFunction') }]}
-                                                                        tooltip={t('workflow.functionNameTooltip')}
-                                                                    >
-                                                                        <Select
-                                                                            placeholder={t('workflow.selectFunction')}
-                                                                            options={functionList.map(func => ({
-                                                                                value: func,
-                                                                                label: func
-                                                                            }))}
-                                                                        />
-                                                                    </Form.Item>
-                                                                </Col>
-                                                            </Row>
-                                                        );
-                                                    }
-
-                                                    return null;
-                                                }}
-                                            </Form.Item>
-                                        </Card>
+                                            <Divider />
+                                        </>
                                     ))}
-                                    <Form.Item>
-                                        <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                                    <Form.Item style={{ marginBottom: 0 }}>
+                                        <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} size="small">
                                             {t('workflow.addWorkflowStep')}
                                         </Button>
                                     </Form.Item>
