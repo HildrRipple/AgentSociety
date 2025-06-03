@@ -274,7 +274,7 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````{py:attribute} func
 :canonical: agentsociety.configs.exp.WorkflowStepConfig.func
-:type: typing.Optional[collections.abc.Callable]
+:type: typing.Optional[typing.Union[collections.abc.Callable, str]]
 :value: >
    None
 

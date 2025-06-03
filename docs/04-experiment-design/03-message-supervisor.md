@@ -1,4 +1,4 @@
-# Message Supervisor
+# Message Interception
 
 The message interception system provides control over agent communications in the simulation environment. This feature allows you to monitor, filter, and regulate messages exchanged between agents based on customizable rules.
 
@@ -6,36 +6,25 @@ The message interception system provides control over agent communications in th
 
 The message interception system consists of two main components:
 
-1. **Message Interceptor**: The core component that handles message validation and forwarding
-2. **Supervisor**: A specialized agent that implements message validation logic and intervention strategies
+1. **Message Interceptor**: The core component that handles message validation and forwarding, the supervisor is within the interceptor.
+2. **Supervisor**: A specialized agent that implements message validation logic in its `forward` method.
 
 ## Message Interceptor
 
 The `MessageInterceptor` class is responsible for intercepting and processing messages based on configured rules. It works in conjunction with a Supervisor to validate messages and handle interventions.
 
-Key features:
-- Message validation through a Supervisor
-- Violation tracking
-- Message forwarding with intervention support
-- Integration with LLM for advanced processing
+### Message Processing Flow
 
-### Example Configuration
+If the supervisor is enabled, the message interceptor will process the messages through the supervisor with the following flow:
 
-```python
-from agentsociety.message import MessageInterceptor
-from agentsociety.llm import LLMConfig
-
-# Initialize the interceptor with LLM configuration
-interceptor = MessageInterceptor(
-    llm_config=[LLMConfig(...)]
-)
-
-# Initialize the interceptor
-await interceptor.init()
-
-# Set the supervisor
-await interceptor.set_supervisor(supervisor)
-```
+1. AGENT_CHAT messages are collected from all agent groups in the simulation
+   - Other message kinds are forwarded without validation.
+2. The interceptor processes these messages through its supervisor
+3. For each message:
+   - The supervisor will validate the message and set a boolean value indicating whether the message is valid or not and put it in the `validation_dict` with the message as the key, the value is the boolean value.
+   - If the message is valid, the message will be sent to the sender, as it is not modified.
+   - If the message is invalid, it will not be sent to the sender, and a failed-to-send message will be returned to the sender.
+   - Persuasion messages are extra messages that the supervisor wants to send to agents to persuade them, or just tell them something.
 
 ## Supervisor
 
@@ -44,10 +33,27 @@ The `SupervisorBase` class is a specialized agent that implements message valida
 ### Example of a Custom Supervisor
 
 ```python
-from agentsociety.agent import SupervisorBase
+from typing import Any, Optional
+
+from agentsociety.agent import (AgentToolbox, Block, StatusAttribute,
+                                SupervisorBase)
+from agentsociety.memory import Memory
 from agentsociety.message import Message
 
+import random
+
 class CustomSupervisor(SupervisorBase):
+    def __init__(
+        self,
+        id: int,
+        name: str,
+        toolbox: AgentToolbox,
+        memory: Memory,
+        agent_params: Optional[Any] = None,
+        blocks: Optional[list[Block]] = None,
+    ):
+        super().__init__(id, name, toolbox, memory, agent_params, blocks)
+ 
     async def forward(
         self,
         current_round_messages: list[Message],
@@ -68,46 +74,29 @@ class CustomSupervisor(SupervisorBase):
         # Implement your validation logic here
         for message in current_round_messages:
             # Example validation logic
-            is_valid = True  # Replace with actual validation
+            is_valid = random.random() < 0.5  # Replace with actual validation
             validation_dict[message] = is_valid
-            
-            if not is_valid:
-                # Add intervention message if needed
-                persuasion_messages.append(...)
                 
         return validation_dict, persuasion_messages
 ```
 
-## Message Processing Flow
-
-1. Messages are sent to the MessageInterceptor
-2. The interceptor forwards messages to the Supervisor for validation
-3. The Supervisor processes messages and returns:
-   - A validation dictionary indicating which messages are valid
-   - Any intervention messages that should be sent
-4. The interceptor processes the results and:
-   - Forwards valid messages
-   - Sends failure notifications for invalid messages
-   - Includes any intervention messages in the final output
+This example is a simple supervisor that validates messages randomly, and no persuasion messages are sent.
 
 ## Usage Example
 
-Here's how to configure message interception in your experiment:
+Here's how to configure message interception in your experiment, simply add the supervisor to the agents config:
 
 ```python
-from agentsociety.config import Config, ExpConfig, MessageInterceptConfig
+from agentsociety.config import Config
 
+# Configure in experiment
 config = Config(
     ...
-    exp=ExpConfig(
-        ...
-        message_intercept=MessageInterceptConfig(
-            supervisor=CustomSupervisor,  # Your custom supervisor class
+        agents=AgentsConfig(
+            ...
+            supervisor=AgentConfig(
+                agent_class=CustomSupervisor, # This is the supervisor class, inherit from SupervisorBase and implement the forward method
+            ),
         ),
-        environment=EnvironmentConfig(
-            start_tick=6 * 60 * 60,
-            total_tick=18 * 60 * 60,
-        ),
-    ),
 )
 ```
