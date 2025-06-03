@@ -225,10 +225,10 @@ const Page = () => {
                                     description={
                                         <div>
                                             <p>{t('bill.confirmRecharge.content')}</p>
-                                            <p>1. {t('bill.confirmRecharge.invited')}</p>
-                                            <p>2. {t('bill.confirmRecharge.testing')}</p>
-                                            <p>3. {t('bill.confirmRecharge.incomplete')}</p>
-                                            <p>4. {t('bill.confirmRecharge.changeable')}</p>
+                                            {/* <p>1. {t('bill.confirmRecharge.invited')}</p> */}
+                                            {/* <p>2. {t('bill.confirmRecharge.testing')}</p> */}
+                                            {/* <p>3. {t('bill.confirmRecharge.incomplete')}</p> */}
+                                            <p>1. {t('bill.confirmRecharge.changeable')}</p>
                                         </div>
                                     }
                                     placement="bottomLeft"

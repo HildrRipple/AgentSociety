@@ -12,7 +12,7 @@ export default {
         invited: '您是受邀请的用户。',
         testing: '您了解该系统目前仍处于测试阶段，尚未正式运行。',
         incomplete: '您了解系统各项功能可能存在不完善的情况。',
-        changeable: '您了解系统功能、收费标准随时可能变更且不作通知。',
+        changeable: '您理解本系统的用途，并了解系统功能、收费标准随时可能变更且不作通知。',
         okText: '确认',
         cancelText: '取消'
     },
