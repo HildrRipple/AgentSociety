@@ -79,7 +79,7 @@ async def get_agent_profile(
 
         # Find the profile
         stmt = select(AgentProfile).where(
-            AgentProfile.tenant_id == tenant_id, AgentProfile.id == profile_id
+            AgentProfile.tenant_id.in_([tenant_id, ""]), AgentProfile.id == profile_id
         )
         result = await db.execute(stmt)
         profile = result.scalar_one_or_none()
@@ -304,4 +304,3 @@ async def upload_agent_profile(
         # Convert to ApiAgentProfile
         api_profile = ApiAgentProfile.model_validate(new_profile)
         return ApiResponseWrapper(data=api_profile)
-
