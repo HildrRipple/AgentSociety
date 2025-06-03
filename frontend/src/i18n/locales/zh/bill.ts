@@ -41,8 +41,8 @@ export default {
         description: '描述',
         createdAt: '创建时间',
         updatedAt: '更新时间',
-        llm_input_token: 'LLM输入Token',
-        llm_output_token: 'LLM输出Token',
+        llm_input_token: 'LLM输入Token（百万Token）',
+        llm_output_token: 'LLM输出Token（百万Token）',
         run_time: '运行时间',
         recharge: '充值'
     }

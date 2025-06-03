@@ -41,8 +41,8 @@ export default {
         description: 'Description',
         createdAt: 'Created At',
         updatedAt: 'Updated At',
-        llm_input_token: 'LLM Input Token',
-        llm_output_token: 'LLM Output Token',
+        llm_input_token: 'LLM Input Token (million tokens)',
+        llm_output_token: 'LLM Output Token (million tokens)',
         run_time: 'Run Time',
         recharge: 'Recharge'
     }
