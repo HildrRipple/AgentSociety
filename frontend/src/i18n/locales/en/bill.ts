@@ -43,7 +43,7 @@ export default {
         updatedAt: 'Updated At',
         llm_input_token: 'LLM Input Token (million tokens)',
         llm_output_token: 'LLM Output Token (million tokens)',
-        run_time: 'Run Time',
+        run_time: 'Run Time (seconds)',
         recharge: 'Recharge'
     }
 }; 
