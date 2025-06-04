@@ -243,7 +243,10 @@ class AgentGroup:
             extra_attributes = memory_dict.get("extra_attributes", {})
             profile = memory_dict.get("profile", {})
             base = memory_dict.get("base", {})
-            to_return[id] = (agent_class, profile)
+            profile_ = {}
+            for k, v in profile.items():
+                profile_[k] = v[1]
+            to_return[id] = (agent_class, profile_)
             memory_init = Memory(
                 agent_id=id,
                 environment=self.environment,
