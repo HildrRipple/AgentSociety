@@ -134,8 +134,6 @@ def evaluate_filter(filter_str: str, profile: dict) -> bool:
     import re
     pattern = r'\${profile\.([^}]+)}'
     required_keys = set(re.findall(pattern, filter_str))
-
-    print(required_keys)
     
     # if any required key is not in profile, return False
     for key in required_keys:
@@ -145,7 +143,6 @@ def evaluate_filter(filter_str: str, profile: dict) -> bool:
             if not isinstance(current, dict) or part not in current:
                 return False
             current = current[part]
-            print(current)
     
     # replace all ${profile.xxx} with actual values
     for key in required_keys:
