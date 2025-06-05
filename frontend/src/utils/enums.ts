@@ -14,7 +14,7 @@ export enum LLMProviderType {
 export enum WorkflowType {
   STEP = "step",
   RUN = "run",
-  // INTERVIEW = "interview",
+  INTERVIEW = "interview",
   // SURVEY = "survey",
   ENVIRONMENT_INTERVENE = "environment",
   // UPDATE_STATE_INTERVENE = "update_state",

@@ -6,6 +6,8 @@ import { WorkflowType } from '../../utils/enums';
 import { fetchCustom } from '../../components/fetch';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
+import MonacoPromptEditor from '../../components/MonacoPromptEditor';
+import { profileOptions } from '../AgentTemplate/AgentTemplateForm';
 
 interface FormValues {
     name: string;
@@ -22,6 +24,7 @@ const WorkflowList: React.FC = () => {
     const [currentWorkflow, setCurrentWorkflow] = useState<ConfigWrapper<WorkflowStepConfig[]> | null>(null);
     const [functionList, setFunctionList] = useState<string[]>([]);
     const [form] = Form.useForm<FormValues>();
+    const [targetAgentModes, setTargetAgentModes] = useState<{ [key: string]: 'list' | 'expression' }>({});
 
     // 获取函数列表
     useEffect(() => {
@@ -148,6 +151,21 @@ const WorkflowList: React.FC = () => {
             // Validate form
             const formValues = await form.validateFields();
 
+            // 处理 target_agent 字段
+            if (formValues.config) {
+                formValues.config = formValues.config.map((step: any) => {
+                    if (step.type === WorkflowType.INTERVIEW) {
+                        // 如果是表达式模式，转换为 AgentFilterConfig 格式
+                        if (targetAgentModes[formValues.config.indexOf(step)] === 'expression') {
+                            step.target_agent = {
+                                filter_str: step.target_agent
+                            };
+                        }
+                    }
+                    return step;
+                });
+            }
+
             let res: Response;
             if (currentWorkflow) {
                 res = await fetchCustom(`/api/workflow-configs/${currentWorkflow.id}`, {
@@ -182,6 +200,34 @@ const WorkflowList: React.FC = () => {
     const handleModalCancel = () => {
         setIsModalVisible(false);
         form.resetFields();
+    };
+
+    // 处理 target_agent_mode 变化
+    const handleTargetAgentModeChange = (stepIndex: number, mode: 'list' | 'expression') => {
+        setTargetAgentModes(prev => ({
+            ...prev,
+            [stepIndex]: mode
+        }));
+    };
+
+    // 在表单值变化时更新 target_agent_mode
+    const handleFormValuesChange = (changedValues: any, allValues: FormValues) => {
+        if (changedValues.config) {
+            const config = allValues.config;
+            config.forEach((step, index) => {
+                if (step.type === WorkflowType.INTERVIEW && !targetAgentModes[index]) {
+                    // 如果是 interview 类型且没有设置过 mode，则根据 target_agent 的值类型设置默认 mode
+                    const targetAgent = step.target_agent;
+                    if (Array.isArray(targetAgent)) {
+                        handleTargetAgentModeChange(index, 'list');
+                    } else if (typeof targetAgent === 'string') {
+                        handleTargetAgentModeChange(index, 'expression');
+                    } else {
+                        handleTargetAgentModeChange(index, 'list');
+                    }
+                }
+            });
+        }
     };
 
     // Table columns
@@ -272,6 +318,7 @@ const WorkflowList: React.FC = () => {
                 <Form
                     form={form}
                     layout="vertical"
+                    onValuesChange={handleFormValuesChange}
                 >
                     {/* 元数据部分 */}
                     <Card
@@ -369,6 +416,17 @@ const WorkflowList: React.FC = () => {
                                                                         <Space size={4}>
                                                                             {t('workflow.nextRound')}
                                                                             <Tooltip title={t('workflow.nextRoundTooltip')}>
+                                                                                <QuestionCircleOutlined style={{ color: '#1890ff' }} />
+                                                                            </Tooltip>
+                                                                        </Space>
+                                                                    )
+                                                                },
+                                                                {
+                                                                    value: WorkflowType.INTERVIEW,
+                                                                    label: (
+                                                                        <Space size={4}>
+                                                                            {t('workflow.interview')}
+                                                                            <Tooltip title={t('workflow.interviewTooltip')}>
                                                                                 <QuestionCircleOutlined style={{ color: '#1890ff' }} />
                                                                             </Tooltip>
                                                                         </Space>
@@ -495,6 +553,98 @@ const WorkflowList: React.FC = () => {
                                                                             style={{ marginBottom: 8 }}
                                                                         >
                                                                             <Input.TextArea rows={1} placeholder={t('workflow.enterEnvironmentValue')} />
+                                                                        </Form.Item>
+                                                                    </Col>
+                                                                </>
+                                                            );
+                                                        }
+
+                                                        if (stepType === WorkflowType.INTERVIEW) {
+                                                            // 生成建议
+                                                            const profileSuggestions = Object.entries(profileOptions).map(([key, config]) => ({
+                                                                label: key,
+                                                                detail: `Agent's ${config.label.toLowerCase()}`
+                                                            }));
+
+                                                            // 添加运算符建议
+                                                            const operatorSuggestions = [
+                                                                { label: '==', detail: 'Equal to' },
+                                                                { label: '!=', detail: 'Not equal to' },
+                                                                { label: '>', detail: 'Greater than' },
+                                                                { label: '>=', detail: 'Greater than or equal to' },
+                                                                { label: '<', detail: 'Less than' },
+                                                                { label: '<=', detail: 'Less than or equal to' },
+                                                                { label: 'and', detail: 'Logical AND' },
+                                                                { label: 'or', detail: 'Logical OR' },
+                                                                { label: 'not', detail: 'Logical NOT' },
+                                                                { label: 'in', detail: 'Value in list' },
+                                                                { label: 'not in', detail: 'Value not in list' },
+                                                                { label: 'is', detail: 'Identity comparison' },
+                                                                { label: 'is not', detail: 'Identity comparison (not)' }
+                                                            ];
+
+                                                            return (
+                                                                <>
+                                                                    <Col span={12}>
+                                                                        <Form.Item
+                                                                            label={t('workflow.targetAgentMode')}
+                                                                            tooltip={t('workflow.targetAgentModeTooltip')}
+                                                                            style={{ marginBottom: 8 }}
+                                                                        >
+                                                                            <Select
+                                                                                value={targetAgentModes[name] || 'list'}
+                                                                                onChange={(value) => handleTargetAgentModeChange(name, value)}
+                                                                                options={[
+                                                                                    { value: 'list', label: t('workflow.targetAgentModeList') },
+                                                                                    { value: 'expression', label: t('workflow.targetAgentModeExpression') }
+                                                                                ]}
+                                                                            />
+                                                                        </Form.Item>
+                                                                    </Col>
+                                                                    <Col span={12}>
+                                                                        <Form.Item
+                                                                            {...restField}
+                                                                            name={[name, 'target_agent']}
+                                                                            label={targetAgentModes[name] === 'expression' ? t('workflow.targetAgentExpression') : t('workflow.targetAgentIds')}
+                                                                            rules={[{ required: true, message: t('workflow.pleaseEnterTargetAgent') }]}
+                                                                            tooltip={targetAgentModes[name] === 'expression' ? t('workflow.targetAgentExpressionTooltip') : t('workflow.targetAgentIdsTooltip')}
+                                                                            style={{ marginBottom: 8 }}
+                                                                        >
+                                                                            {targetAgentModes[name] === 'expression' ? (
+                                                                                <MonacoPromptEditor
+                                                                                    height="120px"
+                                                                                    suggestions={[
+                                                                                        {
+                                                                                            label: 'profile',
+                                                                                            children: profileSuggestions
+                                                                                        },
+                                                                                        ...operatorSuggestions
+                                                                                    ]}
+                                                                                    editorId={`target-agent-${name}`}
+                                                                                    key={`target-agent-${name}-${targetAgentModes[name]}`}
+                                                                                />
+                                                                            ) : (
+                                                                                <Input 
+                                                                                    placeholder="1,2,3" 
+                                                                                    onChange={(e) => {
+                                                                                        // 将逗号分隔的字符串转换为数组
+                                                                                        const value = e.target.value.split(',').map(v => parseInt(v.trim()));
+                                                                                        form.setFieldValue(['config', name, 'target_agent'], value);
+                                                                                    }}
+                                                                                />
+                                                                            )}
+                                                                        </Form.Item>
+                                                                    </Col>
+                                                                    <Col span={12}>
+                                                                        <Form.Item
+                                                                            {...restField}
+                                                                            name={[name, 'interview_message']}
+                                                                            label={t('workflow.interviewMessage')}
+                                                                            rules={[{ required: true, message: t('workflow.pleaseEnterInterviewMessage') }]}
+                                                                            tooltip={t('workflow.interviewMessageTooltip')}
+                                                                            style={{ marginBottom: 8 }}
+                                                                        >
+                                                                            <Input.TextArea rows={5} style={{ height: '120px' }} />
                                                                         </Form.Item>
                                                                     </Col>
                                                                 </>
