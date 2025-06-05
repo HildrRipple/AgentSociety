@@ -107,7 +107,7 @@ async def run_experiment(
         executor = cast(
             Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
         )
-        if executor == KubernetesExecutor:
+        if isinstance(executor, KubernetesExecutor):
             if account.balance <= 0:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
