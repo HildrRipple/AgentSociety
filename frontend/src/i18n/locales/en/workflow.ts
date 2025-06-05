@@ -71,9 +71,9 @@ export default {
         createSuccess: "Workflow created successfully",
         createFailed: "Failed to create workflow"
     },
-    survey: "Send survey to specified agents",
-    update_state_intervene: "Update state information of specified agents",
-    message_intervene: "Send intervention message to specified agents",
+    survey: "Survey",
+    update_state_intervene: "Update State Intervene",
+    message_intervene: "Message Intervene",
     surveyTooltip: "Select or input the survey to send",
     update_state_interveneTooltip: "Enter the state field name and new value to update",
     message_interveneTooltip: "Enter the intervention message content to send"
