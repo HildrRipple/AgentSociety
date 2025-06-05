@@ -11,14 +11,6 @@ from message_agent import AgreeAgent, DisagreeAgent
 from agentsociety.agent.distribution import Distribution, DistributionConfig
 from agentsociety.cityagent import (
     DEFAULT_DISTRIBUTIONS,
-    EconomyBlock,
-    EconomyBlockParams,
-    MobilityBlock,
-    MobilityBlockParams,
-    OtherBlock,
-    OtherBlockParams,
-    SocialBlock,
-    SocialBlockParams,
     SocietyAgent,
     default,
     memory_config_societyagent,
@@ -32,7 +24,10 @@ from agentsociety.configs import (
     MapConfig,
 )
 from agentsociety.configs.agent import AgentConfig
-from agentsociety.configs.exp import WorkflowStepConfig, WorkflowType
+from agentsociety.configs.exp import (
+    WorkflowStepConfig,
+    WorkflowType,
+)
 from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
 from agentsociety.metrics import MlflowConfig
@@ -129,12 +124,6 @@ config = Config(
             AgentConfig(
                 agent_class="citizen",
                 number=100,
-                blocks={
-                    MobilityBlock: MobilityBlockParams(),
-                    EconomyBlock: EconomyBlockParams(),
-                    SocialBlock: SocialBlockParams(),
-                    OtherBlock: OtherBlockParams(),
-                }
             ),
             AgentConfig(
                 agent_class=AgreeAgent,
@@ -148,30 +137,6 @@ config = Config(
                 memory_config_func=memory_config_societyagent,
                 memory_distributions=distributions,
             ),
-        ],
-        firms=[
-            AgentConfig(
-                agent_class="firm",
-                number=1,
-            )
-        ],
-        banks=[
-            AgentConfig(
-                agent_class="bank",
-                number=1,
-            )
-        ],
-        nbs=[
-            AgentConfig(
-                agent_class="nbs",
-                number=1,
-            )
-        ],
-        governments=[
-            AgentConfig(
-                agent_class="government",
-                number=1,
-            )
         ],
     ),  # type: ignore
     exp=ExpConfig(

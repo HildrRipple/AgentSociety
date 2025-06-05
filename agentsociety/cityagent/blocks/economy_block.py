@@ -302,7 +302,7 @@ class EconomyBlock(Block):
     ContextType = EconomyBlockContext
     NeedAgent = True
     name = "EconomyBlock"
-    description = "Responsible for all kinds of economic-related operations"
+    description = "Responsible for all kinds of economic-related operations, for example, work, shopping, consume, etc."
     actions = {
         "work": "Support the work action",
         "consume": "Support the consume action",
@@ -347,9 +347,8 @@ class EconomyBlock(Block):
         try:
             await self.month_plan_block.forward()
         except Exception as e:
-            get_logger().error(
-                f"EconomyBlock MonthPlanBlock: Error in month plan block: {e}"
-            )
+            get_logger().warning(f"EconomyBlock MonthPlanBlock: {e}")
+            pass
 
     async def forward(self, agent_context: DotDict) -> SocietyAgentBlockOutput:
         """Coordinate economic activity execution.

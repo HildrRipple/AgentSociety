@@ -7,15 +7,7 @@ import random
 import ray
 
 from agentsociety.cityagent import (
-    EconomyBlock,
-    EconomyBlockParams,
-    MobilityBlock,
-    MobilityBlockParams,
-    OtherBlock,
-    OtherBlockParams,
     SocietyAgent,
-    SocialBlock,
-    SocialBlockParams,
     default,
 )
 from agentsociety.configs import (
@@ -103,36 +95,6 @@ config = Config(
             AgentConfig(
                 agent_class="citizen",
                 number=100,
-                blocks={
-                    MobilityBlock: MobilityBlockParams(),
-                    EconomyBlock: EconomyBlockParams(),
-                    SocialBlock: SocialBlockParams(),
-                    OtherBlock: OtherBlockParams(),
-                }
-            )
-        ],
-        firms=[
-            AgentConfig(
-                agent_class="firm",
-                number=1,
-            )
-        ],
-        banks=[
-            AgentConfig(
-                agent_class="bank",
-                number=1,
-            )
-        ],
-        nbs=[
-            AgentConfig(
-                agent_class="nbs",
-                number=1,
-            )
-        ],
-        governments=[
-            AgentConfig(
-                agent_class="government",
-                number=1,
             )
         ],
     ),  # type: ignore

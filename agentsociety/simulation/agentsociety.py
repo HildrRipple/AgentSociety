@@ -733,10 +733,6 @@ class AgentSociety:
         # Step 3: Insert essential distributions for citizens
         memory_distributions = {}
         for key, ids in [
-            ("firm_id", firm_ids),
-            ("bank_id", bank_ids),
-            ("nbs_id", nbs_ids),
-            ("government_id", government_ids),
             ("home_aoi_id", aoi_ids),
             ("work_aoi_id", aoi_ids),
         ]:

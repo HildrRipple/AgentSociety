@@ -5,20 +5,17 @@ import pickle as pkl
 import ray
 
 from agentsociety.cityagent import (
-    EconomyBlock,
-    EconomyBlockParams,
-    MobilityBlock,
-    MobilityBlockParams,
-    OtherBlock,
-    OtherBlockParams,
-    SocialBlock,
-    SocialBlockParams,
     SocietyAgent,
     default,
 )
 from agentsociety.cityagent.metrics import economy_metric
 from agentsociety.configs import (
-    AgentsConfig, Config, EnvConfig, ExpConfig, LLMConfig, MapConfig
+    AgentsConfig,
+    Config,
+    EnvConfig,
+    ExpConfig,
+    LLMConfig,
+    MapConfig,
 )
 from agentsociety.configs.agent import AgentConfig, InstitutionAgentClass
 from agentsociety.configs.exp import (
@@ -80,37 +77,7 @@ config = Config(
             AgentConfig(
                 agent_class="citizen",
                 number=1,
-                blocks={
-                    MobilityBlock: MobilityBlockParams(),
-                    EconomyBlock: EconomyBlockParams(),
-                    SocialBlock: SocialBlockParams(),
-                    OtherBlock: OtherBlockParams(),
-                }
             ),
-        ],
-        firms=[
-            AgentConfig(
-                agent_class=InstitutionAgentClass.FIRM,
-                number=1,
-            )
-        ],
-        banks=[
-            AgentConfig(
-                agent_class=InstitutionAgentClass.BANK,
-                number=1,
-            )
-        ],
-        nbs=[
-            AgentConfig(
-                agent_class=InstitutionAgentClass.NBS,
-                number=1,
-            )
-        ],
-        governments=[
-            AgentConfig(
-                agent_class=InstitutionAgentClass.GOVERNMENT,
-                number=1,
-            )
         ],
     ),  # type: ignore
     exp=ExpConfig(
