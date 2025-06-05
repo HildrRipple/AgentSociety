@@ -44,7 +44,7 @@ class AgentConfig(BaseModel):
     agent_params: Optional[Any] = None
     """Agent configuration"""
 
-    blocks: Optional[dict[Union[type[Block], str], Any]] = None
+    blocks: Optional[dict[type[Block], Any]] = None
     """Blocks configuration"""
 
     # Choose one of the following:

@@ -6,7 +6,18 @@ import random
 
 import ray
 
-from agentsociety.cityagent import SocietyAgent, default
+from agentsociety.cityagent import (
+    EconomyBlock,
+    EconomyBlockParams,
+    MobilityBlock,
+    MobilityBlockParams,
+    OtherBlock,
+    OtherBlockParams,
+    SocialBlock,
+    SocialBlockParams,
+    SocietyAgent,
+    default,
+)
 from agentsociety.configs import (
     AgentsConfig,
     Config,
@@ -45,18 +56,16 @@ async def update_attitude(simulation: AgentSociety):
 async def gather_attitude(simulation: AgentSociety):
     print("gather attitude")
     citizen_ids = await simulation.filter(types=(SocietyAgent,))
-    attitudes = await simulation.gather("attitude", citizen_ids)
+    attitudes = await simulation.gather(
+        "attitude", citizen_ids, flatten=True, keep_id=True
+    )
 
     with open(f"exp1/attitudes_final.json", "w", encoding="utf-8") as f:
         json.dump(attitudes, f, ensure_ascii=False, indent=2)
 
-    group_chat_histories: list[dict[int, dict[str, str]]] = await simulation.gather(
-        "chat_histories", citizen_ids
+    chat_histories = await simulation.gather(
+        "chat_histories", citizen_ids, flatten=True, keep_id=True
     )
-    chat_histories: dict[int, dict[str, str]] = {}
-    for group_history in group_chat_histories:
-        for agent_id in group_history.keys():
-            chat_histories[agent_id] = group_history[agent_id]
     with open(f"exp1/chat_histories.json", "w", encoding="utf-8") as f:
         json.dump(chat_histories, f, ensure_ascii=False, indent=2)
 
@@ -96,8 +105,38 @@ config = Config(
             AgentConfig(
                 agent_class="citizen",
                 number=100,
+                blocks={
+                    MobilityBlock: MobilityBlockParams(),
+                    EconomyBlock: EconomyBlockParams(),
+                    SocialBlock: SocialBlockParams(),
+                    OtherBlock: OtherBlockParams(),
+                }
             )
-        ]
+        ],
+        firms=[
+            AgentConfig(
+                agent_class="firm",
+                number=1,
+            )
+        ],
+        banks=[
+            AgentConfig(
+                agent_class="bank",
+                number=1,
+            )
+        ],
+        nbs=[
+            AgentConfig(
+                agent_class="nbs",
+                number=1,
+            )
+        ],
+        governments=[
+            AgentConfig(
+                agent_class="government",
+                number=1,
+            )
+        ],
     ),  # type: ignore
     exp=ExpConfig(
         name="polarization_control",

@@ -7,7 +7,17 @@ from typing import Literal, Union
 import ray
 from hurrican_memory_config import memory_config_societyagent_hurrican
 
-from agentsociety.cityagent import default
+from agentsociety.cityagent import (
+    default,
+    EconomyBlock,
+    EconomyBlockParams,
+    MobilityBlock,
+    MobilityBlockParams,
+    OtherBlock,
+    OtherBlockParams,
+    SocialBlock,
+    SocialBlockParams,
+)
 from agentsociety.configs import (
     AgentsConfig,
     Config,
@@ -77,8 +87,38 @@ config = Config(
                 agent_class="citizen",
                 number=1000,
                 memory_config_func=memory_config_societyagent_hurrican,
+                blocks={
+                    MobilityBlock: MobilityBlockParams(),
+                    EconomyBlock: EconomyBlockParams(),
+                    SocialBlock: SocialBlockParams(),
+                    OtherBlock: OtherBlockParams(),
+                }
             )
-        ]
+        ],
+        firms=[
+            AgentConfig(
+                agent_class="firm",
+                number=1,
+            )
+        ],
+        banks=[
+            AgentConfig(
+                agent_class="bank",
+                number=1,
+            )
+        ],
+        nbs=[
+            AgentConfig(
+                agent_class="nbs",
+                number=1,
+            )
+        ],
+        governments=[
+            AgentConfig(
+                agent_class="government",
+                number=1,
+            )
+        ],
     ),  # type: ignore
     exp=ExpConfig(
         name="hurricane_impact",

@@ -1,21 +1,26 @@
 import asyncio
-import json
 import logging
 import pickle as pkl
 
 import ray
 
-from agentsociety.cityagent import SocietyAgent, default
+from agentsociety.cityagent import (
+    EconomyBlock,
+    EconomyBlockParams,
+    MobilityBlock,
+    MobilityBlockParams,
+    OtherBlock,
+    OtherBlockParams,
+    SocialBlock,
+    SocialBlockParams,
+    SocietyAgent,
+    default,
+)
 from agentsociety.cityagent.metrics import economy_metric
 from agentsociety.configs import (
-    AgentsConfig,
-    Config,
-    EnvConfig,
-    ExpConfig,
-    LLMConfig,
-    MapConfig,
+    AgentsConfig, Config, EnvConfig, ExpConfig, LLMConfig, MapConfig
 )
-from agentsociety.configs.agent import InstitutionAgentClass, AgentConfig
+from agentsociety.configs.agent import AgentConfig, InstitutionAgentClass
 from agentsociety.configs.exp import (
     MetricExtractorConfig,
     MetricType,
@@ -24,17 +29,18 @@ from agentsociety.configs.exp import (
 )
 from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
-from agentsociety.metrics import MlflowConfig
+from agentsociety.metrics import MlflowConfig, MlflowConfig
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import AvroConfig, PostgreSQLConfig
-from agentsociety.cityagent import SocietyAgentConfig
 
 ray.init(logging_level=logging.INFO)
 
 
 async def gather_ubi_opinions(simulation: AgentSociety):
     citizen_ids = await simulation.filter(types=(SocietyAgent,))
-    opinions = await simulation.gather("ubi_opinion", citizen_ids)
+    opinions = await simulation.gather(
+        "ubi_opinion", citizen_ids, flatten=True, keep_id=True
+    )
     with open("opinions.pkl", "wb") as f:
         pkl.dump(opinions, f)
 
@@ -74,16 +80,35 @@ config = Config(
             AgentConfig(
                 agent_class="citizen",
                 number=1,
-                agent_params=SocietyAgentConfig(
-                    UBI=1000,
-                    num_labor_hours=168,
-                    productivity_per_labor=1,
-                ),
-            )
+                blocks={
+                    MobilityBlock: MobilityBlockParams(),
+                    EconomyBlock: EconomyBlockParams(),
+                    SocialBlock: SocialBlockParams(),
+                    OtherBlock: OtherBlockParams(),
+                }
+            ),
         ],
         firms=[
             AgentConfig(
                 agent_class=InstitutionAgentClass.FIRM,
+                number=1,
+            )
+        ],
+        banks=[
+            AgentConfig(
+                agent_class=InstitutionAgentClass.BANK,
+                number=1,
+            )
+        ],
+        nbs=[
+            AgentConfig(
+                agent_class=InstitutionAgentClass.NBS,
+                number=1,
+            )
+        ],
+        governments=[
+            AgentConfig(
+                agent_class=InstitutionAgentClass.GOVERNMENT,
                 number=1,
             )
         ],
