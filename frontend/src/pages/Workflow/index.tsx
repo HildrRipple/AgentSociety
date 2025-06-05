@@ -657,7 +657,7 @@ const WorkflowList: React.FC = () => {
                                                                         >
                                                                             {targetAgentModes[name] === 'expression' ? (
                                                                                 <MonacoPromptEditor
-                                                                                    height="120px"
+                                                                                    height="40px"
                                                                                     suggestions={getTargetAgentSuggestions()}
                                                                                     editorId={`target-agent-${name}`}
                                                                                     key={`target-agent-${name}-${targetAgentModes[name]}`}
@@ -684,7 +684,7 @@ const WorkflowList: React.FC = () => {
                                                                                 tooltip={t('workflow.interviewMessageTooltip')}
                                                                                 style={{ marginBottom: 8 }}
                                                                             >
-                                                                                <Input.TextArea rows={5} style={{ height: '120px' }} />
+                                                                                <Input.TextArea rows={1} style={{ height: '32px' }} />
                                                                             </Form.Item>
                                                                         </Col>
                                                                     )}
@@ -698,7 +698,7 @@ const WorkflowList: React.FC = () => {
                                                                                 tooltip={t('workflow.surveyTooltip')}
                                                                                 style={{ marginBottom: 8 }}
                                                                             >
-                                                                                <Input.TextArea rows={5} style={{ height: '120px' }} />
+                                                                                <Input.TextArea rows={1} style={{ height: '32px' }} />
                                                                             </Form.Item>
                                                                         </Col>
                                                                     )}
@@ -740,7 +740,7 @@ const WorkflowList: React.FC = () => {
                                                                                 tooltip={t('workflow.interveneMessageTooltip')}
                                                                                 style={{ marginBottom: 8 }}
                                                                             >
-                                                                                <Input.TextArea rows={5} style={{ height: '120px' }} />
+                                                                                <Input.TextArea rows={1} style={{ height: '32px' }} />
                                                                             </Form.Item>
                                                                         </Col>
                                                                     )}
