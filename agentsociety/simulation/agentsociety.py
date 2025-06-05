@@ -971,7 +971,7 @@ class AgentSociety:
             filtered_ids = [
                 agent_id 
                 for agent_id, (agent_class, _) in self._filter_base.items()
-                if agent_class in types
+                if any(issubclass(agent_class, t) for t in types)
             ]
         else:
             filtered_ids = list(self._agent_ids)
