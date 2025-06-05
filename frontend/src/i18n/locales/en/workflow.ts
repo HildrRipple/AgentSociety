@@ -70,5 +70,11 @@ export default {
         updateFailed: "Failed to update workflow",
         createSuccess: "Workflow created successfully",
         createFailed: "Failed to create workflow"
-    }
+    },
+    survey: "Send survey to specified agents",
+    update_state_intervene: "Update state information of specified agents",
+    message_intervene: "Send intervention message to specified agents",
+    surveyTooltip: "Select or input the survey to send",
+    update_state_interveneTooltip: "Enter the state field name and new value to update",
+    message_interveneTooltip: "Enter the intervention message content to send"
 }; 

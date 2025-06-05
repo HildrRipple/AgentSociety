@@ -62,6 +62,12 @@ export default {
     descriptionTooltip: "此工作流步骤的描述",
     enterStepDescription: "输入步骤描述",
     addWorkflowStep: "添加工作流步骤",
+    survey: "向指定智能体发放调查问卷",
+    surveyTooltip: "选择或输入要发放的调查问卷",
+    update_state_intervene: "更新指定智能体的状态信息",
+    update_state_interveneTooltip: "输入要更新的状态信息字段名及其新值",
+    message_intervene: "向指定智能体发送干预信息",
+    message_interveneTooltip: "输入要发送的干预信息内容",
     messages: {
         loadFailed: "加载工作流失败",
         deleteSuccess: "工作流删除成功",

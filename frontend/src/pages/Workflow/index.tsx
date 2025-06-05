@@ -15,6 +15,35 @@ interface FormValues {
     config: WorkflowStepConfig[];
 }
 
+const getTargetAgentSuggestions = () => {
+    const profileSuggestions = Object.entries(profileOptions).map(([key, config]) => ({
+        label: key,
+        detail: `Agent's ${config.label.toLowerCase()}`
+    }));
+    const operatorSuggestions = [
+        { label: '==', detail: 'Equal to' },
+        { label: '!=', detail: 'Not equal to' },
+        { label: '>', detail: 'Greater than' },
+        { label: '>=', detail: 'Greater than or equal to' },
+        { label: '<', detail: 'Less than' },
+        { label: '<=', detail: 'Less than or equal to' },
+        { label: 'and', detail: 'Logical AND' },
+        { label: 'or', detail: 'Logical OR' },
+        { label: 'not', detail: 'Logical NOT' },
+        { label: 'in', detail: 'Value in list' },
+        { label: 'not in', detail: 'Value not in list' },
+        { label: 'is', detail: 'Identity comparison' },
+        { label: 'is not', detail: 'Identity comparison (not)' }
+    ];
+    return [
+        {
+            label: 'profile',
+            children: profileSuggestions
+        },
+        ...operatorSuggestions
+    ];
+};
+
 const WorkflowList: React.FC = () => {
     const { t } = useTranslation();
     const [workflows, setWorkflows] = useState<ConfigWrapper<WorkflowStepConfig[]>[]>([]);
@@ -153,10 +182,16 @@ const WorkflowList: React.FC = () => {
 
             // 处理 target_agent 字段
             if (formValues.config) {
-                formValues.config = formValues.config.map((step: any) => {
-                    if (step.type === WorkflowType.INTERVIEW) {
-                        // 如果是表达式模式，转换为 AgentFilterConfig 格式
-                        if (targetAgentModes[formValues.config.indexOf(step)] === 'expression') {
+                formValues.config = formValues.config.map((step: any, idx: number) => {
+                    if (
+                        [
+                            WorkflowType.INTERVIEW,
+                            WorkflowType.SURVEY,
+                            WorkflowType.UPDATE_STATE_INTERVENE,
+                            WorkflowType.MESSAGE_INTERVENE
+                        ].includes(step.type)
+                    ) {
+                        if (targetAgentModes[idx] === 'expression' && typeof step.target_agent === 'string') {
                             step.target_agent = {
                                 filter_str: step.target_agent
                             };
@@ -411,6 +446,39 @@ const WorkflowList: React.FC = () => {
                                                                     )
                                                                 },
                                                                 {
+                                                                    value: WorkflowType.UPDATE_STATE_INTERVENE,
+                                                                    label: (
+                                                                        <Space size={4}>
+                                                                            {t('workflow.update_state_intervene')}
+                                                                            <Tooltip title={t('workflow.update_state_intervene')}>
+                                                                                <QuestionCircleOutlined style={{ color: '#1890ff' }} />
+                                                                            </Tooltip>
+                                                                        </Space>
+                                                                    )
+                                                                },
+                                                                {
+                                                                    value: WorkflowType.MESSAGE_INTERVENE,
+                                                                    label: (
+                                                                        <Space size={4}>
+                                                                            {t('workflow.message_intervene')}
+                                                                            <Tooltip title={t('workflow.message_intervene')}>
+                                                                                <QuestionCircleOutlined style={{ color: '#1890ff' }} />
+                                                                            </Tooltip>
+                                                                        </Space>
+                                                                    )
+                                                                },
+                                                                // {
+                                                                //     value: WorkflowType.SURVEY,
+                                                                //     label: (
+                                                                //         <Space size={4}>
+                                                                //             {t('workflow.survey')}
+                                                                //             <Tooltip title={t('workflow.survey')}>
+                                                                //                 <QuestionCircleOutlined style={{ color: '#1890ff' }} />
+                                                                //             </Tooltip>
+                                                                //         </Space>
+                                                                //     )
+                                                                // },
+                                                                {
                                                                     value: WorkflowType.NEXT_ROUND,
                                                                     label: (
                                                                         <Space size={4}>
@@ -559,30 +627,7 @@ const WorkflowList: React.FC = () => {
                                                             );
                                                         }
 
-                                                        if (stepType === WorkflowType.INTERVIEW) {
-                                                            // 生成建议
-                                                            const profileSuggestions = Object.entries(profileOptions).map(([key, config]) => ({
-                                                                label: key,
-                                                                detail: `Agent's ${config.label.toLowerCase()}`
-                                                            }));
-
-                                                            // 添加运算符建议
-                                                            const operatorSuggestions = [
-                                                                { label: '==', detail: 'Equal to' },
-                                                                { label: '!=', detail: 'Not equal to' },
-                                                                { label: '>', detail: 'Greater than' },
-                                                                { label: '>=', detail: 'Greater than or equal to' },
-                                                                { label: '<', detail: 'Less than' },
-                                                                { label: '<=', detail: 'Less than or equal to' },
-                                                                { label: 'and', detail: 'Logical AND' },
-                                                                { label: 'or', detail: 'Logical OR' },
-                                                                { label: 'not', detail: 'Logical NOT' },
-                                                                { label: 'in', detail: 'Value in list' },
-                                                                { label: 'not in', detail: 'Value not in list' },
-                                                                { label: 'is', detail: 'Identity comparison' },
-                                                                { label: 'is not', detail: 'Identity comparison (not)' }
-                                                            ];
-
+                                                        if ([WorkflowType.INTERVIEW, WorkflowType.SURVEY, WorkflowType.UPDATE_STATE_INTERVENE, WorkflowType.MESSAGE_INTERVENE].includes(stepType)) {
                                                             return (
                                                                 <>
                                                                     <Col span={12}>
@@ -613,13 +658,7 @@ const WorkflowList: React.FC = () => {
                                                                             {targetAgentModes[name] === 'expression' ? (
                                                                                 <MonacoPromptEditor
                                                                                     height="120px"
-                                                                                    suggestions={[
-                                                                                        {
-                                                                                            label: 'profile',
-                                                                                            children: profileSuggestions
-                                                                                        },
-                                                                                        ...operatorSuggestions
-                                                                                    ]}
+                                                                                    suggestions={getTargetAgentSuggestions()}
                                                                                     editorId={`target-agent-${name}`}
                                                                                     key={`target-agent-${name}-${targetAgentModes[name]}`}
                                                                                 />
@@ -635,18 +674,76 @@ const WorkflowList: React.FC = () => {
                                                                             )}
                                                                         </Form.Item>
                                                                     </Col>
-                                                                    <Col span={12}>
-                                                                        <Form.Item
-                                                                            {...restField}
-                                                                            name={[name, 'interview_message']}
-                                                                            label={t('workflow.interviewMessage')}
-                                                                            rules={[{ required: true, message: t('workflow.pleaseEnterInterviewMessage') }]}
-                                                                            tooltip={t('workflow.interviewMessageTooltip')}
-                                                                            style={{ marginBottom: 8 }}
-                                                                        >
-                                                                            <Input.TextArea rows={5} style={{ height: '120px' }} />
-                                                                        </Form.Item>
-                                                                    </Col>
+                                                                    {stepType === WorkflowType.INTERVIEW && (
+                                                                        <Col span={12}>
+                                                                            <Form.Item
+                                                                                {...restField}
+                                                                                name={[name, 'interview_message']}
+                                                                                label={t('workflow.interviewMessage')}
+                                                                                rules={[{ required: true, message: t('workflow.pleaseEnterInterviewMessage') }]}
+                                                                                tooltip={t('workflow.interviewMessageTooltip')}
+                                                                                style={{ marginBottom: 8 }}
+                                                                            >
+                                                                                <Input.TextArea rows={5} style={{ height: '120px' }} />
+                                                                            </Form.Item>
+                                                                        </Col>
+                                                                    )}
+                                                                    {stepType === WorkflowType.SURVEY && (
+                                                                        <Col span={12}>
+                                                                            <Form.Item
+                                                                                {...restField}
+                                                                                name={[name, 'survey']}
+                                                                                label={t('workflow.survey')}
+                                                                                rules={[{ required: true, message: t('workflow.pleaseEnterSurvey') }]}
+                                                                                tooltip={t('workflow.surveyTooltip')}
+                                                                                style={{ marginBottom: 8 }}
+                                                                            >
+                                                                                <Input.TextArea rows={5} style={{ height: '120px' }} />
+                                                                            </Form.Item>
+                                                                        </Col>
+                                                                    )}
+                                                                    {stepType === WorkflowType.UPDATE_STATE_INTERVENE && (
+                                                                        <>
+                                                                            <Col span={6}>
+                                                                                <Form.Item
+                                                                                    {...restField}
+                                                                                    name={[name, 'key']}
+                                                                                    label={t('workflow.update_state_intervene')}
+                                                                                    rules={[{ required: true, message: t('workflow.pleaseEnterEnvironmentKey') }]}
+                                                                                    tooltip={t('workflow.environmentKeyTooltip')}
+                                                                                    style={{ marginBottom: 8 }}
+                                                                                >
+                                                                                    <Input placeholder={t('workflow.enterEnvironmentKey')} />
+                                                                                </Form.Item>
+                                                                            </Col>
+                                                                            <Col span={6}>
+                                                                                <Form.Item
+                                                                                    {...restField}
+                                                                                    name={[name, 'value']}
+                                                                                    label={t('workflow.environmentValue')}
+                                                                                    rules={[{ required: true, message: t('workflow.pleaseEnterEnvironmentValue') }]}
+                                                                                    tooltip={t('workflow.environmentValueTooltip')}
+                                                                                    style={{ marginBottom: 8 }}
+                                                                                >
+                                                                                    <Input.TextArea rows={1} placeholder={t('workflow.enterEnvironmentValue')} />
+                                                                                </Form.Item>
+                                                                            </Col>
+                                                                        </>
+                                                                    )}
+                                                                    {stepType === WorkflowType.MESSAGE_INTERVENE && (
+                                                                        <Col span={12}>
+                                                                            <Form.Item
+                                                                                {...restField}
+                                                                                name={[name, 'intervene_message']}
+                                                                                label={t('workflow.message_intervene')}
+                                                                                rules={[{ required: true, message: t('workflow.pleaseEnterInterveneMessage') }]}
+                                                                                tooltip={t('workflow.interveneMessageTooltip')}
+                                                                                style={{ marginBottom: 8 }}
+                                                                            >
+                                                                                <Input.TextArea rows={5} style={{ height: '120px' }} />
+                                                                            </Form.Item>
+                                                                        </Col>
+                                                                    )}
                                                                 </>
                                                             );
                                                         }
@@ -675,6 +772,7 @@ const WorkflowList: React.FC = () => {
                                                                 </>
                                                             );
                                                         }
+
                                                         return null;
                                                     }}
                                                 </Form.Item>
