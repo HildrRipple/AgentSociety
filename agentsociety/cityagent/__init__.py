@@ -46,10 +46,10 @@ __all__ = [
 
 
 BLOCK_MAPPING = {
-    "mobilityblock": MobilityBlock,
-    "economyblock": EconomyBlock,
-    "socialblock": SocialBlock,
-    "otherblock": OtherBlock,
+    "MobilityBlock": MobilityBlock,
+    "EconomyBlock": EconomyBlock,
+    "SocialBlock": SocialBlock,
+    "OtherBlock": OtherBlock,
 }
 
 

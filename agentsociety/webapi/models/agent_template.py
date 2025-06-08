@@ -128,7 +128,7 @@ class ApiAgentTemplate(BaseModel):
                     "max_plan_steps": 5,
                 },
                 "blocks": {
-                    "mobilityblock": {"search_limit": 50, "radius_prompt": "xxx"}
+                    "MobilityBlock": {"search_limit": 50, "radius_prompt": "xxx"}
                 },
             }
         }
