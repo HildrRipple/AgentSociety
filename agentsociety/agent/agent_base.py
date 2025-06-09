@@ -20,7 +20,7 @@ from ..logger import get_logger
 from ..memory import Memory
 from ..message import Messager, Message, MessageKind
 from ..metrics import MlflowClient
-from ..storage import AvroSaver, StorageDialog, StorageDialogType
+from ..storage import StorageDialog, StorageDialogType
 from .context import AgentContext, context_to_dot_dict
 from .block import Block, BlockOutput
 from .dispatcher import DISPATCHER_PROMPT, BlockDispatcher
@@ -47,8 +47,7 @@ class AgentToolbox(NamedTuple):
     llm: LLM
     environment: Environment
     messager: Messager
-    avro_saver: Optional[AvroSaver]
-    pgsql_writer: Optional[ray.ObjectRef]
+    database_writer: Optional[ray.ObjectRef]
     mlflow_client: Optional[MlflowClient]
 
 
@@ -133,7 +132,6 @@ class Agent(ABC):
         self._toolbox = toolbox
         self._memory = memory
 
-        self._last_asyncio_pg_task = None  # Hide SQL writes behind computational tasks
         self._gather_responses: dict[int, asyncio.Future] = {}
 
         # parse agent_params
@@ -212,14 +210,9 @@ class Agent(ABC):
         return self._toolbox.messager
 
     @property
-    def avro_saver(self):
-        """The Agent's Avro Saver"""
-        return self._toolbox.avro_saver
-
-    @property
-    def pgsql_writer(self):
-        """The Agent's PgSQL Writer"""
-        return self._toolbox.pgsql_writer
+    def database_writer(self):
+        """The Agent's Database Writer"""
+        return self._toolbox.database_writer
 
     @property
     def mlflow_client(self):
@@ -289,8 +282,7 @@ class Agent(ABC):
             - Validates the message type and logs a warning if it's invalid.
             - Prepares the message payload with necessary metadata such as sender ID, timestamp, etc.
             - Sends the message asynchronously using `_send_message`.
-            - Optionally records the message in Avro format and PostgreSQL if it's a "social" type message.
-            - Ensures thread-safe operations when writing to PostgreSQL by waiting for any previous write task to complete before starting a new one.
+            - Optionally records the message in Database if it's a "social" type message.
         """
         day, t = self.environment.get_datetime()
         # send message with `Messager`
@@ -319,17 +311,10 @@ class Agent(ABC):
             content=content,
             created_at=datetime.now(timezone.utc),
         )
-        # Avro
-        if self.avro_saver is not None and type == "social":
-            self.avro_saver.append_dialogs([storage_dialog])
-        # Pg
-        if self.pgsql_writer is not None and type == "social":
-            if self._last_asyncio_pg_task is not None:
-                await self._last_asyncio_pg_task
-            self._last_asyncio_pg_task = (
-                self.pgsql_writer.write_dialogs.remote(  # type:ignore
-                    [storage_dialog]
-                )
+        # Database
+        if self.database_writer is not None and type == "social":
+            await self.database_writer.write_dialogs.remote(  # type:ignore
+                [storage_dialog]
             )
 
     async def register_aoi_message(
@@ -449,7 +434,4 @@ class Agent(ABC):
         await self.after_blocks()
         await self.after_forward()
         end_time = time.time()
-        # wait for all asyncio tasks to complete
-        if self._last_asyncio_pg_task is not None:
-            await self._last_asyncio_pg_task
         return end_time - start_time

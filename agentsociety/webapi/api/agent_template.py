@@ -28,6 +28,7 @@ from ..models.agent_template import (
     AgentParams,
     DistributionType,
 )
+from .timezone import ensure_timezone_aware
 
 try:
     from agentsociety_community.agents import citizens, supervisors
@@ -55,32 +56,28 @@ async def list_agent_templates(
     request: Request,
 ) -> ApiResponseWrapper[List[ApiAgentTemplate]]:
     """List all agent templates"""
-    try:
-        tenant_id = await request.app.state.get_tenant_id(request)
+    tenant_id = await request.app.state.get_tenant_id(request)
 
-        async with request.app.state.get_db() as db:
-            db = cast(AsyncSession, db)
-            stmt = (
-                select(AgentTemplateDB)
-                .where(AgentTemplateDB.tenant_id.in_([tenant_id, ""]))
-                .order_by(AgentTemplateDB.created_at.desc())
-            )
-
-            result = await db.execute(stmt)
-            templates = result.scalars().all()
-
-            api_templates = []
-            for template in templates:
-                api_templates.append(convert_agent_template_from_db_to_api(template))
-
-            return ApiResponseWrapper(data=api_templates)
-
-    except Exception as e:
-        print(f"Error in list_agent_templates: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list templates: {str(e)}",
+    async with request.app.state.get_db() as db:
+        db = cast(AsyncSession, db)
+        stmt = (
+            select(AgentTemplateDB)
+            .where(AgentTemplateDB.tenant_id.in_([tenant_id, ""]))
+            .order_by(AgentTemplateDB.created_at.desc())
         )
+        result = await db.execute(stmt)
+        templates = result.scalars().all()
+
+        # 处理时区并转换为API格式
+        response_templates = []
+        for template in templates:
+            # 处理时区
+            template.created_at = ensure_timezone_aware(template.created_at)
+            template.updated_at = ensure_timezone_aware(template.updated_at)
+            
+            response_templates.append(convert_agent_template_from_db_to_api(template))
+
+        return ApiResponseWrapper(data=response_templates)
 
 
 @router.get("/agent-templates/{template_id}")
@@ -112,27 +109,30 @@ async def get_agent_template(
 def convert_agent_template_from_db_to_api(
     template: AgentTemplateDB,
 ) -> ApiAgentTemplate:
-    """Convert agent template from database to API model"""
-    # Convert distribution configuration from database to corresponding distribution objects
+    """Convert agent template from DB format to API format"""
+    # Parse memory distributions from dictionary format back to Python objects
     memory_distributions_dict = {}
-    for key, value in template.profile.items():
-        dist_type = value.get("type")
-        if dist_type == "choice":
-            memory_distributions_dict[key] = ChoiceDistributionConfig.model_validate(
-                value
+
+    # Convert each profile into DistributionConfig objects
+    for profile_name, profile_config in template.profile.items():
+        dist_type = profile_config.get("type")
+        if dist_type == DistributionType.CHOICE:
+            memory_distributions_dict[profile_name] = ChoiceDistributionConfig(
+                type=DistributionType.CHOICE,
+                choices=profile_config["choices"],
+                weights=profile_config["weights"],
             )
-        elif dist_type == "uniform_int":
-            memory_distributions_dict[key] = (
-                UniformIntDistributionConfig.model_validate(value)
+        elif dist_type == DistributionType.UNIFORM_INT:
+            memory_distributions_dict[profile_name] = UniformIntDistributionConfig(
+                type=DistributionType.UNIFORM_INT,
+                min_value=profile_config["min_value"],
+                max_value=profile_config["max_value"],
             )
-        elif dist_type == "normal":
-            memory_distributions_dict[key] = NormalDistributionConfig.model_validate(
-                value
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Invalid distribution type: {dist_type}",
+        elif dist_type == DistributionType.NORMAL:
+            memory_distributions_dict[profile_name] = NormalDistributionConfig(
+                type=DistributionType.NORMAL,
+                mean=profile_config["mean"],
+                std=profile_config["std"],
             )
 
     api_template = ApiAgentTemplate(
@@ -145,8 +145,8 @@ def convert_agent_template_from_db_to_api(
         memory_distributions=memory_distributions_dict,
         agent_params=AgentParams(**template.agent_params),
         blocks=template.blocks,
-        created_at=template.created_at,
-        updated_at=template.updated_at,
+        created_at=ensure_timezone_aware(template.created_at),
+        updated_at=ensure_timezone_aware(template.updated_at),
     )
     return api_template
 
@@ -202,8 +202,8 @@ async def create_agent_template(
                 memory_distributions=new_template.profile,
                 agent_params=AgentParams(**new_template.agent_params),
                 blocks=new_template.blocks,
-                created_at=new_template.created_at,
-                updated_at=new_template.updated_at,
+                created_at=ensure_timezone_aware(new_template.created_at),
+                updated_at=ensure_timezone_aware(new_template.updated_at),
             )
 
             return ApiResponseWrapper(data=response_template)

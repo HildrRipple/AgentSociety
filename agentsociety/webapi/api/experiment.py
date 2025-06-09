@@ -23,6 +23,7 @@ from ..models.agent import (
 from ..models.experiment import ApiExperiment, ApiTime, Experiment, ExperimentStatus
 from ..models.metric import MLflowRun, MLflowMetric, ApiMLflowMetric
 from .const import DEMO_USER_ID
+from .timezone import ensure_timezone_aware
 
 __all__ = ["router"]
 
@@ -44,6 +45,12 @@ async def list_experiments(
         )
         results = await db.execute(stmt)
         db_experiments = [row[0] for row in results.all() if len(row) > 0]
+        
+        # 处理时区
+        for experiment in db_experiments:
+            experiment.created_at = ensure_timezone_aware(experiment.created_at)
+            experiment.updated_at = ensure_timezone_aware(experiment.updated_at)
+        
         experiments = cast(List[ApiExperiment], db_experiments)
         return ApiResponseWrapper(data=experiments)
 
@@ -68,6 +75,9 @@ async def get_experiment_by_id(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
             )
         exp = row[0]
+        # 处理时区
+        exp.created_at = ensure_timezone_aware(exp.created_at)
+        exp.updated_at = ensure_timezone_aware(exp.updated_at)
         return ApiResponseWrapper(data=exp)
 
 

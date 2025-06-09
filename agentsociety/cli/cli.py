@@ -130,9 +130,7 @@ def ui(config: str, config_base64: str):
         # postgres:// in DSN is not supported by SQLAlchemy
         # replace it with postgresql://
 
-        pg_dsn = c.env.pgsql.dsn
-        if pg_dsn.startswith("postgresql://"):
-            pg_dsn = pg_dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+        db_dsn = c.env.db.get_dsn(Path(c.env.home_dir) / "sqlite.db")
         executor = (
             KubernetesExecutor([])
             if c.executor == "kubernetes"
@@ -160,7 +158,7 @@ def ui(config: str, config_base64: str):
         # ================= 【商业版】 =================
 
         app = create_app(
-            pg_dsn=pg_dsn,
+            db_dsn=db_dsn,
             mlflow_url="",  # 商业版不暴露mlflow
             read_only=c.read_only,
             env=c.env,
@@ -191,6 +189,7 @@ def ui(config: str, config_base64: str):
 @common_options
 def check(config: str, config_base64: str):
     import os
+    from pathlib import Path
 
     """Pre-check the config"""
     config_dict = load_config(config, config_base64)
@@ -201,38 +200,61 @@ def check(config: str, config_base64: str):
     click.echo(f"Config format check. {click.style('Passed.', fg='green')}")
 
     # =================
-    # check the connection to the pgsql server
+    # check the connection to the database server using SQLAlchemy
     # =================
-    from psycopg import connect
-    from psycopg.errors import OperationalError
+    if c.env.db.enabled:
+        from sqlalchemy import create_engine, text
+        from sqlalchemy.exc import OperationalError
 
-    try:
-        conn = connect(
-            conninfo=c.env.pgsql.dsn,
-            autocommit=True,
-        )
-        conn.execute("SELECT 1")
-        click.echo(f"Pgsql connection check. {click.style('Passed.', fg='green')}")
-    except OperationalError as e:
-        click.echo(f"Pgsql connection check. {click.style('Failed:', fg='red')} {e}")
-        click.echo(
-            f"Explanation: Please check the `dsn` (value={c.env.pgsql.dsn}) of the pgsql server. The format of `dsn` is `postgresql://<username>:<password>@<host>:<port>/<database_name>`. The item wrapped in `<>` should be replaced with the actual values."
-        )
-        error_msg = str(e)
-        if "password authentication failed" in error_msg:
-            click.echo(
-                f"Explanation: The username or password of the pgsql server is incorrect."
-            )
-        elif "Temporary failure in name resolution" in error_msg:
-            click.echo(
-                f"Explanation: The host of the pgsql server is invalid. Maybe you should use `localhost` or `127.0.0.1` instead if you are running the simulation on a single machine (used to run docker compose)."
-            )
-        elif "Connection refused" in error_msg:
-            click.echo(
-                f"Explanation: The host or port of the pgsql server is incorrect."
-            )
-    except Exception as e:
-        click.echo(f"Pgsql connection check. {click.style('Failed:', fg='red')} {e}")
+        try:
+            # Get the DSN for the database
+            sqlite_path = Path(c.env.home_dir) / "sqlite.db"
+            dsn = c.env.db.get_dsn(sqlite_path)
+
+            # Convert async DSN to sync DSN for testing
+            if dsn.startswith("postgresql+asyncpg://"):
+                sync_dsn = dsn.replace("postgresql+asyncpg://", "postgresql://", 1)
+            elif dsn.startswith("sqlite+aiosqlite://"):
+                sync_dsn = dsn.replace("sqlite+aiosqlite://", "sqlite://", 1)
+            else:
+                sync_dsn = dsn
+
+            # Create sync engine for testing
+            engine = create_engine(sync_dsn)
+
+            # Test connection
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+
+            click.echo(f"Database connection check. {click.style('Passed.', fg='green')}")
+
+        except OperationalError as e:
+            click.echo(f"Database connection check. {click.style('Failed:', fg='red')} {e}")
+            if c.env.db.db_type == "postgresql":
+                click.echo(
+                    f"Explanation: Please check the `pg_dsn` (value={c.env.db.pg_dsn}) of the PostgreSQL server. The format of `pg_dsn` is `postgresql://<username>:<password>@<host>:<port>/<database_name>`. The item wrapped in `<>` should be replaced with the actual values."
+                )
+                error_msg = str(e)
+                if "password authentication failed" in error_msg:
+                    click.echo(
+                        f"Explanation: The username or password of the PostgreSQL server is incorrect."
+                    )
+                elif "Temporary failure in name resolution" in error_msg:
+                    click.echo(
+                        f"Explanation: The host of the PostgreSQL server is invalid. Maybe you should use `localhost` or `127.0.0.1` instead if you are running the simulation on a single machine (used to run docker compose)."
+                    )
+                elif "Connection refused" in error_msg:
+                    click.echo(
+                        f"Explanation: The host or port of the PostgreSQL server is incorrect."
+                    )
+            elif c.env.db.db_type == "sqlite":
+                click.echo(
+                    f"Explanation: SQLite database connection failed. Please check the file path and permissions."
+                )
+        except Exception as e:
+            click.echo(f"Database connection check. {click.style('Failed:', fg='red')} {e}")
+    else:
+        click.echo(f"Database is disabled. {click.style('Skipped.', fg='yellow')}")
 
     # =================
     # check the connection to the mlflow server

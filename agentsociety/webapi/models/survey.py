@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import AwareDatetime, BaseModel
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ._base import TABLE_PREFIX, Base
+from ._base import Base, TABLE_PREFIX
 
 __all__ = ["Survey"]
 

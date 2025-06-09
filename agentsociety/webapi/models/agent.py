@@ -3,17 +3,16 @@ import uuid
 from typing import Any, Optional
 
 from pydantic import BaseModel, AwareDatetime
-from sqlalchemy import (
-    TIMESTAMP,
-    Column,
-    Float,
-    Integer,
-    MetaData,
-    String,
-    Table,
-    Boolean,
+
+from ...storage import (
+    agent_dialog,
+    agent_profile,
+    agent_status,
+    agent_survey,
+    global_prompt,
+    pending_dialog,
+    pending_survey,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 __all__ = [
     "agent_dialog",
@@ -32,113 +31,6 @@ __all__ = [
 ]
 
 # Database Models
-
-
-def agent_profile(table_name: str):
-    """Create agent profile table"""
-    metadata = MetaData()
-    return Table(
-        table_name,
-        metadata,
-        Column("id", Integer),
-        Column("name", String),
-        Column("profile", JSONB),
-    ), ["id", "name", "profile"]
-
-
-def agent_status(table_name: str):
-    """Create agent status table"""
-    metadata = MetaData()
-    return Table(
-        table_name,
-        metadata,
-        Column("id", Integer),
-        Column("day", Integer),
-        Column("t", Float),
-        Column("lng", Float, nullable=True),
-        Column("lat", Float, nullable=True),
-        Column("parent_id", Integer),
-        Column("action", String),
-        Column("status", JSONB),
-        Column("created_at", TIMESTAMP(timezone=True)),
-    ), ["id", "day", "t", "lng", "lat", "parent_id", "action", "status", "created_at"]
-
-
-def agent_survey(table_name: str):
-    """Create agent survey table"""
-    metadata = MetaData()
-    return Table(
-        table_name,
-        metadata,
-        Column("id", Integer),
-        Column("day", Integer),
-        Column("t", Float),
-        Column("survey_id", UUID),
-        Column("result", JSONB),
-        Column("created_at", TIMESTAMP(timezone=True)),
-    ), ["id", "day", "t", "survey_id", "result", "created_at"]
-
-
-def agent_dialog(table_name: str):
-    """Create agent dialog table"""
-    metadata = MetaData()
-    return Table(
-        table_name,
-        metadata,
-        Column("id", Integer),
-        Column("day", Integer),
-        Column("t", Float),
-        Column("type", Integer),
-        Column("speaker", String),
-        Column("content", String),
-        Column("created_at", TIMESTAMP(timezone=True)),
-    ), ["id", "day", "t", "type", "speaker", "content", "created_at"]
-
-
-def global_prompt(table_name: str):
-    """Create global prompt table"""
-    metadata = MetaData()
-    return Table(
-        table_name,
-        metadata,
-        Column("day", Integer),
-        Column("t", Float),
-        Column("prompt", String),
-        Column("created_at", TIMESTAMP(timezone=True)),
-    ), ["day", "t", "prompt", "created_at"]
-
-
-def pending_dialog(table_name: str):
-    """Create pending dialog table"""
-    metadata = MetaData()
-    return Table(
-        table_name,
-        metadata,
-        Column("id", Integer, primary_key=True, autoincrement=True),
-        Column("agent_id", Integer),
-        Column("day", Integer),
-        Column("t", Float),
-        Column("content", String),
-        Column("created_at", TIMESTAMP(timezone=True)),
-        Column("processed", Boolean, default=False),
-    ), ["id", "agent_id", "day", "t", "content", "created_at", "processed"]
-
-
-def pending_survey(table_name: str):
-    """Create pending survey table"""
-    metadata = MetaData()
-    return Table(
-        table_name,
-        metadata,
-        Column("id", Integer, primary_key=True, autoincrement=True),
-        Column("agent_id", Integer),
-        Column("day", Integer),
-        Column("t", Float),
-        Column("survey_id", UUID),
-        Column("data", JSONB),
-        Column("created_at", TIMESTAMP(timezone=True)),
-        Column("processed", Boolean, default=False),
-    ), ["id", "agent_id", "day", "t", "survey_id", "data", "created_at", "processed"]
 
 
 class AgentDialogType(enum.IntEnum):

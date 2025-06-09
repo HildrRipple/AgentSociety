@@ -28,7 +28,7 @@ from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
 from agentsociety.metrics import MlflowConfig, MlflowConfig
 from agentsociety.simulation import AgentSociety
-from agentsociety.storage import AvroConfig, PostgreSQLConfig
+from agentsociety.storage import DatabaseConfig
 
 ray.init(logging_level=logging.INFO)
 
@@ -53,13 +53,10 @@ config = Config(
         )
     ],
     env=EnvConfig(
-        pgsql=PostgreSQLConfig(
+        db=DatabaseConfig(
             enabled=True,
-            dsn="<PGSQL-DSN>",
-            num_workers="auto",
-        ),
-        avro=AvroConfig(
-            enabled=True,
+            db_type="sqlite",
+            pg_dsn=None,
         ),
         mlflow=MlflowConfig(
             enabled=True,

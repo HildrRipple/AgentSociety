@@ -32,6 +32,7 @@ from ..models.config import (
     RealMapConfig,
     WorkflowConfig,
 )
+from .timezone import ensure_timezone_aware
 
 __all__ = ["router"]
 
@@ -62,8 +63,8 @@ async def list_llm_configs(
                 name=config.name,
                 description=config.description,
                 config=config.config,
-                created_at=config.created_at,
-                updated_at=config.updated_at,
+                created_at=ensure_timezone_aware(config.created_at),
+                updated_at=ensure_timezone_aware(config.updated_at),
             )
             for config in db_configs
         ]
@@ -103,8 +104,8 @@ async def get_llm_config_by_id(
             name=config.name,
             description=config.description,
             config=config.config,
-            created_at=config.created_at,
-            updated_at=config.updated_at,
+            created_at=ensure_timezone_aware(config.created_at),
+            updated_at=ensure_timezone_aware(config.updated_at),
         )
         # if config.tenant_id is "", hide the api_key
         if api_config.tenant_id == "":
@@ -218,6 +219,12 @@ async def list_map_configs(
         )
         results = await db.execute(stmt)
         db_configs = list(results.scalars().all())
+        
+        # 处理时区
+        for config in db_configs:
+            config.created_at = ensure_timezone_aware(config.created_at)
+            config.updated_at = ensure_timezone_aware(config.updated_at)
+        
         configs = cast(List[ApiMapConfig], db_configs)
         return ApiResponseWrapper(data=configs)
 
@@ -244,6 +251,9 @@ async def get_map_config_by_id(
                 detail="Map configuration not found",
             )
         config = row
+        # 处理时区
+        config.created_at = ensure_timezone_aware(config.created_at)
+        config.updated_at = ensure_timezone_aware(config.updated_at)
         return ApiResponseWrapper(data=config)
 
 
@@ -520,6 +530,12 @@ async def list_agent_configs(
         )
         results = await db.execute(stmt)
         db_configs = list(results.scalars().all())
+        
+        # 处理时区
+        for config in db_configs:
+            config.created_at = ensure_timezone_aware(config.created_at)
+            config.updated_at = ensure_timezone_aware(config.updated_at)
+        
         configs = cast(List[ApiAgentConfig], db_configs)
         return ApiResponseWrapper(data=configs)
 
@@ -546,6 +562,9 @@ async def get_agent_config_by_id(
                 detail="Agent configuration not found",
             )
         config = row
+        # 处理时区
+        config.created_at = ensure_timezone_aware(config.created_at)
+        config.updated_at = ensure_timezone_aware(config.updated_at)
         return ApiResponseWrapper(data=config)
 
 
@@ -654,6 +673,12 @@ async def list_workflow_configs(
         )
         results = await db.execute(stmt)
         db_configs = list(results.scalars().all())
+        
+        # 处理时区
+        for config in db_configs:
+            config.created_at = ensure_timezone_aware(config.created_at)
+            config.updated_at = ensure_timezone_aware(config.updated_at)
+        
         configs = cast(List[ApiWorkflowConfig], db_configs)
         return ApiResponseWrapper(data=configs)
 
@@ -680,6 +705,9 @@ async def get_workflow_config_by_id(
                 detail="Workflow configuration not found",
             )
         config = row
+        # 处理时区
+        config.created_at = ensure_timezone_aware(config.created_at)
+        config.updated_at = ensure_timezone_aware(config.updated_at)
         return ApiResponseWrapper(data=config)
 
 

@@ -5,12 +5,12 @@ from typing import Any, Dict, List, cast
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select, insert, update, delete
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .const import DEMO_USER_ID
 from ..models import ApiResponseWrapper
 from ..models.survey import ApiSurvey, Survey
+from .timezone import ensure_timezone_aware
 
 __all__ = ["router"]
 
@@ -28,6 +28,12 @@ async def list_survey(request: Request) -> ApiResponseWrapper[List[ApiSurvey]]:
         results = await db.execute(stmt)
         db_surveys = [row[0] for row in results.all() if len(row) > 0]
         db_surveys = cast(List[ApiSurvey], db_surveys)
+        
+        # 处理时区
+        for survey in db_surveys:
+            survey.created_at = ensure_timezone_aware(survey.created_at)
+            survey.updated_at = ensure_timezone_aware(survey.updated_at)
+        
         return ApiResponseWrapper(data=db_surveys)
 
 
@@ -48,7 +54,12 @@ async def get_survey(request: Request, id: uuid.UUID) -> ApiResponseWrapper[ApiS
                 status_code=status.HTTP_404_NOT_FOUND, detail="Survey not found"
             )
         survey = row[0]
-        return ApiResponseWrapper(data=survey)
+        
+        # 处理时区
+        survey.created_at = ensure_timezone_aware(survey.created_at)
+        survey.updated_at = ensure_timezone_aware(survey.updated_at)
+        
+        return ApiResponseWrapper(data=ApiSurvey.model_validate(survey))
 
 
 class ApiSurveyCreate(BaseModel):

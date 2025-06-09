@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import DateTime
 from sqlalchemy.sql import func
 
-from ._base import TABLE_PREFIX, Base
+from ._base import Base, TABLE_PREFIX
 
 __all__ = [
     "AgentProfile",

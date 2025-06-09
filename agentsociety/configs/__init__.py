@@ -133,7 +133,7 @@ class Config(BaseModel):
             memory_gb = psutil.virtual_memory().available / (1024 * 1024 * 1024)
             available_memory_gb = memory_gb - 8  # for simulator
             available_memory_gb -= 1  # for message interceptor
-            available_memory_gb -= 1  # for pgsql
+            available_memory_gb -= 1  # for database
             mem_per_group = 2
             if available_memory_gb < mem_per_group:
                 raise ValueError(
@@ -143,7 +143,3 @@ class Config(BaseModel):
             max_groups = min(cpu_count, max_groups_by_memory)
             self.advanced.group_size = max(100, math.ceil(num_agents / max_groups))
         num_groups = math.ceil(num_agents / self.advanced.group_size)
-        if self.env.pgsql.enabled:
-            if self.env.pgsql.num_workers == "auto":
-                # between 1 and 4
-                self.env.pgsql.num_workers = max(1, min(4, math.ceil(num_groups / 4)))

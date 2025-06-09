@@ -28,7 +28,7 @@ async def empty_get_tenant_id(_: Request) -> str:
 
 
 def create_app(
-    pg_dsn: str,
+    db_dsn: str,
     mlflow_url: str,
     read_only: bool,
     env: EnvConfig,
@@ -42,7 +42,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # Init database when app starts
-        engine = create_async_engine(pg_dsn)
+        engine = create_async_engine(db_dsn)
         session_factory = async_sessionmaker(engine)
         # test the postgres connection
         try:
@@ -50,7 +50,7 @@ def create_app(
                 pass
         except Exception as e:
             raise Exception(
-                f"Failed to connect to postgresql database: {e}. Please check the connection string: {pg_dsn}"
+                f"Failed to connect to database: {e}. Please check the connection string: {db_dsn}"
             )
         # save session_factory to app state
         app.state.get_db = session_factory

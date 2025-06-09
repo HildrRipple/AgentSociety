@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import ApiResponseWrapper, ApiPaginatedResponseWrapper
 from ..models.bill import Account, ApiAccount, Bill, ApiBill
+from .timezone import ensure_timezone_aware
 
 __all__ = ["router"]
 
@@ -30,6 +31,9 @@ async def get_account(
             db.add(account)
             await db.commit()
             await db.refresh(account)
+
+        account.created_at = ensure_timezone_aware(account.created_at)
+        account.updated_at = ensure_timezone_aware(account.updated_at)
 
         return ApiResponseWrapper(data=account)
 
@@ -60,5 +64,9 @@ async def list_bills(
         stmt = stmt.offset(skip).limit(limit)
         results = await db.execute(stmt)
         bills = cast(List[ApiBill], results.scalars().all())
+
+        # 处理时区
+        for bill in bills:
+            bill.created_at = ensure_timezone_aware(bill.created_at)
 
         return ApiPaginatedResponseWrapper(total=total, data=bills)

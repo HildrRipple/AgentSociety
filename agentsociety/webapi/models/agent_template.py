@@ -5,7 +5,6 @@ from enum import Enum
 
 from pydantic import AwareDatetime, BaseModel, Field
 from sqlalchemy import JSON
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ._base import Base, TABLE_PREFIX
@@ -53,9 +52,9 @@ class AgentTemplateDB(Base):
     description: Mapped[Optional[str]] = mapped_column()
     agent_type: Mapped[str] = mapped_column()
     agent_class: Mapped[str] = mapped_column()
-    profile: Mapped[Dict] = mapped_column(type_=JSONB)
-    agent_params: Mapped[Dict] = mapped_column(type_=JSONB)
-    blocks: Mapped[Dict] = mapped_column(type_=JSONB)
+    profile: Mapped[Dict] = mapped_column(type_=JSON)
+    agent_params: Mapped[Dict] = mapped_column(type_=JSON)
+    blocks: Mapped[Dict] = mapped_column(type_=JSON)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
         default=datetime.now, onupdate=datetime.now

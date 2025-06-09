@@ -221,7 +221,7 @@ class CitizenAgentBase(Agent):
         pending_survey_id: Optional[int] = None,
     ) -> str:
         """
-        Process a survey by generating a response and recording it in Avro format and PostgreSQL.
+        Process a survey by generating a response and recording it in Database.
 
         - **Args**:
             - `survey` (`Survey`): The survey data that includes an ID and other relevant information.
@@ -232,14 +232,13 @@ class CitizenAgentBase(Agent):
 
         - **Description**:
             - Generates a survey response using `generate_user_survey_response`.
-            - Records the response with metadata (such as timestamp, survey ID, etc.) in Avro format and appends it to an Avro file if `_avro_file` is set.
-            - Writes the response and metadata into a PostgreSQL database asynchronously through `_pgsql_writer`, ensuring any previous write operation has completed.
+            - Records the response with metadata (such as timestamp, survey ID, etc.) in Database.
             - Sends a message through the Messager indicating user feedback has been processed.
             - Handles asynchronous tasks and ensures thread-safe operations when writing to PostgreSQL.
         """
         survey_response = await self.do_survey(survey)
         date_time = datetime.now(timezone.utc)
-        # Avro
+
         day, t = self.environment.get_datetime()
         storage_survey = StorageSurvey(
             id=self.id,
@@ -249,27 +248,18 @@ class CitizenAgentBase(Agent):
             result=survey_response,
             created_at=date_time,
         )
-        if self.avro_saver is not None:
-            self.avro_saver.append_surveys([storage_survey])
-        # Pg
-        if self.pgsql_writer is not None:
-            if self._last_asyncio_pg_task is not None:
-                await self._last_asyncio_pg_task
-                self._last_asyncio_pg_task = None
+        # Database
+        if self.database_writer is not None:
             if is_pending_survey:
-                await self.pgsql_writer.write_surveys.remote(  # type:ignore
+                await self.database_writer.write_surveys.remote(  # type:ignore
                     [storage_survey]
                 )
-                self._last_asyncio_pg_task = (
-                    self.pgsql_writer.mark_surveys_as_processed.remote(  # type:ignore
-                        [pending_survey_id]
-                    )
+                await self.database_writer.mark_surveys_as_processed.remote(  # type:ignore
+                    [pending_survey_id]
                 )
             else:
-                self._last_asyncio_pg_task = (
-                    self.pgsql_writer.write_surveys.remote(  # type:ignore
-                        [storage_survey]
-                    )
+                await self.database_writer.write_surveys.remote(  # type:ignore
+                    [storage_survey]
                 )
         # status memory
         old_survey_responses = await self.memory.status.get("survey_responses", [])
@@ -326,7 +316,7 @@ class CitizenAgentBase(Agent):
 
     async def _handle_interview_with_storage(self, message: Message) -> str:
         """
-        Process an interview interaction by generating a response and recording it in Avro format and PostgreSQL.
+        Process an interview interaction by generating a response and recording it in Database.
 
         - **Args**:
             - `question` (`str`): The interview data containing the content of the user's message.
@@ -342,15 +332,9 @@ class CitizenAgentBase(Agent):
             content=question,
             created_at=datetime.now(timezone.utc),
         )
-        if self.avro_saver is not None:
-            self.avro_saver.append_dialogs([storage_dialog])
-        if self.pgsql_writer is not None:
-            if self._last_asyncio_pg_task is not None:
-                await self._last_asyncio_pg_task
-            self._last_asyncio_pg_task = (
-                self.pgsql_writer.write_dialogs.remote(  # type:ignore
-                    [storage_dialog]
-                )
+        if self.database_writer is not None:
+            await self.database_writer.write_dialogs.remote(  # type:ignore
+                [storage_dialog]
             )
         response = await self.do_interview(question)
         storage_dialog = StorageDialog(
@@ -362,22 +346,14 @@ class CitizenAgentBase(Agent):
             content=response,
             created_at=datetime.now(timezone.utc),
         )
-        # Avro
-        if self.avro_saver is not None:
-            self.avro_saver.append_dialogs([storage_dialog])
-        # Pg
-        if self.pgsql_writer is not None:
-            if self._last_asyncio_pg_task is not None:
-                await self._last_asyncio_pg_task
-                self._last_asyncio_pg_task = None
-            await self.pgsql_writer.write_dialogs.remote(  # type:ignore
+        # Database
+        if self.database_writer is not None:
+            await self.database_writer.write_dialogs.remote(  # type:ignore
                 [storage_dialog]
             )
             if message.extra is not None and "pending_dialog_id" in message.extra:
-                self._last_asyncio_pg_task = (
-                    self.pgsql_writer.mark_dialogs_as_processed.remote(  # type:ignore
-                        [message.extra["pending_dialog_id"]]
-                    )
+                await self.database_writer.mark_dialogs_as_processed.remote(  # type:ignore
+                    [message.extra["pending_dialog_id"]]
                 )
         return response
 
@@ -402,17 +378,10 @@ class CitizenAgentBase(Agent):
             content=thought,
             created_at=datetime.now(timezone.utc),
         )
-        # Avro
-        if self.avro_saver is not None:
-            self.avro_saver.append_dialogs([storage_thought])
-        # Pg
-        if self.pgsql_writer is not None:
-            if self._last_asyncio_pg_task is not None:
-                await self._last_asyncio_pg_task
-            self._last_asyncio_pg_task = (
-                self.pgsql_writer.write_dialogs.remote(  # type:ignore
-                    [storage_thought]
-                )
+        # Database
+        if self.database_writer is not None:
+            await self.database_writer.write_dialogs.remote(  # type:ignore
+                [storage_thought]
             )
 
     async def do_chat(self, message: Message) -> str:
@@ -435,9 +404,8 @@ class CitizenAgentBase(Agent):
 
         - **Description**:
             - Logs the incoming chat message from another agent.
-            - Prepares the chat message for storage in Avro format and PostgreSQL.
-            - Writes the chat message and metadata into an Avro file if `_avro_file` is set.
-            - Ensures thread-safe operations when writing to PostgreSQL by waiting for any previous write task to complete before starting a new one.
+            - Prepares the chat message for storage in Database.
+            - Writes the chat message and metadata into Database.
         """
         try:
             content = jsonc.dumps(message.payload, ensure_ascii=False)
@@ -453,17 +421,10 @@ class CitizenAgentBase(Agent):
             created_at=datetime.now(timezone.utc),
         )
         await self.do_chat(message)
-        # Avro
-        if self.avro_saver is not None:
-            self.avro_saver.append_dialogs([storage_dialog])
-        # Pg
-        if self.pgsql_writer is not None:
-            if self._last_asyncio_pg_task is not None:
-                await self._last_asyncio_pg_task
-            self._last_asyncio_pg_task = (
-                self.pgsql_writer.write_dialogs.remote(  # type:ignore
-                    [storage_dialog]
-                )
+        # Database
+        if self.database_writer is not None:
+            await self.database_writer.write_dialogs.remote(  # type:ignore
+                [storage_dialog]
             )
 
     async def get_aoi_info(self):

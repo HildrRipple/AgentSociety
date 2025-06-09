@@ -27,7 +27,7 @@ from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
 from ..message import Messager, Message, MessageKind
 from ..metrics import MlflowClient
-from ..storage import AvroSaver
+from ..storage import DatabaseWriter
 from ..storage.type import StorageProfile, StorageStatus
 from .type import Logs
 
@@ -63,14 +63,14 @@ class AgentGroup:
         ],
         environment_init: dict,
         # PostgreSQL
-        pgsql_writer: Optional[ray.ObjectRef],
+        database_writer: Optional[ray.ObjectRef],
         # MLflow
         mlflow_run_id: Optional[str],
         # Others
         agent_config_file: Optional[dict[type[Agent], Any]] = None,
     ):
         """
-        Initialize the AgentGroupV2.
+        Initialize the AgentGroup.
 
         """
         try:
@@ -91,8 +91,8 @@ class AgentGroup:
             get_logger().debug(f"Agent inits loaded, count: {len(agent_inits)}")
             self._environment_init = environment_init
             get_logger().debug(f"Environment init loaded")
-            self._pgsql_writer = pgsql_writer
-            get_logger().debug(f"PGSQL writer reference set")
+            self._database_writer = database_writer
+            get_logger().debug(f"Database writer reference set")
             self._mlflow_run_id = mlflow_run_id
             get_logger().debug(f"MLflow run ID set: {mlflow_run_id}")
             self._agent_config_file = agent_config_file
@@ -108,12 +108,10 @@ class AgentGroup:
             self._llm = None
             self._environment = None
             self._messager = None
-            self._avro_saver = None
             self._mlflow_client = None
 
             self._agents = []
             self._id2agent = {}
-            self._last_asyncio_pg_task = None
             get_logger().info("AgentGroup initialization completed successfully")
         except Exception as e:
             get_logger().error(f"Error in AgentGroup.__init__: {str(e)}")
@@ -191,20 +189,6 @@ class AgentGroup:
         get_logger().info(f"Messager initialized")
 
         # ====================
-        # Initialize the avro saver
-        # ====================
-        if self._config.env.avro.enabled:
-            get_logger().info(f"Initializing the avro saver...")
-            self._avro_saver = AvroSaver(
-                self._config.env.avro,
-                self._config.env.home_dir,
-                self._tenant_id,
-                self._exp_id,
-                self._group_id,
-            )
-            get_logger().info(f"Avro saver initialized")
-
-        # ====================
         # Initialize the mlflow
         # ====================
         if self._config.env.mlflow.enabled:
@@ -225,8 +209,7 @@ class AgentGroup:
             self.llm,
             self.environment,
             self.messager,
-            self._avro_saver,
-            self._pgsql_writer,
+            self._database_writer,
             self._mlflow_client,
         )
         to_return = {}
@@ -318,10 +301,8 @@ class AgentGroup:
                     ),
                 )
             )
-        if self._avro_saver is not None:
-            self._avro_saver.append_profiles(profiles)
-        if self._pgsql_writer is not None:
-            await self._pgsql_writer.write_profiles.remote(profiles)  # type:ignore
+        if self._database_writer is not None:
+            await self._database_writer.write_profiles.remote(profiles)  # type:ignore
         get_logger().info(
             f"-----Initializing embeddings in AgentGroup {self._group_id} ..."
         )
@@ -343,10 +324,6 @@ class AgentGroup:
         if self._mlflow_client is not None:
             self._mlflow_client.close()
             self._mlflow_client = None
-
-        if self._avro_saver is not None:
-            self._avro_saver.close()
-            self._avro_saver = None
 
         if self._messager is not None:
             await self._messager.close()
@@ -597,7 +574,7 @@ class AgentGroup:
             - `day` (int): The day number in the simulation time.
             - `t` (int): The tick or time unit in the simulation day.
         """
-        if self._avro_saver is None and self._pgsql_writer is None:
+        if self._database_writer is None:
             return
         created_at = datetime.now(timezone.utc)
         # =========================
@@ -714,15 +691,9 @@ class AgentGroup:
                 statuses.append(status)
             else:
                 raise ValueError(f"Unknown agent type: {type(agent)}")
-        if self._avro_saver is not None:
-            self._avro_saver.append_statuses(statuses)
-        if self._pgsql_writer is not None:
-            if self._last_asyncio_pg_task is not None:
-                await self._last_asyncio_pg_task
-            self._last_asyncio_pg_task = (
-                self._pgsql_writer.write_statuses.remote(  # type:ignore
-                    statuses
-                )
+        if self._database_writer is not None:
+            await self._database_writer.write_statuses.remote(  # type:ignore
+                statuses
             )
 
     async def update_environment(self, key: str, value: str):

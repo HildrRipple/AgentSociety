@@ -27,6 +27,7 @@ from ..models.agent import (
 )
 from ..models.experiment import Experiment, ExperimentStatus
 from ..models.survey import Survey
+from .timezone import ensure_timezone_aware
 
 __all__ = ["router"]
 
@@ -100,7 +101,7 @@ async def get_agent_dialog_by_exp_id_and_agent_id(
                 type=AgentDialogType.User,
                 speaker="user",
                 content=dialog["content"],
-                created_at=dialog["created_at"],
+                created_at=ensure_timezone_aware(dialog["created_at"]),
             ))
         dialogs.sort(key=lambda x: (x.day, x.t))
 
@@ -256,7 +257,7 @@ async def get_agent_survey_by_exp_id_and_agent_id(
                 t=survey["t"],
                 survey_id=survey["survey_id"],
                 result=None,
-                created_at=survey["created_at"],
+                created_at=ensure_timezone_aware(survey["created_at"]),
             ))
         surveys.sort(key=lambda x: (x.day, x.t))
 

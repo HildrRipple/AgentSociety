@@ -22,6 +22,7 @@ from ...configs import EnvConfig
 from ..models import ApiResponseWrapper
 from ..models.agent_profiles import AgentProfile, ApiAgentProfile
 from .const import DEMO_USER_ID
+from .timezone import ensure_timezone_aware
 
 __all__ = ["router"]
 
@@ -59,6 +60,9 @@ async def list_agent_profiles(
 
         result = await db.execute(stmt)
         profiles = result.scalars().all()
+        for profile in profiles:
+            profile.created_at = ensure_timezone_aware(profile.created_at)
+            profile.updated_at = ensure_timezone_aware(profile.updated_at)
 
         # Convert to ApiAgentProfile list
         profile_list = [ApiAgentProfile.model_validate(profile) for profile in profiles]
@@ -88,6 +92,9 @@ async def get_agent_profile(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found"
             )
+
+        profile.created_at = ensure_timezone_aware(profile.created_at)
+        profile.updated_at = ensure_timezone_aware(profile.updated_at)
 
         # Get the file from S3
         env: EnvConfig = request.app.state.env
@@ -302,5 +309,7 @@ async def upload_agent_profile(
         await db.refresh(new_profile)  # Refresh to get database-generated values
 
         # Convert to ApiAgentProfile
+        new_profile.created_at = ensure_timezone_aware(new_profile.created_at)
+        new_profile.updated_at = ensure_timezone_aware(new_profile.updated_at)
         api_profile = ApiAgentProfile.model_validate(new_profile)
         return ApiResponseWrapper(data=api_profile)

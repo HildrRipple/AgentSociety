@@ -11,7 +11,7 @@ from pydantic import AwareDatetime, BaseModel
 from sqlalchemy import Index
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ._base import TABLE_PREFIX, Base, BillDecimal
+from ._base import TABLE_PREFIX, Base, MoneyDecimal
 
 __all__ = ["Bill", "ApiBill", "Account", "ApiAccount", "ItemEnum"]
 
@@ -32,7 +32,7 @@ class Account(Base):
 
     tenant_id: Mapped[str] = mapped_column(primary_key=True)
     """租户ID"""
-    balance: Mapped[BillDecimal] = mapped_column(default=Decimal(0))
+    balance: Mapped[MoneyDecimal] = mapped_column(default=Decimal(0))
     """余额，单位：元，保留6位小数"""
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
     """创建时间"""
@@ -54,9 +54,9 @@ class Bill(Base):
     """关联实验ID"""
     item: Mapped[str] = mapped_column(primary_key=True)
     """项目类型ID"""
-    amount: Mapped[BillDecimal] = mapped_column()
+    amount: Mapped[MoneyDecimal] = mapped_column()
     """账单金额，单位：元，保留6位小数，负值为消费，正值为充值"""
-    unit_price: Mapped[BillDecimal] = mapped_column()
+    unit_price: Mapped[MoneyDecimal] = mapped_column()
     """单价，单位：元，保留6位小数"""
     quantity: Mapped[float] = mapped_column()
     """数量"""

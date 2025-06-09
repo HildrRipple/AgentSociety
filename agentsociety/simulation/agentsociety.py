@@ -7,7 +7,6 @@ import inspect
 import itertools
 import json
 import os
-import time
 import traceback
 import uuid
 from collections import defaultdict
@@ -34,8 +33,7 @@ from ..memory import FaissQuery, Memory
 from ..message import Message, MessageInterceptor, MessageKind, Messager
 from ..metrics import MlflowClient
 from ..s3 import S3Config
-from ..storage import AvroSaver
-from ..storage.pgsql import PgWriter
+from ..storage import DatabaseWriter
 from ..storage.type import (StorageExpInfo, StorageGlobalPrompt,
                             StoragePendingSurvey)
 from ..survey.models import Survey
@@ -182,9 +180,8 @@ class AgentSociety:
         # typing definition
         self._environment: Optional[EnvironmentStarter] = None
         self._message_interceptor: Optional[MessageInterceptor] = None
-        self._avro_saver: Optional[AvroSaver] = None
         self._mlflow: Optional[MlflowClient] = None
-        self._pgsql_writers: list[ray.ObjectRef] = []
+        self._database_writer: Optional[ray.ObjectRef] = None
         self._groups: dict[str, ray.ObjectRef] = {}
         self._agent_ids: set[int] = set()
         self._agent_id2group: dict[int, ray.ObjectRef] = {}
@@ -197,7 +194,7 @@ class AgentSociety:
                         "__all__": {"api_key": True},
                     },
                     "env": {
-                        "pgsql": {"dsn": True},
+                        "db": {"pg_dsn": True},
                         "mlflow": {
                             "username": True,
                             "password": True,
@@ -235,6 +232,20 @@ class AgentSociety:
     async def init(self):
         """Initialize all the components"""
         # ====================
+        # Initialize the pgsql writer
+        # ====================
+        if self._config.env.db.enabled:
+            get_logger().info(f"Initializing database writer...")
+            self._database_writer = DatabaseWriter.remote(
+                self.tenant_id,
+                self.exp_id,
+                self._config.env.db,
+                self._config.env.home_dir,
+            )
+            await self._database_writer.init.remote() # type: ignore
+            get_logger().info(f"Database writer initialized")
+
+        # ====================
         # Initialize the LLM
         # ====================
         get_logger().info(f"Initializing LLM...")
@@ -270,20 +281,6 @@ class AgentSociety:
         get_logger().info(f"Messager initialized")
 
         # ====================
-        # Initialize the avro saver
-        # ====================
-        if self._config.env.avro.enabled:
-            get_logger().info(f"Initializing avro saver...")
-            self._avro_saver = AvroSaver(
-                config=self._config.env.avro,
-                home_dir=self._config.env.home_dir,
-                tenant_id=self.tenant_id,
-                exp_id=self.exp_id,
-                group_id=None,
-            )
-            get_logger().info(f"Avro saver initialized")
-
-        # ====================
         # Initialize the mlflow
         # ====================
         if self._config.env.mlflow.enabled:
@@ -295,23 +292,6 @@ class AgentSociety:
             )
             get_logger().info(f"Mlflow initialized")
 
-        # ====================
-        # Initialize the pgsql writer
-        # ====================
-        if self._config.env.pgsql.enabled:
-            assert self._config.env.pgsql.num_workers != "auto"
-            get_logger().info(
-                f"Initializing {self._config.env.pgsql.num_workers} pgsql writers..."
-            )
-            self._pgsql_writers = [
-                PgWriter.remote(
-                    self.tenant_id, self.exp_id, self._config.env.pgsql.dsn, (i == 0)
-                )
-                for i in range(self._config.env.pgsql.num_workers)
-            ]
-            get_logger().info(
-                f"{self._config.env.pgsql.num_workers} pgsql writers initialized"
-            )
         # ======================================
         # Initialize agent groups
         # ======================================
@@ -645,8 +625,7 @@ class AgentSociety:
                         self._llm,
                         self.environment,
                         self.messager,
-                        self._avro_saver,
-                        self._pgsql_writers[0] if self._pgsql_writers else None,
+                        self._database_writer,
                         self._mlflow,
                     ),
                     memory=memory_init,
@@ -767,11 +746,7 @@ class AgentSociety:
                 config=self._config,
                 agent_inits=group_agents,
                 environment_init=environment_init,
-                pgsql_writer=(
-                    self._pgsql_writers[i % len(self._pgsql_writers)]
-                    if len(self._pgsql_writers) > 0
-                    else None
-                ),
+                database_writer=self._database_writer,
                 mlflow_run_id=self._mlflow.run_id if self._mlflow is not None else None,
             )
             for agent_id, _, _, _, _, _ in group_agents:
@@ -830,12 +805,6 @@ class AgentSociety:
             self._mlflow = None
             get_logger().info(f"Mlflow closed")
 
-        if self._avro_saver is not None:
-            get_logger().info(f"Closing avro saver...")
-            self._avro_saver.close()
-            self._avro_saver = None
-            get_logger().info(f"Avro saver closed")
-
         if self._message_interceptor is not None:
             get_logger().info(f"Closing message interceptor...")
             await self._message_interceptor.close()
@@ -863,12 +832,8 @@ class AgentSociety:
         return self._config
 
     @property
-    def enable_avro(self):
-        return self._config.env.avro.enabled
-
-    @property
-    def enable_pgsql(self):
-        return self._config.env.pgsql.enabled
+    def enable_database(self):
+        return self._config.env.db.enabled
 
     @property
     def environment(self):
@@ -961,7 +926,7 @@ class AgentSociety:
         """
         if not types and not filter_str:
             return list(self._agent_ids)
-        
+
         # filter by types first
         if types:
             filtered_ids = [
@@ -971,7 +936,7 @@ class AgentSociety:
             ]
         else:
             filtered_ids = list(self._agent_ids)
-        
+
         # filter by filter_str
         if filter_str:
             filtered_ids = [
@@ -979,7 +944,7 @@ class AgentSociety:
                 for agent_id in filtered_ids
                 if evaluate_filter(filter_str, self._filter_base[agent_id][1])
             ]
-        
+
         return filtered_ids
 
     async def update_environment(self, key: str, value: str):
@@ -1195,18 +1160,9 @@ class AgentSociety:
     async def _save_exp_info(self) -> None:
         """Async save experiment info to YAML file and pgsql"""
         self._exp_info.updated_at = datetime.now(timezone.utc)
-        if self.enable_avro:
-            assert self._avro_saver is not None
-            with open(self._avro_saver.exp_info_file, "w") as f:
-                yaml.dump(
-                    self._exp_info.model_dump(exclude_defaults=True, exclude_none=True),
-                    f,
-                    allow_unicode=True,
-                )
-        if self.enable_pgsql:
-            assert self._pgsql_writers is not None
-            worker: ray.ObjectRef = self._pgsql_writers[0]
-            await worker.update_exp_info.remote(self._exp_info)  # type: ignore
+        if self.enable_database:
+            assert self._database_writer is not None
+            await self._database_writer.update_exp_info.remote(self._exp_info)  # type: ignore
 
     async def _save_global_prompt(self, prompt: str, day: int, t: float):
         """Save global prompt"""
@@ -1216,12 +1172,9 @@ class AgentSociety:
             prompt=prompt,
             created_at=datetime.now(timezone.utc),
         )
-        if self.enable_avro:
-            assert self._avro_saver is not None
-            self._avro_saver.append_global_prompt(prompt_info)
-        if self.enable_pgsql:
-            worker: ray.ObjectRef = self._pgsql_writers[0]
-            await worker.write_global_prompt.remote(prompt_info)  # type:ignore
+        if self.enable_database:
+            assert self._database_writer is not None
+            await self._database_writer.write_global_prompt.remote(prompt_info)  # type:ignore
 
     def _save_context(self):
         fs_client = self._config.env.fs_client
@@ -1366,8 +1319,8 @@ class AgentSociety:
             # ======================
             # fetch pending dialogs from USER
             # ======================
-            if self.enable_pgsql:
-                pending_dialogs = await self._pgsql_writers[0].fetch_pending_dialogs.remote()  # type: ignore
+            if self.enable_database:
+                pending_dialogs = await self._database_writer.fetch_pending_dialogs.remote()  # type: ignore
                 get_logger().info(
                     f"({day}-{t}) Finished fetching pending dialogs. {len(pending_dialogs)} dialogs fetched."
                 )
@@ -1401,8 +1354,8 @@ class AgentSociety:
             # ======================
             # handle pending surveys
             # ======================
-            if self.enable_pgsql:
-                pending_surveys = await self._pgsql_writers[0].fetch_pending_surveys.remote()  # type: ignore
+            if self.enable_database:
+                pending_surveys = await self._database_writer.fetch_pending_surveys.remote()  # type: ignore
                 get_logger().info(
                     f"({day}-{t}) Finished fetching pending surveys. {len(pending_surveys)} surveys fetched."
                 )
