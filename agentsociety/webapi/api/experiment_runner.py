@@ -393,12 +393,9 @@ async def _compute_commercial_bill(app_state, db, experiment):
 
 async def _check_commercial_balance(app_state, tenant_id, db):
     """检查商业化余额（如果可用）"""
-    print("check_balance")
     try:
         billing_system = getattr(app_state, 'billing_system', None)
-        print(billing_system)
         if billing_system and 'check_balance' in billing_system:
-            print("check_balance")
             return await billing_system['check_balance'](tenant_id, db)
     except Exception as e:
         logger.warning(f"Failed to check commercial balance: {e}")

@@ -27,8 +27,15 @@ __all__ = ["KubernetesExecutor"]
 class KubernetesExecutor:
     def __init__(self, kube_config_search_paths: list[str]):
         self.kube_config_search_paths = kube_config_search_paths
+        self._config_loaded = False
 
-    async def init(self):
+    async def _ensure_config_loaded(self):
+        """
+        确保 Kubernetes 配置已加载
+        """
+        if self._config_loaded:
+            return
+            
         """
         加载 Kubernetes 配置，按照incluster, ~/.kube/config, 和 search_paths 的顺序搜索。
 
@@ -37,12 +44,16 @@ class KubernetesExecutor:
         """
         try:
             config.load_incluster_config()
+            self._config_loaded = True
+            get_logger().info("Loaded Kubernetes config from incluster config")
             return
         except config.ConfigException:
             pass
 
         try:
             await config.load_kube_config()
+            self._config_loaded = True
+            get_logger().info("Loaded Kubernetes config from ~/.kube/config")
             return
         except config.ConfigException:
             pass
@@ -50,6 +61,8 @@ class KubernetesExecutor:
         for path in self.kube_config_search_paths:
             if os.path.exists(path):
                 await config.load_kube_config(path)
+                self._config_loaded = True
+                get_logger().info(f"Loaded Kubernetes config from {path}")
                 return
 
         raise config.ConfigException("Failed to load Kubernetes config")
@@ -62,6 +75,8 @@ class KubernetesExecutor:
         callback_auth_token: str = "",
         tenant_id: str = "",
     ):
+        # 确保配置已加载
+        await self._ensure_config_loaded()
 
         # Load configuration
         config_dict = None
@@ -131,7 +146,7 @@ class KubernetesExecutor:
                                 "agentsociety",
                                 "run",
                                 "--config-base64",
-                                config_base64,
+                                container_config_base64,
                                 "--tenant-id",
                                 tenant_id,
                                 "--callback-url",
@@ -169,6 +184,9 @@ class KubernetesExecutor:
         Raises:
             HTTPException: If pod not found or deletion timeout
         """
+        # 确保配置已加载
+        await self._ensure_config_loaded()
+        
         async with ApiClient() as api:
             v1 = client.CoreV1Api(api)
             namespace = "agentsociety"
@@ -231,6 +249,9 @@ class KubernetesExecutor:
         Raises:
             Exception: If failed to get pod logs
         """
+        # 确保配置已加载
+        await self._ensure_config_loaded()
+        
         async with ApiClient() as api:
             v1 = client.CoreV1Api(api)
             namespace = "agentsociety"  # 修正为正确的namespace
@@ -273,6 +294,9 @@ class KubernetesExecutor:
         Raises:
             Exception: If failed to get pod status
         """
+        # 确保配置已加载
+        await self._ensure_config_loaded()
+        
         async with ApiClient() as api:
             v1 = client.CoreV1Api(api)
             namespace = "agentsociety"
