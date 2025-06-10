@@ -61,17 +61,8 @@ const router = createBrowserRouter([
             </AuthProvider>
         ),
     },
-    // 商业版隐藏LLM配置入口
-    // {
-    //     path: "/llms",
-    //     element: (
-    //         <AuthProvider sdkConfig={sdkConfig}>
-    //             <RootLayout selectedKey='/llms'><LLM /></RootLayout>
-    //         </AuthProvider>
-    //     ),
-    // },
     {
-        path: "/internal-llms",
+        path: "/llms",
         element: (
             <AuthProvider sdkConfig={sdkConfig}>
                 <RootLayout selectedKey='/llms'><LLM /></RootLayout>

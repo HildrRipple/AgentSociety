@@ -4,7 +4,7 @@ from decimal import Decimal, localcontext
 import json
 import logging
 import uuid
-from typing import Any, Dict, Union, cast
+from typing import Any, Dict, Optional, Union, cast
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request, status
 from pydantic import BaseModel, ValidationError
@@ -95,14 +95,14 @@ async def run_experiment(
     # get config from db
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        
+
         # 使用商业化余额检查（如果可用）
         if not await _check_commercial_balance(request.app.state, tenant_id, db):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="余额不足 / Insufficient balance",
             )
-            
+
         # ===== LLM config =====
         stmt = select(LLMConfig.config).where(
             LLMConfig.tenant_id == config.llm.tenant_id,
@@ -209,9 +209,15 @@ async def run_experiment(
         await db.execute(stmt)
         await db.commit()
 
-    executor = cast(
-        ProcessExecutor, request.app.state.executor
-    )
+        await _record_experiment_bill(
+            request.app.state,
+            db,
+            tenant_id,
+            uuid.UUID(experiment_id),
+            uuid.UUID(config.llm.id) if config.llm.tenant_id == "" else None,
+        )
+
+    executor = cast(ProcessExecutor, request.app.state.executor)
     task = asyncio.create_task(
         executor.create(
             config_base64=config_base64,
@@ -256,9 +262,7 @@ async def delete_experiment(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Demo user is not allowed to delete experiments",
         )
-    executor = cast(
-        ProcessExecutor, request.app.state.executor
-    )
+    executor = cast(ProcessExecutor, request.app.state.executor)
     await executor.delete(tenant_id, exp_id)
 
     # update experiment status to STOPPED
@@ -298,9 +302,7 @@ async def get_experiment_logs(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Demo user is not allowed to view experiment logs",
         )
-    executor = cast(
-        ProcessExecutor, request.app.state.executor
-    )
+    executor = cast(ProcessExecutor, request.app.state.executor)
     logs = await executor.get_logs(tenant_id, exp_id)
     return logs
 
@@ -317,9 +319,7 @@ async def get_experiment_status(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Demo user is not allowed to view experiment status",
         )
-    executor = cast(
-        ProcessExecutor, request.app.state.executor
-    )
+    executor = cast(ProcessExecutor, request.app.state.executor)
     pod_status = await executor.get_status(tenant_id, exp_id)
     return ApiResponseWrapper(
         data=pod_status,
@@ -376,27 +376,45 @@ async def finish_experiment(
         await db.commit()
 
 
-async def _compute_commercial_bill(app_state, db, experiment):
-    """计算商业化账单（如果可用）"""
+async def _compute_commercial_bill(app_state, db: AsyncSession, experiment: Experiment):
+    """compute commercial bill"""
     try:
-        billing_system = getattr(app_state, 'billing_system', None)
-        if billing_system and 'compute_bill' in billing_system:
-            rates = billing_system.get('rates', {})
-            await billing_system['compute_bill'](db, experiment, rates)
+        billing_system = getattr(app_state, "billing_system", None)
+        if billing_system and "compute_bill" in billing_system:
+            rates = billing_system.get("rates", {})
+            await billing_system["compute_bill"](db, experiment, rates)
             return
     except Exception as e:
         logger.warning(f"Failed to compute commercial bill: {e}")
-    
+
     # 如果商业化功能不可用，跳过计费
     logger.info("No commercial billing system available, skipping billing")
 
 
-async def _check_commercial_balance(app_state, tenant_id, db):
-    """检查商业化余额（如果可用）"""
+async def _check_commercial_balance(app_state, tenant_id: str, db: AsyncSession):
+    """check commercial balance"""
     try:
-        billing_system = getattr(app_state, 'billing_system', None)
-        if billing_system and 'check_balance' in billing_system:
-            return await billing_system['check_balance'](tenant_id, db)
+        billing_system = getattr(app_state, "billing_system", None)
+        if billing_system and "check_balance" in billing_system:
+            return await billing_system["check_balance"](tenant_id, db)
     except Exception as e:
         logger.warning(f"Failed to check commercial balance: {e}")
     return True  # 如果没有商业化功能，默认允许
+
+
+async def _record_experiment_bill(
+    app_state,
+    db: AsyncSession,
+    tenant_id: str,
+    exp_id: uuid.UUID,
+    llm_config_id: Optional[uuid.UUID] = None,
+):
+    """record experiment bill"""
+    try:
+        billing_system = getattr(app_state, "billing_system", None)
+        if billing_system and "record_experiment_bill" in billing_system:
+            await billing_system["record_experiment_bill"](
+                db, tenant_id, exp_id, llm_config_id
+            )
+    except Exception as e:
+        logger.warning(f"Failed to record experiment bill: {e}")

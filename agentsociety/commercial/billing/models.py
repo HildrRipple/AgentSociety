@@ -40,6 +40,17 @@ class Account(Base):
         default=datetime.now, onupdate=datetime.now
     )
 
+class ExperimentBillConfig(Base):
+    """实验计费配置"""
+
+    __tablename__ = f"{TABLE_PREFIX}experiment_bill_config"
+    tenant_id: Mapped[str] = mapped_column(primary_key=True)
+    """租户ID"""
+    exp_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    """实验ID"""
+    llm_config_id: Mapped[uuid.UUID] = mapped_column(nullable=True)
+    """LLM配置ID，为空表示该LLM配置不需要计费"""
+
 
 class Bill(Base):
     """账单记录，未完成支付的充值不进入账单"""

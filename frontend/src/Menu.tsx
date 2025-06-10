@@ -31,12 +31,11 @@ const RootMenu = ({ selectedKey, style }: {
     ];
 
     const menuItems: MenuProps['items'] = [
-        // 商业版隐藏LLM配置入口
-        // {
-        //     key: '/llms',
-        //     label: <Link to="/llms">{t('menu.llmConfigs')}</Link>,
-        //     icon: <ApiOutlined />,
-        // },
+        {
+            key: '/llms',
+            label: <Link to="/llms">{t('menu.llmConfigs')}</Link>,
+            icon: <ApiOutlined />,
+        },
         {
             key: '/maps',
             label: <Link to="/maps">{t('menu.maps')}</Link>,

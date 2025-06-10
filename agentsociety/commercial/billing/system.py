@@ -12,12 +12,13 @@ def get_billing_system(config: Dict[str, Any]):
         return None
     
     from .api import router as billing_router
-    from .calculator import compute_bill, check_balance
+    from .calculator import compute_bill, check_balance, record_experiment_bill
     
     return {
         "router": billing_router,
         "compute_bill": compute_bill,
         "check_balance": check_balance,
+        "record_experiment_bill": record_experiment_bill,
         "currency": config.get("currency", "CNY"),
         "rates": config.get("rates", {})
     } 
