@@ -26,8 +26,6 @@ from ..llm import LLM, init_embedding, monitor_requests
 from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
 from ..message import Messager, Message, MessageKind
-from ..metrics import MlflowClient
-from ..storage import DatabaseWriter
 from ..storage.type import StorageProfile, StorageStatus
 from .type import Logs
 
@@ -62,11 +60,7 @@ class AgentGroup:
             ]
         ],
         environment_init: dict,
-        # PostgreSQL
         database_writer: Optional[ray.ObjectRef],
-        # MLflow
-        mlflow_run_id: Optional[str],
-        # Others
         agent_config_file: Optional[dict[type[Agent], Any]] = None,
     ):
         """
@@ -93,8 +87,6 @@ class AgentGroup:
             get_logger().debug(f"Environment init loaded")
             self._database_writer = database_writer
             get_logger().debug(f"Database writer reference set")
-            self._mlflow_run_id = mlflow_run_id
-            get_logger().debug(f"MLflow run ID set: {mlflow_run_id}")
             self._agent_config_file = agent_config_file
             get_logger().debug(f"Agent config file loaded")
 
@@ -108,7 +100,6 @@ class AgentGroup:
             self._llm = None
             self._environment = None
             self._messager = None
-            self._mlflow_client = None
 
             self._agents = []
             self._id2agent = {}
@@ -188,19 +179,6 @@ class AgentGroup:
         await self._messager.init()
         get_logger().info(f"Messager initialized")
 
-        # ====================
-        # Initialize the mlflow
-        # ====================
-        if self._config.env.mlflow.enabled:
-            get_logger().info(f"Initializing the mlflow...")
-            self._mlflow_client = MlflowClient(
-                config=self._config.env.mlflow,
-                exp_name=self._exp_name,
-                exp_id=self._exp_id,
-                current_run_id=self._mlflow_run_id,
-            )
-            get_logger().info(f"Mlflow initialized")
-
         # ====================================
         # Initialize the agents
         # ====================================
@@ -210,7 +188,6 @@ class AgentGroup:
             self.environment,
             self.messager,
             self._database_writer,
-            self._mlflow_client,
         )
         to_return = {}
         for agent_init in self._agent_inits:
@@ -320,10 +297,6 @@ class AgentGroup:
         for agent in self._agents:
             tasks.append(agent.close())
         await asyncio.gather(*tasks)
-
-        if self._mlflow_client is not None:
-            self._mlflow_client.close()
-            self._mlflow_client = None
 
         if self._messager is not None:
             await self._messager.close()

@@ -4,7 +4,6 @@ export default {
         survey: 'Survey',
         documentation: 'Documentation',
         github: 'GitHub',
-        mlflow: 'MLFlow',
         llmConfigs: 'LLM',
         maps: 'Maps',
         agents: 'Agents',

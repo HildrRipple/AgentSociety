@@ -148,7 +148,7 @@ Bases: {py:obj}`agentsociety.webapi.models._base.Base`
 
 ````{py:attribute} balance
 :canonical: agentsociety.webapi.models.bill.Account.balance
-:type: sqlalchemy.orm.Mapped[agentsociety.webapi.models._base.BillDecimal]
+:type: sqlalchemy.orm.Mapped[agentsociety.webapi.models._base.MoneyDecimal]
 :value: >
    'mapped_column(...)'
 
@@ -245,7 +245,7 @@ Bases: {py:obj}`agentsociety.webapi.models._base.Base`
 
 ````{py:attribute} amount
 :canonical: agentsociety.webapi.models.bill.Bill.amount
-:type: sqlalchemy.orm.Mapped[agentsociety.webapi.models._base.BillDecimal]
+:type: sqlalchemy.orm.Mapped[agentsociety.webapi.models._base.MoneyDecimal]
 :value: >
    'mapped_column(...)'
 
@@ -256,7 +256,7 @@ Bases: {py:obj}`agentsociety.webapi.models._base.Base`
 
 ````{py:attribute} unit_price
 :canonical: agentsociety.webapi.models.bill.Bill.unit_price
-:type: sqlalchemy.orm.Mapped[agentsociety.webapi.models._base.BillDecimal]
+:type: sqlalchemy.orm.Mapped[agentsociety.webapi.models._base.MoneyDecimal]
 :value: >
    'mapped_column(...)'
 

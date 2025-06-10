@@ -19,7 +19,6 @@ from ..llm import LLM
 from ..logger import get_logger
 from ..memory import Memory
 from ..message import Messager, Message, MessageKind
-from ..metrics import MlflowClient
 from ..storage import StorageDialog, StorageDialogType
 from .context import AgentContext, context_to_dot_dict
 from .block import Block, BlockOutput
@@ -48,7 +47,6 @@ class AgentToolbox(NamedTuple):
     environment: Environment
     messager: Messager
     database_writer: Optional[ray.ObjectRef]
-    mlflow_client: Optional[MlflowClient]
 
 
 class AgentType(Enum):
@@ -213,11 +211,6 @@ class Agent(ABC):
     def database_writer(self):
         """The Agent's Database Writer"""
         return self._toolbox.database_writer
-
-    @property
-    def mlflow_client(self):
-        """The Agent's MLflow Client"""
-        return self._toolbox.mlflow_client
 
     @property
     def memory(self):

@@ -25,6 +25,7 @@ __all__ = [
     "global_prompt",
     "pending_dialog",
     "pending_survey",
+    "metric",
 ]
 
 
@@ -135,6 +136,20 @@ def pending_survey(table_name: str):
     ), ["id", "agent_id", "day", "t", "survey_id", "data", "created_at", "processed"]
 
 
+def metric(table_name: str):
+    """Create metric table"""
+    metadata = MetaData()
+    return Table(
+        table_name,
+        metadata,
+        Column("id", Integer, primary_key=True, autoincrement=True),
+        Column("key", String),
+        Column("value", Float),
+        Column("step", Integer),
+        Column("created_at", TIMESTAMP(timezone=True)),
+    ), ["id", "key", "value", "step", "created_at"]
+
+
 class Experiment(Base):
     """Experiment model"""
 
@@ -190,6 +205,11 @@ class Experiment(Base):
     def pending_survey_tablename(self):
         """Get pending survey table name"""
         return f"{TABLE_PREFIX}{str(self.id).replace('-', '_')}_pending_survey"
+
+    @property
+    def metric_tablename(self):
+        """Get metric table name"""
+        return f"{TABLE_PREFIX}{str(self.id).replace('-', '_')}_metric"
 
     def to_dict(self):
         return {

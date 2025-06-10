@@ -31,7 +31,6 @@ from ..llm.embeddings import init_embedding
 from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
 from ..message import Message, MessageInterceptor, MessageKind, Messager
-from ..metrics import MlflowClient
 from ..s3 import S3Config
 from ..storage import DatabaseWriter
 from ..storage.type import (StorageExpInfo, StorageGlobalPrompt,
@@ -180,7 +179,6 @@ class AgentSociety:
         # typing definition
         self._environment: Optional[EnvironmentStarter] = None
         self._message_interceptor: Optional[MessageInterceptor] = None
-        self._mlflow: Optional[MlflowClient] = None
         self._database_writer: Optional[ray.ObjectRef] = None
         self._groups: dict[str, ray.ObjectRef] = {}
         self._agent_ids: set[int] = set()
@@ -195,11 +193,6 @@ class AgentSociety:
                     },
                     "env": {
                         "db": {"pg_dsn": True},
-                        "mlflow": {
-                            "username": True,
-                            "password": True,
-                            "mlflow_uri": True,
-                        },
                         "s3": True,
                     },
                 },
@@ -279,18 +272,6 @@ class AgentSociety:
         self._messager = Messager(exp_id=self.exp_id)
         await self._messager.init()
         get_logger().info(f"Messager initialized")
-
-        # ====================
-        # Initialize the mlflow
-        # ====================
-        if self._config.env.mlflow.enabled:
-            get_logger().info(f"Initializing mlflow...")
-            self._mlflow = MlflowClient(
-                config=self._config.env.mlflow,
-                exp_name=self.name,
-                exp_id=self.exp_id,
-            )
-            get_logger().info(f"Mlflow initialized")
 
         # ======================================
         # Initialize agent groups
@@ -626,7 +607,6 @@ class AgentSociety:
                         self.environment,
                         self.messager,
                         self._database_writer,
-                        self._mlflow,
                     ),
                     memory=memory_init,
                     agent_params=agent_params,
@@ -747,7 +727,6 @@ class AgentSociety:
                 agent_inits=group_agents,
                 environment_init=environment_init,
                 database_writer=self._database_writer,
-                mlflow_run_id=self._mlflow.run_id if self._mlflow is not None else None,
             )
             for agent_id, _, _, _, _, _ in group_agents:
                 self._agent_id2group[agent_id] = self._groups[group_id]
@@ -799,12 +778,6 @@ class AgentSociety:
         await asyncio.gather(*close_tasks)
         get_logger().info(f"Agent groups closed")
 
-        if self._mlflow is not None:
-            get_logger().info(f"Closing mlflow...")
-            self._mlflow.close()
-            self._mlflow = None
-            get_logger().info(f"Mlflow closed")
-
         if self._message_interceptor is not None:
             get_logger().info(f"Closing message interceptor...")
             await self._message_interceptor.close()
@@ -836,6 +809,11 @@ class AgentSociety:
         return self._config.env.db.enabled
 
     @property
+    def database_writer(self):
+        assert self._database_writer is not None, "database writer is not initialized"
+        return self._database_writer
+
+    @property
     def environment(self):
         assert self._environment is not None, "environment is not initialized"
         return self._environment
@@ -844,11 +822,6 @@ class AgentSociety:
     def messager(self):
         assert self._messager is not None, "messager is not initialized"
         return self._messager
-
-    @property
-    def mlflow_client(self):
-        assert self._mlflow is not None, "mlflow is not initialized"
-        return self._mlflow
 
     async def _extract_target_agent_ids(
         self, target_agent: Optional[Union[list[int], AgentFilterConfig]] = None
@@ -1144,11 +1117,9 @@ class AgentSociety:
                         raise ValueError(
                             f"method {metric_extractor.method} is not supported"
                         )
-                    assert (
-                        self.mlflow_client is not None
-                        and metric_extractor.key is not None
-                    )
-                    await self.mlflow_client.log_metric(
+                    if self.enable_database:
+                        assert self._database_writer is not None
+                        await self._database_writer.log_metric.remote( # type: ignore
                         key=metric_extractor.key,
                         value=value,
                         step=metric_extractor.extract_time,

@@ -29,7 +29,6 @@ async def empty_get_tenant_id(_: Request) -> str:
 
 def create_app(
     db_dsn: str,
-    mlflow_url: str,
     read_only: bool,
     env: EnvConfig,
     get_tenant_id: Callable[[Request], Awaitable[str]] = empty_get_tenant_id,
@@ -57,8 +56,6 @@ def create_app(
 
         # save read_only to app state
         app.state.read_only = read_only
-        # save mlflow_url to app state
-        app.state.mlflow_url = mlflow_url
         # save env to app state
         app.state.env = env
 

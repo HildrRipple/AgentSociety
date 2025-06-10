@@ -7,8 +7,8 @@ The documentation is for the developers who want to understand the code and cont
 The first part is the clients used for the simulation, including:
 - `llm`: A LLM adapter for different LLM providers using openai api. It supports round-robin for multiple LLM providers, token consumption tracking, and error handling. Embedding is also supported.
 - `message`: The agent message system implemented by ray. The supervisor is implemented by `MessageInterceptor`. The `MessageInterceptor` is a ray actor that intercepts the message and checks if it violates the rules (by LLM). Users can implement their own `MessageBlock` to block certain messages and also implement their own `MessageBlockListener` to listen to the blocked message and take actions.
-- `metrics`: A metric recorder implemented by `mlflow`.
-- `storage`: Logging and saving implemented by `postgresql` and `avro` (local file system).
+- `metrics`: A metric recorder implemented by database.
+- `storage`: Logging and saving implemented by `sqlite` or `postgresql`.
 - `environment`: The key of the agentsociety, including the mobility simulator client and the economic simulator client. The map is also implemented in this part.
 
 For all clients, we initialize them with pydantic config models, their `__init__` method and their async `init` method (if needed). And we provide a `close` method for them to release resources.

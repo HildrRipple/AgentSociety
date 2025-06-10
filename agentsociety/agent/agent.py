@@ -34,9 +34,6 @@ class CitizenAgentBase(Agent):
         - This class extends the base `Agent` class and is designed to simulate the behavior of a city resident.
         - It includes initialization of various clients (like LLM, economy) and services required for the agent's operation.
         - Provides methods for binding the agent to the simulator and economy system, as well as handling specific types of messages.
-
-    - **Attributes**:
-        - `_mlflow_client`: An optional client for integrating with MLflow for experiment tracking and management.
     """
 
     def __init__(
@@ -462,7 +459,6 @@ class InstitutionAgentBase(Agent):
         - Provides methods for binding the agent to the economy system and handling specific types of messages, like gathering information from other agents.
 
     - **Attributes**:
-        - `_mlflow_client`: An optional client for integrating with MLflow for experiment tracking and management.
         - `_gather_responses`: A dictionary mapping agent IDs to `asyncio.Future` objects used for collecting responses to gather requests.
     """
 

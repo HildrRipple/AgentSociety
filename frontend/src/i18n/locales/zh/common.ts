@@ -4,7 +4,6 @@ export default {
         survey: '问卷',
         documentation: '文档',
         github: 'GitHub',
-        mlflow: 'MLFlow',
         llmConfigs: 'LLM',
         maps: '地图',
         agents: '智能体',

@@ -159,7 +159,6 @@ def ui(config: str, config_base64: str):
 
         app = create_app(
             db_dsn=db_dsn,
-            mlflow_url="",  # 商业版不暴露mlflow
             read_only=c.read_only,
             env=c.env,
             get_tenant_id=get_tenant_id,
@@ -255,53 +254,6 @@ def check(config: str, config_base64: str):
             click.echo(f"Database connection check. {click.style('Failed:', fg='red')} {e}")
     else:
         click.echo(f"Database is disabled. {click.style('Skipped.', fg='yellow')}")
-
-    # =================
-    # check the connection to the mlflow server
-    # =================
-    from mlflow import MlflowClient
-    from mlflow.exceptions import MlflowException
-
-    if c.env.mlflow.enabled:
-        try:
-            if c.env.mlflow.username is not None:
-                os.environ["MLFLOW_TRACKING_USERNAME"] = c.env.mlflow.username
-            if c.env.mlflow.password is not None:
-                os.environ["MLFLOW_TRACKING_PASSWORD"] = c.env.mlflow.password
-            os.environ["MLFLOW_HTTP_REQUEST_MAX_RETRIES"] = "1"
-            os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] = "5"
-            client = MlflowClient(c.env.mlflow.mlflow_uri)
-            client.get_experiment_by_name(c.exp.name)
-            click.echo(f"Mlflow connection check. {click.style('Passed.', fg='green')}")
-        except MlflowException as e:
-            click.echo(
-                f"Mlflow connection check. {click.style('Failed:', fg='red')} {e}"
-            )
-            error_msg = str(e)
-            if e.get_http_status_code() == 401:
-                click.echo(
-                    f"Explanation: The `username` (value={c.env.mlflow.username}) or `password` (value={c.env.mlflow.password}) of the mlflow server is incorrect."
-                )
-            else:
-                click.echo(
-                    f"Explanation: Please check the `mlflow_uri` (value={c.env.mlflow.mlflow_uri}) of the mlflow server. The format of `mlflow_uri` is `http://<host>:<port>` or `https://<host>:<port>`. The item wrapped in `<>` should be replaced with the actual values."
-                )
-                if "Temporary failure in name resolution" in error_msg:
-                    click.echo(
-                        f"Explanation: The host of the mlflow server is invalid. Maybe you should use `localhost` or `127.0.0.1` instead if you are running the simulation on a single machine (used to run docker compose)."
-                    )
-                elif "Connection refused" in error_msg:
-                    click.echo(
-                        f"Explanation: The host or port of the mlflow server is incorrect."
-                    )
-                else:
-                    click.echo(
-                        f"Explanation: Please check the `mlflow_uri` (value={c.env.mlflow.mlflow_uri}) of the mlflow server."
-                    )
-        except Exception as e:
-            click.echo(
-                f"Mlflow connection check. {click.style('Failed:', fg='red')} {e}"
-            )
 
     # =================
     # check whether the map file exists

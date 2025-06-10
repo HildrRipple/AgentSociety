@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from pathlib import Path
 from typing import Literal, Optional
 import uuid
@@ -336,6 +337,29 @@ class DatabaseWriter:
             except Exception as e:
                 await session.rollback()
                 get_logger().error(f"Error writing global prompt to {self._config.db_type}: {e}")
+                raise
+
+    @lock_decorator
+    async def log_metric(self, key: str, value: float, step: int):
+        table_obj = self._tables["metric"]["table"]
+        insert_func = self._get_insert_func()
+        
+        async with self._async_session() as session:
+            try:
+                data = {
+                    "key": key,
+                    "value": value,
+                    "step": step,
+                    "created_at": datetime.now(),
+                }
+                stmt = insert_func(table_obj).values([data])
+                await session.execute(stmt)
+                await session.commit()
+                
+                get_logger().debug(f"Inserted metric record to {self._config.db_type}")
+            except Exception as e:
+                await session.rollback()
+                get_logger().error(f"Error writing metric to {self._config.db_type}: {e}")
                 raise
 
     @lock_decorator

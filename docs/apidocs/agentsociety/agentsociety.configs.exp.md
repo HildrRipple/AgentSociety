@@ -216,13 +216,13 @@ Bases: {py:obj}`pydantic.BaseModel`
 
 ````
 
-````{py:attribute} memory_kv
-:canonical: agentsociety.configs.exp.AgentFilterConfig.memory_kv
-:type: typing.Optional[dict[str, typing.Any]]
+````{py:attribute} filter_str
+:canonical: agentsociety.configs.exp.AgentFilterConfig.filter_str
+:type: typing.Optional[str]
 :value: >
    None
 
-```{autodoc2-docstring} agentsociety.configs.exp.AgentFilterConfig.memory_kv
+```{autodoc2-docstring} agentsociety.configs.exp.AgentFilterConfig.filter_str
 ```
 
 ````

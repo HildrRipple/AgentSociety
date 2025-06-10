@@ -35,6 +35,10 @@
   - ```{autodoc2-docstring} agentsociety.simulation.agentsociety._init_agent_class
     :summary:
     ```
+* - {py:obj}`evaluate_filter <agentsociety.simulation.agentsociety.evaluate_filter>`
+  - ```{autodoc2-docstring} agentsociety.simulation.agentsociety.evaluate_filter
+    :summary:
+    ```
 ````
 
 ### Data
@@ -103,6 +107,13 @@
 ```
 ````
 
+````{py:function} evaluate_filter(filter_str: str, profile: dict) -> bool
+:canonical: agentsociety.simulation.agentsociety.evaluate_filter
+
+```{autodoc2-docstring} agentsociety.simulation.agentsociety.evaluate_filter
+```
+````
+
 `````{py:class} AgentSociety(config: agentsociety.configs.Config, tenant_id: str = 'local')
 :canonical: agentsociety.simulation.agentsociety.AgentSociety
 
@@ -149,18 +160,18 @@
 
 ````
 
-````{py:property} enable_avro
-:canonical: agentsociety.simulation.agentsociety.AgentSociety.enable_avro
+````{py:property} enable_database
+:canonical: agentsociety.simulation.agentsociety.AgentSociety.enable_database
 
-```{autodoc2-docstring} agentsociety.simulation.agentsociety.AgentSociety.enable_avro
+```{autodoc2-docstring} agentsociety.simulation.agentsociety.AgentSociety.enable_database
 ```
 
 ````
 
-````{py:property} enable_pgsql
-:canonical: agentsociety.simulation.agentsociety.AgentSociety.enable_pgsql
+````{py:property} database_writer
+:canonical: agentsociety.simulation.agentsociety.AgentSociety.database_writer
 
-```{autodoc2-docstring} agentsociety.simulation.agentsociety.AgentSociety.enable_pgsql
+```{autodoc2-docstring} agentsociety.simulation.agentsociety.AgentSociety.database_writer
 ```
 
 ````
@@ -177,14 +188,6 @@
 :canonical: agentsociety.simulation.agentsociety.AgentSociety.messager
 
 ```{autodoc2-docstring} agentsociety.simulation.agentsociety.AgentSociety.messager
-```
-
-````
-
-````{py:property} mlflow_client
-:canonical: agentsociety.simulation.agentsociety.AgentSociety.mlflow_client
-
-```{autodoc2-docstring} agentsociety.simulation.agentsociety.AgentSociety.mlflow_client
 ```
 
 ````
@@ -207,7 +210,7 @@
 
 ````
 
-````{py:method} filter(types: typing.Optional[tuple[type[agentsociety.agent.Agent]]] = None, memory_kv: typing.Optional[dict[str, typing.Any]] = None) -> list[int]
+````{py:method} filter(types: typing.Optional[tuple[type[agentsociety.agent.Agent]]] = None, filter_str: typing.Optional[str] = None) -> list[int]
 :canonical: agentsociety.simulation.agentsociety.AgentSociety.filter
 :async:
 

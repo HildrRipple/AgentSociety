@@ -11,24 +11,11 @@ const RootMenu = ({ selectedKey, style }: {
     style?: React.CSSProperties
 }) => {
     const { t, i18n } = useTranslation();
-    const [mlflowUrl, setMlflowUrl] = useState<string>("");
-
-    useEffect(() => {
-        fetch("/api/mlflow/url")
-            .then(res => res.json())
-            .then(res => {
-                setMlflowUrl(res.data);
-            });
-    }, []);
 
     const handleLanguageChange = () => {
         const newLang = i18n.language === 'en' ? 'zh' : 'en';
         i18n.changeLanguage(newLang);
     };
-
-    // Experiment submenu items
-    const experimentItems: MenuProps['items'] = [
-    ];
 
     const agentItems: MenuProps['items'] = [
         {
@@ -80,9 +67,6 @@ const RootMenu = ({ selectedKey, style }: {
         { key: "/bill", label: <Link to="/bill">{t('menu.bill')}</Link> },
     ];
 
-    if (mlflowUrl !== "") {
-        menuItems.push({ key: "/mlflow", label: <Link to={mlflowUrl} rel="noopener noreferrer" target="_blank"><Space>{t('menu.mlflow')}<ExportOutlined /></Space></Link> });
-    }
     menuItems.push({ key: "/Documentation", label: <Link to="https://agentsociety.readthedocs.io/en/latest/" rel="noopener noreferrer" target="_blank"><Space>{t('menu.documentation')}</Space></Link> });
     menuItems.push({ key: "/Github", label: <Link to="https://github.com/tsinghua-fib-lab/agentsociety/" rel="noopener noreferrer" target="_blank"><Space>{t('menu.github')}<GithubOutlined /></Space></Link> });
 

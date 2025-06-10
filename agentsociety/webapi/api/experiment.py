@@ -21,13 +21,35 @@ from ..models.agent import (
     global_prompt,
 )
 from ..models.experiment import ApiExperiment, ApiTime, Experiment, ExperimentStatus
-from ..models.metric import MLflowRun, MLflowMetric, ApiMLflowMetric
+from ..models.metric import ApiMetric, metric
 from .const import DEMO_USER_ID
 from .timezone import ensure_timezone_aware
 
 __all__ = ["router"]
 
 router = APIRouter(tags=["experiments"])
+
+
+async def _find_started_experiment_by_id(
+    request: Request, db: AsyncSession, exp_id: uuid.UUID
+) -> Experiment:
+    """Find an experiment by ID and check if it has started"""
+    tenant_id = await request.app.state.get_tenant_id(request)
+    stmt = select(Experiment).where(
+        Experiment.tenant_id == tenant_id, Experiment.id == exp_id
+    )
+    result = await db.execute(stmt)
+    row = result.first()
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
+        )
+    exp: Experiment = row[0]
+    if ExperimentStatus(exp.status) == ExperimentStatus.NOT_STARTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Experiment not running"
+        )
+    return exp
 
 
 @router.get("/experiments")
@@ -45,12 +67,12 @@ async def list_experiments(
         )
         results = await db.execute(stmt)
         db_experiments = [row[0] for row in results.all() if len(row) > 0]
-        
+
         # 处理时区
         for experiment in db_experiments:
             experiment.created_at = ensure_timezone_aware(experiment.created_at)
             experiment.updated_at = ensure_timezone_aware(experiment.updated_at)
-        
+
         experiments = cast(List[ApiExperiment], db_experiments)
         return ApiResponseWrapper(data=experiments)
 
@@ -169,6 +191,10 @@ async def delete_experiment_by_id(
                     experiment.agent_status_tablename,
                     experiment.agent_dialog_tablename,
                     experiment.agent_survey_tablename,
+                    experiment.global_prompt_tablename,
+                    experiment.pending_dialog_tablename,
+                    experiment.pending_survey_tablename,
+                    experiment.metric_tablename,
                 ]
 
                 # Delete related tables
@@ -198,48 +224,57 @@ async def delete_experiment_by_id(
 
 
 async def get_experiment_metrics_by_id(
+    request: Request,
     db: AsyncSession,
     exp_id: uuid.UUID,
-) -> Tuple[bool, Dict[str, List[ApiMLflowMetric]]]:
+) -> Tuple[bool, Dict[str, List[ApiMetric]]]:
     """Get metrics for an experiment by ID
 
     Args:
+        request: FastAPI request
         db: Database session
         exp_id: Experiment ID
 
     Returns:
         Tuple containing:
         - bool: Whether metrics were found
-        - Dict[str, List[ApiMLflowMetric]]: Metrics data aggregated by key
+        - Dict[str, List[ApiMetric]]: Metrics data aggregated by key
     """
-    join_stmt = (
-        select(MLflowRun, MLflowMetric)
-        .join(MLflowMetric, MLflowRun.run_uuid == MLflowMetric.run_uuid)
-        .where(MLflowRun.name == str(exp_id))
-        .order_by(MLflowMetric.step)
+
+    experiment = await _find_started_experiment_by_id(request, db, exp_id)
+
+    # Get metrics from the metric table
+    table_name = experiment.metric_tablename
+    
+    # Execute query to get metrics data
+    query = text(
+        f"""
+        SELECT key, value, step
+        FROM {table_name}
+        ORDER BY step
+        """
     )
-    results = await db.execute(join_stmt)
+    results = await db.execute(query)
     rows = results.all()
 
     if not rows:
         return False, {}
 
     # Aggregate metrics by key
-    metrics_by_key: Dict[str, List[ApiMLflowMetric]] = defaultdict(list)
-    for _, metric in rows:
-        api_metric = ApiMLflowMetric(
-            key=metric.key,
-            value=metric.value,
-            step=metric.step,
-            is_nan=metric.is_nan,
+    metrics_by_key: Dict[str, List[ApiMetric]] = defaultdict(list)
+    for row in rows:
+        api_metric = ApiMetric(
+            key=row[0],
+            value=float(row[1]),
+            step=int(row[2]),
         )
-        metrics_by_key[metric.key].append(api_metric)
+        metrics_by_key[row[0]].append(api_metric)
 
     return True, metrics_by_key
 
 
 def serialize_metrics(
-    metrics_by_key: Dict[str, List[ApiMLflowMetric]],
+    metrics_by_key: Dict[str, List[ApiMetric]],
 ) -> Dict[str, List[dict]]:
     """Serialize metrics data for JSON output
 
@@ -259,7 +294,7 @@ def serialize_metrics(
 async def get_experiment_metrics(
     request: Request,
     exp_id: uuid.UUID,
-) -> ApiResponseWrapper[Dict[str, List[ApiMLflowMetric]]]:
+) -> ApiResponseWrapper[Dict[str, List[ApiMetric]]]:
     """Get all metrics for an experiment, aggregated by metric key"""
 
     tenant_id = await request.app.state.get_tenant_id(request)
@@ -277,7 +312,7 @@ async def get_experiment_metrics(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
             )
 
-        _, metrics_by_key = await get_experiment_metrics_by_id(db, exp_id)
+        _, metrics_by_key = await get_experiment_metrics_by_id(request, db, exp_id)
         return ApiResponseWrapper(data=metrics_by_key)
 
 
@@ -313,7 +348,7 @@ async def export_experiment_data(
             zip_file.writestr("experiment.yaml", yaml_content)
 
             # Export metrics data as JSON
-            found, metrics_by_key = await get_experiment_metrics_by_id(db, exp_id)
+            found, metrics_by_key = await get_experiment_metrics_by_id(request, db, exp_id)
             if found:
                 serialized_metrics = serialize_metrics(metrics_by_key)
                 metrics_json = json.dumps(serialized_metrics, indent=2)
@@ -333,6 +368,7 @@ async def export_experiment_data(
                 "agent_survey": agent_survey(experiment.agent_survey_tablename),
                 "agent_dialog": agent_dialog(experiment.agent_dialog_tablename),
                 "global_prompt": global_prompt(experiment.global_prompt_tablename),
+                "metric": metric(experiment.metric_tablename),
             }
 
             for table_name, (db_table, columns) in tables.items():
@@ -389,11 +425,10 @@ async def export_experiment_artifacts(
         fs_client = request.app.state.env.fs_client
         artifacts_path = f"exps/{tenant_id}/{exp_id}/artifacts.json"
         artifacts_data = fs_client.download(artifacts_path)
-        
+
         if not artifacts_data:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Artifacts not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Artifacts not found"
             )
 
         return StreamingResponse(

@@ -1,8 +1,7 @@
-from typing import List, Optional, Union
+from typing import Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
-from ..metrics import MlflowConfig
 from ..storage import DatabaseConfig
 from ..s3 import S3Config, S3Client
 from ..filesystem import FileSystemClient
@@ -17,9 +16,6 @@ class EnvConfig(BaseModel):
 
     db: DatabaseConfig
     """Database configuration"""
-
-    mlflow: MlflowConfig
-    """MLflow configuration"""
 
     s3: S3Config = Field(default_factory=lambda: S3Config.model_validate({}))
     """S3 configuration, if enabled, the file will be downloaded from S3"""

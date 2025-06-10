@@ -82,9 +82,8 @@ from agentsociety.configs.exp import (
 )
 from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
-from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
-from agentsociety.storage import AvroConfig, PostgreSQLConfig
+from agentsociety.storage import DatabaseConfig
 
 ray.init(logging_level=logging.INFO)
 
@@ -99,19 +98,10 @@ config = Config(
         )
     ],
     env=EnvConfig(
-        pgsql=PostgreSQLConfig(
+        db=DatabaseConfig(
             enabled=True,
-            dsn="<PGSQL-DSN>",
-            num_workers="auto",
-        ),
-        avro=AvroConfig(
-            enabled=True,
-        ),
-        mlflow=MlflowConfig(
-            enabled=True,
-            mlflow_uri="<MLFLOW-URI>",
-            username="<USERNAME>",
-            password="<PASSWORD>",
+            db_type="postgresql",
+            pg_dsn="<PGSQL-DSN>",
         ),
     ),
     map=MapConfig(
@@ -231,9 +221,8 @@ from agentsociety.configs.exp import (
 )
 from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
-from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
-from agentsociety.storage import AvroConfig, PostgreSQLConfig
+from agentsociety.storage import DatabaseConfig
 
 ray.init(logging_level=logging.INFO)
 
@@ -248,19 +237,10 @@ config = Config(
         )
     ],
     env=EnvConfig(
-        pgsql=PostgreSQLConfig(
+        db=DatabaseConfig(
             enabled=True,
-            dsn="<PGSQL-DSN>",
-            num_workers="auto",
-        ),
-        avro=AvroConfig(
-            enabled=True,
-        ),
-        mlflow=MlflowConfig(
-            enabled=True,
-            mlflow_uri="<MLFLOW-URI>",
-            username="<USERNAME>",
-            password="<PASSWORD>",
+            db_type="postgresql",
+            pg_dsn="<PGSQL-DSN>",
         ),
     ),
     map=MapConfig(

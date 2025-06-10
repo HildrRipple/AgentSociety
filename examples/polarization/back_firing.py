@@ -30,7 +30,6 @@ from agentsociety.configs.exp import (
 )
 from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
-from agentsociety.metrics import MlflowConfig
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import DatabaseConfig
 
@@ -103,12 +102,6 @@ config = Config(
             enabled=True,
             db_type="sqlite",
             pg_dsn=None,
-        ),
-        mlflow=MlflowConfig(
-            enabled=True,
-            mlflow_uri="<MLFLOW-URI>",
-            username="<USERNAME>",
-            password="<PASSWORD>",
         ),
     ),
     map=MapConfig(

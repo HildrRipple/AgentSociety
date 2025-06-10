@@ -27,33 +27,12 @@ from ..models.agent import (
 )
 from ..models.experiment import Experiment, ExperimentStatus
 from ..models.survey import Survey
+from .experiment import _find_started_experiment_by_id
 from .timezone import ensure_timezone_aware
 
 __all__ = ["router"]
 
 router = APIRouter(tags=["agent"])
-
-
-async def _find_started_experiment_by_id(
-    request: Request, db: AsyncSession, exp_id: uuid.UUID
-) -> Experiment:
-    """Find an experiment by ID and check if it has started"""
-    tenant_id = await request.app.state.get_tenant_id(request)
-    stmt = select(Experiment).where(
-        Experiment.tenant_id == tenant_id, Experiment.id == exp_id
-    )
-    result = await db.execute(stmt)
-    row = result.first()
-    if not row:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
-        )
-    exp: Experiment = row[0]
-    if ExperimentStatus(exp.status) == ExperimentStatus.NOT_STARTED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Experiment not running"
-        )
-    return exp
 
 
 @router.get("/experiments/{exp_id}/agents/{agent_id}/dialog")

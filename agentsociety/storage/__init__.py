@@ -14,6 +14,7 @@ from .model import (
     pending_dialog,
     pending_survey,
     Experiment,
+    metric,
 )
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     "pending_dialog",
     "pending_survey",
     "Experiment",
+    "metric",
 ]
