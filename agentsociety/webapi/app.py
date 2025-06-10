@@ -11,7 +11,6 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from starlette.middleware.sessions import SessionMiddleware
 
 from ..configs import EnvConfig
 from .api import api_router
@@ -110,12 +109,6 @@ def create_app(
     app.include_router(api_router)
     if more_router is not None:
         app.include_router(more_router)
-
-    app.add_middleware(
-        SessionMiddleware,
-        secret_key=session_secret_key,
-        session_cookie="agentsociety-session",
-    )
 
     # serve frontend files
     frontend_path = Path(_parent_dir) / "_dist"

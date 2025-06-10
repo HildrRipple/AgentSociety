@@ -228,7 +228,7 @@ const CreateExperiment: React.FC = () => {
                         }
                     } else if (status === 'Failed' || status === 'Error') {
                         clearInterval(interval);
-                        message.error(t('experiment.messages.startFailed'));
+                        message.error(t('experiment.messages.startFailed', { error: status }));
                         setExperimentRunning(false);
                     }
                 } catch (error) {
