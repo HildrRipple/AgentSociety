@@ -233,10 +233,6 @@ class AgentGroup:
             else:
                 blocks = None
             # build agent
-            if agent_params is None:
-                agent_params = agent_class.ParamsType()
-            else:
-                agent_params = agent_class.ParamsType.model_validate(agent_params)
             agent = agent_class(
                 id=id,
                 name=f"{agent_class.__name__}_{id}",

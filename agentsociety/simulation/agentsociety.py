@@ -103,6 +103,10 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     # lazy generate memory values
     # param config
     agent_params = agent_config.agent_params
+    if agent_params is None:
+        agent_params = agent_class.ParamsType()
+    else:
+        agent_params = agent_class.ParamsType.model_validate(agent_params)
     blocks = agent_config.blocks
     agents = [(agent_class, generator, i, agent_params, blocks) for i in range(n)]
     return agents, generator
@@ -160,7 +164,7 @@ class AgentSociety:
     def __init__(
         self,
         config: Config,
-        tenant_id: str = "local",
+        tenant_id: str = "",
     ) -> None:
         config.set_auto_workers()
         self._config = _set_default_agent_config(config)
@@ -360,6 +364,13 @@ class AgentSociety:
             # Step 1: Process all agents with memory_from_file
             # Firms
             for agent_config in agent_configs_from_file["firms"]:
+                agent_class = agent_config.agent_class
+                agent_params = agent_config.agent_params
+                if agent_params is None:
+                    agent_params = agent_class.ParamsType()
+                else:
+                    agent_params = agent_class.ParamsType.model_validate(agent_params)
+                blocks = agent_config.blocks
                 # Create generator
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
@@ -388,16 +399,23 @@ class AgentSociety:
                     agents.append(
                         (
                             agent_id,
-                            agent_config.agent_class,
+                            agent_class,
                             generator,
                             agent_data.index(agent_datum),
-                            agent_config.agent_params,
-                            agent_config.blocks,
+                            agent_params,
+                            blocks,
                         )
                     )
 
             # Banks
             for agent_config in agent_configs_from_file["banks"]:
+                agent_class = agent_config.agent_class
+                agent_params = agent_config.agent_params
+                if agent_params is None:
+                    agent_params = agent_class.ParamsType()
+                else:
+                    agent_params = agent_class.ParamsType.model_validate(agent_params)
+                blocks = agent_config.blocks
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
                     agent_config.agent_class.StatusAttributes,  # type: ignore
@@ -423,16 +441,23 @@ class AgentSociety:
                     agents.append(
                         (
                             agent_id,
-                            agent_config.agent_class,
+                            agent_class,
                             generator,
                             agent_data.index(agent_datum),
-                            agent_config.agent_params,
-                            agent_config.blocks,
+                            agent_params,
+                            blocks,
                         )
                     )
 
             # NBS
             for agent_config in agent_configs_from_file["nbs"]:
+                agent_class = agent_config.agent_class
+                agent_params = agent_config.agent_params
+                if agent_params is None:
+                    agent_params = agent_class.ParamsType()
+                else:
+                    agent_params = agent_class.ParamsType.model_validate(agent_params)
+                blocks = agent_config.blocks
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
                     agent_config.agent_class.StatusAttributes,  # type: ignore
@@ -458,16 +483,23 @@ class AgentSociety:
                     agents.append(
                         (
                             agent_id,
-                            agent_config.agent_class,
+                            agent_class,
                             generator,
                             agent_data.index(agent_datum),
-                            agent_config.agent_params,
-                            agent_config.blocks,
+                            agent_params,
+                            blocks,
                         )
                     )
 
             # Governments
             for agent_config in agent_configs_from_file["governments"]:
+                agent_class = agent_config.agent_class
+                agent_params = agent_config.agent_params
+                if agent_params is None:
+                    agent_params = agent_class.ParamsType()
+                else:
+                    agent_params = agent_class.ParamsType.model_validate(agent_params)
+                blocks = agent_config.blocks
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
                     agent_config.agent_class.StatusAttributes,  # type: ignore
@@ -495,16 +527,23 @@ class AgentSociety:
                     agents.append(
                         (
                             agent_id,
-                            agent_config.agent_class,
+                            agent_class,
                             generator,
                             agent_data.index(agent_datum),
-                            agent_config.agent_params,
-                            agent_config.blocks,
+                            agent_params,
+                            blocks,
                         )
                     )
 
             # Citizens
             for agent_config in agent_configs_from_file["citizens"]:
+                agent_class = agent_config.agent_class
+                agent_params = agent_config.agent_params
+                if agent_params is None:
+                    agent_params = agent_class.ParamsType()
+                else:
+                    agent_params = agent_class.ParamsType.model_validate(agent_params)
+                blocks = agent_config.blocks
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
                     agent_config.agent_class.StatusAttributes,  # type: ignore
@@ -533,11 +572,11 @@ class AgentSociety:
                     agents.append(
                         (
                             agent_id,
-                            agent_config.agent_class,
+                            agent_class,
                             generator,
                             agent_data.index(agent_datum),
-                            agent_config.agent_params,
-                            agent_config.blocks,
+                            agent_params,
+                            blocks,
                         )
                     )
 
