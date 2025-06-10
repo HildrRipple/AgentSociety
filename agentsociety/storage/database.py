@@ -99,6 +99,7 @@ async def _create_tables(exp_id: str, config: DatabaseConfig, sqlite_path: Path)
                 "global_prompt": global_prompt,
                 "pending_dialog": pending_dialog,
                 "pending_survey": pending_survey,
+                "metric": metric,
             }
             
             for table_type, table_func in table_functions.items():
