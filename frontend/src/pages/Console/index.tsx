@@ -1,16 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 
 import { Col, Row, message, Table, Button, Space, Popconfirm, Modal, Dropdown, Select } from 'antd';
-import dayjs from "dayjs";
 import { parseT } from "../../components/util";
 import { useNavigate } from "react-router-dom";
-import React from "react";
 import { Experiment } from "../../components/type";
 import { ProColumns, ProDescriptions, ProTable } from "@ant-design/pro-components";
 import { ActionType } from "@ant-design/pro-table";
 import { EllipsisOutlined, ReloadOutlined, PlusOutlined } from "@ant-design/icons";
-import { fetchCustom } from "../../components/fetch";
-import { getAccessToken } from "../../components/Auth";
+import { fetchCustom, postDownloadCustom } from "../../components/fetch";
 import { useTranslation } from "react-i18next";
 
 const Page = () => {
@@ -155,42 +152,14 @@ const Page = () => {
                                     key: 'exportArtifacts',
                                     label: t('console.buttons.exportArtifacts'),
                                     onClick: () => {
-                                        const token = getAccessToken();
-                                        if (!token) {
-                                            message.error(t('console.messages.noToken'));
-                                            return;
-                                        }
-                                        const authorization = `Bearer ${token}`;
-                                        const url = `/api/experiments/${record.id}/artifacts`
-                                        const form = document.createElement('form');
-                                        form.action = url;
-                                        form.method = 'POST';
-                                        form.target = '_blank';
-                                        form.innerHTML = '<input type="hidden" name="authorization" value="' + authorization + '">';
-                                        document.body.appendChild(form);
-                                        form.submit();
-                                        document.body.removeChild(form);
+                                        postDownloadCustom(`/api/experiments/${record.id}/artifacts`)
                                     }
                                 },
                                 {
                                     key: 'export',
                                     label: t('console.buttons.export'),
                                     onClick: () => {
-                                        const token = getAccessToken();
-                                        if (!token) {
-                                            message.error(t('console.messages.noToken'));
-                                            return;
-                                        }
-                                        const authorization = `Bearer ${token}`;
-                                        const url = `/api/experiments/${record.id}/export`
-                                        const form = document.createElement('form');
-                                        form.action = url;
-                                        form.method = 'POST';
-                                        form.target = '_blank';
-                                        form.innerHTML = '<input type="hidden" name="authorization" value="' + authorization + '">';
-                                        document.body.appendChild(form);
-                                        form.submit();
-                                        document.body.removeChild(form);
+                                        postDownloadCustom(`/api/experiments/${record.id}/export`)
                                     }
                                 },
                                 {

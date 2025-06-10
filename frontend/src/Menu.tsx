@@ -1,9 +1,9 @@
-import { ExportOutlined, GithubOutlined, PlusOutlined, ExperimentOutlined, ApiOutlined, TeamOutlined, GlobalOutlined, NodeIndexOutlined, SettingOutlined } from "@ant-design/icons";
+import { GithubOutlined, ExperimentOutlined, ApiOutlined, TeamOutlined, GlobalOutlined, NodeIndexOutlined, SettingOutlined } from "@ant-design/icons";
 import { Menu, MenuProps, Space, Dropdown, Button } from "antd";
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Account from "./components/Account";
 import { useTranslation } from 'react-i18next';
+import { WITH_AUTH } from "./components/fetch";
 // import Account from "./components/Account";
 
 const RootMenu = ({ selectedKey, style }: {
@@ -63,7 +63,7 @@ const RootMenu = ({ selectedKey, style }: {
             icon: <ExperimentOutlined />,
         },
         { key: "/survey", label: <Link to="/survey">{t('menu.survey')}</Link> },
-        { key: "/bill", label: <Link to="/bill">{t('menu.bill')}</Link> },
+        ...(WITH_AUTH ? [{ key: "/bill", label: <Link to="/bill">{t('menu.bill')}</Link> }] : []),
     ];
 
     menuItems.push({ key: "/Documentation", label: <Link to="https://agentsociety.readthedocs.io/en/latest/" rel="noopener noreferrer" target="_blank"><Space>{t('menu.documentation')}</Space></Link> });
@@ -99,7 +99,7 @@ const RootMenu = ({ selectedKey, style }: {
                 >
                     {i18n.language === 'en' ? '中文' : 'English'}
                 </Button>
-                <Account />
+                {WITH_AUTH && <Account />}
             </div>
         </div>
     );

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Card, Space, Modal, message, Tooltip, Input, Popconfirm, Upload } from 'antd';
 import { DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { fetchCustom } from '../../components/fetch';
-import { getAccessToken } from '../../components/Auth';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { ApiAgentProfile } from '../../types/profile';
@@ -118,9 +117,6 @@ const ProfileList: React.FC = () => {
         try {
             const response = await fetchCustom('/api/agent-profiles/upload', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${getAccessToken()}`
-                },
                 body: formData
             });
 

@@ -9,7 +9,7 @@ import {
     InboxOutlined
 } from '@ant-design/icons';
 import { MapConfig, ConfigWrapper } from '../../types/config';
-import { fetchCustom } from '../../components/fetch';
+import { fetchCustom, postDownloadCustom, WITH_AUTH } from '../../components/fetch';
 import dayjs from 'dayjs';
 import { getAccessToken } from '../../components/Auth';
 import { useTranslation } from 'react-i18next';
@@ -172,9 +172,9 @@ const Map: React.FC = () => {
         name: 'file',
         multiple: false,
         action: '/api/map-configs/-/upload',
-        headers: {
+        headers: WITH_AUTH ? {
             Authorization: `Bearer ${getAccessToken()}`
-        },
+        } : {},
         beforeUpload: (file) => {
             // check suffix
             if (!file.name.endsWith('.pb')) {
@@ -255,22 +255,7 @@ const Map: React.FC = () => {
                     </Tooltip>
                     <Tooltip title={t('common.export')}>
                         <Button icon={<DownloadOutlined />} size="small" onClick={() => {
-                            const token = getAccessToken();
-                            if (!token) {
-                                message.error('No token found, please login');
-                                return;
-                            }
-                            const authorization = `Bearer ${token}`;
-                            const url = `/api/map-configs/${record.id}/export`
-                            // use form post to download the file
-                            const form = document.createElement('form');
-                            form.action = url;
-                            form.method = 'POST';
-                            form.target = '_blank';
-                            form.innerHTML = '<input type="hidden" name="authorization" value="' + authorization + '">';
-                            document.body.appendChild(form);
-                            form.submit();
-                            document.body.removeChild(form);
+                            postDownloadCustom(`/api/map-configs/${record.id}/export`)
                         }} />
                     </Tooltip>
 
