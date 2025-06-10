@@ -19,7 +19,7 @@ from fastapi import HTTPException, status
 from kubernetes_asyncio import client, config
 from kubernetes_asyncio.client.api_client import ApiClient
 
-from ..logger import get_logger
+from ...logger import get_logger
 
 __all__ = ["KubernetesExecutor"]
 

@@ -2,7 +2,7 @@
 Logging and saving components
 """
 
-from ._base import TABLE_PREFIX, Base, BaseNoInit, MoneyDecimal
+from ._base import TABLE_PREFIX, Base, MoneyDecimal
 from .database import DatabaseWriter, DatabaseConfig
 from .type import StorageDialog, StorageSurvey, StorageDialogType
 from .model import (
@@ -20,7 +20,6 @@ from .model import (
 __all__ = [
     "TABLE_PREFIX",
     "Base",
-    "BaseNoInit",
     "MoneyDecimal",
     "DatabaseWriter",
     "DatabaseConfig",

@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import Text, TIMESTAMP, DECIMAL, JSON
 from sqlalchemy.ext.declarative import declarative_base
 
-__all__ = ["Base", "BaseNoInit", "TABLE_PREFIX", "MoneyDecimal"]
+__all__ = ["Base", "TABLE_PREFIX", "MoneyDecimal"]
 
 
 # Define decimal types for type annotations
@@ -24,19 +24,6 @@ Base = declarative_base(
 )
 """
 If the table needs to be initialized, use this base class.
-"""
-
-BaseNoInit = declarative_base(
-    type_annotation_map={
-        Any: JSON,
-        str: Text,
-        datetime: TIMESTAMP(timezone=True),
-        Decimal: DECIMAL,
-        MoneyDecimal: DECIMAL(precision=18, scale=6),
-    }
-)
-"""
-If the table does not need to be initialized, use this base class.
 """
 
 TABLE_PREFIX = "as_"

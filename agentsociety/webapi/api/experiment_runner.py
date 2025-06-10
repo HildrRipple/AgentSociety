@@ -18,11 +18,10 @@ from ...configs import (
     AgentsConfig as SimAgentsConfig,
 )
 from ...filesystem import FileSystemClient
-from ...executor import ProcessExecutor, KubernetesExecutor
+from ...executor import ProcessExecutor
 from ..models import ApiResponseWrapper
 from ..models.config import AgentConfig, LLMConfig, MapConfig, WorkflowConfig
 from ..models.experiment import Experiment, ExperimentStatus, RunningExperiment
-from ..models.bill import Bill, ItemEnum, Account
 from .const import DEMO_USER_ID
 from .timezone import ensure_timezone_aware
 
@@ -96,24 +95,14 @@ async def run_experiment(
     # get config from db
     async with request.app.state.get_db() as db:
         db = cast(AsyncSession, db)
-        # check account balance
-        stmt = select(Account).where(Account.tenant_id == tenant_id)
-        account = (await db.execute(stmt)).scalar_one_or_none()
-        if account is None:
-            # create account with 0 balance
-            stmt = insert(Account).values(tenant_id=tenant_id, balance=0)
-            await db.execute(stmt)
-            stmt = select(Account).where(Account.tenant_id == tenant_id)
-            account = (await db.execute(stmt)).scalar_one()
-        executor = cast(
-            Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
-        )
-        if isinstance(executor, KubernetesExecutor):
-            if account.balance <= 0:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Insufficient balance",
-                )
+        
+        # 使用商业化余额检查（如果可用）
+        if not _check_commercial_balance(request.app.state, tenant_id, db):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Insufficient balance",
+            )
+            
         # ===== LLM config =====
         stmt = select(LLMConfig.config).where(
             LLMConfig.tenant_id == config.llm.tenant_id,
@@ -221,7 +210,7 @@ async def run_experiment(
         await db.commit()
 
     executor = cast(
-        Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
+        ProcessExecutor, request.app.state.executor
     )
     task = asyncio.create_task(
         executor.create(
@@ -268,7 +257,7 @@ async def delete_experiment(
             detail="Demo user is not allowed to delete experiments",
         )
     executor = cast(
-        Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
+        ProcessExecutor, request.app.state.executor
     )
     await executor.delete(tenant_id, exp_id)
 
@@ -287,7 +276,7 @@ async def delete_experiment(
             Experiment.tenant_id == tenant_id, Experiment.id == exp_id
         )
         experiment = (await db.execute(stmt)).scalar_one_or_none()
-        await _compute_bill(db, experiment)
+        await _compute_commercial_bill(request.app.state, db, experiment)
 
         # delete the running experiment
         stmt = delete(RunningExperiment).where(
@@ -310,7 +299,7 @@ async def get_experiment_logs(
             detail="Demo user is not allowed to view experiment logs",
         )
     executor = cast(
-        Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
+        ProcessExecutor, request.app.state.executor
     )
     logs = await executor.get_logs(tenant_id, exp_id)
     return logs
@@ -329,7 +318,7 @@ async def get_experiment_status(
             detail="Demo user is not allowed to view experiment status",
         )
     executor = cast(
-        Union[KubernetesExecutor, ProcessExecutor], request.app.state.executor
+        ProcessExecutor, request.app.state.executor
     )
     pod_status = await executor.get_status(tenant_id, exp_id)
     return ApiResponseWrapper(
@@ -378,7 +367,7 @@ async def finish_experiment(
                 detail="Experiment is not finished or stopped",
             )
         # 3. compute the bill
-        await _compute_bill(db, experiment)
+        await _compute_commercial_bill(request.app.state, db, experiment)
         # 4. delete the running experiment
         stmt = delete(RunningExperiment).where(
             RunningExperiment.id == exp_id,
@@ -387,75 +376,27 @@ async def finish_experiment(
         await db.commit()
 
 
-async def _compute_bill(db: AsyncSession, experiment: Experiment) -> None:
-    tenant_id = experiment.tenant_id
-    input_tokens = experiment.input_tokens / 1_000_000
-    input_token_price = 3
-    output_tokens = experiment.output_tokens / 1_000_000
-    output_token_price = 3
-    time = experiment.updated_at - experiment.created_at
-    time_seconds = time.total_seconds()
-    time_second_price = 0.001
+async def _compute_commercial_bill(app_state, db, experiment):
+    """计算商业化账单（如果可用）"""
+    try:
+        billing_system = getattr(app_state, 'billing_system', None)
+        if billing_system and 'compute_bill' in billing_system:
+            rates = billing_system.get('rates', {})
+            await billing_system['compute_bill'](db, experiment, rates)
+            return
+    except Exception as e:
+        logger.warning(f"Failed to compute commercial bill: {e}")
+    
+    # 如果商业化功能不可用，跳过计费
+    logger.info("No commercial billing system available, skipping billing")
 
-    llm_input_amount = int(-input_tokens * input_token_price * 1_000_000) / 1_000_000
-    llm_output_amount = int(-output_tokens * output_token_price * 1_000_000) / 1_000_000
-    runtime_amount = int(-time_seconds * time_second_price * 1_000_000) / 1_000_000
 
-    stmt = insert(Bill).values(
-        tenant_id=tenant_id,
-        id=uuid.uuid4(),
-        related_exp_id=experiment.id,
-        item=ItemEnum.LLM_INPUT_TOKEN,
-        amount=llm_input_amount,
-        unit_price=input_token_price,
-        quantity=input_tokens,
-        description="",
-    )
-    await db.execute(stmt)
-    stmt = insert(Bill).values(
-        tenant_id=tenant_id,
-        id=uuid.uuid4(),
-        related_exp_id=experiment.id,
-        item=ItemEnum.LLM_OUTPUT_TOKEN,
-        amount=llm_output_amount,
-        unit_price=output_token_price,
-        quantity=output_tokens,
-        description="",
-    )
-    await db.execute(stmt)
-    stmt = insert(Bill).values(
-        tenant_id=tenant_id,
-        id=uuid.uuid4(),
-        related_exp_id=experiment.id,
-        item=ItemEnum.RUNTIME,
-        amount=runtime_amount,
-        unit_price=time_second_price,
-        quantity=time_seconds,
-        description="",
-    )
-    await db.execute(stmt)
-    total_amount = llm_input_amount + llm_output_amount + runtime_amount
-
-    # Check if account exists
-    stmt = select(Account).where(Account.tenant_id == tenant_id)
-    account = (await db.execute(stmt)).scalar_one_or_none()
-
-    if account is None:
-        # Create new account with 0 balance
-        stmt = insert(Account).values(tenant_id=tenant_id, balance=0)
-        await db.execute(stmt)
-    with localcontext() as ctx:
-        ctx.prec = 6
-        # Update account balance
-        stmt = (
-            update(Account)
-            .where(Account.tenant_id == tenant_id)
-            .values(
-                balance=Account.balance
-                + Decimal(
-                    total_amount,
-                ),
-            )
-        )
-    await db.execute(stmt)
-    await db.commit()
+def _check_commercial_balance(app_state, tenant_id, db):
+    """检查商业化余额（如果可用）"""
+    try:
+        billing_system = getattr(app_state, 'billing_system', None)
+        if billing_system and 'check_balance' in billing_system:
+            return billing_system['check_balance'](tenant_id, db)
+    except Exception as e:
+        logger.warning(f"Failed to check commercial balance: {e}")
+    return True  # 如果没有商业化功能，默认允许

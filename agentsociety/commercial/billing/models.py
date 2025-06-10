@@ -11,7 +11,7 @@ from pydantic import AwareDatetime, BaseModel
 from sqlalchemy import Index
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ._base import TABLE_PREFIX, Base, MoneyDecimal
+from ...webapi.models._base import TABLE_PREFIX, Base, MoneyDecimal
 
 __all__ = ["Bill", "ApiBill", "Account", "ApiAccount", "ItemEnum"]
 

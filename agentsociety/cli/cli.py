@@ -86,84 +86,40 @@ def ui(config: str, config_base64: str):
 
     from ..configs import EnvConfig
     from ..logger import get_logger, set_logger_level
-    from ..webapi.app import create_app, empty_get_tenant_id
-    from ..casdoor.api import CasdoorConfig, Casdoor, login_router, auth_bearer_token
-    from ..executor import KubernetesExecutor, ProcessExecutor
+    from ..webapi.app import create_app
+    from ..executor import ProcessExecutor
 
     class WebUIConfig(BaseModel):
         addr: str = Field(default="127.0.0.1:8080")
-        casdoor: CasdoorConfig = Field(
-            default_factory=lambda: CasdoorConfig.model_validate(
-                {
-                    "enabled": False,
-                    "client_id": "",
-                    "client_secret": "",
-                    "application_name": "",
-                    "endpoint": "",
-                    "org_name": "",
-                    "certificate": "",
-                }
-            )
-        )
-        callback_url: str = "http://web.agentsociety.svc.cluster.local"
+        callback_url: str = ""
         env: EnvConfig
         read_only: bool = Field(default=False)
         debug: bool = Field(default=False)
         logging_level: str = Field(default="INFO")
-        executor: Literal["kubernetes", "process"] = Field(default="process")
-
-        @model_validator(mode="after")
-        def validate_executor(self):
-            if self.executor == "kubernetes":
-                if not self.env.s3.enabled:
-                    raise ValueError(
-                        "S3 must be enabled when using kubernetes executor"
-                    )
-            return self
+        commercial: Dict[str, Any] = {}
 
     async def _main():
         c = WebUIConfig.model_validate(config_data)
         set_logger_level(c.logging_level.upper())
         get_logger().info("Launching AgentSociety WebUI")
         get_logger().debug(f"WebUI config: {c}")
-        # for compatibility with the old config
-        # postgres:// in DSN is not supported by SQLAlchemy
-        # replace it with postgresql://
 
         db_dsn = c.env.db.get_dsn(Path(c.env.home_dir) / "sqlite.db")
-        executor = (
-            KubernetesExecutor([])
-            if c.executor == "kubernetes"
-            else ProcessExecutor(c.env.home_dir)
-        )
-        # ================= 【商业版】 =================
-        get_tenant_id = empty_get_tenant_id
+        
+        # default executor
+        executor = ProcessExecutor(c.env.home_dir)
+        
         more_state: Dict[str, Any] = {
             "callback_url": c.callback_url,
             "executor": executor,
         }
-        more_router = None
-        if c.casdoor.enabled:
-            casdoor = Casdoor(c.casdoor)
-            get_tenant_id = auth_bearer_token
-            more_state["casdoor"] = casdoor
-            more_router = APIRouter(prefix="/api")
-            more_router.include_router(login_router)
-        if c.executor == "kubernetes":
-            try:
-                assert isinstance(executor, KubernetesExecutor)
-                await executor.init()
-            except Exception as e:
-                get_logger().error(f"Failed to load Kubernetes config: {e}")
-        # ================= 【商业版】 =================
 
         app = create_app(
             db_dsn=db_dsn,
             read_only=c.read_only,
             env=c.env,
-            get_tenant_id=get_tenant_id,
-            more_router=more_router,
             more_state=more_state,
+            commercial=c.commercial,
         )
 
         # Start server
