@@ -10,6 +10,7 @@ from sqlalchemy import select, update, text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+import yaml
 
 from ..logger import get_logger
 from ..utils.decorators import lock_decorator
@@ -22,6 +23,7 @@ from .model import (
     global_prompt,
     pending_dialog,
     pending_survey,
+    metric,
 )
 from ._base import Base, TABLE_PREFIX
 from .type import (
@@ -126,7 +128,6 @@ class DatabaseWriter:
             - `exp_id` (str): Experiment ID.
             - `config` (DatabaseConfig): Database configuration.
             - `home_dir` (str): Home directory. sqlite will be stored in home_dir/sqlite.db
-            - `init` (bool): Whether to initialize database tables.
         """
         self.tenant_id = tenant_id
         self.exp_id = exp_id
@@ -137,7 +138,7 @@ class DatabaseWriter:
         self._async_session = async_sessionmaker(self._engine, expire_on_commit=False)
         
         # Setup storage path
-        self._storage_path = Path(home_dir) / tenant_id / exp_id
+        self._storage_path = Path(home_dir) / "exps" / tenant_id / exp_id
         self._storage_path.mkdir(parents=True, exist_ok=True)
         
         # Cache table objects
@@ -158,6 +159,7 @@ class DatabaseWriter:
             "global_prompt": global_prompt,
             "pending_dialog": pending_dialog,
             "pending_survey": pending_survey,
+            "metric": metric,
         }
         
         for table_type, table_func in table_functions.items():
@@ -365,7 +367,11 @@ class DatabaseWriter:
     @lock_decorator
     async def update_exp_info(self, exp_info: StorageExpInfo):
         insert_func = self._get_insert_func()
-        
+
+        # save to local
+        with open(self.exp_info_file, "w") as f:
+            yaml.dump(exp_info.model_dump(), f)
+
         async with self._async_session() as session:
             try:
                 # Use SQLAlchemy upsert operation

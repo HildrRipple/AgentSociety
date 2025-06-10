@@ -24,19 +24,16 @@ __all__ = ["ProcessExecutor"]
 
 
 class ProcessExecutor:
-    def __init__(self, base_dir: str):
+    def __init__(self, home_dir: str):
         """Initialize the process executor.
 
         Args:
-            base_dir (str): Base directory for storing process data and logs
+            home_dir (str): Base directory for storing process data and logs
         """
-        self.base_dir = Path(base_dir)
-        self.status_dir = self.base_dir / "status"
-        self.logs_dir = self.base_dir / "logs"
+        self.home_dir = Path(home_dir) / "webui" / "executor"
 
         # Create necessary directories
-        self.status_dir.mkdir(parents=True, exist_ok=True)
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
+        self.home_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_status_file(self, exp_id: str, tenant_id: str) -> Path:
         """Get the path to the status file for a given experiment.
@@ -48,7 +45,8 @@ class ProcessExecutor:
         Returns:
             Path: Path to the status file
         """
-        return self.status_dir / f"{tenant_id}_{exp_id}.json"
+        os.makedirs(self.home_dir / tenant_id / exp_id, exist_ok=True)
+        return self.home_dir / tenant_id / exp_id / "status.json"
 
     def _get_log_file(self, exp_id: str, tenant_id: str) -> Path:
         """Get the path to the log file for a given experiment.
@@ -60,7 +58,8 @@ class ProcessExecutor:
         Returns:
             Path: Path to the log file
         """
-        return self.logs_dir / f"{tenant_id}_{exp_id}.log"
+        os.makedirs(self.home_dir / tenant_id / exp_id, exist_ok=True)
+        return self.home_dir / tenant_id / exp_id / "log.txt"
 
     def _acquire_file_lock(self, file_path: Path):
         """Acquire an exclusive lock on a file.

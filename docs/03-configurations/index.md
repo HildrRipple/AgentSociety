@@ -44,13 +44,11 @@ Example:
 ```yaml
 map:
   file_path: <MAP-FILE-PATH> # Path to the map file
-  cache_path: <CACHE-FILE-PATH> # Cache path for accelerating map file loading
 ```
 
 The `MapConfig` class contains the following fields:
 
 - `file_path` (str, required): The path to the map file
-- `cache_path` (str, optional): The cache path for accelerating map file loading
 
 ### Other Configurations
 
@@ -82,7 +80,6 @@ llm:
   semaphore: 200 # Semaphore for LLM requests, control the max number of concurrent requests
 map:
   file_path: <MAP-FILE-PATH> # Path to the map file
-  cache_path: <CACHE-FILE-PATH> # Cache path for accelerating map file loading
 env:
   db:
     enabled: true # Whether to enable database

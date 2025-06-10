@@ -23,9 +23,6 @@ class MapConfig(BaseModel):
     file_path: str = Field(...)
     """Path to the map file. If s3 is enabled, the file will be downloaded from S3"""
 
-    cache_path: Optional[str] = Field(None)
-    """Cache for the processed map. If s3 is enabled, the cache will be saved to S3"""
-
 
 class MapData:
     """
@@ -44,19 +41,20 @@ class MapData:
             s3client = S3Client(s3config)
         map_data = None
         # 1. try to load from cache
-        if config.cache_path is not None:
+        cache_path = config.file_path+'.cache'
+        if os.path.exists(cache_path):
             exists = (
-                s3client.exists(config.cache_path)
+                s3client.exists(cache_path)
                 if s3client is not None
-                else os.path.exists(config.cache_path)
+                else os.path.exists(cache_path)
             )
             if exists:
                 get_logger().info("Start load cache file in MapData")
                 if s3client is not None:
-                    map_bytes = s3client.download(config.cache_path)
+                    map_bytes = s3client.download(cache_path)
                     map_data = pickle.loads(map_bytes)
                 else:
-                    with open(config.cache_path, "rb") as f:
+                    with open(cache_path, "rb") as f:
                         map_data = pickle.load(f)
                 get_logger().info("Finish load cache file in MapData")
         if map_data is None:
@@ -109,12 +107,12 @@ class MapData:
                 )
             map_data = self._parse_map(jsons)
             get_logger().info("Finish parse pb file")
-            if config.cache_path is not None:
+            if os.path.exists(cache_path):
                 get_logger().info("Start save cache file")
                 if s3client is not None:
-                    s3client.upload(pickle.dumps(map_data), config.cache_path)
+                    s3client.upload(pickle.dumps(map_data), cache_path)
                 else:
-                    with open(config.cache_path, "wb") as f:
+                    with open(cache_path, "wb") as f:
                         pickle.dump(map_data, f)
                 get_logger().info("Finish save cache file")
 

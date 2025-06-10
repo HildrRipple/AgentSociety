@@ -77,7 +77,6 @@ config = Config(
     ),
     map=MapConfig(
         file_path="<MAP-FILE-PATH>",
-        cache_path="<CACHE-FILE-PATH>",
     ),
     agents=AgentsConfig(
         citizens=[

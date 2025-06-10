@@ -211,7 +211,7 @@ const CreateExperiment: React.FC = () => {
                             const experiment = experimentData.data;
 
                             // Check if experiment is fully initialized
-                            if (experiment.status === 1) {
+                            if (experiment.status !== 0) {
                                 clearInterval(interval);
                                 message.success(t('experiment.messages.initSuccess'));
                                 navigate('/console');

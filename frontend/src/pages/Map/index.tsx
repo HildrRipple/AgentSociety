@@ -69,7 +69,6 @@ const Map: React.FC = () => {
         // Create a basic map config based on config.json structure
         setFormValues({
             file_path: "maps/default_map.pb",
-            cache_path: "maps/default_map.cache"
         });
         metaForm.setFieldsValue({
             name: `Map ${maps.length + 1}`,

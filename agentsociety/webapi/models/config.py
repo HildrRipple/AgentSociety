@@ -129,8 +129,6 @@ class ApiMapConfig(BaseModel):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"the map file path must have prefix: maps/{self.tenant_id}/, but got {real_config.file_path}",
             )
-        # 2. set the cache_path to `{file_path}.cache`
-        real_config.cache_path = f"{real_config.file_path}.cache"
         self.config = real_config.model_dump()
 
 

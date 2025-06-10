@@ -44,7 +44,6 @@ env:
     db_type: sqlite # Database type, currently supported: sqlite (default), postgresql
 map:
   file_path: <MAP-FILE-PATH> # Path to the map file
-  cache_path: <CACHE-FILE-PATH> # Cache path for accelerating map file loading
 agents:
   citizens:
   - agent_class: citizen # The class of the agent

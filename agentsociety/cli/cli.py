@@ -110,7 +110,7 @@ def ui(config: str, config_base64: str):
         read_only: bool = Field(default=False)
         debug: bool = Field(default=False)
         logging_level: str = Field(default="INFO")
-        executor: Literal["kubernetes", "process"] = Field(default="kubernetes")
+        executor: Literal["kubernetes", "process"] = Field(default="process")
 
         @model_validator(mode="after")
         def validate_executor(self):
@@ -269,12 +269,12 @@ def check(config: str, config_base64: str):
 @cli.command()
 @common_options
 @click.option("--tenant-id", default="default", help="Specify tenant ID")
-@click.option("--callback-url", help="Specify callback URL (POST)")
+@click.option("--callback-url", default="", help="Specify callback URL (POST)")
 def run(
     config: str,
     config_base64: str,
     tenant_id: str,
-    callback_url: str = "",
+    callback_url: str,
 ):
     """Run the simulation"""
     config_dict = load_config(config, config_base64)

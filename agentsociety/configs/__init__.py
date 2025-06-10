@@ -142,4 +142,3 @@ class Config(BaseModel):
             max_groups_by_memory = int(available_memory_gb / mem_per_group)
             max_groups = min(cpu_count, max_groups_by_memory)
             self.advanced.group_size = max(100, math.ceil(num_agents / max_groups))
-        num_groups = math.ceil(num_agents / self.advanced.group_size)

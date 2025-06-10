@@ -17,8 +17,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from pyproj import Proj
 from shapely.geometry import Point
 
-from agentsociety.message.messager import Messager
-
 from ..logger import get_logger
 from ..s3 import S3Client, S3Config
 from ..utils.decorators import log_execution_time

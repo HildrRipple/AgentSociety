@@ -47,7 +47,7 @@ postgresql://user:password@host:port/database
 
 ```{admonition} Note
 :class: note
-When enabling S3 storage, the local file system will be replaced by S3, including `map.file_path`, `map.cache_path`, and `agents.*.memory_from_file`.
+When enabling S3 storage, the local file system will be replaced by S3, including `map.file_path`, and `agents.*.memory_from_file`.
 ```
 
 An example of the `s3` section is as follows:

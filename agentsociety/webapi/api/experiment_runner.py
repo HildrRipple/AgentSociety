@@ -117,7 +117,7 @@ async def run_experiment(
         # ===== LLM config =====
         stmt = select(LLMConfig.config).where(
             LLMConfig.tenant_id == config.llm.tenant_id,
-            LLMConfig.id == config.llm.id,
+            LLMConfig.id == uuid.UUID(config.llm.id),
         )
         llm_config = (await db.execute(stmt)).scalar_one_or_none()
         if llm_config is None:
@@ -127,7 +127,7 @@ async def run_experiment(
         # ===== Agent config =====
         stmt = select(AgentConfig.config).where(
             AgentConfig.tenant_id == config.agents.tenant_id,
-            AgentConfig.id == config.agents.id,
+            AgentConfig.id == uuid.UUID(config.agents.id),
         )
         agent_config = (await db.execute(stmt)).scalar_one_or_none()
         if agent_config is None:
@@ -152,7 +152,7 @@ async def run_experiment(
         # ===== Map config =====
         stmt = select(MapConfig.config).where(
             MapConfig.tenant_id == config.map.tenant_id,
-            MapConfig.id == config.map.id,
+            MapConfig.id == uuid.UUID(config.map.id),
         )
         map_config = (await db.execute(stmt)).scalar_one_or_none()
         if map_config is None:
@@ -165,15 +165,11 @@ async def run_experiment(
             sim_map_config.file_path = webui_fs_client.get_absolute_path(
                 sim_map_config.file_path
             )
-            if sim_map_config.cache_path is not None:
-                sim_map_config.cache_path = webui_fs_client.get_absolute_path(
-                    sim_map_config.cache_path
-                )
         map_config = sim_map_config.model_dump()
         # ===== Workflow config =====
         stmt = select(WorkflowConfig.config).where(
             WorkflowConfig.tenant_id == config.workflow.tenant_id,
-            WorkflowConfig.id == config.workflow.id,
+            WorkflowConfig.id == uuid.UUID(config.workflow.id),
         )
         workflow_config = (await db.execute(stmt)).scalar_one_or_none()
         if workflow_config is None:
@@ -218,7 +214,7 @@ async def run_experiment(
         db = cast(AsyncSession, db)
         stmt = insert(RunningExperiment).values(
             tenant_id=tenant_id,
-            id=experiment_id,
+            id=uuid.UUID(experiment_id),
             callback_auth_token=auth_token,
         )
         await db.execute(stmt)
