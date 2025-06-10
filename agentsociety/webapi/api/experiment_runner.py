@@ -97,10 +97,10 @@ async def run_experiment(
         db = cast(AsyncSession, db)
         
         # 使用商业化余额检查（如果可用）
-        if not _check_commercial_balance(request.app.state, tenant_id, db):
+        if not await _check_commercial_balance(request.app.state, tenant_id, db):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Insufficient balance",
+                detail="余额不足 / Insufficient balance",
             )
             
         # ===== LLM config =====
@@ -391,12 +391,15 @@ async def _compute_commercial_bill(app_state, db, experiment):
     logger.info("No commercial billing system available, skipping billing")
 
 
-def _check_commercial_balance(app_state, tenant_id, db):
+async def _check_commercial_balance(app_state, tenant_id, db):
     """检查商业化余额（如果可用）"""
+    print("check_balance")
     try:
         billing_system = getattr(app_state, 'billing_system', None)
+        print(billing_system)
         if billing_system and 'check_balance' in billing_system:
-            return billing_system['check_balance'](tenant_id, db)
+            print("check_balance")
+            return await billing_system['check_balance'](tenant_id, db)
     except Exception as e:
         logger.warning(f"Failed to check commercial balance: {e}")
     return True  # 如果没有商业化功能，默认允许

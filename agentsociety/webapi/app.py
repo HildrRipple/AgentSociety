@@ -1,3 +1,4 @@
+import asyncio
 import os
 import logging
 from contextlib import asynccontextmanager
@@ -122,6 +123,15 @@ def create_app(
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         yield
+
+        # if executor has a init method, call it
+        if hasattr(app.state, "executor") and hasattr(app.state.executor, "init"):
+            init_method = getattr(app.state.executor, "init")
+            # check if the method is async
+            if asyncio.iscoroutinefunction(init_method):
+                await app.state.executor.init()
+            else:
+                app.state.executor.init()
 
     # create FastAPI app
     app = FastAPI(
