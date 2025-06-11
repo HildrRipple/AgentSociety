@@ -219,6 +219,7 @@ class AgentSociety:
             updated_at=datetime.now(timezone.utc),
         )
         self._total_steps: int = 0
+        self._messager = None
 
         # simulation context - for information dump
         self.context = {}

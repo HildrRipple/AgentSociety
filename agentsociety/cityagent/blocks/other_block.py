@@ -3,6 +3,7 @@ import random
 from typing import Optional
 
 import jsonc
+from pydantic import Field
 
 from ...agent import Block, FormatPrompt, BlockParams, BlockContext, DotDict
 from ...environment import Environment
@@ -12,6 +13,29 @@ from ...memory import Memory
 from ...agent.dispatcher import BlockDispatcher
 from .utils import TIME_ESTIMATE_PROMPT, clean_json_response
 from ..sharing_params import SocietyAgentBlockOutput
+
+
+SLEEP_TIME_ESTIMATION_PROMPT = """As an intelligent agent's time estimation system, please estimate the time needed to complete the current action based on the overall plan and current intention.
+
+Overall plan:
+${context.plan_context["plan"]}
+
+Current action: ${context.current_step["intention"]}
+
+Current emotion: ${status.emotion_types}
+
+Examples:
+- "Learn programming": {{"time": 120}}
+- "Watch a movie": {{"time": 150}} 
+- "Play mobile games": {{"time": 60}}
+- "Read a book": {{"time": 90}}
+- "Exercise": {{"time": 45}}
+
+Please return the result in JSON format (Do not return any other text), the time unit is [minute], example:
+{{
+    "time": 10
+}}
+"""
 
 
 class SleepBlock(Block):
@@ -25,12 +49,15 @@ class SleepBlock(Block):
     name = "SleepBlock"
     description = "Handles sleep-related actions"
 
-    def __init__(self, llm: LLM, agent_memory: Optional[Memory] = None):
+    def __init__(self, llm: LLM, agent_memory: Optional[Memory] = None, sleep_time_estimation_prompt: str = SLEEP_TIME_ESTIMATION_PROMPT):
         super().__init__(
             llm=llm,
             agent_memory=agent_memory,
         )
-        self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
+        self.guidance_prompt = FormatPrompt(
+            template=sleep_time_estimation_prompt,
+            memory=agent_memory,
+        )
 
     async def forward(self, context: DotDict):
         """Execute sleep action and estimate time consumption using LLM.
@@ -41,11 +68,7 @@ class SleepBlock(Block):
         Returns:
             Dictionary with execution status, evaluation, time consumed, and node ID.
         """
-        await self.guidance_prompt.format(
-            plan=context["plan_context"]["plan"],
-            intention=context["current_step"]["intention"],
-            emotion_types=await self.memory.status.get("emotion_types"),
-        )
+        await self.guidance_prompt.format(context=context)
         result = await self.llm.atext_request(
             self.guidance_prompt.to_dialog(), response_format={"type": "json_object"}
         )
@@ -122,8 +145,10 @@ class OtherNoneBlock(Block):
             }
 
 
-class OtherBlockParams(BlockParams): ...
-
+class OtherBlockParams(BlockParams): 
+    sleep_time_estimation_prompt: str = Field(
+        default=SLEEP_TIME_ESTIMATION_PROMPT, description="Used to determine the sleep time"
+    )
 
 class OtherBlockContext(BlockContext): ...
 
@@ -158,7 +183,7 @@ class OtherBlock(Block):
     ):
         super().__init__(llm=llm, agent_memory=agent_memory, block_params=block_params)
         # init all blocks
-        self.sleep_block = SleepBlock(llm, agent_memory)
+        self.sleep_block = SleepBlock(llm, agent_memory, self.params.sleep_time_estimation_prompt)
         self.other_none_block = OtherNoneBlock(llm, agent_memory)
         self.trigger_time = 0
         self.token_consumption = 0

@@ -58,7 +58,7 @@ def _fill_in_agent_class_and_memory_config(self: AgentConfig):
         if self.agent_class == "citizen":
             self.agent_class = SocietyAgent
             if self.agent_params is not None:
-                self.agent_params = SocietyAgent.ParamsType(**self.agent_params)
+                self.agent_params = SocietyAgent.ParamsType.model_validate(self.agent_params)
             if self.memory_config_func is None:
                 self.memory_config_func = copy.deepcopy(memory_config_societyagent)
             distributions = cast(

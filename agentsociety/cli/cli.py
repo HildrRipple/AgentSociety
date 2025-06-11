@@ -285,12 +285,17 @@ def run(
                     if citizen.agent_class == "citizen":
                         # Skip mapping if it's just a citizen
                         continue
+                    if citizen.agent_class == "SocietyAgent":
+                        # For default config compatible
+                        citizen.agent_class = "citizen"
+                        continue
                     citizen.agent_class = citizens_class_map[citizen.agent_class]()
                 if citizen.blocks is not None:
                     new_blocks = {}
                     for block_name, block_params in citizen.blocks.items():
                         if isinstance(block_name, str):
-                            new_blocks[block_name] = citizen_blocks_class_map[block_name]()
+                            block_class = citizen_blocks_class_map[block_name]()
+                            new_blocks[block_class] = block_params
                         else:
                             new_blocks[block_name] = block_params
                     citizen.blocks = new_blocks
@@ -319,6 +324,7 @@ def run(
             raise e
 
     c = default(c)
+    print(c.agents.citizens[0].blocks)
     society = AgentSociety(c, tenant_id)
 
     async def _run():

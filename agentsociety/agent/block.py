@@ -13,6 +13,7 @@ from ..memory import Memory
 from ..memory.state import StateMemory
 from ..utils.decorators import record_call_aio
 from .context import DotDict, BlockContext, context_to_dot_dict, auto_deepcopy_dotdict
+from ..logger import get_logger
 
 TRIGGER_INTERVAL = 1
 
@@ -206,7 +207,7 @@ class Block:
         if block_params is None:
             block_params = self.default_params()
         self.params = block_params
-        for key, value in block_params.model_dump().items():
+        for key, value in self.params.model_dump().items():
             if key == "block_memory":
                 self._block_memory = StateMemory(value)
             else:

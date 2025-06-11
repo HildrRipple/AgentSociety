@@ -226,7 +226,7 @@ class AgentGroup:
                         llm=self.llm,
                         environment=self.environment,
                         agent_memory=memory_init,
-                        block_params=block_params,
+                        block_params=block_type.ParamsType.model_validate(block_params),
                     )
                     for block_type, block_params in blocks.items()
                 ]
