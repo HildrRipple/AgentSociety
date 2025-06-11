@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "requests>=2", "cibuildwheel"]
+requires = ["hatchling", "requests>=2", "cibuildwheel[uv]>=3.0.0"]
 build-backend = "hatchling.build"
 
 [project]
