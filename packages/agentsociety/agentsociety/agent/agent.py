@@ -457,9 +457,6 @@ class InstitutionAgentBase(Agent):
         - This class extends the base `Agent` class and is designed to simulate the behavior of an institution, such as a bank, government body, or corporation.
         - It includes initialization of various clients (like LLM, economy) and services required for the agent's operation.
         - Provides methods for binding the agent to the economy system and handling specific types of messages, like gathering information from other agents.
-
-    - **Attributes**:
-        - `_gather_responses`: A dictionary mapping agent IDs to `asyncio.Future` objects used for collecting responses to gather requests.
     """
 
     def __init__(
@@ -481,7 +478,6 @@ class InstitutionAgentBase(Agent):
 
         - **Description**:
             - Initializes the InstitutionAgent with the provided parameters and sets up necessary internal states.
-            - Adds a response collector (`_gather_responses`) for handling responses to gather requests.
         """
         super().__init__(
             id=id,

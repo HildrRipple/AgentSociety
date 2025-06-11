@@ -333,6 +333,7 @@ class AgentGroup:
         self.environment.set_tick(tick)
         try:
             await self._message_dispatch()
+            # main agent workflow
             tasks = [agent.run() for agent in self._agents]
             agent_time_log = await asyncio.gather(*tasks)
             simulator_log = (
@@ -348,7 +349,13 @@ class AgentGroup:
             self.environment.clear_log_list()
             self.environment.economy_client.clear_log_list()
 
-            return group_logs
+            # gather query
+            gather_queries = {}
+            for agent in self._agents:
+                if agent.gather_query:
+                    gather_queries[agent.id] = agent.gather_query
+
+            return group_logs, gather_queries
         except Exception as e:
             import traceback
 
@@ -675,7 +682,7 @@ class AgentGroup:
         """
         self.environment.update_environment(key, value)
 
-    async def update(self, target_agent_id: int, target_key: str, content: Any):
+    async def update(self, target_agent_id: int, target_key: str, content: Any, query: bool = False):
         """
         Updates a specific key in the status of a targeted agent.
 
@@ -683,12 +690,16 @@ class AgentGroup:
             - `target_agent_id` (int): The ID of the agent to update.
             - `target_key` (str): The key in the agent's status to update.
             - `content` (Any): The new value for the specified key.
+            - `query` (bool): Whether to update the gather results.
         """
         get_logger().debug(
             f"-----Updating {target_key} for agent {target_agent_id} in group {self._group_id}"
         )
         agent = self._id2agent[target_agent_id]
-        await agent.status.update(target_key, content)
+        if query:
+            agent.gather_results[target_key] = content
+        else:
+            await agent.status.update(target_key, content)
 
     # ====================
     # Utility Methods

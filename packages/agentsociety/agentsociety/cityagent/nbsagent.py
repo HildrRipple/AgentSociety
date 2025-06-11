@@ -68,6 +68,7 @@ The National Bureau of Statistics Agent simulating economic data collection and 
         )
         self.initailzed = False
         self.last_time_trigger = None
+        self.gather_flag = False
         self.forward_times = 0
 
     async def reset(self):
@@ -99,62 +100,92 @@ The National Bureau of Statistics Agent simulating economic data collection and 
         4. Citizen welfare metrics collection
         5. Economic indicator updates
         """
-        if await self.month_trigger():
-            # TODO: fix bug here, what is the t_now ??
-            get_logger().debug(f"Agent {self.id}: Start main workflow - nbs forward")
-            t_now = str(self.environment.get_tick())
-            nbs_id = self.id
-            await self.environment.economy_client.calculate_real_gdp(nbs_id)
-            citizens_ids = await self.memory.status.get("citizen_ids")
-            # TODO: move gather_messages to simulator
-            work_propensity = await self.gather_messages(
-                citizens_ids, "work_propensity"
-            )
-            if sum(work_propensity) == 0.0:
-                working_hours = 0.0
+        if await self.month_trigger() or self.gather_flag:
+            if not self.gather_flag:
+                get_logger().debug(f"Agent {self.id}: Start main workflow - nbs forward - gather phase")
+                citizen_ids = await self.memory.status.get("citizen_ids")
+                self.register_gather_query("work_propensity", citizen_ids, keep_id=False)
+                self.register_gather_query("depression", citizen_ids, keep_id=False)
+                self.gather_flag = True
             else:
-                working_hours = np.mean(work_propensity) * self.params.num_labor_hours
-            await self.environment.economy_client.update(
-                nbs_id, "working_hours", {t_now: working_hours}, mode="merge"
-            )
-            firms_id = await self.environment.economy_client.get_firm_ids()
-            prices = await self.environment.economy_client.get(firms_id, "price")
-
-            await self.environment.economy_client.update(
-                nbs_id, "prices", {t_now: float(np.mean(prices))}, mode="merge"
-            )
-            # TODO: move gather_messages to simulator
-            depression = await self.gather_messages(citizens_ids, "depression")
-            if sum(depression) == 0.0:
-                depression = 0.0
-            else:
-                depression = np.mean(depression)
-            await self.environment.economy_client.update(
-                nbs_id, "depression", {t_now: depression}, mode="merge"
-            )
-            consumption_currency = await self.environment.economy_client.get(
-                citizens_ids, "consumption"
-            )
-            if sum(consumption_currency) == 0.0:
-                consumption_currency = 0.0
-            else:
-                consumption_currency = np.mean(consumption_currency)
-            await self.environment.economy_client.update(
-                nbs_id,
-                "consumption_currency",
-                {t_now: consumption_currency},
-                mode="merge",
-            )
-            income_currency = await self.environment.economy_client.get(
-                citizens_ids, "income"
-            )
-            if sum(income_currency) == 0.0:
-                income_currency = 0.0
-            else:
-                income_currency = np.mean(income_currency)
-            await self.environment.economy_client.update(
-                nbs_id, "income_currency", {t_now: income_currency}, mode="merge"
-            )
-            get_logger().debug(f"Agent {self.id}: Finished main workflow - nbs forward")
-            self.forward_times += 1
-            await self.memory.status.update("forward_times", self.forward_times)
+                get_logger().debug(f"Agent {self.id}: Start main workflow - nbs forward - process phase")
+                try:
+                    t_now = str(self.environment.get_tick())
+                    nbs_id = self.id
+                    # real gdp
+                    await self.environment.economy_client.calculate_real_gdp(nbs_id)
+                    real_gdp = await self.environment.economy_client.get(nbs_id, "real_gdp")
+                    if len(real_gdp) > 0:
+                        latest_time = max(real_gdp.keys())
+                        real_gdp = real_gdp[latest_time]
+                        await self.memory.status.update("real_gdp_metric", real_gdp)
+                    citizens_ids = await self.memory.status.get("citizen_ids")
+                    work_propensity = self.get_gather_results("work_propensity")
+                    depression = self.get_gather_results("depression")
+                    if work_propensity is None or depression is None:
+                        return
+                    
+                    # working hours
+                    if sum(work_propensity) == 0.0:
+                        working_hours = 0.0
+                    else:
+                        working_hours = np.mean(work_propensity) * self.params.num_labor_hours # type: ignore
+                    await self.environment.economy_client.update(
+                        nbs_id, "working_hours", {t_now: working_hours}, mode="merge"
+                    )
+                    await self.memory.status.update("working_hours_metric", working_hours)
+                    
+                    # price
+                    firms_id = await self.environment.economy_client.get_firm_ids()
+                    prices = await self.environment.economy_client.get(firms_id, "price")
+                    price = float(np.mean(prices))
+                    await self.environment.economy_client.update(
+                        nbs_id, "prices", {t_now: price}, mode="merge"
+                    )
+                    await self.memory.status.update("price_metric", price)
+                    
+                    # depression
+                    if sum(depression) == 0.0:
+                        depression = 0.0
+                    else:
+                        depression = np.mean(depression) # type: ignore
+                    await self.environment.economy_client.update(
+                        nbs_id, "depression", {t_now: depression}, mode="merge"
+                    )
+                    await self.memory.status.update("depression_metric", depression)
+                    
+                    # consumption currency
+                    consumption_currency = await self.environment.economy_client.get(
+                        citizens_ids, "consumption"
+                    )
+                    if sum(consumption_currency) == 0.0:
+                        consumption_currency = 0.0
+                    else:
+                        consumption_currency = np.mean(consumption_currency)
+                    await self.environment.economy_client.update(
+                        nbs_id,
+                        "consumption_currency",
+                        {t_now: consumption_currency},
+                        mode="merge",
+                    )
+                    await self.memory.status.update("consumption_currency_metric", consumption_currency)
+                    
+                    # income currency
+                    income_currency = await self.environment.economy_client.get(
+                        citizens_ids, "income"
+                    )
+                    if sum(income_currency) == 0.0:
+                        income_currency = 0.0
+                    else:
+                        income_currency = np.mean(income_currency)
+                    await self.environment.economy_client.update(
+                        nbs_id, "income_currency", {t_now: income_currency}, mode="merge"
+                    )
+                    await self.memory.status.update("income_currency_metric", income_currency)
+                    
+                    get_logger().debug(f"Agent {self.id}: Finished main workflow - nbs forward")
+                    self.forward_times += 1
+                    await self.memory.status.update("forward_times", self.forward_times)
+                except Exception as e:
+                    get_logger().error(f"Agent {self.id}: Error in nbs forward: {e}")
+                    return

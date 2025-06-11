@@ -5,7 +5,7 @@ from functools import partial
 from typing import Literal, Union
 
 import ray
-from hurrican_memory_config import memory_config_societyagent_hurrican
+from examples.hurricane_impact.hurricane_memory_config import memory_config_societyagent_hurrican
 
 from agentsociety.cityagent import (
     default,
@@ -26,20 +26,6 @@ from agentsociety.simulation import AgentSociety
 from agentsociety.storage import DatabaseConfig
 
 ray.init(logging_level=logging.INFO)
-
-
-async def update_weather_and_temperature(
-    weather: Union[Literal["wind"], Literal["no-wind"]], simulation: AgentSociety
-):
-    if weather == "wind":
-        await simulation.update_environment(
-            "weather",
-            "Hurricane Dorian has made landfall in other cities, travel is slightly affected, and winds can be felt",
-        )
-    elif weather == "no-wind":
-        await simulation.update_environment(
-            "weather", "The weather is normal and does not affect travel"
-        )
 
 
 config = Config(
@@ -68,6 +54,7 @@ config = Config(
                 agent_class="citizen",
                 number=1000,
                 memory_config_func=memory_config_societyagent_hurrican,
+                memory_from_file="profiles_hurricane.json",
             )
         ],
     ),  # type: ignore
@@ -79,16 +66,18 @@ config = Config(
                 days=3,
             ),
             WorkflowStepConfig(
-                type=WorkflowType.FUNCTION,
-                func=partial(update_weather_and_temperature, "wind"),
+                type=WorkflowType.ENVIRONMENT_INTERVENE,
+                key="weather",
+                value="Hurricane Dorian has made landfall in other cities, travel is slightly affected, and winds can be felt."
             ),
             WorkflowStepConfig(
                 type=WorkflowType.RUN,
                 days=3,
             ),
             WorkflowStepConfig(
-                type=WorkflowType.FUNCTION,
-                func=partial(update_weather_and_temperature, "no-wind"),
+                type=WorkflowType.ENVIRONMENT_INTERVENE,
+                key="weather",
+                value="The weather is normal and does not affect travel"
             ),
             WorkflowStepConfig(
                 type=WorkflowType.RUN,

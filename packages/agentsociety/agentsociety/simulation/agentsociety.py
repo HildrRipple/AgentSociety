@@ -92,6 +92,7 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     generator = MemoryConfigGenerator(
         memory_config_func,
         agent_class.StatusAttributes,
+        agent_config.number,
         agent_config.memory_from_file,
         (
             agent_config.memory_distributions
@@ -376,6 +377,7 @@ class AgentSociety:
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
                     agent_config.agent_class.StatusAttributes,  # type: ignore
+                    agent_config.number,
                     agent_config.memory_from_file,
                     (
                         agent_config.memory_distributions
@@ -420,6 +422,7 @@ class AgentSociety:
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
                     agent_config.agent_class.StatusAttributes,  # type: ignore
+                    agent_config.number,
                     agent_config.memory_from_file,
                     (
                         agent_config.memory_distributions
@@ -462,6 +465,7 @@ class AgentSociety:
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
                     agent_config.agent_class.StatusAttributes,  # type: ignore
+                    agent_config.number,
                     agent_config.memory_from_file,
                     (
                         agent_config.memory_distributions
@@ -504,6 +508,7 @@ class AgentSociety:
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
                     agent_config.agent_class.StatusAttributes,  # type: ignore
+                    agent_config.number,
                     agent_config.memory_from_file,
                     (
                         agent_config.memory_distributions
@@ -548,6 +553,7 @@ class AgentSociety:
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
                     agent_config.agent_class.StatusAttributes,  # type: ignore
+                    agent_config.number,
                     agent_config.memory_from_file,
                     (
                         agent_config.memory_distributions
@@ -591,6 +597,7 @@ class AgentSociety:
                 generator = MemoryConfigGenerator(
                     agent_config.memory_config_func,  # type: ignore
                     agent_config.agent_class.StatusAttributes,  # type: ignore
+                    agent_config.number,
                     agent_config.memory_from_file,
                     (
                         agent_config.memory_distributions
@@ -987,7 +994,7 @@ class AgentSociety:
             ]
         )
 
-    async def update(self, target_agent_ids: list[int], target_key: str, content: Any):
+    async def update(self, target_agent_ids: list[int], target_key: str, content: Any, query: bool = False):
         """
         Update the memory of specified agents.
 
@@ -999,7 +1006,7 @@ class AgentSociety:
         tasks = []
         for id in target_agent_ids:
             group = self._agent_id2group[id]
-            tasks.append(group.update.remote(id, target_key, content))  # type:ignore
+            tasks.append(group.update.remote(id, target_key, content, query))  # type:ignore
         await asyncio.gather(*tasks)
 
     async def economy_update(
@@ -1147,8 +1154,9 @@ class AgentSociety:
                     raise ValueError("func is not set for metric extractor")
             elif metric_extractor.type == MetricType.STATE:
                 assert metric_extractor.key is not None
+                target_agent_ids = await self._extract_target_agent_ids(metric_extractor.target_agent)
                 values = await self.gather(
-                    metric_extractor.key, metric_extractor.target_agent, flatten=True
+                    metric_extractor.key, target_agent_ids, flatten=True
                 )
                 if values is None or len(values) == 0:
                     get_logger().warning(
@@ -1156,18 +1164,20 @@ class AgentSociety:
                     )
                     return
                 if type(values[0]) == float or type(values[0]) == int:
-                    if metric_extractor.method == "mean":
-                        value = sum(values) / len(values)
-                    elif metric_extractor.method == "sum":
-                        value = sum(values)
-                    elif metric_extractor.method == "max":
-                        value = max(values)
-                    elif metric_extractor.method == "min":
-                        value = min(values)
-                    else:
-                        raise ValueError(
-                            f"method {metric_extractor.method} is not supported"
-                        )
+                    value = values[0]
+                    if len(values) > 1:
+                        if metric_extractor.method == "mean":
+                            value = sum(values) / len(values)
+                        elif metric_extractor.method == "sum":
+                            value = sum(values)
+                        elif metric_extractor.method == "max":
+                            value = max(values)
+                        elif metric_extractor.method == "min":
+                            value = min(values)
+                        else:
+                            raise ValueError(
+                                f"method {metric_extractor.method} is not supported"
+                            )
                     if self.enable_database:
                         assert self._database_writer is not None
                         await self._database_writer.log_metric.remote( # type: ignore
@@ -1197,6 +1207,15 @@ class AgentSociety:
         if self.enable_database:
             assert self._database_writer is not None
             await self._database_writer.write_global_prompt.remote(prompt_info)  # type:ignore
+
+    async def _gather_and_update_context(self, target_agent_ids: list[int], key: str, save_as: str):
+        """Gather and update the context"""
+        try:
+            values = await self.gather(key, target_agent_ids, flatten=True, keep_id=True)
+            self.context[save_as] = values
+        except Exception as e:
+            get_logger().error(f"Error saving context: {str(e)}\n{traceback.format_exc()}")
+            self.context[save_as] = {}
 
     def _save_context(self):
         fs_client = self._config.env.fs_client
@@ -1271,7 +1290,12 @@ class AgentSociety:
             tasks = []
             for group in self._groups.values():
                 tasks.append(group.step.remote(tick))  # type:ignore
-            logs: list[Logs] = await asyncio.gather(*tasks)
+            all_results = await asyncio.gather(*tasks)
+            logs = []
+            gather_queries = []
+            for result in all_results:
+                logs.append(result[0])
+                gather_queries.append(result[1])
 
             get_logger().debug(f"({day}-{t}) Finished agent forward steps")
             # ======================
@@ -1295,6 +1319,15 @@ class AgentSociety:
                 self._exp_info.output_tokens += log.get("output_tokens", 0)
             await self._save_exp_info()
             self._save_context()
+            # ======================
+            # process gather queries
+            # ======================
+            for group_queries in gather_queries:
+                for agent_id, queries in group_queries.items():
+                    for query in queries:
+                        result = await self.gather(query.key, query.target_agent_ids, flatten=query.flatten, keep_id=query.keep_id) # type: ignore
+                        await self.update([agent_id], query.key, result, query=True) # type: ignore
+
             # ======================
             # save the simulation results
             # ======================
@@ -1521,6 +1554,14 @@ class AgentSociety:
                         step.target_agent
                     )
                     await self.delete_agents(target_agent_ids)
+                elif step.type == WorkflowType.SAVE_CONTEXT:
+                    assert step.target_agent is not None
+                    assert step.key is not None
+                    assert step.save_as is not None
+                    target_agent_ids = await self._extract_target_agent_ids(
+                        step.target_agent
+                    )
+                    await self._gather_and_update_context(target_agent_ids, step.key, step.save_as)
                 elif step.type == WorkflowType.INTERVENE:
                     get_logger().warning(
                         "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congnition of target agents"

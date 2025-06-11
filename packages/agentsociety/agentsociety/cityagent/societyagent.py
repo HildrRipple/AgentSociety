@@ -20,7 +20,7 @@ from .sharing_params import (
     SocietyAgentBlockOutput,
     SocietyAgentContext,
 )
-from ..message import Message
+from ..message import Message, MessageKind
 
 ENVIRONMENT_REFLECTION_PROMPT = """
 You are a citizen of the city.
@@ -464,7 +464,6 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         """Process incoming social/economic messages and generate responses."""
         payload = message.payload
         if payload.get("type", "social") == "social":
-            resp = f"Agent {self.id} received agent chat response: {payload}"
             try:
                 # Extract basic info
                 sender_id = message.from_id

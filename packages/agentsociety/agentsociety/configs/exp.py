@@ -38,6 +38,7 @@ class WorkflowType(str, Enum):
         - `MESSAGE_INTERVENE`: Influences the agent's behavior and state by sending a message.
         - `NEXT_ROUND`: Proceed to the next round of the simulation —— reset agents but keep the memory.
         - `DELETE_AGENT`: Delete the specified agents.
+        - `SAVE_CONTEXT`: Save the context of the specified agents.
         - `INTERVENE`: Represents other intervention methods driven by code.
         - `FUNCTION`: Represents function-based intervention methods.
     """
@@ -51,6 +52,7 @@ class WorkflowType(str, Enum):
     MESSAGE_INTERVENE = "message"
     NEXT_ROUND = "next_round"
     DELETE_AGENT = "delete_agent"
+    SAVE_CONTEXT = "save_context"
     INTERVENE = "other"
     FUNCTION = "function"
 
@@ -94,7 +96,7 @@ class WorkflowStepConfig(BaseModel):
     """Number of ticks per step - used for [RUN, STEP] type. For example, if it is 300, then the step will run 300 ticks in the environment."""
 
     target_agent: Optional[Union[list[int], AgentFilterConfig]] = None
-    """List specifying the agents targeted by this step - used for [INTERVIEW, SURVEY, UPDATE_STATE_INTERVENE, MESSAGE_INTERVENE, DELETE_AGENT] type"""
+    """List specifying the agents targeted by this step - used for [INTERVIEW, SURVEY, UPDATE_STATE_INTERVENE, MESSAGE_INTERVENE, DELETE_AGENT, SAVE_CONTEXT] type"""
 
     interview_message: Optional[str] = None
     """Optional message used for interviews during this step - used for [INTERVIEW] type"""
@@ -103,7 +105,10 @@ class WorkflowStepConfig(BaseModel):
     """Optional survey instance associated with this step - used for [SURVEY] type"""
 
     key: Optional[str] = None
-    """Optional key identifier for the step - used for [ENVIRONMENT_INTERVENE, UPDATE_STATE_INTERVENE] type"""
+    """Optional key identifier for the step - used for [ENVIRONMENT_INTERVENE, UPDATE_STATE_INTERVENE, SAVE_CONTEXT] type"""
+
+    save_as: Optional[str] = None
+    """Optional key identifier for the step - used for [SAVE_CONTEXT] type"""
 
     value: Optional[Any] = None
     """Optional value associated with the step - used for [ENVIRONMENT_INTERVENE, UPDATE_STATE_INTERVENE] type"""
@@ -157,6 +162,9 @@ class WorkflowStepConfig(BaseModel):
         elif self.type == WorkflowType.NEXT_ROUND:
             if self.target_agent is not None:
                 raise ValueError("target_agent is not allowed for NEXT_ROUND step")
+        elif self.type == WorkflowType.SAVE_CONTEXT:
+            if self.target_agent is None or self.key is None or self.save_as is None:
+                raise ValueError("target_agent, key and save_as are required for SAVE_CONTEXT step")
         elif self.type == WorkflowType.INTERVENE:
             if self.func is None:
                 raise ValueError(
@@ -202,7 +210,7 @@ class MetricExtractorConfig(BaseModel):
     step_interval: int = Field(10, ge=1)
     """Frequency interval (in simulation steps) for metric extraction"""
 
-    target_agent: Optional[list] = None
+    target_agent: Optional[Union[list, AgentFilterConfig]] = None
     """List specifying the agents from which to extract metrics - used for [STATE] type"""
 
     key: Optional[str] = None
@@ -211,7 +219,7 @@ class MetricExtractorConfig(BaseModel):
     method: Optional[Literal["mean", "sum", "max", "min"]] = "sum"
     """Aggregation method applied to the metric values - used for [STATE] type"""
 
-    extract_time: int = 0
+    extract_time: int = 1
     """The simulation time or step at which extraction occurs"""
 
     description: str = "None"
@@ -221,10 +229,8 @@ class MetricExtractorConfig(BaseModel):
     @model_validator(mode="after")
     def validate_target_agent(self):
         if self.type == MetricType.STATE:
-            if self.target_agent is None:
+            if self.target_agent is None or self.key is None:
                 raise ValueError("target_agent is required for STATE type")
-            if self.key is None:
-                raise ValueError("key is required for STATE type")
         return self
 
     @field_serializer("func")

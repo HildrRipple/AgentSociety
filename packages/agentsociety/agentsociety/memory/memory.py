@@ -592,7 +592,7 @@ class StatusMemory:
         Generate semantic text for a given key and value.
 
         If a custom template exists for the key, it uses that template;
-        otherwise, it uses a default template "Your {key} is {value}".
+        otherwise, it uses a default template "My {key} is {value}".
 
         - **Args**:
             - `key` (str): The name of the field.
@@ -603,7 +603,7 @@ class StatusMemory:
         """
         if key in self._semantic_templates:
             return self._semantic_templates[key].format(value)
-        return f"Your {key} is {value}"
+        return f"My {key} is {value}"
 
     @lock_decorator
     async def search(
@@ -995,7 +995,7 @@ class Memory:
                             self._embedding_fields[k] = enable_embedding
                         else:  # (_type, _value)
                             _type, _value = v
-                            self._embedding_fields[k] = False
+                            self._embedding_fields[k] = True
 
                         # Process type conversion
                         try:

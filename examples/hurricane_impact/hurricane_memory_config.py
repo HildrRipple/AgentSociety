@@ -24,13 +24,6 @@ def memory_config_societyagent_hurrican(
     distributions: dict[str, Distribution],
     class_config: Optional[list[StatusAttribute]] = None,
 ) -> tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]]:
-    if not hasattr(memory_config_societyagent_hurrican, "profile_list"):
-        with open("profiles_with_aoi.json", "r") as f:
-            setattr(memory_config_societyagent_hurrican, "profile_list", json.load(f))
-    profile_list = getattr(memory_config_societyagent_hurrican, "profile_list")
-    index = random.randint(0, len(profile_list) - 1)
-    profile = profile_list[index]
-
     EXTRA_ATTRIBUTES = {
         "type": (str, "citizen"),
         # Needs Model
@@ -134,11 +127,11 @@ def memory_config_societyagent_hurrican(
             ),
             True,
         ),
-        "gender": (str, profile["gender"], True),
-        "age": (int, profile["age"], True),
+        "gender": (str, "unknown", True),
+        "age": (int, 0, True),
         "education": (
             str,
-            profile["education"],
+            "unknown",
             True,
         ),
         "skill": (
@@ -172,18 +165,18 @@ def memory_config_societyagent_hurrican(
             True,
         ),
         "family_consumption": (str, random.choice(["low", "medium", "high"]), True),
-        "consumption": (str, profile["consumption"], True),
+        "consumption": (str, "unknown", True),
         "personality": (
             str,
             random.choice(["outgoint", "introvert", "ambivert", "extrovert"]),
             True,
         ),
-        "income": (float, profile["income"], True),
+        "income": (float, 0, True),
         "currency": (float, random.randint(1000, 100000), True),
         "residence": (str, random.choice(["city", "suburb", "rural"]), True),
         "race": (
             str,
-            profile["race"],
+            "unknown",
             True,
         ),
         "religion": (
@@ -201,8 +194,8 @@ def memory_config_societyagent_hurrican(
     }
 
     BASE = {
-        "home": {"aoi_position": {"aoi_id": profile["home"]}},
-        "work": {"aoi_position": {"aoi_id": profile["work"]}},
+        "home": {"aoi_position": {"aoi_id": 0}},
+        "work": {"aoi_position": {"aoi_id": 0}},
     }
 
     return EXTRA_ATTRIBUTES, PROFILE, BASE

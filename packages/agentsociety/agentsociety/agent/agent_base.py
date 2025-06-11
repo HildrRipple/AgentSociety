@@ -7,7 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, NamedTuple, Optional, Self, Union
+from typing import Any, NamedTuple, Optional, Union
 
 import jsonc
 import ray
@@ -47,6 +47,16 @@ class AgentToolbox(NamedTuple):
     environment: Environment
     messager: Messager
     database_writer: Optional[ray.ObjectRef]
+
+
+class GatherQuery(BaseModel):
+    """
+    A model for gather query
+    """
+    key: str
+    target_agent_ids: list[int]
+    flatten: bool = True
+    keep_id: bool = True
 
 
 class AgentType(Enum):
@@ -130,8 +140,6 @@ class Agent(ABC):
         self._toolbox = toolbox
         self._memory = memory
 
-        self._gather_responses: dict[int, asyncio.Future] = {}
-
         # parse agent_params
         if agent_params is None:
             agent_params = self.default_params()
@@ -155,6 +163,10 @@ class Agent(ABC):
         # initialize context
         context = self.default_context()
         self.context = context_to_dot_dict(context)
+
+        # gather query
+        self.gather_query: dict[str, GatherQuery] = {}
+        self.gather_results = {}
 
     @classmethod
     def default_params(cls):
@@ -309,6 +321,25 @@ class Agent(ABC):
             await self.database_writer.write_dialogs.remote(  # type:ignore
                 [storage_dialog]
             )
+
+    def _get_gather_query_and_clear(self):
+        query = self.gather_query
+        self.gather_query: dict[str, GatherQuery] = {}
+        return query
+
+    def register_gather_query(self, key: str, target_agent_ids: list[int], flatten: bool = True, keep_id: bool = True):
+        self.gather_query[key] = GatherQuery(
+            key=key,
+            target_agent_ids=target_agent_ids,
+            flatten=flatten,
+            keep_id=keep_id,
+        )
+
+    def get_gather_results(self, key: str) -> Optional[list[Any] | dict[int, Any]]:
+        if key not in self.gather_results:
+            get_logger().warning(f"Gather error: {key} not found in gather results")
+            return None
+        return self.gather_results[key]
 
     async def register_aoi_message(
         self, target_aoi: Union[int, list[int]], content: str

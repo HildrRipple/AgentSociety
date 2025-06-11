@@ -71,13 +71,13 @@ class AgentConfig(BaseModel):
         memory_distributions = self.memory_distributions
 
         if memory_from_file is not None:
-            # When using file method, number and memory_distributions should not be set
-            if number is not None or memory_distributions is not None:
+            # When using file method, memory_distributions should not be set
+            if memory_distributions is not None:
                 raise ValueError(
-                    "When using memory_from_file, number and memory_distributions should not be set"
+                    "When using memory_from_file, memory_distributions should not be set"
                 )
         else:
-            # When not using file method, both number and memory_distributions must be set
+            # When not using file method, both number must be set
             if number is None:
                 raise ValueError("When not using memory_from_file, number must be set")
 

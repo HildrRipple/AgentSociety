@@ -62,6 +62,7 @@ A government institution agent that handles periodic economic operations such as
         )
         self.initailzed = False
         self.last_time_trigger = None
+        self.gather_flag = False
         self.forward_times = 0
 
     async def reset(self):
@@ -86,33 +87,50 @@ A government institution agent that handles periodic economic operations such as
 
     async def forward(self):
         """Execute the government's periodic tax collection and notification cycle."""
-        if await self.month_trigger():
-            get_logger().debug(
-                f"Agent {self.id}: Start main workflow - government forward"
-            )
-            # TODO: move gather_messages to simulator
-            citizen_ids = await self.memory.status.get("citizen_ids")
-            agents_forward = await self.gather_messages(citizen_ids, "forward")
-            if not np.all(np.array(agents_forward) > self.forward_times):
-                return
-            incomes = await self.gather_messages(citizen_ids, "income_currency")
-            _, post_tax_incomes = (
-                await self.environment.economy_client.calculate_taxes_due(
-                    self.id, citizen_ids, incomes, enable_redistribution=False
+        if (await self.month_trigger()) or self.gather_flag:
+            if not self.gather_flag:
+                get_logger().debug(
+                    f"Agent {self.id}: Start main workflow - government forward - gather phase"
                 )
-            )
-            for citizen_id, income, post_tax_income in zip(
-                citizen_ids, incomes, post_tax_incomes
-            ):
-                tax_paid = income - post_tax_income
-                await self.send_message_to_agent(
-                    citizen_id, f"tax_paid@{tax_paid}", "economy"
+                citizen_ids = await self.memory.status.get("citizen_ids")
+                self.register_gather_query("forward", citizen_ids, keep_id=False)
+                self.register_gather_query("income_currency", citizen_ids, keep_id=False)
+                self.gather_flag = True
+            else:
+                get_logger().debug(
+                    f"Agent {self.id}: Start main workflow - government forward - process phase"
                 )
-            self.forward_times += 1
-            for citizen_id in citizen_ids:
-                await self.send_message_to_agent(
-                    citizen_id, f"government_forward@{self.forward_times}", "economy"
-                )
-            get_logger().debug(
-                f"Agent {self.id}: Finished main workflow - government forward"
-            )
+                try:
+                    citizen_ids = await self.memory.status.get("citizen_ids")
+                    agents_forward = self.get_gather_results("forward")
+                    incomes = self.get_gather_results("income_currency")
+                    if incomes is None or agents_forward is None:
+                        return
+                    
+                    if not np.all(np.array(agents_forward) > self.forward_times):
+                        return
+                    _, post_tax_incomes = (
+                        await self.environment.economy_client.calculate_taxes_due(
+                            self.id, citizen_ids, incomes, enable_redistribution=False # type: ignore
+                        )
+                    )
+                    for citizen_id, income, post_tax_income in zip(
+                        citizen_ids, incomes, post_tax_incomes
+                    ):
+                        tax_paid = income - post_tax_income
+                        await self.send_message_to_agent(
+                            citizen_id, f"tax_paid@{tax_paid}", "economy"
+                        )
+                    self.forward_times += 1
+                    for citizen_id in citizen_ids:
+                        await self.send_message_to_agent(
+                            citizen_id, f"government_forward@{self.forward_times}", "economy"
+                        )
+                    get_logger().debug(
+                        f"Agent {self.id}: Finished main workflow - government forward"
+                    )
+                except Exception as e:
+                    get_logger().error(
+                        f"Agent {self.id}: Error in government forward: {e}"
+                    )
+                    return

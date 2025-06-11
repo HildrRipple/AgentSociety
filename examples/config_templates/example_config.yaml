@@ -6,7 +6,7 @@ llm:
   semaphore: 200 # Semaphore for LLM requests, control the max number of concurrent requests
 env:
   db:
-    enabled: true # Whether to enable PostgreSQL
+    enabled: true # Whether to enable database
 map:
   file_path: <MAP-FILE-PATH> # Path to the map file
 agents:

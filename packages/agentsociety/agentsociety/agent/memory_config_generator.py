@@ -153,9 +153,10 @@ class MemoryConfigGenerator:
         self,
         config_func: Callable[
             [dict[str, Distribution], Optional[list[StatusAttribute]]],
-            tuple[dict[str, MemoryT], dict[str, Union[MemoryT, float]], dict[str, Any]],
+            tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]],
         ],
         class_config: Optional[list[StatusAttribute]] = None,
+        number: Optional[int] = None,
         file: Optional[str] = None,
         distributions: dict[str, Union[Distribution, DistributionConfig]] = {},
         s3config: S3Config = S3Config.model_validate({}),
@@ -171,10 +172,17 @@ class MemoryConfigGenerator:
         """
         self._memory_config_func = config_func
         self._class_config = class_config
+        self._number = number
         self._file_path = file
         self._s3config = s3config
         if file is not None:
             self._memory_data = _memory_config_load_file(file, s3config)
+            if self._number is not None:
+                if self._number > len(self._memory_data):
+                    raise ValueError(
+                        f"Number of agents is greater than the number of entries in the file ({self._file_path}). Expected {self._number}, got {len(self._memory_data)}"
+                    )
+                self._memory_data = self._memory_data[: self._number]
         else:
             self._memory_data = None
         distributions = copy.deepcopy(distributions)
@@ -298,7 +306,7 @@ def _memory_config_load_file(file_path: str, s3config: S3Config):
 def _memory_config_merge(
     file_data: dict,
     base_extra_attrs: dict[str, MemoryT],
-    base_profile: dict[str, Union[MemoryT, float]],
+    base_profile: dict[str, MemoryT],
     base_base: dict[str, Any],
 ) -> dict[str, Any]:
     """
@@ -328,9 +336,9 @@ def _memory_config_merge(
     for key, value in file_data.items():
         # Check where this key exists in the base configuration
         if key in extra_attrs:
-            extra_attrs[key] = value
+            extra_attrs[key] = extra_attrs[key][:1] + (value, ) + (extra_attrs[key][2:] if len(extra_attrs[key]) > 2 else ())
         elif key in profile:
-            profile[key] = value
+            profile[key] = profile[key][:1] + (value, ) + (profile[key][2:] if len(profile[key]) > 2 else ())
         elif key in location_fields:
             # Typically these would go in profile, but follow your specific needs
             base[key] = {"aoi_position": {"aoi_id": value}}
