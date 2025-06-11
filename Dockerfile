@@ -16,24 +16,20 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-RUN pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
-# 1. copy pyproject.toml first
-COPY pyproject.toml .
-COPY scripts/pyproject2requirements.py .
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# 2. install build tools and extract dependencies
-RUN pip install --upgrade pip && \
-    pip install tomli && \
-    python pyproject2requirements.py
+# Copy dependency files
+COPY README.md LICENSE ./
+COPY pyproject.toml uv.lock ./
+COPY packages/ ./packages/
+COPY --from=builder /app/dist /app/packages/agentsociety/_dist
 
-# 3. install project dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# 使用清华源安装依赖
+RUN mkdir -p /etc/uv
+RUN echo "[[index]]\nurl = \"https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/\"\ndefault = true" > /etc/uv/uv.toml
+RUN uv sync --frozen --no-dev
 
-# 4. copy the whole project code
-COPY agentsociety /app/agentsociety
-COPY setup.py /app/setup.py
-COPY --from=builder /app/dist /app/agentsociety/_dist
-RUN pip install . --no-cache-dir \
-    && rm -rf /app
-RUN pip install agentsociety-community==0.2.11 --no-cache-dir
+# 使用uv venv作为默认Python环境
+ENV PATH="/app/.venv/bin:$PATH"
