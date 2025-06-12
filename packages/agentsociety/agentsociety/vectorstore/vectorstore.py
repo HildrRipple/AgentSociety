@@ -11,10 +11,10 @@ from langchain_core.embeddings import Embeddings
 
 from ..utils.decorators import lock_decorator
 
-__all__ = ["FaissQuery"]
+__all__ = ["VectorStore"]
 
 
-class FaissQuery:
+class VectorStore:
     """
     A class for handling similarity searches and document management using FAISS.
 
@@ -27,7 +27,7 @@ class FaissQuery:
 
     def __init__(
         self,
-        embeddings: Optional[Embeddings] = None,
+        embeddings: Embeddings,
         index_type: Any = faiss.IndexFlatL2,
         dimension: Optional[int] = None,
     ) -> None:
@@ -42,55 +42,19 @@ class FaissQuery:
         """
         self._embeddings = embeddings
         self._lock = asyncio.Lock()
-        if embeddings is None:
-            self._index = None
-            self._vectors_store = None
-        else:
-            if dimension is None:
-                dimension = len(embeddings.embed_query("hello world"))
-            self._index = index_type(dimension)
-            self._vectors_store = FAISS(
-                embedding_function=embeddings,
-                index=self._index,
-                docstore=InMemoryDocstore(),
-                index_to_docstore_id={},
-            )
+        if dimension is None:
+            dimension = len(embeddings.embed_query("hello world"))
+        self._index = index_type(dimension)
+        self._vectors_store = FAISS(
+            embedding_function=embeddings,
+            index=self._index,
+            docstore=InMemoryDocstore(),
+            index_to_docstore_id={},
+        )
 
     @property
-    def embeddings(
-        self,
-    ) -> Embeddings:
-        """
-        Access the current embedding model.
-
-        - **Description**:
-            - Getter for the embedding model used to convert text into vector representations.
-            - If no embedding model has been set, a RuntimeError is raised prompting the user to set one first.
-
-        - **Returns**:
-            - `Embeddings`: The current embedding model.
-        """
-        if self._embeddings is None:
-            raise RuntimeError(f"No embedding set, please `set_embeddings` first!")
+    def embeddings(self):
         return self._embeddings
-
-    @property
-    def vectors_store(
-        self,
-    ) -> FAISS:
-        """
-        Access the current vector store.
-
-        - **Description**:
-            - Getter for the FAISS vector store which holds the indexed documents and allows for similarity searches.
-            - If the vector store hasn't been initialized due to a missing embedding model, a RuntimeError is raised.
-
-        - **Returns**:
-            - `FAISS`: The current vector store instance.
-        """
-        if self._vectors_store is None:
-            raise RuntimeError(f"No embedding set, thus no vector stores initialized!")
-        return self._vectors_store
 
     @lock_decorator
     async def add_documents(
@@ -122,7 +86,7 @@ class FaissQuery:
         to_add_documents = [
             Document(page_content=doc, metadata=_metadata) for doc in documents
         ]
-        return await self.vectors_store.aadd_documents(
+        return await self._vectors_store.aadd_documents(
             documents=to_add_documents,
         )
 
@@ -140,7 +104,7 @@ class FaissQuery:
         - **Args**:
             - `to_delete_ids` (list[str]): List of document IDs to delete from the vector store.
         """
-        await self.vectors_store.adelete(
+        await self._vectors_store.adelete(
             ids=to_delete_ids,
         )
 
@@ -186,7 +150,7 @@ class FaissQuery:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             if return_score_type == "L2-distance":
-                _result = await self.vectors_store.asimilarity_search_with_score(
+                _result = await self._vectors_store.asimilarity_search_with_score(
                     query=query,
                     k=k,
                     filter=_filter,
@@ -194,7 +158,7 @@ class FaissQuery:
                 )
                 return [(r.page_content, s, r.metadata) for r, s in _result]
             elif return_score_type == "none":
-                _result = await self.vectors_store.asimilarity_search(
+                _result = await self._vectors_store.asimilarity_search(
                     query=query,
                     k=k,
                     filter=_filter,
@@ -203,7 +167,7 @@ class FaissQuery:
                 return [(r.page_content, None, r.metadata) for r in _result]
             elif return_score_type == "similarity_score":
                 _result = (
-                    await self.vectors_store.asimilarity_search_with_relevance_scores(
+                    await self._vectors_store.asimilarity_search_with_relevance_scores(
                         query=query,
                         k=k,
                         filter=_filter,
@@ -254,7 +218,7 @@ class FaissQuery:
         if filter is not None:
             _filter.update(filter)
         if return_score_type == "L2-distance":
-            _result = await self.vectors_store.asimilarity_search_with_score_by_vector(
+            _result = await self._vectors_store.asimilarity_search_with_score_by_vector(
                 embedding=embedding,
                 k=k,
                 filter=_filter,
@@ -262,7 +226,7 @@ class FaissQuery:
             )
             return [(r.page_content, s, r.metadata) for r, s in _result]
         elif return_score_type == "none":
-            _result = await self.vectors_store.asimilarity_search_by_vector(
+            _result = await self._vectors_store.asimilarity_search_by_vector(
                 embedding=embedding,
                 k=k,
                 filter=_filter,
@@ -311,7 +275,7 @@ class FaissQuery:
             _filter.update(filter)
 
         if return_score_type == "none":
-            _result = await self.vectors_store.amax_marginal_relevance_search(
+            _result = await self._vectors_store.amax_marginal_relevance_search(
                 query=query,
                 k=k,
                 filter=_filter,
@@ -363,7 +327,7 @@ class FaissQuery:
         if filter is not None:
             _filter.update(filter)
         if return_score_type == "none":
-            _result = await self.vectors_store.amax_marginal_relevance_search_by_vector(
+            _result = await self._vectors_store.amax_marginal_relevance_search_by_vector(
                 embedding=embedding,
                 k=k,
                 filter=_filter,
@@ -372,7 +336,7 @@ class FaissQuery:
             )
             return [(r.page_content, None, r.metadata) for r in _result]
         elif return_score_type == "similarity_score":
-            _result = await self.vectors_store.amax_marginal_relevance_search_with_score_by_vector(
+            _result = await self._vectors_store.amax_marginal_relevance_search_with_score_by_vector(
                 embedding=embedding,
                 k=k,
                 filter=_filter,

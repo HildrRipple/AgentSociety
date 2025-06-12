@@ -29,7 +29,7 @@ from ..environment import EnvironmentStarter
 from ..llm import LLM, monitor_requests
 from ..llm.embeddings import init_embedding
 from ..logger import get_logger, set_logger_level
-from ..memory import FaissQuery, Memory
+from ..memory import Memory
 from ..message import Message, MessageInterceptor, MessageKind, Messager
 from ..s3 import S3Config
 from ..storage import DatabaseWriter
@@ -37,6 +37,7 @@ from ..storage.type import (StorageExpInfo, StorageGlobalPrompt,
                             StoragePendingSurvey)
 from ..survey.models import Survey
 from ..utils import NONE_SENDER_ID
+from ..vectorstore import FaissQuery
 from .agentgroup import AgentGroup
 from .type import ExperimentStatus, Logs
 
@@ -185,6 +186,7 @@ class AgentSociety:
         self._environment: Optional[EnvironmentStarter] = None
         self._message_interceptor: Optional[MessageInterceptor] = None
         self._database_writer: Optional[DatabaseWriter] = None
+        self._vectorstore: Optional[FaissQuery] = None
         self._groups: dict[str, AgentGroup] = {}
         self._agent_ids: set[int] = set()
         self._agent_id2group: dict[int, AgentGroup] = {}
@@ -310,7 +312,7 @@ class AgentSociety:
 
             self._embedding_model = init_embedding(self._config.advanced.embedding_model)
             get_logger().debug(f"Embedding model initialized")
-            self._faiss_query = FaissQuery(self._embedding_model)
+            self._vectorstore = FaissQuery(self._embedding_model)
             get_logger().debug(f"FAISS query initialized")
 
             # Check if any agent config uses memory_from_file
@@ -626,7 +628,7 @@ class AgentSociety:
                     memory_init = Memory(
                         agent_id=agent_id,
                         environment=self.environment,
-                        faiss_query=self._faiss_query,
+                        vectorstore=self._vectorstore,
                         embedding_model=self._embedding_model,
                         config=extra_attributes,
                         profile=profile,
@@ -776,6 +778,7 @@ class AgentSociety:
                     config=self._config,
                     agent_inits=group_agents,
                     environment_init=environment_init,
+                    vectorstore=self._vectorstore,
                     database_writer=self._database_writer,
                 )
                 for agent_id, _, _, _, _, _ in group_agents:

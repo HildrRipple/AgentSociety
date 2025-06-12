@@ -5,3 +5,8 @@ exclude = []
 [tool.uv.sources]
 agentsociety = { workspace = true }
 agentsociety-community = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]

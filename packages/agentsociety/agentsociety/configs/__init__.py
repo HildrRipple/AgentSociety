@@ -129,16 +129,16 @@ class Config(BaseModel):
             )
 
         if self.advanced.group_size == "auto":
-            cpu_count = psutil.cpu_count()
-            memory_gb = psutil.virtual_memory().available / (1024 * 1024 * 1024)
-            available_memory_gb = memory_gb - 8  # for simulator
-            available_memory_gb -= 1  # for message interceptor
-            available_memory_gb -= 1  # for database
-            mem_per_group = 2
-            if available_memory_gb < mem_per_group:
-                raise ValueError(
-                    f"Not enough memory ({memory_gb:.2f}GB) to run the simulation, at least 12GB available memory is required"
-                )
-            max_groups_by_memory = int(available_memory_gb / mem_per_group)
-            max_groups = min(cpu_count, max_groups_by_memory)
-            self.advanced.group_size = max(100, math.ceil(num_agents / max_groups))
+            # cpu_count = psutil.cpu_count()
+            # memory_gb = psutil.virtual_memory().available / (1024 * 1024 * 1024)
+            # available_memory_gb = memory_gb - 8  # for simulator
+            # available_memory_gb -= 1  # for message interceptor
+            # available_memory_gb -= 1  # for database
+            # mem_per_group = 2
+            # if available_memory_gb < mem_per_group:
+            #     raise ValueError(
+            #         f"Not enough memory ({memory_gb:.2f}GB) to run the simulation, at least 12GB available memory is required"
+            #     )
+            # max_groups_by_memory = int(available_memory_gb / mem_per_group)
+            # max_groups = min(cpu_count, max_groups_by_memory)
+            self.advanced.group_size = 100000000

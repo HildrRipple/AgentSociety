@@ -22,12 +22,13 @@ from ..survey import Survey
 from ..agent.memory_config_generator import MemoryConfigGenerator
 from ..configs import Config
 from ..environment import Environment
-from ..llm import LLM, init_embedding, monitor_requests
+from ..llm import LLM, monitor_requests
 from ..logger import get_logger, set_logger_level
-from ..memory import FaissQuery, Memory
+from ..memory import Memory
 from ..message import Messager, Message, MessageKind
 from ..storage import DatabaseWriter
 from ..storage.type import StorageProfile, StorageStatus
+from ..vectorstore import FaissQuery
 from .type import Logs
 
 __all__ = ["AgentGroup"]
@@ -60,6 +61,7 @@ class AgentGroup:
             ]
         ],
         environment_init: dict,
+        vectorstore: FaissQuery,
         database_writer: Optional[DatabaseWriter],
         agent_config_file: Optional[dict[type[Agent], Any]] = None,
     ):
@@ -90,11 +92,8 @@ class AgentGroup:
             self._agent_config_file = agent_config_file
             get_logger().debug(f"Agent config file loaded")
 
-            get_logger().info("Initializing embedding model...")
-            self._embedding_model = init_embedding(config.advanced.embedding_model)
-            get_logger().debug(f"Embedding model initialized")
-            self._faiss_query = FaissQuery(self._embedding_model)
-            get_logger().debug(f"FAISS query initialized")
+            self._vectorstore = vectorstore
+            get_logger().debug(f"Vectorstore initialized")
 
             # typing definition
             self._llm = None
@@ -120,11 +119,11 @@ class AgentGroup:
 
     @property
     def embedding_model(self):
-        return self._embedding_model
+        return self._vectorstore.embeddings
 
     @property
-    def faiss_query(self):
-        return self._faiss_query
+    def vectorstore(self):
+        return self._vectorstore
 
     @property
     def llm(self):
@@ -213,7 +212,7 @@ class AgentGroup:
             memory_init = Memory(
                 agent_id=id,
                 environment=self.environment,
-                faiss_query=self.faiss_query,
+                vectorstore=self.vectorstore,
                 embedding_model=self.embedding_model,
                 config=extra_attributes,
                 profile=profile,

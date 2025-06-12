@@ -12,7 +12,7 @@ from ..environment import Environment
 from ..logger import get_logger
 from ..utils.decorators import lock_decorator
 from .const import *
-from .faiss_query import FaissQuery
+from ..vectorstore import FaissQuery
 from .profile import ProfileMemory
 from .self_define import DynamicMemory
 from .state import StateMemory
@@ -63,7 +63,7 @@ class StreamMemory:
     - **Attributes**:
         - `_memories`: A deque to store memory nodes with a maximum length limit.
         - `_memory_id_counter`: An internal counter to generate unique IDs for each new memory node.
-        - `_faiss_query`: The Faiss query object for search functionality.
+        - `_vectorstore`: The Faiss query object for search functionality.
         - `_embedding_model`: The embedding model object for vectorizing text or other data.
         - `_agent_id`: Identifier for the agent owning these memories.
         - `_status_memory`: The status memory object.
@@ -74,7 +74,7 @@ class StreamMemory:
         self,
         agent_id: int,
         environment: Environment,
-        faiss_query: FaissQuery,
+        vectorstore: FaissQuery,
         embedding_model: Embeddings,
         max_len: int = 1000,
     ):
@@ -84,7 +84,7 @@ class StreamMemory:
         - **Args**:
             - `agent_id` (int): The ID of the agent.
             - `environment` (Environment): The environment object.
-            - `faiss_query` (FaissQuery): The Faiss query object.
+            - `vectorstore` (FaissQuery): The Faiss query object.
             - `embedding_model` (Embeddings): The embedding model object.
             - `max_len` (int): Maximum length of the deque. Default is 1000.
         """
@@ -93,11 +93,11 @@ class StreamMemory:
         self._agent_id = agent_id
         self._status_memory = None
         self._environment = environment
-        self._faiss_query = faiss_query
+        self._vectorstore = vectorstore
         self._embedding_model = embedding_model
 
     @property
-    def faiss_query(
+    def vectorstore(
         self,
     ) -> FaissQuery:
         """
@@ -106,8 +106,8 @@ class StreamMemory:
         - **Returns**:
             - `FaissQuery`: Instance of the Faiss query object.
         """
-        assert self._faiss_query is not None
-        return self._faiss_query
+        assert self._vectorstore is not None
+        return self._vectorstore
 
     @property
     def status_memory(
@@ -164,8 +164,8 @@ class StreamMemory:
         self._memories.append(memory_node)
 
         # create embedding for new memories
-        if self._embedding_model and self._faiss_query:
-            await self.faiss_query.add_documents(
+        if self._embedding_model and self._vectorstore:
+            await self.vectorstore.add_documents(
                 agent_id=self._agent_id,
                 documents=description,
                 extra_tags={
@@ -354,7 +354,7 @@ class StreamMemory:
             start_time, end_time = time_range
             filter_dict["time"] = lambda x: start_time <= x <= end_time
 
-        top_results = await self.faiss_query.similarity_search(
+        top_results = await self.vectorstore.similarity_search(
             query=query,
             agent_id=self._agent_id,
             k=top_k,
@@ -481,7 +481,7 @@ class StatusMemory:
         self,
         agent_id: int,
         environment: Environment,
-        faiss_query: FaissQuery,
+        vectorstore: FaissQuery,
         embedding_model: Embeddings,
         profile: ProfileMemory,
         state: StateMemory,
@@ -493,7 +493,7 @@ class StatusMemory:
         - **Args**:
             - `agent_id` (int): The ID of the agent.
             - `environment` (Environment): The environment object.
-            - `faiss_query` (FaissQuery): The Faiss query object.
+            - `vectorstore` (FaissQuery): The Faiss query object.
             - `embedding_model` (Embeddings): The embedding model object.
             - `profile`: Profile memory instance.
             - `state`: State memory instance.
@@ -502,7 +502,7 @@ class StatusMemory:
         self.profile = profile
         self.state = state
         self.dynamic = dynamic
-        self._faiss_query = faiss_query
+        self._vectorstore = vectorstore
         self._embedding_model = embedding_model
         self._environment = environment
         self._agent_id = agent_id
@@ -513,12 +513,12 @@ class StatusMemory:
         self._lock = asyncio.Lock()  # Newly added
 
     @property
-    def faiss_query(
+    def vectorstore(
         self,
     ) -> FaissQuery:
         """Get the Faiss query component."""
-        assert self._faiss_query is not None
-        return self._faiss_query
+        assert self._vectorstore is not None
+        return self._vectorstore
 
     async def initialize_embeddings(self) -> None:
         """Initialize embeddings for all fields that require them."""
@@ -530,7 +530,7 @@ class StatusMemory:
         for key, value in profile[0].items():
             if self.should_embed(key):
                 semantic_text = self._generate_semantic_text(key, value)
-                doc_ids = await self.faiss_query.add_documents(
+                doc_ids = await self.vectorstore.add_documents(
                     agent_id=self._agent_id,
                     documents=semantic_text,
                     extra_tags={
@@ -543,7 +543,7 @@ class StatusMemory:
         for key, value in state[0].items():
             if self.should_embed(key):
                 semantic_text = self._generate_semantic_text(key, value)
-                doc_ids = await self.faiss_query.add_documents(
+                doc_ids = await self.vectorstore.add_documents(
                     agent_id=self._agent_id,
                     documents=semantic_text,
                     extra_tags={
@@ -556,7 +556,7 @@ class StatusMemory:
         for key, value in dynamic[0].items():
             if self.should_embed(key):
                 semantic_text = self._generate_semantic_text(key, value)
-                doc_ids = await self.faiss_query.add_documents(
+                doc_ids = await self.vectorstore.add_documents(
                     agent_id=self._agent_id,
                     documents=semantic_text,
                     extra_tags={
@@ -624,7 +624,7 @@ class StatusMemory:
         if filter is not None:
             filter_dict.update(filter)
         top_results: list[tuple[str, Optional[float], dict]] = (
-            await self.faiss_query.similarity_search(
+            await self.vectorstore.similarity_search(
                 query=query,
                 agent_id=self._agent_id,
                 k=top_k,
@@ -739,12 +739,12 @@ class StatusMemory:
                         # delete old embedding
                         orig_doc_id = self._embedding_field_to_doc_id[key]
                         if orig_doc_id:
-                            await self.faiss_query.delete_documents(
+                            await self.vectorstore.delete_documents(
                                 to_delete_ids=[orig_doc_id],
                             )
 
                         # add new embedding
-                        doc_ids = await self.faiss_query.add_documents(
+                        doc_ids = await self.vectorstore.add_documents(
                             agent_id=self._agent_id,
                             documents=semantic_text,
                             extra_tags={
@@ -774,7 +774,7 @@ class StatusMemory:
                         await mem.update(key, value, store_snapshot)
                     if self.should_embed(key) and self._embedding_model:
                         semantic_text = self._generate_semantic_text(key, value)
-                        doc_ids = await self.faiss_query.add_documents(
+                        doc_ids = await self.vectorstore.add_documents(
                             agent_id=self._agent_id,
                             documents=f"{key}: {str(original_value)}",
                             extra_tags={
@@ -877,7 +877,7 @@ class Memory:
         self,
         agent_id: int,
         environment: Environment,
-        faiss_query: FaissQuery,
+        vectorstore: FaissQuery,
         embedding_model: Embeddings,
         config: Optional[dict[Any, Any]] = None,
         profile: Optional[dict[Any, Any]] = None,
@@ -894,7 +894,7 @@ class Memory:
         - **Args**:
             - `agent_id` (int): The ID of the agent.
             - `environment` (Environment): The environment object.
-            - `faiss_query` (FaissQuery): The Faiss query object.
+            - `vectorstore` (FaissQuery): The Faiss query object.
             - `embedding_model` (Embeddings): The embedding model object.
             - `config` (Optional[dict[Any, Any]], optional):
                 Configuration dictionary for dynamic memory, where keys are field names and values can be tuples or callables.
@@ -914,7 +914,7 @@ class Memory:
         self._agent_id = agent_id
         self._environment = environment
         self._embedding_model = embedding_model
-        self._faiss_query = faiss_query
+        self._vectorstore = vectorstore
         self._semantic_templates: dict[str, str] = {}
         _dynamic_config: dict[Any, Any] = {}
         _state_config: dict[Any, Any] = {}
@@ -1048,7 +1048,7 @@ class Memory:
         self._status = StatusMemory(
             agent_id=self._agent_id,
             environment=self._environment,
-            faiss_query=self._faiss_query,
+            vectorstore=self._vectorstore,
             embedding_model=self._embedding_model,
             profile=self._profile,
             state=self._state,
@@ -1061,7 +1061,7 @@ class Memory:
         self._stream = StreamMemory(
             agent_id=self._agent_id,
             environment=self._environment,
-            faiss_query=self._faiss_query,
+            vectorstore=self._vectorstore,
             embedding_model=self._embedding_model,
         )
         self._stream.set_status_memory(self._status)
@@ -1101,7 +1101,7 @@ class Memory:
         return self._agent_id
 
     @property
-    def faiss_query(self) -> FaissQuery:
+    def vectorstore(self) -> FaissQuery:
         """
         Access the FaissQuery component.
 
@@ -1114,7 +1114,7 @@ class Memory:
         - **Returns**:
             - `FaissQuery`: The FaissQuery instance.
         """
-        return self._faiss_query
+        return self._vectorstore
 
     async def initialize_embeddings(self):
         """
