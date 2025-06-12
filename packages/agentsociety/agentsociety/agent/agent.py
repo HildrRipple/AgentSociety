@@ -172,16 +172,15 @@ class CitizenAgentBase(Agent):
         dialog.append({"role": "system", "content": system_prompt})
 
         # Add memory context
-        if self.memory:
-            profile_and_states = await self.status.search(survey_prompt)
-            relevant_activities = await self.stream.search(survey_prompt)
+        profile_and_states = await self.status.search(survey_prompt)
+        relevant_activities = await self.stream.search(survey_prompt)
 
-            dialog.append(
-                {
-                    "role": "system",
-                    "content": f"Answer based on following profile and states:\n{profile_and_states}\n Related activities:\n{relevant_activities}",
-                }
-            )
+        dialog.append(
+            {
+                "role": "system",
+                "content": f"Answer based on following profile and states:\n{profile_and_states}\n Related activities:\n{relevant_activities}",
+            }
+        )
 
         # Add survey question
         dialog.append({"role": "user", "content": survey_prompt})
@@ -293,16 +292,15 @@ class CitizenAgentBase(Agent):
         dialog.append({"role": "system", "content": system_prompt})
 
         # Add memory context
-        if self._memory:
-            profile_and_states = await self.status.search(question, top_k=10)
-            relevant_activities = await self.stream.search(question, top_k=10)
+        profile_and_states = await self.status.search(question, top_k=10)
+        relevant_activities = await self.stream.search(question, top_k=10)
 
-            dialog.append(
-                {
-                    "role": "system",
-                    "content": f"Answer based on following profile and states:\n{profile_and_states}\n Related activities:\n{relevant_activities}",
-                }
-            )
+        dialog.append(
+            {
+                "role": "system",
+                "content": f"Answer based on following profile and states:\n{profile_and_states}\n Related activities:\n{relevant_activities}",
+            }
+        )
 
         # Add user question
         dialog.append({"role": "user", "content": question})
@@ -366,7 +364,7 @@ class CitizenAgentBase(Agent):
             - Saves the thought data to the memory.
         """
         day, t = self.environment.get_datetime()
-        await self.memory.stream.add_cognition(thought)
+        await self.memory.stream.add(topic="cognition", description=thought)
         storage_thought = StorageDialog(
             id=self.id,
             day=day,
@@ -378,7 +376,7 @@ class CitizenAgentBase(Agent):
         )
         # Database
         if self.database_writer is not None:
-            await self.database_writer.write_dialogs(  # type:ignore
+            await self.database_writer.write_dialogs(
                 [storage_thought]
             )
 

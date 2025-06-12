@@ -19,7 +19,6 @@ from shapely.geometry import Point
 
 from ..logger import get_logger
 from ..s3 import S3Client, S3Config
-from ..utils.decorators import log_execution_time
 from .economy.econ_client import EconomyClient
 from .mapdata import MapConfig, MapData
 from .sim import CityClient
@@ -307,7 +306,6 @@ class Environment:
                 global_prompt += f"{key}: {value}\n"
         return global_prompt
 
-    @log_execution_time
     def get_poi_categories(
         self,
         center: Optional[Union[tuple[float, float], Point]] = None,
@@ -384,7 +382,6 @@ class Environment:
         else:
             return (day, time)
 
-    @log_execution_time
     async def get_person(self, person_id: int) -> dict:
         """
         Retrieve information about a specific person by ID.
@@ -400,7 +397,6 @@ class Environment:
         )
         return person
 
-    @log_execution_time
     async def add_person(self, dict_person: dict) -> dict:
         """
         Add a new person to the simulation.
@@ -419,7 +415,6 @@ class Environment:
         resp: dict = await self.city_client.person_service.AddPerson(req)
         return resp
 
-    @log_execution_time
     async def set_aoi_schedules(
         self,
         person_id: int,
@@ -491,7 +486,6 @@ class Environment:
         req = {"person_id": person_id, "schedules": _schedules}
         await self.city_client.person_service.SetSchedule(req)
 
-    @log_execution_time
     async def reset_person_position(
         self,
         person_id: int,
@@ -539,7 +533,6 @@ class Environment:
                 f"Neither aoi or lane pos provided for person {person_id} position reset!!"
             )
 
-    @log_execution_time
     def get_around_poi(
         self,
         center: Union[tuple[float, float], Point],

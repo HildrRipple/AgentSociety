@@ -1,18 +1,13 @@
-from __future__ import annotations
-
-import asyncio
-import inspect
-import logging
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, NamedTuple, Optional, Union
 
+from fastembed import SparseEmbedding
 import jsonc
-import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ..environment import Environment
 from ..llm import LLM
@@ -22,12 +17,15 @@ from ..message import Messager, Message, MessageKind
 from ..storage import DatabaseWriter, StorageDialog, StorageDialogType
 from .context import AgentContext, context_to_dot_dict
 from .block import Block, BlockOutput
-from .dispatcher import DISPATCHER_PROMPT, BlockDispatcher
+from .dispatcher import BlockDispatcher
 from .memory_config_generator import StatusAttribute
 
 __all__ = [
     "Agent",
     "AgentType",
+    "AgentParams",
+    "AgentToolbox",
+    "GatherQuery",
 ]
 
 
@@ -35,6 +33,7 @@ class AgentParams(BaseModel):
     """
     Agent parameters
     """
+
     ...
 
 
@@ -46,6 +45,7 @@ class AgentToolbox(NamedTuple):
     llm: LLM
     environment: Environment
     messager: Messager
+    embedding: SparseEmbedding
     database_writer: Optional[DatabaseWriter]
 
 
@@ -53,6 +53,7 @@ class GatherQuery(BaseModel):
     """
     A model for gather query
     """
+
     key: str
     target_agent_ids: list[int]
     flatten: bool = True
@@ -227,28 +228,16 @@ class Agent(ABC):
     @property
     def memory(self):
         """The Agent's Memory"""
-        if self._memory is None:
-            raise RuntimeError(
-                f"Memory access before assignment, please `set_memory` first!"
-            )
         return self._memory
 
     @property
     def status(self):
         """The Agent's Status Memory"""
-        if self.memory.status is None:
-            raise RuntimeError(
-                f"Status access before assignment, please `set_memory` first!"
-            )
         return self.memory.status
 
     @property
     def stream(self):
         """The Agent's Stream Memory"""
-        if self.memory.stream is None:
-            raise RuntimeError(
-                f"Stream access before assignment, please `set_memory` first!"
-            )
         return self.memory.stream
 
     @abstractmethod
@@ -327,7 +316,13 @@ class Agent(ABC):
         self.gather_query: dict[str, GatherQuery] = {}
         return query
 
-    def register_gather_query(self, key: str, target_agent_ids: list[int], flatten: bool = True, keep_id: bool = True):
+    def register_gather_query(
+        self,
+        key: str,
+        target_agent_ids: list[int],
+        flatten: bool = True,
+        keep_id: bool = True,
+    ):
         self.gather_query[key] = GatherQuery(
             key=key,
             target_agent_ids=target_agent_ids,

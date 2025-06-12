@@ -1,13 +1,11 @@
 import asyncio
-import warnings
-from collections.abc import Sequence
-from typing import Any, Literal, Optional, Union
+import uuid
+from typing import Optional
 
-import faiss
-from langchain_community.docstore.in_memory import InMemoryDocstore
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
+from fastembed import SparseTextEmbedding
+from qdrant_client.async_qdrant_client import AsyncQdrantClient
+from qdrant_client.http import models
+from qdrant_client.http.models import Distance
 
 from ..utils.decorators import lock_decorator
 
@@ -16,40 +14,42 @@ __all__ = ["VectorStore"]
 
 class VectorStore:
     """
-    A class for handling similarity searches and document management using FAISS.
+    A class for handling similarity searches and document management using Qdrant and FastEmbed.
 
     - **Description**:
         - This class provides functionalities to manage embeddings and perform similarity searches over a set of documents.
-        - It allows adding, deleting, and querying documents based on their semantic content through embeddings.
-        - The class initializes with an optional embedding model and index type, setting up the environment for vector operations.
-        - If no embedding model is provided during initialization, certain methods will not be available until one is set.
+        - It uses FastEmbed for generating embeddings and Qdrant for vector storage and retrieval.
+        - The class initializes with an optional embedding model and Qdrant client settings.
     """
 
     def __init__(
         self,
-        embeddings: Embeddings,
-        index_type: Any = faiss.IndexFlatL2,
-        dimension: Optional[int] = None,
-    ) -> None:
+        embedding: SparseTextEmbedding,
+    ):
         """
-        Initialize the FaissQuery instance.
+        Initialize the VectorStore instance.
 
         - **Parameters**:
-            - `embeddings` (Optional[Embeddings], optional): An embedding function that converts text into vectors. Defaults to None.
-            - `index_type` (Any, optional): The type of FAISS index to use for vector storage and retrieval. Defaults to faiss.IndexFlatL2.
-            - `dimension` (Optional[int], optional): The dimensionality of the vectors produced by the embedding function. Defaults to None.
-                If not specified, it's inferred from the embedding of a sample text ("hello world").
+            - `embedding` (SparseTextEmbedding): The embedding model to use.
         """
-        self._embeddings = embeddings
+        self._embeddings = embedding
+        self._collection_name = "documents"
         self._lock = asyncio.Lock()
-        if dimension is None:
-            dimension = len(embeddings.embed_query("hello world"))
-        self._index = index_type(dimension)
-        self._vectors_store = FAISS(
-            embedding_function=embeddings,
-            index=self._index,
-            docstore=InMemoryDocstore(),
-            index_to_docstore_id={},
+        self._client = AsyncQdrantClient(":memory:")
+
+    async def init(self):
+        await self._client.create_collection(
+            collection_name=self._collection_name,
+            # the size is meaningless, just for compatibility
+            # because we only use sparse vector
+            vectors_config=models.VectorParams(size=384, distance=Distance.COSINE),
+            sparse_vectors_config={
+                "text-sparse": models.SparseVectorParams(
+                    index=models.SparseIndexParams(
+                        on_disk=False,
+                    )
+                )
+            },
         )
 
     @property
@@ -59,8 +59,7 @@ class VectorStore:
     @lock_decorator
     async def add_documents(
         self,
-        agent_id: int,
-        documents: Union[str, Sequence[str]],
+        documents: list[str],
         extra_tags: Optional[dict] = None,
     ) -> list[str]:
         """
@@ -68,27 +67,45 @@ class VectorStore:
 
         - **Description**:
             - Asynchronously adds one or more documents to the vector store, associating them with an agent ID and optional extra tags.
-            - Each document is converted into a vector using the embedding model before being added to the index.
+            - Each document is converted into a vector using FastEmbed before being added to Qdrant.
 
         - **Args**:
-            - `agent_id` (int): Identifier of the agent to associate with the documents.
-            - `documents` (Union[str, Sequence[str]]): A single document string or a sequence of document strings to add.
+            - `documents` (list[str]): A list of document strings to add.
             - `extra_tags` (Optional[dict], optional): Additional metadata tags to associate with the documents. Defaults to None.
 
         - **Returns**:
-            - `list[str]`: List of document IDs that were added to the vector store.
+            - `list[str]`: List of document IDs (UUIDs) that were added to the vector store.
         """
-        if isinstance(documents, str):
-            documents = [documents]
-        _metadata = {"_id": agent_id}
-        if extra_tags is not None:
-            _metadata.update(extra_tags)
-        to_add_documents = [
-            Document(page_content=doc, metadata=_metadata) for doc in documents
-        ]
-        return await self._vectors_store.aadd_documents(
-            documents=to_add_documents,
-        )
+        # Generate embeddings
+        embeddings = self._embeddings.embed(documents)
+
+        # Prepare points for Qdrant
+        points = []
+        for i, (doc, embedding) in enumerate(zip(documents, embeddings)):
+            metadata = {"content": doc}
+            if extra_tags is not None:
+                metadata.update(extra_tags)
+
+            # Generate a UUID for the point
+            point_id = str(uuid.uuid4())
+
+            points.append(
+                models.PointStruct(
+                    id=point_id,
+                    vector={
+                        "text-sparse": models.SparseVector(
+                            indices=embedding.indices.tolist(),
+                            values=embedding.values.tolist(),
+                        )
+                    },
+                    payload=metadata,
+                )
+            )
+
+        # Upload points to Qdrant
+        await self._client.upsert(collection_name=self._collection_name, points=points)
+
+        return [point.id for point in points]
 
     @lock_decorator
     async def delete_documents(
@@ -102,248 +119,75 @@ class VectorStore:
             - Asynchronously deletes documents from the vector store based on provided document IDs.
 
         - **Args**:
-            - `to_delete_ids` (list[str]): List of document IDs to delete from the vector store.
+            - `to_delete_ids` (list[str]): List of document IDs (UUIDs) to delete from the vector store.
         """
-        await self._vectors_store.adelete(
-            ids=to_delete_ids,
+        await self._client.delete(
+            collection_name=self._collection_name,
+            points_selector=models.PointIdsList(
+                points=to_delete_ids  # type: ignore[arg-type]
+            ),
         )
 
     @lock_decorator
     async def similarity_search(
         self,
         query: str,
-        agent_id: int,
         k: int = 4,
-        fetch_k: int = 20,
-        return_score_type: Union[
-            Literal["none"], Literal["similarity_score"], Literal["L2-distance"]
-        ] = "none",
         filter: Optional[dict] = None,
-    ) -> list[tuple[str, Optional[float], dict]]:
+    ) -> list[tuple[str, float, dict]]:
         """
         Perform a similarity search for documents related to the given query.
 
         - **Description**:
             - Conducts an asynchronous search for the top-k documents most similar to the query text.
-            - The search can be customized by specifying how many documents to fetch (`fetch_k`), how many to return (`k`),
-              and whether to include scores in the results (`return_score_type`).
-            - Filters can be applied to narrow down the search results based on metadata.
+            - Uses FastEmbed to generate query embedding and Qdrant for vector search.
 
         - **Args**:
             - `query` (str): The text to look up documents similar to.
-            - `agent_id` (int): The identifier of the agent to filter specific documents.
             - `k` (int, optional): The number of top similar contents to return. Defaults to 4.
             - `fetch_k` (int, optional): The number of documents to fetch before applying any filters. Defaults to 20.
-            - `return_score_type` (Union[Literal["none"], Literal["similarity_score"], Literal["L2-distance"]], optional):
-                Specifies whether and how to return similarity scores with the results.
             - `filter` (Optional[dict], optional): The filter dict for metadata.
 
         - **Returns**:
-            - `list[tuple[str, Optional[float], dict]]`: Depending on the `return_score_type` parameter,
-              returns either a list of tuples containing the content and its associated metadata, or also including a floating-point score.
+            - `list[tuple[str, float, dict]]`: List of tuples containing content, score, and metadata.
         """
-        _filter = {
-            "_id": agent_id,
-        }
+        # Generate query embedding
+        query_embedding = list(self._embeddings.query_embed(query))[0]
+
+        # Prepare filter
+        search_filter = {}
         if filter is not None:
-            _filter.update(filter)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            if return_score_type == "L2-distance":
-                _result = await self._vectors_store.asimilarity_search_with_score(
-                    query=query,
-                    k=k,
-                    filter=_filter,
-                    fetch_k=fetch_k,
-                )
-                return [(r.page_content, s, r.metadata) for r, s in _result]
-            elif return_score_type == "none":
-                _result = await self._vectors_store.asimilarity_search(
-                    query=query,
-                    k=k,
-                    filter=_filter,
-                    fetch_k=fetch_k,
-                )
-                return [(r.page_content, None, r.metadata) for r in _result]
-            elif return_score_type == "similarity_score":
-                _result = (
-                    await self._vectors_store.asimilarity_search_with_relevance_scores(
-                        query=query,
-                        k=k,
-                        filter=_filter,
-                        fetch_k=fetch_k,
-                    )
-                )
-                return [(r.page_content, s, r.metadata) for r, s in _result]
-            else:
-                raise ValueError(f"Invalid `return_score_type` {return_score_type}!")
+            search_filter.update(filter)
 
-    @lock_decorator
-    async def similarity_search_by_embedding(
-        self,
-        embedding: list[float],
-        agent_id: int,
-        k: int = 4,
-        fetch_k: int = 20,
-        return_score_type: Union[Literal["none"], Literal["L2-distance"]] = "none",
-        filter: Optional[dict] = None,
-    ) -> list[tuple[str, Optional[float], dict]]:
-        """
-        Perform a similarity search for documents related to the given vector.
+        # Create NamedSparseVector for the query
+        named_vector = models.NamedSparseVector(
+            name="text-sparse",
+            vector=models.SparseVector(
+                indices=query_embedding.indices.tolist(),
+                values=query_embedding.values.tolist(),
+            ),
+        )
 
-        - **Description**:
-            - Conducts an asynchronous search for the top-k documents most similar to the provided embedding vector.
-            - The search can be customized by specifying how many documents to fetch (`fetch_k`), how many to return (`k`),
-              and whether to include L2 distances in the results (`return_score_type`).
-            - Filters can be applied to narrow down the search results based on metadata.
+        # Perform search
+        search_result = await self._client.search(
+            collection_name=self._collection_name,
+            query_vector=named_vector,
+            limit=k,
+            query_filter=models.Filter(
+                must=[
+                    models.FieldCondition(key=key, match=models.MatchValue(value=value))
+                    for key, value in search_filter.items()
+                ]
+            ),
+        )
 
-        - **Args**:
-            - `embedding` (list[float]): The vector to look up documents similar to.
-            - `agent_id` (int): The identifier of the agent to filter specific documents.
-            - `k` (int, optional): The number of top similar contents to return. Defaults to 4.
-            - `fetch_k` (int, optional): The number of documents to fetch before applying any filters. Defaults to 20.
-            - `return_score_type` (Union[Literal["none"], Literal["L2-distance"]], optional):
-                Specifies whether and how to return similarity scores with the results:
-                    - "none": Do not return scores; only return the contents (default).
-                    - "L2-distance": Return a tuple of content and its L2 distance from the query.
-            - `filter` (Optional[dict], optional): The filter dict for metadata.
+        # Format results
+        results = []
+        for hit in search_result:
+            assert hit.payload is not None
+            content = hit.payload.get("content", "")
+            score = hit.score
+            metadata = {k: v for k, v in hit.payload.items() if k != "content"}
+            results.append((content, score, metadata))
 
-        - **Returns**:
-            - `list[tuple[str, Optional[float], dict]]`: Depending on the `return_score_type` parameter,
-              returns either a list of tuples containing the content and its associated metadata, or also including a floating-point score.
-        """
-        _filter = {
-            "_id": agent_id,
-        }
-        if filter is not None:
-            _filter.update(filter)
-        if return_score_type == "L2-distance":
-            _result = await self._vectors_store.asimilarity_search_with_score_by_vector(
-                embedding=embedding,
-                k=k,
-                filter=_filter,
-                fetch_k=fetch_k,
-            )
-            return [(r.page_content, s, r.metadata) for r, s in _result]
-        elif return_score_type == "none":
-            _result = await self._vectors_store.asimilarity_search_by_vector(
-                embedding=embedding,
-                k=k,
-                filter=_filter,
-                fetch_k=fetch_k,
-            )
-            return [(r.page_content, None, r.metadata) for r in _result]
-        else:
-            raise ValueError(f"Invalid `return_score_type` {return_score_type}!")
-
-    @lock_decorator
-    async def marginal_relevance_search(
-        self,
-        query: str,
-        agent_id: int,
-        k: int = 4,
-        fetch_k: int = 20,
-        lambda_mult: float = 0.5,
-        return_score_type: Literal["none"] = "none",
-        filter: Optional[dict] = None,
-    ) -> list[tuple[str, dict]]:
-        """
-        Select contents using maximal marginal relevance asynchronously.
-
-        - **Description**:
-            - Asynchronously selects a set of documents that are relevant to the query while ensuring diversity among the results.
-            - The selection process balances between relevance to the query and diversity, controlled by `lambda_mult`.
-
-        - **Args**:
-            - `query` (str): The text to look up documents similar to.
-            - `agent_id` (int): The identifier of the agent to filter specific documents.
-            - `k` (int, optional): The number of top similar contents to return. Defaults to 4.
-            - `fetch_k` (int, optional): The number of documents to fetch before applying any filters. Defaults to 20.
-            - `lambda_mult` (float, optional): Number between 0 and 1 that determines the degree of diversity among the results. Defaults to 0.5.
-            - `return_score_type` (Literal["none"], optional):
-                Specifies whether and how to return similarity scores with the results:
-                    - "none": Do not return scores; only return the contents (default).
-            - `filter` (Optional[dict], optional): The filter dict for metadata.
-
-        - **Returns**:
-            - `list[tuple[str, dict]]`: A list of tuples containing the content and its associated metadata.
-        """
-        _filter = {
-            "_id": agent_id,
-        }
-        if filter is not None:
-            _filter.update(filter)
-
-        if return_score_type == "none":
-            _result = await self._vectors_store.amax_marginal_relevance_search(
-                query=query,
-                k=k,
-                filter=_filter,
-                fetch_k=fetch_k,
-                lambda_mult=lambda_mult,
-            )
-            return [(r.page_content, r.metadata) for r in _result]
-        else:
-            raise ValueError(f"Invalid `return_score_type` {return_score_type}!")
-
-    @lock_decorator
-    async def marginal_relevance_search_by_embedding(
-        self,
-        embedding: list[float],
-        agent_id: int,
-        k: int = 4,
-        fetch_k: int = 20,
-        lambda_mult: float = 0.5,
-        return_score_type: Union[Literal["none"], Literal["similarity_score"]] = "none",
-        filter: Optional[dict] = None,
-    ) -> list[tuple[str, Optional[float], dict]]:
-        """
-        Select contents using maximal marginal relevance asynchronously based on embedding.
-
-        - **Description**:
-            - Asynchronously selects a set of documents that are relevant to the provided embedding vector while ensuring diversity among the results.
-            - The selection process balances between relevance to the embedding and diversity, controlled by `lambda_mult`.
-
-        - **Args**:
-            - `embedding` (list[float]): The vector to look up documents similar to.
-            - `agent_id` (int): The identifier of the agent to filter specific documents.
-            - `k` (int, optional): The number of top similar contents to return. Defaults to 4.
-            - `fetch_k` (int, optional): The number of documents to fetch before applying any filters. Defaults to 20.
-            - `lambda_mult` (float, optional): Number between 0 and 1 that determines the degree of diversity among the results. Defaults to 0.5.
-            - `return_score_type` (Union[Literal["none"], Literal["similarity_score"]], optional):
-                Specifies whether and how to return similarity scores with the results:
-                    - "none": Do not return scores; only return the contents (default).
-                    - "similarity_score": Return a tuple of content and its similarity score.
-            - `filter` (Optional[dict], optional): The filter dict for metadata.
-
-        - **Returns**:
-            - `list[tuple[str, Optional[float], dict]]`: Depending on the `return_score_type` parameter,
-              returns either a list of tuples containing the content and its associated metadata, or also including a floating-point score.
-        """
-
-        _filter = {
-            "_id": agent_id,
-        }
-        if filter is not None:
-            _filter.update(filter)
-        if return_score_type == "none":
-            _result = await self._vectors_store.amax_marginal_relevance_search_by_vector(
-                embedding=embedding,
-                k=k,
-                filter=_filter,
-                fetch_k=fetch_k,
-                lambda_mult=lambda_mult,
-            )
-            return [(r.page_content, None, r.metadata) for r in _result]
-        elif return_score_type == "similarity_score":
-            _result = await self._vectors_store.amax_marginal_relevance_search_with_score_by_vector(
-                embedding=embedding,
-                k=k,
-                filter=_filter,
-                fetch_k=fetch_k,
-                lambda_mult=lambda_mult,
-            )
-            return [(r.page_content, s, r.metadata) for r, s in _result]
-
-        else:
-            raise ValueError(f"Invalid `return_score_type` {return_score_type}!")
+        return results

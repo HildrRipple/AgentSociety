@@ -1,11 +1,6 @@
-import asyncio
-import logging
-
-from ..llm import LLM, LLMConfig, monitor_requests
-from ..utils.decorators import lock_decorator
+from ..llm import LLM, LLMConfig
 from .messager import Message, MessageKind
 
-logger = logging.getLogger("message_interceptor")
 
 __all__ = [
     "MessageInterceptor",
@@ -30,14 +25,7 @@ class MessageInterceptor:
         self._llm = LLM(llm_config)
         # round related
         self.validation_dict: dict[Message, bool] = {}
-        self._lock = asyncio.Lock()
         self._supervisor = None
-
-    async def init(self):
-        asyncio.create_task(monitor_requests(self._llm))
-
-    async def close(self):
-        pass
 
     async def set_supervisor(self, supervisor):
         self._supervisor = supervisor
@@ -68,7 +56,6 @@ class MessageInterceptor:
         return self._llm
 
     # Message forwarding related methods
-    @lock_decorator
     async def forward(self, messages: list[Message]) -> list[Message]:
         # reset round related variables
         new_round_validation_dict, persuasion_messages = await self.supervisor.forward(

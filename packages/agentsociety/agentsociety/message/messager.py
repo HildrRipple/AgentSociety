@@ -1,14 +1,13 @@
 import asyncio
 from datetime import datetime
 from enum import Enum
-from typing import Any, Awaitable, Callable, Optional, Union
+from typing import Optional
 
 import ray
 import ray.actor
 from pydantic import BaseModel, Field
 
 from ..logger import get_logger
-from ..utils import NONE_SENDER_ID
 from ..utils.decorators import lock_decorator
 
 __all__ = [

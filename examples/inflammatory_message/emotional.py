@@ -29,7 +29,6 @@ ray.init(logging_level=logging.INFO)
 
 
 async def gather_memory(simulation: AgentSociety):
-    print("gather memory")
     citizen_uuids = await simulation.filter(types=(SocietyAgent,))
     chat_histories = await simulation.gather(
         "chat_histories", citizen_uuids, flatten=True, keep_id=True

@@ -28,7 +28,7 @@ from ..memory import Memory
 from ..message import Messager, Message, MessageKind
 from ..storage import DatabaseWriter
 from ..storage.type import StorageProfile, StorageStatus
-from ..vectorstore import FaissQuery
+from ..vectorstore import VectorStore
 from .type import Logs
 
 __all__ = ["AgentGroup"]
@@ -61,7 +61,7 @@ class AgentGroup:
             ]
         ],
         environment_init: dict,
-        vectorstore: FaissQuery,
+        vectorstore: VectorStore,
         database_writer: Optional[DatabaseWriter],
         agent_config_file: Optional[dict[type[Agent], Any]] = None,
     ):
@@ -116,10 +116,6 @@ class AgentGroup:
     @property
     def config(self):
         return self._config
-
-    @property
-    def embedding_model(self):
-        return self._vectorstore.embeddings
 
     @property
     def vectorstore(self):
@@ -209,11 +205,12 @@ class AgentGroup:
                 else:
                     profile_[k] = v
             to_return[id] = (agent_class, profile_)
+            vectorstore = VectorStore(self._vectorstore.embeddings)
+            await vectorstore.init()
             memory_init = Memory(
                 agent_id=id,
                 environment=self.environment,
-                vectorstore=self.vectorstore,
-                embedding_model=self.embedding_model,
+                vectorstore=vectorstore,
                 config=extra_attributes,
                 profile=profile,
                 base=base,
@@ -703,20 +700,6 @@ class AgentGroup:
     # ====================
     # Utility Methods
     # ====================
-    def get_llm_consumption(self):
-        """
-        Retrieves the consumption statistics from the LLM client.
-
-        - **Returns**:
-            - The consumption data provided by the LLM client.
-        """
-        return self.llm.get_consumption()
-
-    async def get_llm_error_statistics(self):
-        """
-        Retrieves the error statistics from the LLM client.
-        """
-        return self.llm.get_error_statistics()
 
     async def gather(self, content: str, target_agent_ids: Optional[list[int]] = None):
         """

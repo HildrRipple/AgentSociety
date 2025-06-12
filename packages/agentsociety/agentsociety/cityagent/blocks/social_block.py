@@ -479,9 +479,6 @@ class SocialBlock(Block):
         """
         try:
             self.trigger_time += 1
-            consumption_start = (
-                self.llm.prompt_tokens_used + self.llm.completion_tokens_used
-            )
 
             context = agent_context | self.context
 

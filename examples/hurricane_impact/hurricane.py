@@ -1,11 +1,10 @@
 import asyncio
-import json
 import logging
-from functools import partial
-from typing import Literal, Union
 
 import ray
-from examples.hurricane_impact.hurricane_memory_config import memory_config_societyagent_hurrican
+from examples.hurricane_impact.hurricane_memory_config import (
+    memory_config_societyagent_hurrican,
+)
 
 from agentsociety.cityagent import (
     default,
@@ -68,7 +67,7 @@ config = Config(
             WorkflowStepConfig(
                 type=WorkflowType.ENVIRONMENT_INTERVENE,
                 key="weather",
-                value="Hurricane Dorian has made landfall in other cities, travel is slightly affected, and winds can be felt."
+                value="Hurricane Dorian has made landfall in other cities, travel is slightly affected, and winds can be felt.",
             ),
             WorkflowStepConfig(
                 type=WorkflowType.RUN,
@@ -77,7 +76,7 @@ config = Config(
             WorkflowStepConfig(
                 type=WorkflowType.ENVIRONMENT_INTERVENE,
                 key="weather",
-                value="The weather is normal and does not affect travel"
+                value="The weather is normal and does not affect travel",
             ),
             WorkflowStepConfig(
                 type=WorkflowType.RUN,

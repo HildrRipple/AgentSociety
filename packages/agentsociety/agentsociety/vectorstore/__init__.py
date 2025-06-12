@@ -1,3 +1,3 @@
-from .faiss_query import FaissQuery
+from .vectorstore import VectorStore
 
-__all__ = ["FaissQuery"]
+__all__ = ["VectorStore"]

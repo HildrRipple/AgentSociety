@@ -6,6 +6,7 @@ import asyncio
 import inspect
 import itertools
 import json
+from multiprocessing import cpu_count
 import os
 import traceback
 import uuid
@@ -13,6 +14,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Callable, Literal, Optional, Union, cast
 
+from fastembed import SparseTextEmbedding
 import ray
 import ray.util.queue
 import yaml
@@ -26,8 +28,7 @@ from ..agent.memory_config_generator import (MemoryConfigGenerator,
 from ..configs import (AgentConfig, AgentFilterConfig, Config,
                        MetricExtractorConfig, MetricType, WorkflowType)
 from ..environment import EnvironmentStarter
-from ..llm import LLM, monitor_requests
-from ..llm.embeddings import init_embedding
+from ..llm import LLM
 from ..logger import get_logger, set_logger_level
 from ..memory import Memory
 from ..message import Message, MessageInterceptor, MessageKind, Messager
@@ -37,7 +38,7 @@ from ..storage.type import (StorageExpInfo, StorageGlobalPrompt,
                             StoragePendingSurvey)
 from ..survey.models import Survey
 from ..utils import NONE_SENDER_ID
-from ..vectorstore import FaissQuery
+from ..vectorstore import VectorStore
 from .agentgroup import AgentGroup
 from .type import ExperimentStatus, Logs
 
@@ -186,7 +187,7 @@ class AgentSociety:
         self._environment: Optional[EnvironmentStarter] = None
         self._message_interceptor: Optional[MessageInterceptor] = None
         self._database_writer: Optional[DatabaseWriter] = None
-        self._vectorstore: Optional[FaissQuery] = None
+        self._vectorstore: Optional[VectorStore] = None
         self._groups: dict[str, AgentGroup] = {}
         self._agent_ids: set[int] = set()
         self._agent_id2group: dict[int, AgentGroup] = {}
@@ -246,7 +247,7 @@ class AgentSociety:
             await self._database_writer.init() # type: ignore
             get_logger().info(f"Database writer initialized")
             # save to local
-            self._database_writer.update_exp_info(self._exp_info) # type: ignore
+            await self._database_writer.update_exp_info(self._exp_info)
 
         try:
             # ====================
@@ -284,6 +285,14 @@ class AgentSociety:
             await self._messager.init()
             get_logger().info(f"Messager initialized")
 
+            # ====================
+            # Initialize the vectorstore
+            # ====================
+            get_logger().info(f"Initializing vectorstore...")
+            self._vectorstore = VectorStore(SparseTextEmbedding("Qdrant/bm25", threads=cpu_count()))
+            await self._vectorstore.init()
+            get_logger().info(f"VectorStore initialized")
+
             # ======================================
             # Initialize agent groups
             # ======================================
@@ -309,11 +318,6 @@ class AgentSociety:
             firm_ids = set()
             supervisor_ids = set()
             aoi_ids = self._environment.get_aoi_ids()
-
-            self._embedding_model = init_embedding(self._config.advanced.embedding_model)
-            get_logger().debug(f"Embedding model initialized")
-            self._vectorstore = FaissQuery(self._embedding_model)
-            get_logger().debug(f"FAISS query initialized")
 
             # Check if any agent config uses memory_from_file
             agent_configs_normal = {
@@ -629,7 +633,6 @@ class AgentSociety:
                         agent_id=agent_id,
                         environment=self.environment,
                         vectorstore=self._vectorstore,
-                        embedding_model=self._embedding_model,
                         config=extra_attributes,
                         profile=profile,
                         base=base,
