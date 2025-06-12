@@ -120,7 +120,7 @@ class VectorStore:
         - **Args**:
             - `to_delete_ids` (list[str]): List of document IDs (UUIDs) to delete from the vector store.
         """
-        await self._client.delete(
+        self._client.delete(
             collection_name=self._collection_name,
             points_selector=models.PointIdsList(
                 points=to_delete_ids  # type: ignore[arg-type]
