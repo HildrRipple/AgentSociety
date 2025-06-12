@@ -1,10 +1,12 @@
 from typing import Any, Optional
+
 from pydantic import BaseModel
 
 from ..environment import Environment
 from ..llm import LLM
-from ..memory import Memory, KVMemory
-from .context import DotDict, BlockContext, context_to_dot_dict, auto_deepcopy_dotdict
+from ..memory import KVMemory, Memory
+from .context import BlockContext, DotDict, auto_deepcopy_dotdict, context_to_dot_dict
+from .toolbox import AgentToolbox
 
 TRIGGER_INTERVAL = 1
 
@@ -40,8 +42,7 @@ class Block:
 
     def __init__(
         self,
-        llm: Optional[LLM] = None,
-        environment: Optional[Environment] = None,
+        toolbox: AgentToolbox,
         agent_memory: Optional[Memory] = None,
         block_params: Optional[Any] = None,
     ):
@@ -55,9 +56,8 @@ class Block:
             - `environment` (Optional[Environment], optional): An instance of Environment. Defaults to None.
             - `memory` (Optional[Memory], optional): An instance of Memory. Defaults to None.
         """
-        self._llm = llm
+        self._toolbox = toolbox
         self._agent_memory = agent_memory
-        self._environment = environment
         self._agent = None
 
         # parse block_params
@@ -66,7 +66,13 @@ class Block:
         self.params = block_params
         for key, value in self.params.model_dump().items():
             if key == "block_memory":
-                self._block_memory = KVMemory(value, )
+                self._block_memory = KVMemory(
+                    value,
+                    embedding=self._toolbox.embedding,
+                    should_embed_fields=set(),
+                    semantic_templates={},
+                    key2topic={},
+                )
             else:
                 setattr(self, key, value)
 
@@ -106,10 +112,12 @@ class Block:
         return self._agent
 
     @property
+    def toolbox(self) -> AgentToolbox:
+        return self._toolbox
+
+    @property
     def llm(self) -> LLM:
-        if self._llm is None:
-            raise RuntimeError(f"LLM access before assignment, please `set_llm` first!")
-        return self._llm
+        return self._toolbox.llm
 
     @property
     def memory(self) -> Memory:
@@ -128,7 +136,7 @@ class Block:
         return self._agent_memory
 
     @property
-    def block_memory(self) -> StateMemory:
+    def block_memory(self) -> KVMemory:
         if self._block_memory is None:
             raise RuntimeError(
                 f"Block memory access before assignment, please `set_block_memory` first!"
@@ -137,11 +145,7 @@ class Block:
 
     @property
     def environment(self) -> Environment:
-        if self._environment is None:
-            raise RuntimeError(
-                f"Environment access before assignment, please `set_environment` first!"
-            )
-        return self._environment
+        return self._toolbox.environment
 
     async def before_forward(self):
         """

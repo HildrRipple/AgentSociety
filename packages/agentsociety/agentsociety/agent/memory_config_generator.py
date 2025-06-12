@@ -2,7 +2,7 @@ import copy
 import random
 from typing import Any, Callable, Optional, Union, cast, List
 
-import jsonc
+import json
 from pydantic import BaseModel
 from ..s3 import S3Client, S3Config
 from .distribution import Distribution, DistributionConfig, sample_field_value
@@ -284,7 +284,7 @@ def _memory_config_load_file(file_path: str, s3config: S3Config):
             data_str = f.read()
 
     if file_path.endswith(".json"):
-        memory_data = jsonc.loads(data_str)
+        memory_data = json.loads(data_str)
         if not isinstance(memory_data, list):
             raise ValueError(
                 f"Invalid memory data. Expected a list, got: {memory_data}"
@@ -294,7 +294,7 @@ def _memory_config_load_file(file_path: str, s3config: S3Config):
         memory_data = []
         for line in data_str.splitlines():
             if line.strip():  # Skip empty lines
-                memory_data.append(jsonc.loads(line))
+                memory_data.append(json.loads(line))
         return memory_data
     # TODO：add support for csv file
     else:

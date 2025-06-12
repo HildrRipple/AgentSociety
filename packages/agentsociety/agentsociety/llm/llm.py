@@ -6,6 +6,7 @@ from enum import Enum
 from multiprocessing import cpu_count
 from typing import Any, List, Optional, Union, overload
 
+import httpx
 import ray
 from openai import NOT_GIVEN, APIConnectionError, AsyncOpenAI, NotGiven, OpenAIError
 from openai.types.chat import (
@@ -26,6 +27,7 @@ __all__ = [
     "LLMProviderType",
 ]
 
+MAX_TIMEOUT = 60
 
 class LLMProviderType(str, Enum):
     """
@@ -69,7 +71,7 @@ class LLMConfig(BaseModel):
     concurrency: int = Field(200, ge=1)
     """Concurrency value for LLM operations to avoid rate limit"""
 
-    timeout: float = Field(30, ge=1)
+    timeout: float = Field(30, ge=1, le=MAX_TIMEOUT)
     """Timeout for LLM operations in seconds"""
 
     @field_serializer("provider")
@@ -88,6 +90,19 @@ class LLMActor:
     """
     Actor class for LLM operations.
     """
+
+    def __init__(self):
+        self._http_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(
+                connect=min(30.0, MAX_TIMEOUT / 4),  # 连接超时时间
+                read=MAX_TIMEOUT,  # 读取超时时间
+                write=MAX_TIMEOUT,  # 写入超时时间
+                pool=MAX_TIMEOUT,  # 连接池超时时间
+            ),
+            limits=httpx.Limits(
+                max_keepalive_connections=20, max_connections=100, keepalive_expiry=30.0
+            ),
+        )
 
     async def call(
         self,
@@ -147,7 +162,10 @@ class LLMActor:
         }
 
         client = AsyncOpenAI(
-            api_key=config.api_key, timeout=config.timeout, base_url=config.base_url
+            api_key=config.api_key,
+            timeout=config.timeout,
+            base_url=config.base_url,
+            http_client=self._http_client,
         )
         for attempt in range(retries):
             try:
@@ -250,7 +268,10 @@ class LLM:
             asyncio.Semaphore(config.concurrency) for config in self.configs
         ]
         self._log_list = []
+        self.prompt_tokens_used = 0
+        self.completion_tokens_used = 0
         self._next_index = 0
+        self._last_show_time = time.time()
 
         for config in self.configs:
             base_url = config.base_url
@@ -274,13 +295,18 @@ class LLM:
             else:
                 raise ValueError(f"Unsupported `provider` {config.provider}!")
 
-        self._actors = ray.get([LLMActor.remote() for _ in range(num_actors)])
+        self._actors = [LLMActor.remote() for _ in range(num_actors)]
+        self._lock = asyncio.Lock()
 
     def get_log_list(self):
         return self._log_list
 
     def clear_log_list(self):
         self._log_list = []
+
+    def _get_index(self):
+        self._next_index += 1
+        return self._next_index
 
     @overload
     async def atext_request(
@@ -358,12 +384,16 @@ class LLM:
             - A string containing the message content or a dictionary with tool call arguments if tools are used.
             - Raises exceptions if the request fails after all retry attempts.
         """
-        self._next_index += 1
-        client_i = self._next_index % len(self.configs)
-        actor_i = self._next_index % len(self._actors)
-
+        index = self._get_index()
+        client_i = index % len(self.configs)
+        actor_i = index % len(self._actors)
+        if time.time() - self._last_show_time > 10:
+            get_logger().info(
+                f"LLM request count: {index}"
+            )
+            self._last_show_time = time.time()
         async with self._semaphores[client_i]:
-            content, log = await self._actors[actor_i].call.remote(
+            content, log = await self._actors[actor_i].call.remote(  # type: ignore
                 self.configs[client_i],
                 dialog,
                 response_format,
@@ -378,4 +408,6 @@ class LLM:
                 tool_choice,
             )
             self._log_list.append(log)
+            self.prompt_tokens_used += log["input_tokens"]
+            self.completion_tokens_used += log["output_tokens"]
         return content

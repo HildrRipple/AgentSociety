@@ -4,7 +4,7 @@ import time
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Optional, Set, Tuple, cast
 
-import jsonc
+import json
 from agentsociety.agent import (AgentToolbox, Block, StatusAttribute,
                                 SupervisorBase)
 from agentsociety.agent.prompt import FormatPrompt

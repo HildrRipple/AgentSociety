@@ -4,7 +4,7 @@ import numbers
 import random
 from typing import Optional
 
-import jsonc
+import json
 import numpy as np
 from pydantic import Field
 

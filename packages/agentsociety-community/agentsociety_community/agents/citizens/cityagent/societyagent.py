@@ -1,7 +1,7 @@
 import random
 import time
 
-import jsonc
+import json
 from typing import Optional
 from agentsociety.agent import (
     AgentToolbox,
@@ -583,7 +583,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                     await self.memory.status.update("chat_histories", chat_histories)
 
                     # Send response
-                    serialized_response = jsonc.dumps(
+                    serialized_response = json.dumps(
                         {
                             "content": response,
                             "propagation_count": propagation_count + 1,

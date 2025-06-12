@@ -1,10 +1,11 @@
 import random
 import time
 
-import jsonc
-from typing import Optional, Any
+import json
+from typing import Any, Optional
 
-from pydantic import Field
+import json_repair
+
 from ..agent import (
     AgentToolbox,
     Block,
@@ -212,8 +213,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         )
 
         self.needs_block = NeedsBlock(
-            llm=self.llm,
-            environment=self.environment,
+            toolbox=self._toolbox,
             agent_memory=self.memory,
             agent_context=self.context,
             initial_prompt=self.params.need_initialization_prompt,
@@ -221,8 +221,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
 
         self.plan_block = PlanBlock(
             agent=self,
-            llm=self.llm,
-            environment=self.environment,
+            toolbox=self._toolbox,
             agent_memory=self.memory,
             agent_context=self.context,
             max_plan_steps=self.params.max_plan_steps,
@@ -230,7 +229,8 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         )
 
         self.cognition_block = CognitionBlock(
-            llm=self.llm, agent_memory=self.memory, environment=self.environment
+            toolbox=self._toolbox,
+            agent_memory=self.memory,
         )
         self.environment_reflection_prompt = FormatPrompt(
             ENVIRONMENT_REFLECTION_PROMPT, memory=self.memory
@@ -312,7 +312,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
     async def plan_generation(self):
         """Generate a new plan if no current plan exists in memory."""
         cognition = None
-        current_plan = await self.memory.status.get("current_plan")
+        current_plan = await self.memory.status.get("current_plan", False)
         if current_plan is None or not current_plan:
             cognition = (
                 await self.plan_block.forward()
@@ -376,7 +376,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
             return False
 
         # Get the previous step information
-        current_plan = await self.memory.status.get("current_plan")
+        current_plan = await self.memory.status.get("current_plan", False)
         # If there is no current plan, return True
         if current_plan is None or not current_plan:
             return True
@@ -474,10 +474,10 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
 
                 # Parse message content
                 try:
-                    message_data = jsonc.loads(raw_content)
+                    message_data: Any = json_repair.loads(raw_content)
                     content = message_data["content"]
                     propagation_count = message_data.get("propagation_count", 1)
-                except (jsonc.JSONDecodeError, TypeError, KeyError):
+                except (TypeError, KeyError):
                     content = raw_content
                     propagation_count = 1
 
@@ -486,7 +486,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
 
                 # add social memory
                 description = f"You received a social message: {content}"
-                await self.memory.stream.add_social(description=description)
+                await self.memory.stream.add(topic="social", description=description)
                 if self.params.enable_cognition:
                     # update emotion
                     await self.cognition_block.emotion_update(description)
@@ -542,7 +542,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                     ],
                     response_format={"type": "json_object"},
                 )
-                should_respond = jsonc.loads(should_respond)["should_respond"]
+                should_respond = json_repair.loads(should_respond)["should_respond"]  # type: ignore
                 if should_respond == "NO":
                     return ""
 
@@ -582,7 +582,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                     await self.memory.status.update("chat_histories", chat_histories)
 
                     # Send response
-                    serialized_response = jsonc.dumps(
+                    serialized_response = json.dumps(
                         {
                             "content": response,
                             "propagation_count": propagation_count + 1,
@@ -604,7 +604,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                 value = int(value)
             description = f"You received a economic message: Your {key} has changed from {await self.memory.status.get(key)} to {value}"
             await self.memory.status.update(key, value)
-            await self.memory.stream.add_economy(description=description)
+            await self.memory.stream.add(topic="economy", description=description)
             if self.params.enable_cognition:
                 await self.cognition_block.emotion_update(description)
             return ""
@@ -614,7 +614,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
         # cognition
         conclusion = await self.cognition_block.emotion_update(intervention_message)
         await self.save_agent_thought(conclusion)
-        await self.memory.stream.add_cognition(description=conclusion)
+        await self.memory.stream.add(topic="cognition", description=conclusion)
         # needs
         await self.needs_block.reflect_to_intervention(intervention_message)
 

@@ -2,7 +2,7 @@ import random
 import time
 from typing import Any, Optional
 
-import jsonc
+import json
 from agentsociety.agent import (Agent, AgentToolbox, Block, CitizenAgentBase,
                                 FormatPrompt, StatusAttribute)
 from agentsociety.logger import get_logger

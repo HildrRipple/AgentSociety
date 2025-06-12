@@ -1,7 +1,7 @@
 import logging
 from typing import cast
 
-import jsonc
+import json
 
 from agentsociety.agent import Block, FormatPrompt, DotDict
 from agentsociety.environment import Environment

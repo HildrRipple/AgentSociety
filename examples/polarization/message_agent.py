@@ -1,11 +1,14 @@
 import asyncio
-import jsonc
+import json
 import logging
+from typing import Any
+
+import json_repair
 
 from agentsociety.agent import CitizenAgentBase
 from agentsociety.agent.agent_base import AgentToolbox
-from agentsociety.memory import Memory
 from agentsociety.agent.prompt import FormatPrompt
+from agentsociety.memory import Memory
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +91,7 @@ class AgreeAgent(CitizenAgentBase):
             )
             send_tasks = []
             for friend in friends:
-                serialized_message = jsonc.dumps(
+                serialized_message = json.dumps(
                     {
                         "content": message,
                         "propagation_count": 1,
@@ -110,10 +113,10 @@ class AgreeAgent(CitizenAgentBase):
             raw_content = payload.get("content", "")
             # Parse message content
             try:
-                message_data = jsonc.loads(raw_content)
+                message_data: Any = json_repair.loads(raw_content)
                 content = message_data["content"]
                 propagation_count = message_data.get("propagation_count", 1)
-            except (jsonc.JSONDecodeError, TypeError, KeyError):
+            except (TypeError, KeyError):
                 content = raw_content
                 propagation_count = 1
             if not content:
@@ -124,7 +127,7 @@ class AgreeAgent(CitizenAgentBase):
             response = await self.llm.atext_request(self.response_prompt.to_dialog())
             if response:
                 # Send response
-                serialized_response = jsonc.dumps(
+                serialized_response = json.dumps(
                     {
                         "content": response,
                         "propagation_count": propagation_count + 1,
@@ -187,7 +190,7 @@ class DisagreeAgent(CitizenAgentBase):
             )
             send_tasks = []
             for friend in friends:
-                serialized_message = jsonc.dumps(
+                serialized_message = json.dumps(
                     {
                         "content": message,
                         "propagation_count": 1,
@@ -209,10 +212,10 @@ class DisagreeAgent(CitizenAgentBase):
             raw_content = payload.get("content", "")
             # Parse message content
             try:
-                message_data = jsonc.loads(raw_content)
+                message_data: Any = json_repair.loads(raw_content)
                 content = message_data["content"]
                 propagation_count = message_data.get("propagation_count", 1)
-            except (jsonc.JSONDecodeError, TypeError, KeyError):
+            except (TypeError, KeyError):
                 content = raw_content
                 propagation_count = 1
             if not content:
@@ -223,7 +226,7 @@ class DisagreeAgent(CitizenAgentBase):
             response = await self.llm.atext_request(self.response_prompt.to_dialog())
             if response:
                 # Send response
-                serialized_response = jsonc.dumps(
+                serialized_response = json.dumps(
                     {
                         "content": response,
                         "propagation_count": propagation_count + 1,

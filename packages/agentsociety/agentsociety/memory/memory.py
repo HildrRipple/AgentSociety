@@ -4,6 +4,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Literal, Optional, Union
 
+from fastembed import SparseTextEmbedding
+
 from ..environment import Environment
 from ..logger import get_logger
 from ..memory.const import SocialRelation
@@ -22,23 +24,26 @@ class KVMemory:
     def __init__(
         self,
         init_data: dict[str, Any],
-        vectorstore: VectorStore,
+        embedding: SparseTextEmbedding,
         should_embed_fields: set[str],
         semantic_templates: dict[str, str],
+        key2topic: dict[str, str],
     ):
         """
         Initialize the StatusMemory with three types of memory.
 
         - **Args**:
             - `init_data` (dict[str, Any]): The initial data to initialize the memory.
-            - `vectorstore` (VectorStore): The Faiss query object.
+            - `embedding` (SparseTextEmbedding): The embedding object.
             - `should_embed_fields` (set[str]): The fields that require embedding.
             - `semantic_templates` (dict[str, str]): The semantic templates for generating embedding text.
+            - `key2topic` (dict[str, str]): The mapping of key to topic.
         """
         self._data = init_data
-        self._vectorstore = vectorstore
+        self._vectorstore = VectorStore(embedding)
         self._semantic_templates = semantic_templates
         self._should_embed_fields = should_embed_fields
+        self._key2topic = key2topic
         self._key_to_doc_id = {}
         self._lock = asyncio.Lock()
 
@@ -60,7 +65,6 @@ class KVMemory:
         doc_ids = await self._vectorstore.add_documents(
             documents=documents,
             extra_tags={
-                "type": "kv",
                 "key": keys,
             },
         )
@@ -92,7 +96,7 @@ class KVMemory:
         - **Returns**:
             - `str`: Formatted string of the search results.
         """
-        filter_dict = {"type": "kv"}
+        filter_dict = {}
         if filter is not None:
             filter_dict.update(filter)
         top_results: list[tuple[str, float, dict]] = (
@@ -178,7 +182,6 @@ class KVMemory:
                 doc_ids = await self._vectorstore.add_documents(
                     documents=[semantic_text],
                     extra_tags={
-                        "type": "kv",  # Use consistent type
                         "key": key,
                     },
                 )
@@ -204,7 +207,6 @@ class KVMemory:
                 doc_ids = await self._vectorstore.add_documents(
                     documents=[semantic_text],
                     extra_tags={
-                        "type": "kv",
                         "key": key,
                     },
                 )
@@ -244,7 +246,6 @@ class KVMemory:
                 doc_ids = await self._vectorstore.add_documents(
                     documents=[semantic_text],
                     extra_tags={
-                        "type": "kv",
                         "key": key,
                     },
                 )
@@ -253,6 +254,16 @@ class KVMemory:
             # Invalid mode
             raise ValueError(f"Invalid update mode `{mode}`!")
 
+    @lock_decorator
+    async def export_topic(self, topic: str) -> dict[str, Any]:
+        """
+        Export the memory of a given topic.
+        """
+        result = {}
+        keys = [k for k, t in self._key2topic.items() if t == topic]
+        for k in keys:
+            result[k] = deepcopy(self._data[k])
+        return result
 
 @dataclass
 class MemoryNode:
@@ -295,7 +306,7 @@ class StreamMemory:
         self,
         environment: Environment,
         status_memory: KVMemory,
-        vectorstore: VectorStore,
+        embedding: SparseTextEmbedding,
         max_len: int = 1000,
     ):
         """
@@ -310,7 +321,7 @@ class StreamMemory:
         self._memory_id_counter: int = 0  # Used for generating unique IDs
         self._status_memory = status_memory
         self._environment = environment
-        self._vectorstore = vectorstore
+        self._vectorstore = VectorStore(embedding)
 
     async def add(self, topic: str, description: str) -> int:
         """
@@ -348,7 +359,6 @@ class StreamMemory:
         await self._vectorstore.add_documents(
             documents=[description],
             extra_tags={
-                "type": "stream",
                 "topic": topic,
                 "day": day,
                 "time": t,
@@ -471,7 +481,7 @@ class StreamMemory:
 
         formatted_results = []
         for content, score, metadata in sorted_results:
-            memory_tag = metadata.get("tag", "unknown")
+            memory_topic = metadata.get("topic", "unknown")
             memory_day = metadata.get("day", "unknown")
             memory_time_seconds = metadata.get("time", "unknown")
             cognition_id = metadata.get("cognition_id", None)
@@ -497,7 +507,7 @@ class StreamMemory:
                     )
 
             formatted_results.append(
-                f"- [{memory_tag}]: {content} [day: {memory_day}, time: {memory_time}, "
+                f"- [{memory_topic}]: {content} [day: {memory_day}, time: {memory_time}, "
                 f"location: {memory_location}]{cognition_info}"
             )
         return "\n".join(formatted_results)
@@ -588,7 +598,7 @@ class Memory:
     def __init__(
         self,
         environment: Environment,
-        vectorstore: VectorStore,
+        embedding: SparseTextEmbedding,
         config: Optional[dict[Any, Any]] = None,
         profile: Optional[dict[Any, Any]] = None,
         base: Optional[dict[Any, Any]] = None,
@@ -616,10 +626,12 @@ class Memory:
         """
         self._lock = asyncio.Lock()
         self._environment = environment
-        self._vectorstore = vectorstore
+        self._embedding = embedding
         self._semantic_templates: dict[str, str] = {}
         self._should_embed_fields: set[str] = set()
 
+        init_data = {}
+        key2topic = {}
         if config is not None:
             for k, v in config.items():
                 try:
@@ -663,17 +675,11 @@ class Memory:
                 if (
                     k in PROFILE_ATTRIBUTES
                     or k in STATE_ATTRIBUTES
-                    or k == TIME_STAMP_KEY
                 ) and k != "id":
                     get_logger().warning(f"key `{k}` already declared in memory!")
                     continue
 
-                _dynamic_config[k] = deepcopy(_value)
-
-        # Initialize various types of memories
-        self._dynamic = DynamicMemory(
-            required_attributes=_dynamic_config, activate_timestamp=activate_timestamp
-        )
+                init_data[k] = deepcopy(_value)
 
         if profile is not None:
             for k, v in profile.items():
@@ -724,33 +730,29 @@ class Memory:
                         _value = v()
                     else:
                         _value = v
+                init_data[k] = deepcopy(_value)
+                key2topic[k] = "profile"
 
-                _profile_config[k] = deepcopy(_value)
-        self._profile = ProfileMemory(
-            msg=_profile_config, activate_timestamp=activate_timestamp
-        )
         if base is not None:
             for k, v in base.items():
                 if k not in STATE_ATTRIBUTES:
                     get_logger().warning(f"key `{k}` is not a correct `base` field!")
                     continue
-                _state_config[k] = v
-
-        self._state = StateMemory(
-            msg=_state_config, activate_timestamp=activate_timestamp
-        )
+                init_data[k] = deepcopy(v)
 
         # Combine StatusMemory and pass embedding_fields information
         self._status = KVMemory(
-            vectorstore=self._vectorstore,
+            init_data=init_data,
+            embedding=self._embedding,
             should_embed_fields=self._should_embed_fields,
             semantic_templates=self._semantic_templates,
+            key2topic=key2topic,
         )
 
         # Add StreamMemory
         self._stream = StreamMemory(
             environment=self._environment,
-            vectorstore=self._vectorstore,
+            embedding=self._embedding,
             status_memory=self._status,
         )
 

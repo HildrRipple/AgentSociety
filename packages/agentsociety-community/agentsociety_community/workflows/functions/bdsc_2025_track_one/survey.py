@@ -7,7 +7,7 @@ from typing import Any
 import uuid
 from datetime import datetime
 from agentsociety.survey.models import Survey, Page, Question, QuestionType
-import jsonc
+import json
 
 def create_low_carbon_awareness_survey() -> Survey:
     """

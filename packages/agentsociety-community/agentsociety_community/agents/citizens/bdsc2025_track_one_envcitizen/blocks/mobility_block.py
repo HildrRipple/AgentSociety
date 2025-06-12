@@ -2,7 +2,7 @@ import math
 import random
 from typing import Any, Optional
 
-import jsonc
+import json
 import numpy as np
 from pydantic import Field
 import ray

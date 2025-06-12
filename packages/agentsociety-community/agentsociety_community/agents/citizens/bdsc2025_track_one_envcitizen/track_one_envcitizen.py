@@ -4,7 +4,7 @@ import time
 import os
 import json
 
-import jsonc
+import json
 from typing import Optional
 
 from pydantic import Field
@@ -267,7 +267,7 @@ class TrackOneEnvCitizen(CitizenAgentBase):
                 json_str = extract_json(_response)
                 if json_str:
                     json_dict = jsonc.loads(json_str)
-                    json_str = jsonc.dumps(json_dict, ensure_ascii=False)
+                    json_str = json.dumps(json_dict, ensure_ascii=False)
                     break
             except:
                 pass

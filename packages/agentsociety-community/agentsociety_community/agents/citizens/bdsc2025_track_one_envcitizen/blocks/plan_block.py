@@ -2,7 +2,7 @@ import logging
 import random
 from typing import Dict, List, Optional, Tuple
 
-import jsonc
+import json
 
 from agentsociety.agent import Block, FormatPrompt
 from agentsociety.environment import Environment

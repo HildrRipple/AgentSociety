@@ -2,7 +2,7 @@
 
 from typing import Any, Optional
 
-import jsonc
+import json
 
 from agentsociety.agent import Block, FormatPrompt, BlockParams, DotDict, BlockContext
 from agentsociety.environment import Environment
@@ -335,7 +335,7 @@ class MessageBlock(Block):
             JSON string with message and metadata.
         """
         try:
-            return jsonc.dumps(
+            return json.dumps(
                 {"content": message, "propagation_count": propagation_count},
                 ensure_ascii=False,
             )

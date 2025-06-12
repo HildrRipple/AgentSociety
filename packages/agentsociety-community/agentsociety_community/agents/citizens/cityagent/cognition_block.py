@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-import jsonc
+import json
 from pydantic import Field
 from agentsociety.environment import Environment
 from agentsociety.llm import LLM

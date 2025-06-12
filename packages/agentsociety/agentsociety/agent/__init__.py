@@ -4,8 +4,10 @@ from .agent import (
     FirmAgentBase,
     GovernmentAgentBase,
     NBSAgentBase,
+    SupervisorBase,
 )
-from .agent_base import Agent, AgentToolbox, AgentType, AgentParams
+from .toolbox import AgentToolbox
+from .agent_base import Agent, AgentType, AgentParams
 from .block import (
     Block,
     BlockParams,
@@ -28,6 +30,7 @@ __all__ = [
     "AgentParams",
     "StatusAttribute",
     "CitizenAgentBase",
+    "SupervisorBase",
     "AgentType",
     "AgentToolbox",
     "FirmAgentBase",

@@ -93,18 +93,6 @@ class Messager:
         """
         self._message_interceptor = message_interceptor
 
-    async def init(self):
-        """
-        Initialize the messager.
-        """
-        pass
-
-    async def close(self):
-        """
-        Close the messager.
-        """
-        pass
-
     @lock_decorator
     async def send_message(self, message: Message):
         """

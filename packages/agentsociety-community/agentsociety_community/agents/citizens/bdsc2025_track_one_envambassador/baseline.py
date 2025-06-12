@@ -1,4 +1,4 @@
-import jsonc
+import json
 from agentsociety.agent import AgentToolbox, Block, FormatPrompt
 from agentsociety.message import Message, MessageKind
 from agentsociety.memory import Memory

@@ -3,7 +3,7 @@ import uuid
 from typing import Optional
 
 from fastembed import SparseTextEmbedding
-from qdrant_client.async_qdrant_client import AsyncQdrantClient
+from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.models import Distance
 
@@ -35,10 +35,9 @@ class VectorStore:
         self._embeddings = embedding
         self._collection_name = "documents"
         self._lock = asyncio.Lock()
-        self._client = AsyncQdrantClient(":memory:")
+        self._client = QdrantClient(":memory:")
 
-    async def init(self):
-        await self._client.create_collection(
+        self._client.create_collection(
             collection_name=self._collection_name,
             # the size is meaningless, just for compatibility
             # because we only use sparse vector
@@ -103,7 +102,7 @@ class VectorStore:
             )
 
         # Upload points to Qdrant
-        await self._client.upsert(collection_name=self._collection_name, points=points)
+        self._client.upsert(collection_name=self._collection_name, points=points)
 
         return [point.id for point in points]
 
@@ -169,7 +168,7 @@ class VectorStore:
         )
 
         # Perform search
-        search_result = await self._client.search(
+        search_result = self._client.search(
             collection_name=self._collection_name,
             query_vector=named_vector,
             limit=k,

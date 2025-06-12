@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-import jsonc
+import json
 from agentsociety.survey.models import Page, Question, QuestionType, Survey
 
 

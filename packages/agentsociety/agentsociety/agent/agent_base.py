@@ -2,29 +2,26 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, Optional, Union
 
-from fastembed import SparseEmbedding
-import jsonc
+import json
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pydantic import BaseModel
 
-from ..environment import Environment
-from ..llm import LLM
 from ..logger import get_logger
 from ..memory import Memory
-from ..message import Messager, Message, MessageKind
-from ..storage import DatabaseWriter, StorageDialog, StorageDialogType
-from .context import AgentContext, context_to_dot_dict
+from ..message import Message, MessageKind
+from ..storage import StorageDialog, StorageDialogType
 from .block import Block, BlockOutput
+from .context import AgentContext, context_to_dot_dict
 from .dispatcher import BlockDispatcher
 from .memory_config_generator import StatusAttribute
+from .toolbox import AgentToolbox
 
 __all__ = [
     "Agent",
     "AgentType",
     "AgentParams",
-    "AgentToolbox",
     "GatherQuery",
 ]
 
@@ -35,18 +32,6 @@ class AgentParams(BaseModel):
     """
 
     ...
-
-
-class AgentToolbox(NamedTuple):
-    """
-    A named tuple representing the toolbox of an agent.
-    """
-
-    llm: LLM
-    environment: Environment
-    messager: Messager
-    embedding: SparseEmbedding
-    database_writer: Optional[DatabaseWriter]
 
 
 class GatherQuery(BaseModel):
@@ -97,7 +82,7 @@ def extract_json(output_str):
 
         # Convert the JSON string to a dictionary
         return json_str
-    except (ValueError, jsonc.JSONDecodeError) as e:
+    except (ValueError) as e:
         get_logger().warning(f"Failed to extract JSON: {e}")
         return None
 
@@ -147,7 +132,7 @@ class Agent(ABC):
         self.params = agent_params
 
         # parse blocks
-        self.dispatcher = BlockDispatcher(self.llm, self.memory)
+        self.dispatcher = BlockDispatcher(self._toolbox, self._memory)
         if blocks is not None:
             for block in blocks:
                 if block.OutputType != self.BlockOutputType:

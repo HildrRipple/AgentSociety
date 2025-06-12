@@ -15,18 +15,23 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Literal, Optional, Union, cast
 
 from fastembed import SparseTextEmbedding
-import ray
-import ray.util.queue
 import yaml
 
 from ..agent import Agent, AgentToolbox, StatusAttribute, SupervisorBase
-from ..agent.distribution import (Distribution, DistributionConfig,
-                                  DistributionType)
-from ..agent.memory_config_generator import (MemoryConfigGenerator,
-                                             default_memory_config_citizen,
-                                             default_memory_config_supervisor)
-from ..configs import (AgentConfig, AgentFilterConfig, Config,
-                       MetricExtractorConfig, MetricType, WorkflowType)
+from ..agent.distribution import Distribution, DistributionConfig, DistributionType
+from ..agent.memory_config_generator import (
+    MemoryConfigGenerator,
+    default_memory_config_citizen,
+    default_memory_config_supervisor,
+)
+from ..configs import (
+    AgentConfig,
+    AgentFilterConfig,
+    Config,
+    MetricExtractorConfig,
+    MetricType,
+    WorkflowType,
+)
 from ..environment import EnvironmentStarter
 from ..llm import LLM
 from ..logger import get_logger, set_logger_level
@@ -34,11 +39,8 @@ from ..memory import Memory
 from ..message import Message, MessageInterceptor, MessageKind, Messager
 from ..s3 import S3Config
 from ..storage import DatabaseWriter
-from ..storage.type import (StorageExpInfo, StorageGlobalPrompt,
-                            StoragePendingSurvey)
+from ..storage.type import StorageExpInfo, StorageGlobalPrompt, StoragePendingSurvey
 from ..survey.models import Survey
-from ..utils import NONE_SENDER_ID
-from ..vectorstore import VectorStore
 from .agentgroup import AgentGroup
 from .type import ExperimentStatus, Logs
 
@@ -118,14 +120,14 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
 def evaluate_filter(filter_str: str, profile: dict) -> bool:
     """
     Evaluate a filter string against a profile dictionary.
-    
+
     - **Args**:
         - `filter_str` (str): The filter string to evaluate, e.g. "${profile.age} > 0"
         - `profile` (dict): The profile dictionary to evaluate against
-        
+
     - **Returns**:
         - `bool`: True if the filter matches, False otherwise
-        
+
     - **Note**:
         - Returns False if profile is empty
         - Returns False if any key in filter_str is not in profile
@@ -133,29 +135,30 @@ def evaluate_filter(filter_str: str, profile: dict) -> bool:
     # if profile is empty, return False
     if not profile:
         return False
-        
+
     # check if all keys in filter_str are in profile
     import re
-    pattern = r'\${profile\.([^}]+)}'
+
+    pattern = r"\${profile\.([^}]+)}"
     required_keys = set(re.findall(pattern, filter_str))
-    
+
     # if any required key is not in profile, return False
     for key in required_keys:
         # Handle nested keys
         current = profile
-        for part in key.split('.'):
+        for part in key.split("."):
             if not isinstance(current, dict) or part not in current:
                 return False
             current = current[part]
-    
+
     # replace all ${profile.xxx} with actual values
     for key in required_keys:
         # Get the value by traversing the nested dictionary
         current = profile
-        for part in key.split('.'):
+        for part in key.split("."):
             current = current[part]
         filter_str = filter_str.replace(f"${{profile.{key}}}", repr(current))
-    
+
     # use eval to execute the expression
     try:
         return eval(filter_str)
@@ -187,7 +190,13 @@ class AgentSociety:
         self._environment: Optional[EnvironmentStarter] = None
         self._message_interceptor: Optional[MessageInterceptor] = None
         self._database_writer: Optional[DatabaseWriter] = None
-        self._vectorstore: Optional[VectorStore] = None
+        self._embedding = SparseTextEmbedding(
+            "Qdrant/bm25",
+            cache_dir=os.path.join(
+                self._config.env.home_dir, "huggingface_cache"
+            ),
+            threads=cpu_count(),
+        )
         self._groups: dict[str, AgentGroup] = {}
         self._agent_ids: set[int] = set()
         self._agent_id2group: dict[int, AgentGroup] = {}
@@ -244,7 +253,7 @@ class AgentSociety:
                 self._config.env.db,
                 self._config.env.home_dir,
             )
-            await self._database_writer.init() # type: ignore
+            await self._database_writer.init()  # type: ignore
             get_logger().info(f"Database writer initialized")
             # save to local
             await self._database_writer.update_exp_info(self._exp_info)
@@ -255,7 +264,6 @@ class AgentSociety:
             # ====================
             get_logger().info(f"Initializing LLM...")
             self._llm = LLM(self._config.llm)
-            asyncio.create_task(monitor_requests(self._llm))
             get_logger().info(f"LLM initialized")
 
             # ====================
@@ -267,7 +275,13 @@ class AgentSociety:
                 self._config.advanced.simulator,
                 self._config.exp.environment,
                 self._config.env.s3,
-                os.path.join(self._config.env.home_dir, "exps", self.tenant_id, self.exp_id, "simulator_log"),
+                os.path.join(
+                    self._config.env.home_dir,
+                    "exps",
+                    self.tenant_id,
+                    self.exp_id,
+                    "simulator_log",
+                ),
             )
             await self._environment.init()
             get_logger().info(f"Environment initialized")
@@ -280,18 +294,8 @@ class AgentSociety:
                 self._message_interceptor = MessageInterceptor(
                     self._config.llm,
                 )
-                await self._message_interceptor.init()
             self._messager = Messager(exp_id=self.exp_id)
-            await self._messager.init()
             get_logger().info(f"Messager initialized")
-
-            # ====================
-            # Initialize the vectorstore
-            # ====================
-            get_logger().info(f"Initializing vectorstore...")
-            self._vectorstore = VectorStore(SparseTextEmbedding("Qdrant/bm25", threads=cpu_count()))
-            await self._vectorstore.init()
-            get_logger().info(f"VectorStore initialized")
 
             # ======================================
             # Initialize agent groups
@@ -305,7 +309,9 @@ class AgentSociety:
                 while next_id in defined_ids:
                     next_id += 1
                 if next_id > MAX_ID:
-                    raise ValueError(f"Agent ID {next_id} is greater than MAX_ID {MAX_ID}")
+                    raise ValueError(
+                        f"Agent ID {next_id} is greater than MAX_ID {MAX_ID}"
+                    )
                 defined_ids.add(next_id)
                 return next_id
 
@@ -397,12 +403,18 @@ class AgentSociety:
                 # Extract IDs from agent data
                 for agent_datum in agent_data:
                     agent_id = agent_datum.get("id")
-                    assert agent_id is not None, "id is required in memory_from_file[Firms]"
-                    assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                    assert (
+                        agent_id is not None
+                    ), "id is required in memory_from_file[Firms]"
+                    assert (
+                        agent_id >= MIN_ID
+                    ), f"id {agent_id} is less than MIN_ID {MIN_ID}"
                     assert (
                         agent_id <= MAX_ID
                     ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
-                    assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                    assert (
+                        agent_id not in defined_ids
+                    ), f"id {agent_id} is already defined"
                     defined_ids.add(agent_id)
                     firm_ids.add(agent_id)
                     agents.append(
@@ -440,12 +452,18 @@ class AgentSociety:
                 agent_data = generator.get_agent_data_from_file()
                 for agent_datum in agent_data:
                     agent_id = agent_datum.get("id")
-                    assert agent_id is not None, "id is required in memory_from_file[Banks]"
-                    assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                    assert (
+                        agent_id is not None
+                    ), "id is required in memory_from_file[Banks]"
+                    assert (
+                        agent_id >= MIN_ID
+                    ), f"id {agent_id} is less than MIN_ID {MIN_ID}"
                     assert (
                         agent_id <= MAX_ID
                     ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
-                    assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                    assert (
+                        agent_id not in defined_ids
+                    ), f"id {agent_id} is already defined"
                     defined_ids.add(agent_id)
                     bank_ids.add(agent_id)
                     agents.append(
@@ -483,12 +501,18 @@ class AgentSociety:
                 agent_data = generator.get_agent_data_from_file()
                 for agent_datum in agent_data:
                     agent_id = agent_datum.get("id")
-                    assert agent_id is not None, "id is required in memory_from_file[NBS]"
-                    assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                    assert (
+                        agent_id is not None
+                    ), "id is required in memory_from_file[NBS]"
+                    assert (
+                        agent_id >= MIN_ID
+                    ), f"id {agent_id} is less than MIN_ID {MIN_ID}"
                     assert (
                         agent_id <= MAX_ID
                     ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
-                    assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                    assert (
+                        agent_id not in defined_ids
+                    ), f"id {agent_id} is already defined"
                     defined_ids.add(agent_id)
                     nbs_ids.add(agent_id)
                     agents.append(
@@ -529,11 +553,15 @@ class AgentSociety:
                     assert (
                         agent_id is not None
                     ), "id is required in memory_from_file[Governments]"
-                    assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                    assert (
+                        agent_id >= MIN_ID
+                    ), f"id {agent_id} is less than MIN_ID {MIN_ID}"
                     assert (
                         agent_id <= MAX_ID
                     ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
-                    assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                    assert (
+                        agent_id not in defined_ids
+                    ), f"id {agent_id} is already defined"
                     defined_ids.add(agent_id)
                     government_ids.add(agent_id)
                     agents.append(
@@ -575,11 +603,15 @@ class AgentSociety:
                     assert (
                         agent_id is not None
                     ), "id is required in memory_from_file[Citizens]"
-                    assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                    assert (
+                        agent_id >= MIN_ID
+                    ), f"id {agent_id} is less than MIN_ID {MIN_ID}"
                     assert (
                         agent_id <= MAX_ID
                     ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
-                    assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                    assert (
+                        agent_id not in defined_ids
+                    ), f"id {agent_id} is already defined"
                     defined_ids.add(agent_id)
                     citizen_ids.add(agent_id)
                     agents.append(
@@ -618,11 +650,15 @@ class AgentSociety:
                     assert (
                         agent_id is not None
                     ), "id is required in memory_from_file[Supervisor]"
-                    assert agent_id >= MIN_ID, f"id {agent_id} is less than MIN_ID {MIN_ID}"
+                    assert (
+                        agent_id >= MIN_ID
+                    ), f"id {agent_id} is less than MIN_ID {MIN_ID}"
                     assert (
                         agent_id <= MAX_ID
                     ), f"id {agent_id} is greater than MAX_ID {MAX_ID}"
-                    assert agent_id not in defined_ids, f"id {agent_id} is already defined"
+                    assert (
+                        agent_id not in defined_ids
+                    ), f"id {agent_id} is already defined"
                     defined_ids.add(agent_id)
                     supervisor_ids.add(agent_id)
                     memory_dict = generator.generate(i=0)
@@ -630,9 +666,8 @@ class AgentSociety:
                     profile = memory_dict.get("profile", {})
                     base = memory_dict.get("base", {})
                     memory_init = Memory(
-                        agent_id=agent_id,
                         environment=self.environment,
-                        vectorstore=self._vectorstore,
+                        embedding=self._embedding,
                         config=extra_attributes,
                         profile=profile,
                         base=base,
@@ -661,6 +696,7 @@ class AgentSociety:
                             self._llm,
                             self.environment,
                             self.messager,
+                            self._embedding,
                             self._database_writer,
                         ),
                         memory=memory_init,
@@ -710,13 +746,16 @@ class AgentSociety:
             for agent_config in agent_configs_normal["nbs"]:
                 nbs_classes, _ = _init_agent_class(agent_config, self._config.env.s3)
                 nbs = [
-                    (_find_next_id(), *nbs_class) for i, nbs_class in enumerate(nbs_classes)
+                    (_find_next_id(), *nbs_class)
+                    for i, nbs_class in enumerate(nbs_classes)
                 ]
                 nbs_ids.update([nbs[0] for nbs in nbs])
                 agents += nbs
 
             for agent_config in agent_configs_normal["governments"]:
-                government_classes, _ = _init_agent_class(agent_config, self._config.env.s3)
+                government_classes, _ = _init_agent_class(
+                    agent_config, self._config.env.s3
+                )
                 governments = [
                     (_find_next_id(), *government_class)
                     for i, government_class in enumerate(government_classes)
@@ -737,7 +776,9 @@ class AgentSociety:
                 agents += citizens
 
             for agent_config in agent_configs_normal["supervisor"]:
-                supervisor_classes, _ = _init_agent_class(agent_config, self._config.env.s3)
+                supervisor_classes, _ = _init_agent_class(
+                    agent_config, self._config.env.s3
+                )
                 supervisors = [
                     (_find_next_id(), *supervisor_class)
                     for i, supervisor_class in enumerate(supervisor_classes)
@@ -781,7 +822,7 @@ class AgentSociety:
                     config=self._config,
                     agent_inits=group_agents,
                     environment_init=environment_init,
-                    vectorstore=self._vectorstore,
+                    embedding=self._embedding,
                     database_writer=self._database_writer,
                 )
                 for agent_id, _, _, _, _, _ in group_agents:
@@ -841,18 +882,6 @@ class AgentSociety:
             close_tasks.append(group.close())  # type:ignore
         await asyncio.gather(*close_tasks)
         get_logger().info(f"Agent groups closed")
-
-        if self._message_interceptor is not None:
-            get_logger().info(f"Closing message interceptor...")
-            await self._message_interceptor.close()
-            self._message_interceptor = None
-            get_logger().info(f"Message interceptor closed")
-
-        if self._messager is not None:
-            get_logger().info(f"Closing messager...")
-            await self._messager.close()
-            self._messager = None
-            get_logger().info(f"Messager closed")
 
         if self._environment is not None:
             get_logger().info(f"Closing environment...")
@@ -967,7 +996,7 @@ class AgentSociety:
         # filter by types first
         if types:
             filtered_ids = [
-                agent_id 
+                agent_id
                 for agent_id, (agent_class, _) in self._filter_base.items()
                 if any(issubclass(agent_class, t) for t in types)
             ]
@@ -977,7 +1006,7 @@ class AgentSociety:
         # filter by filter_str
         if filter_str:
             filtered_ids = [
-                agent_id 
+                agent_id
                 for agent_id in filtered_ids
                 if evaluate_filter(filter_str, self._filter_base[agent_id][1])
             ]
@@ -1000,7 +1029,13 @@ class AgentSociety:
             ]
         )
 
-    async def update(self, target_agent_ids: list[int], target_key: str, content: Any, query: bool = False):
+    async def update(
+        self,
+        target_agent_ids: list[int],
+        target_key: str,
+        content: Any,
+        query: bool = False,
+    ):
         """
         Update the memory of specified agents.
 
@@ -1103,9 +1138,7 @@ class AgentSociety:
             group_to_agent_ids[self._agent_id2group[agent_id]].append(agent_id)
         tasks = []
         for group, agent_ids in group_to_agent_ids.items():
-            tasks.append(
-                group.handle_interview(question, agent_ids)
-            )  # type:ignore
+            tasks.append(group.handle_interview(question, agent_ids))  # type:ignore
         results = await asyncio.gather(*tasks)
         all_responses = {}
         for result in results:
@@ -1160,7 +1193,9 @@ class AgentSociety:
                     raise ValueError("func is not set for metric extractor")
             elif metric_extractor.type == MetricType.STATE:
                 assert metric_extractor.key is not None
-                target_agent_ids = await self._extract_target_agent_ids(metric_extractor.target_agent)
+                target_agent_ids = await self._extract_target_agent_ids(
+                    metric_extractor.target_agent
+                )
                 values = await self.gather(
                     metric_extractor.key, target_agent_ids, flatten=True
                 )
@@ -1186,11 +1221,11 @@ class AgentSociety:
                             )
                     if self.enable_database:
                         assert self._database_writer is not None
-                        await self._database_writer.log_metric( # type: ignore
-                        key=metric_extractor.key,
-                        value=value,
-                        step=metric_extractor.extract_time,
-                    )
+                        await self._database_writer.log_metric(  # type: ignore
+                            key=metric_extractor.key,
+                            value=value,
+                            step=metric_extractor.extract_time,
+                        )
                 else:
                     raise ValueError(f"values type {type(values[0])} is not supported")
             metric_extractor.extract_time += 1
@@ -1214,13 +1249,19 @@ class AgentSociety:
             assert self._database_writer is not None
             await self._database_writer.write_global_prompt(prompt_info)  # type:ignore
 
-    async def _gather_and_update_context(self, target_agent_ids: list[int], key: str, save_as: str):
+    async def _gather_and_update_context(
+        self, target_agent_ids: list[int], key: str, save_as: str
+    ):
         """Gather and update the context"""
         try:
-            values = await self.gather(key, target_agent_ids, flatten=True, keep_id=True)
+            values = await self.gather(
+                key, target_agent_ids, flatten=True, keep_id=True
+            )
             self.context[save_as] = values
         except Exception as e:
-            get_logger().error(f"Error saving context: {str(e)}\n{traceback.format_exc()}")
+            get_logger().error(
+                f"Error saving context: {str(e)}\n{traceback.format_exc()}"
+            )
             self.context[save_as] = {}
 
     def _save_context(self):
@@ -1248,9 +1289,7 @@ class AgentSociety:
                 groups_to_delete[group] = []
             groups_to_delete[group].append(id)
         for group in groups_to_delete.keys():
-            tasks.append(
-                group.delete_agents(groups_to_delete[group])
-            )  # type:ignore
+            tasks.append(group.delete_agents(groups_to_delete[group]))  # type:ignore
         await asyncio.gather(*tasks)
 
     async def next_round(self):
@@ -1331,8 +1370,8 @@ class AgentSociety:
             for group_queries in gather_queries:
                 for agent_id, queries in group_queries.items():
                     for query in queries:
-                        result = await self.gather(query.key, query.target_agent_ids, flatten=query.flatten, keep_id=query.keep_id) # type: ignore
-                        await self.update([agent_id], query.key, result, query=True) # type: ignore
+                        result = await self.gather(query.key, query.target_agent_ids, flatten=query.flatten, keep_id=query.keep_id)  # type: ignore
+                        await self.update([agent_id], query.key, result, query=True)  # type: ignore
 
             # ======================
             # save the simulation results
@@ -1567,7 +1606,9 @@ class AgentSociety:
                     target_agent_ids = await self._extract_target_agent_ids(
                         step.target_agent
                     )
-                    await self._gather_and_update_context(target_agent_ids, step.key, step.save_as)
+                    await self._gather_and_update_context(
+                        target_agent_ids, step.key, step.save_as
+                    )
                 elif step.type == WorkflowType.INTERVENE:
                     get_logger().warning(
                         "MESSAGE_INTERVENE is not fully implemented yet, it can only influence the congnition of target agents"

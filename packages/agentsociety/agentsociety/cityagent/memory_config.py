@@ -4,7 +4,7 @@ from abc import abstractmethod
 from collections import deque
 from typing import Any, Callable, List, Optional, Union
 
-import jsonc
+import json
 import numpy as np
 
 from ..agent.distribution import (

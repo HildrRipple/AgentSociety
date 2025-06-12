@@ -2,7 +2,7 @@ import random
 from typing import Optional
 from pydantic import Field
 
-import jsonc
+import json
 from agentsociety.agent import (
     Block,
     BlockContext,

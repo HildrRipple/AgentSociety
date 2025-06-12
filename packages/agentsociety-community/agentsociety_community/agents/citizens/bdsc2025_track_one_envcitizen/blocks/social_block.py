@@ -4,7 +4,7 @@ import logging
 import random
 from typing import Any, Optional
 
-import jsonc
+import json
 
 from agentsociety.agent import Block, FormatPrompt, BlockParams
 from agentsociety.environment import Environment

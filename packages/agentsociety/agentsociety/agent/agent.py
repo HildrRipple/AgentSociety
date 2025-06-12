@@ -4,7 +4,8 @@ import random
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-import jsonc
+import json
+import json_repair
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
 from ..environment.sim.person_service import PersonService
@@ -23,6 +24,7 @@ __all__ = [
     "BankAgentBase",
     "NBSAgentBase",
     "GovernmentAgentBase",
+    "SupervisorBase",
 ]
 
 
@@ -136,16 +138,9 @@ class CitizenAgentBase(Agent):
         resp = await self.environment.get_person(self.id)
         resp_dict = resp["person"]
         for k, v in resp_dict.get("motion", {}).items():
-            try:
-                await self.status.get(k)
-                await self.status.update(
-                    k, v, mode="replace", protect_llm_read_only_fields=False
-                )
-            except KeyError as e:
-                get_logger().debug(
-                    f"KeyError: {e} when updating motion of agent {self.id}"
-                )
-                continue
+            await self.status.update(
+                k, v, mode="replace", protect_llm_read_only_fields=False
+            )
 
     async def do_survey(self, survey: Survey) -> str:
         """
@@ -195,8 +190,8 @@ class CitizenAgentBase(Agent):
                 # print(f"response: {_response}")
                 json_str = extract_json(_response)
                 if json_str:
-                    json_dict = jsonc.loads(json_str)
-                    json_str = jsonc.dumps(json_dict, ensure_ascii=False)
+                    json_dict = json_repair.loads(json_str)
+                    json_str = json.dumps(json_dict, ensure_ascii=False)
                     break
             except:
                 pass
@@ -404,7 +399,7 @@ class CitizenAgentBase(Agent):
             - Writes the chat message and metadata into Database.
         """
         try:
-            content = jsonc.dumps(message.payload, ensure_ascii=False)
+            content = json.dumps(message.payload, ensure_ascii=False)
         except:
             content = str(message.payload)
         storage_dialog = StorageDialog(

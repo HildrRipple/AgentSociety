@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional
 import json
 import os
 
-import jsonc
+import json
 from pydantic import Field
 from agentsociety.agent import CitizenAgentBase, AgentToolbox, Block, AgentParams, StatusAttribute
 from agentsociety.message import Message, MessageKind

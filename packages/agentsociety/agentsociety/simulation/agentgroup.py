@@ -3,8 +3,8 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Optional, Union
 
-import jsonc
-import ray
+from fastembed import SparseTextEmbedding
+import json
 
 from ..agent import (
     Agent,
@@ -22,13 +22,12 @@ from ..survey import Survey
 from ..agent.memory_config_generator import MemoryConfigGenerator
 from ..configs import Config
 from ..environment import Environment
-from ..llm import LLM, monitor_requests
+from ..llm import LLM
 from ..logger import get_logger, set_logger_level
 from ..memory import Memory
 from ..message import Messager, Message, MessageKind
 from ..storage import DatabaseWriter
 from ..storage.type import StorageProfile, StorageStatus
-from ..vectorstore import VectorStore
 from .type import Logs
 
 __all__ = ["AgentGroup"]
@@ -61,7 +60,7 @@ class AgentGroup:
             ]
         ],
         environment_init: dict,
-        vectorstore: VectorStore,
+        embedding: SparseTextEmbedding,
         database_writer: Optional[DatabaseWriter],
         agent_config_file: Optional[dict[type[Agent], Any]] = None,
     ):
@@ -92,16 +91,16 @@ class AgentGroup:
             self._agent_config_file = agent_config_file
             get_logger().debug(f"Agent config file loaded")
 
-            self._vectorstore = vectorstore
-            get_logger().debug(f"Vectorstore initialized")
+            self._embedding = embedding
+            get_logger().debug(f"Embedding initialized")
 
             # typing definition
             self._llm = None
             self._environment = None
             self._messager = None
 
-            self._agents = []
-            self._id2agent = {}
+            self._agents: list[Agent] = []
+            self._id2agent: dict[int, Agent] = {}
             get_logger().info("AgentGroup initialization completed successfully")
         except Exception as e:
             get_logger().error(f"Error in AgentGroup.__init__: {str(e)}")
@@ -116,10 +115,6 @@ class AgentGroup:
     @property
     def config(self):
         return self._config
-
-    @property
-    def vectorstore(self):
-        return self._vectorstore
 
     @property
     def llm(self):
@@ -155,7 +150,6 @@ class AgentGroup:
         # ====================
         get_logger().info(f"Initializing LLM client...")
         self._llm = LLM(self._config.llm)
-        asyncio.create_task(monitor_requests(self._llm))
         get_logger().info(f"LLM client initialized")
 
         # ====================
@@ -171,7 +165,6 @@ class AgentGroup:
         # ====================
         get_logger().info(f"Initializing messager...")
         self._messager = Messager(self._exp_id)
-        await self._messager.init()
         get_logger().info(f"Messager initialized")
 
         # ====================================
@@ -182,6 +175,7 @@ class AgentGroup:
             self.llm,
             self.environment,
             self.messager,
+            self._embedding,
             self._database_writer,
         )
         to_return = {}
@@ -205,12 +199,9 @@ class AgentGroup:
                 else:
                     profile_[k] = v
             to_return[id] = (agent_class, profile_)
-            vectorstore = VectorStore(self._vectorstore.embeddings)
-            await vectorstore.init()
             memory_init = Memory(
-                agent_id=id,
                 environment=self.environment,
-                vectorstore=vectorstore,
+                embedding=self._embedding,
                 config=extra_attributes,
                 profile=profile,
                 base=base,
@@ -219,8 +210,7 @@ class AgentGroup:
             if blocks is not None:
                 blocks = [
                     block_type(
-                        llm=self.llm,
-                        environment=self.environment,
+                        toolbox=agent_toolbox,
                         agent_memory=memory_init,
                         block_params=block_type.ParamsType.model_validate(block_params),
                     )
@@ -253,14 +243,13 @@ class AgentGroup:
         )
         profiles = []
         for agent in self._agents:
-            profile = await agent.status.profile.export()
-            profile = profile[0]
+            profile = await agent.status.export_topic("profile")
             profile["id"] = agent.id
             profiles.append(
                 StorageProfile(
                     id=agent.id,
                     name=profile.get("name", ""),
-                    profile=jsonc.dumps(
+                    profile=json.dumps(
                         {
                             k: v
                             for k, v in profile.items()
@@ -290,17 +279,9 @@ class AgentGroup:
             tasks.append(agent.close())
         await asyncio.gather(*tasks)
 
-        if self._messager is not None:
-            await self._messager.close()
-            self._messager = None
-
         if self._environment is not None:
             self._environment.close()
             self._environment = None
-
-        if self._llm is not None:
-            await self._llm.close()
-            self._llm = None
 
     # ====================
     # Reset Methods
@@ -598,7 +579,7 @@ class AgentGroup:
                     parent_id=parent_id,
                     friend_ids=friend_ids,
                     action=action,
-                    status=jsonc.dumps(
+                    status=json.dumps(
                         {
                             "hungry": hunger_satisfaction,
                             "tired": energy_satisfaction,
@@ -642,7 +623,7 @@ class AgentGroup:
                     parent_id=None,
                     friend_ids=[],
                     action="",
-                    status=jsonc.dumps(
+                    status=json.dumps(
                         {
                             "nominal_gdp": nominal_gdp,
                             "real_gdp": real_gdp,
@@ -678,7 +659,9 @@ class AgentGroup:
         """
         self.environment.update_environment(key, value)
 
-    async def update(self, target_agent_id: int, target_key: str, content: Any, query: bool = False):
+    async def update(
+        self, target_agent_id: int, target_key: str, content: Any, query: bool = False
+    ):
         """
         Updates a specific key in the status of a targeted agent.
 
