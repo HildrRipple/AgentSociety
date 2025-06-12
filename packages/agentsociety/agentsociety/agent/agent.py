@@ -248,14 +248,15 @@ class CitizenAgentBase(Agent):
         # Database
         if self.database_writer is not None:
             if is_pending_survey:
-                await self.database_writer.write_surveys.remote(  # type:ignore
+                assert pending_survey_id is not None
+                await self.database_writer.write_surveys(  # type:ignore
                     [storage_survey]
                 )
-                await self.database_writer.mark_surveys_as_processed.remote(  # type:ignore
+                await self.database_writer.mark_surveys_as_processed(  # type:ignore
                     [pending_survey_id]
                 )
             else:
-                await self.database_writer.write_surveys.remote(  # type:ignore
+                await self.database_writer.write_surveys(  # type:ignore
                     [storage_survey]
                 )
         # status memory
@@ -330,7 +331,7 @@ class CitizenAgentBase(Agent):
             created_at=datetime.now(timezone.utc),
         )
         if self.database_writer is not None:
-            await self.database_writer.write_dialogs.remote(  # type:ignore
+            await self.database_writer.write_dialogs(  # type:ignore
                 [storage_dialog]
             )
         response = await self.do_interview(question)
@@ -345,11 +346,11 @@ class CitizenAgentBase(Agent):
         )
         # Database
         if self.database_writer is not None:
-            await self.database_writer.write_dialogs.remote(  # type:ignore
+            await self.database_writer.write_dialogs(  # type:ignore
                 [storage_dialog]
             )
             if message.extra is not None and "pending_dialog_id" in message.extra:
-                await self.database_writer.mark_dialogs_as_processed.remote(  # type:ignore
+                await self.database_writer.mark_dialogs_as_processed(  # type:ignore
                     [message.extra["pending_dialog_id"]]
                 )
         return response
@@ -377,7 +378,7 @@ class CitizenAgentBase(Agent):
         )
         # Database
         if self.database_writer is not None:
-            await self.database_writer.write_dialogs.remote(  # type:ignore
+            await self.database_writer.write_dialogs(  # type:ignore
                 [storage_thought]
             )
 
@@ -420,7 +421,7 @@ class CitizenAgentBase(Agent):
         await self.do_chat(message)
         # Database
         if self.database_writer is not None:
-            await self.database_writer.write_dialogs.remote(  # type:ignore
+            await self.database_writer.write_dialogs(  # type:ignore
                 [storage_dialog]
             )
 

@@ -117,8 +117,6 @@ async def _create_tables(exp_id: str, config: DatabaseConfig, sqlite_path: Path)
     finally:
         await engine.dispose()
 
-
-@ray.remote
 class DatabaseWriter:
     def __init__(self, tenant_id: str, exp_id: str, config: DatabaseConfig, home_dir: str):
         """

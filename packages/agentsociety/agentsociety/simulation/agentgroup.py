@@ -26,13 +26,13 @@ from ..llm import LLM, init_embedding, monitor_requests
 from ..logger import get_logger, set_logger_level
 from ..memory import FaissQuery, Memory
 from ..message import Messager, Message, MessageKind
+from ..storage import DatabaseWriter
 from ..storage.type import StorageProfile, StorageStatus
 from .type import Logs
 
 __all__ = ["AgentGroup"]
 
 
-@ray.remote
 class AgentGroup:
     def __init__(
         self,
@@ -60,7 +60,7 @@ class AgentGroup:
             ]
         ],
         environment_init: dict,
-        database_writer: Optional[ray.ObjectRef],
+        database_writer: Optional[DatabaseWriter],
         agent_config_file: Optional[dict[type[Agent], Any]] = None,
     ):
         """
@@ -275,7 +275,7 @@ class AgentGroup:
                 )
             )
         if self._database_writer is not None:
-            await self._database_writer.write_profiles.remote(profiles)  # type:ignore
+            await self._database_writer.write_profiles(profiles)  # type:ignore
         get_logger().info(
             f"-----Initializing embeddings in AgentGroup {self._group_id} ..."
         )
@@ -668,7 +668,7 @@ class AgentGroup:
             else:
                 raise ValueError(f"Unknown agent type: {type(agent)}")
         if self._database_writer is not None:
-            await self._database_writer.write_statuses.remote(  # type:ignore
+            await self._database_writer.write_statuses(  # type:ignore
                 statuses
             )
 

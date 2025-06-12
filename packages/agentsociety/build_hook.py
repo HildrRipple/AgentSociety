@@ -1,7 +1,6 @@
 import os
 import platform
 import stat
-from pathlib import Path
 
 import requests
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface

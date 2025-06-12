@@ -19,7 +19,7 @@ from ..llm import LLM
 from ..logger import get_logger
 from ..memory import Memory
 from ..message import Messager, Message, MessageKind
-from ..storage import StorageDialog, StorageDialogType
+from ..storage import DatabaseWriter, StorageDialog, StorageDialogType
 from .context import AgentContext, context_to_dot_dict
 from .block import Block, BlockOutput
 from .dispatcher import DISPATCHER_PROMPT, BlockDispatcher
@@ -46,7 +46,7 @@ class AgentToolbox(NamedTuple):
     llm: LLM
     environment: Environment
     messager: Messager
-    database_writer: Optional[ray.ObjectRef]
+    database_writer: Optional[DatabaseWriter]
 
 
 class GatherQuery(BaseModel):
@@ -318,7 +318,7 @@ class Agent(ABC):
         )
         # Database
         if self.database_writer is not None and type == "social":
-            await self.database_writer.write_dialogs.remote(  # type:ignore
+            await self.database_writer.write_dialogs(  # type:ignore
                 [storage_dialog]
             )
 

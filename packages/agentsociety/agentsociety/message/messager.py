@@ -32,7 +32,7 @@ class Message(BaseModel):
     """target agent id or aoi id"""
     day: int
     """day"""
-    t: int
+    t: float
     """tick"""
     kind: MessageKind
     """message kind"""

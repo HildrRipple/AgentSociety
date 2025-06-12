@@ -184,10 +184,10 @@ class AgentSociety:
         # typing definition
         self._environment: Optional[EnvironmentStarter] = None
         self._message_interceptor: Optional[MessageInterceptor] = None
-        self._database_writer: Optional[ray.ObjectRef] = None
-        self._groups: dict[str, ray.ObjectRef] = {}
+        self._database_writer: Optional[DatabaseWriter] = None
+        self._groups: dict[str, AgentGroup] = {}
         self._agent_ids: set[int] = set()
-        self._agent_id2group: dict[int, ray.ObjectRef] = {}
+        self._agent_id2group: dict[int, AgentGroup] = {}
         yaml_config = yaml.dump(
             self._config.model_dump(
                 exclude_defaults=True,
@@ -235,16 +235,16 @@ class AgentSociety:
         # ====================
         if self._config.env.db.enabled:
             get_logger().info(f"Initializing database writer...")
-            self._database_writer = DatabaseWriter.remote(
+            self._database_writer = DatabaseWriter(
                 self.tenant_id,
                 self.exp_id,
                 self._config.env.db,
                 self._config.env.home_dir,
             )
-            await self._database_writer.init.remote() # type: ignore
+            await self._database_writer.init() # type: ignore
             get_logger().info(f"Database writer initialized")
             # save to local
-            self._database_writer.update_exp_info.remote(self._exp_info) # type: ignore
+            self._database_writer.update_exp_info(self._exp_info) # type: ignore
 
         try:
             # ====================
@@ -768,7 +768,7 @@ class AgentSociety:
             for i in range(0, len(agents), group_size):
                 group_agents = agents[i : i + group_size]
                 group_id = str(uuid.uuid4())
-                self._groups[group_id] = AgentGroup.remote(
+                self._groups[group_id] = AgentGroup(
                     tenant_id=self.tenant_id,  # type:ignore
                     exp_name=self.name,
                     exp_id=self.exp_id,
@@ -784,7 +784,7 @@ class AgentSociety:
                 f"groups: len(self._groups)={len(self._groups)}, waiting for groups to init..."
             )
             filter_base_tasks = await asyncio.gather(
-                *[group.init.remote() for group in self._groups.values()]  # type:ignore
+                *[group.init() for group in self._groups.values()]  # type:ignore
             )
             for group_filter_base in filter_base_tasks:
                 for agent_id, (agent_class, profile) in group_filter_base.items():
@@ -832,7 +832,7 @@ class AgentSociety:
         get_logger().info(f"Closing agent groups...")
         close_tasks = []
         for group in self._groups.values():
-            close_tasks.append(group.close.remote())  # type:ignore
+            close_tasks.append(group.close())  # type:ignore
         await asyncio.gather(*close_tasks)
         get_logger().info(f"Agent groups closed")
 
@@ -918,7 +918,7 @@ class AgentSociety:
         gather_tasks = []
         for group in self._groups.values():
             gather_tasks.append(
-                group.gather.remote(content, target_agent_ids)  # type:ignore
+                group.gather(content, target_agent_ids)  # type:ignore
             )
         results = await asyncio.gather(*gather_tasks)
         if flatten:
@@ -989,7 +989,7 @@ class AgentSociety:
         self.environment.update_environment(key, value)
         await asyncio.gather(
             *[
-                group.update_environment.remote(key, value)  # type:ignore
+                group.update_environment(key, value)  # type:ignore
                 for group in self._groups.values()
             ]
         )
@@ -1006,7 +1006,7 @@ class AgentSociety:
         tasks = []
         for id in target_agent_ids:
             group = self._agent_id2group[id]
-            tasks.append(group.update.remote(id, target_key, content, query))  # type:ignore
+            tasks.append(group.update(id, target_key, content, query))  # type:ignore
         await asyncio.gather(*tasks)
 
     async def economy_update(
@@ -1060,7 +1060,7 @@ class AgentSociety:
         tasks = []
         for group, agent_ids in group_to_agent_ids.items():
             tasks.append(
-                group.handle_survey.remote(
+                group.handle_survey(
                     survey,
                     agent_ids,
                     survey_day,
@@ -1098,7 +1098,7 @@ class AgentSociety:
         tasks = []
         for group, agent_ids in group_to_agent_ids.items():
             tasks.append(
-                group.handle_interview.remote(question, agent_ids)
+                group.handle_interview(question, agent_ids)
             )  # type:ignore
         results = await asyncio.gather(*tasks)
         all_responses = {}
@@ -1127,7 +1127,7 @@ class AgentSociety:
         tasks = []
         for group, agent_ids in group_to_agent_ids.items():
             tasks.append(
-                group.react_to_intervention.remote(
+                group.react_to_intervention(
                     intervention_message, agent_ids
                 )  # type:ignore
             )
@@ -1180,7 +1180,7 @@ class AgentSociety:
                             )
                     if self.enable_database:
                         assert self._database_writer is not None
-                        await self._database_writer.log_metric.remote( # type: ignore
+                        await self._database_writer.log_metric( # type: ignore
                         key=metric_extractor.key,
                         value=value,
                         step=metric_extractor.extract_time,
@@ -1194,7 +1194,7 @@ class AgentSociety:
         self._exp_info.updated_at = datetime.now(timezone.utc)
         if self.enable_database:
             assert self._database_writer is not None
-            await self._database_writer.update_exp_info.remote(self._exp_info)  # type: ignore
+            await self._database_writer.update_exp_info(self._exp_info)  # type: ignore
 
     async def _save_global_prompt(self, prompt: str, day: int, t: float):
         """Save global prompt"""
@@ -1206,7 +1206,7 @@ class AgentSociety:
         )
         if self.enable_database:
             assert self._database_writer is not None
-            await self._database_writer.write_global_prompt.remote(prompt_info)  # type:ignore
+            await self._database_writer.write_global_prompt(prompt_info)  # type:ignore
 
     async def _gather_and_update_context(self, target_agent_ids: list[int], key: str, save_as: str):
         """Gather and update the context"""
@@ -1243,7 +1243,7 @@ class AgentSociety:
             groups_to_delete[group].append(id)
         for group in groups_to_delete.keys():
             tasks.append(
-                group.delete_agents.remote(groups_to_delete[group])
+                group.delete_agents(groups_to_delete[group])
             )  # type:ignore
         await asyncio.gather(*tasks)
 
@@ -1254,7 +1254,7 @@ class AgentSociety:
         get_logger().info("Start entering the next round of the simulation")
         tasks = []
         for group in self._groups.values():
-            tasks.append(group.reset.remote())  # type:ignore
+            tasks.append(group.reset())  # type:ignore
         await asyncio.gather(*tasks)
         await self.environment.step(1)
         get_logger().info("Finished entering the next round of the simulation")
@@ -1289,7 +1289,7 @@ class AgentSociety:
             tick = self.environment.get_tick()
             tasks = []
             for group in self._groups.values():
-                tasks.append(group.step.remote(tick))  # type:ignore
+                tasks.append(group.step(tick))  # type:ignore
             all_results = await asyncio.gather(*tasks)
             logs = []
             gather_queries = []
@@ -1333,7 +1333,7 @@ class AgentSociety:
             # ======================
             save_tasks = []
             for group in self._groups.values():
-                save_tasks.append(group.save.remote(day, t))  # type:ignore
+                save_tasks.append(group.save(day, t))  # type:ignore
             await asyncio.gather(*save_tasks)
             # save global prompt
             await self._save_global_prompt(
@@ -1363,7 +1363,7 @@ class AgentSociety:
             # ======================
             tasks = []
             for group in self._groups.values():
-                tasks.append(group.fetch_pending_messages.remote())  # type: ignore
+                tasks.append(group.fetch_pending_messages())  # type: ignore
             all_messages = list(itertools.chain(*await asyncio.gather(*tasks)))
             get_logger().info(
                 f"({day}-{t}) Finished fetching pending messages. {len(all_messages)} messages fetched."
@@ -1375,7 +1375,7 @@ class AgentSociety:
             # fetch pending dialogs from USER
             # ======================
             if self.enable_database:
-                pending_dialogs = await self._database_writer.fetch_pending_dialogs.remote()  # type: ignore
+                pending_dialogs = await self._database_writer.fetch_pending_dialogs()  # type: ignore
                 get_logger().info(
                     f"({day}-{t}) Finished fetching pending dialogs. {len(pending_dialogs)} dialogs fetched."
                 )
@@ -1403,14 +1403,14 @@ class AgentSociety:
             get_logger().info(f"({day}:{t}) Finished grouping messages.")
             tasks = []
             for group_actor, messages in group_to_messages.items():
-                tasks.append(group_actor.set_received_messages.remote(messages))  # type: ignore
+                tasks.append(group_actor.set_received_messages(messages))  # type: ignore
             await asyncio.gather(*tasks)
             get_logger().info(f"({day}-{t}) Finished setting received messages")
             # ======================
             # handle pending surveys
             # ======================
             if self.enable_database:
-                pending_surveys = await self._database_writer.fetch_pending_surveys.remote()  # type: ignore
+                pending_surveys = await self._database_writer.fetch_pending_surveys()  # type: ignore
                 get_logger().info(
                     f"({day}-{t}) Finished fetching pending surveys. {len(pending_surveys)} surveys fetched."
                 )
@@ -1584,7 +1584,7 @@ class AgentSociety:
             # Finalize the agents
             tasks = []
             for group in self._groups.values():
-                tasks.append(group.close.remote())  # type:ignore
+                tasks.append(group.close())  # type:ignore
             await asyncio.gather(*tasks)
 
         except Exception as e:
