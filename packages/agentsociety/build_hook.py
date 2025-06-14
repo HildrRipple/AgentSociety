@@ -3,7 +3,7 @@ import platform
 import stat
 
 import requests
-from hatchling.builders.hooks.plugin.interface import BuildHookInterface
+from hatchling.builders.hooks.plugin.interface import BuildHookInterface # type: ignore
 
 PACKAGE_NAME = "agentsociety"
 SIM_VERSION = "v1.4.3"

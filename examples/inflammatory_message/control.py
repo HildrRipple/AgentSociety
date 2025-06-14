@@ -64,7 +64,8 @@ config = Config(
             base_url=None,
             api_key="<YOUR-API-KEY>",
             model="<YOUR-MODEL>",
-            semaphore=200,
+            concurrency=200,
+            timeout=60,
         )
     ],
     env=EnvConfig(

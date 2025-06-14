@@ -47,7 +47,8 @@ config = Config(
             base_url=None,
             api_key="<YOUR-API-KEY>",
             model="<YOUR-MODEL>",
-            semaphore=200,
+            concurrency=200,
+            timeout=60,
         )
     ],
     env=EnvConfig(
@@ -69,12 +70,10 @@ config = Config(
                     MobilityBlock: MobilityBlockParams(),
                     SocialBlock: SocialBlockParams(),
                     EconomyBlock: EconomyBlockParams(
-                        UBI=1000,
-                        num_labor_hours=168,
-                        productivity_per_labor=1
+                        UBI=1000, num_labor_hours=168, productivity_per_labor=1
                     ),
                     OtherBlock: OtherBlockParams(),
-                }
+                },
             ),
         ],
     ),  # type: ignore
@@ -99,46 +98,46 @@ config = Config(
         ),
         metric_extractors=[
             MetricExtractorConfig(
-                type=MetricType.STATE, 
-                step_interval=10, 
+                type=MetricType.STATE,
+                step_interval=10,
                 target_agent=AgentFilterConfig(agent_class=(NBSAgent,)),
                 key="real_gdp_metric",
-                description="Extract real GDP metric value from NBSAgent"
+                description="Extract real GDP metric value from NBSAgent",
             ),
             MetricExtractorConfig(
-                type=MetricType.STATE, 
-                step_interval=10, 
+                type=MetricType.STATE,
+                step_interval=10,
                 target_agent=AgentFilterConfig(agent_class=(NBSAgent,)),
                 key="price_metric",
-                description="Extract price metric value from NBSAgent"
+                description="Extract price metric value from NBSAgent",
             ),
             MetricExtractorConfig(
-                type=MetricType.STATE, 
-                step_interval=10, 
+                type=MetricType.STATE,
+                step_interval=10,
                 target_agent=AgentFilterConfig(agent_class=(NBSAgent,)),
                 key="working_hours_metric",
-                description="Extract working hours metric value from NBSAgent"
+                description="Extract working hours metric value from NBSAgent",
             ),
             MetricExtractorConfig(
-                type=MetricType.STATE, 
-                step_interval=10, 
+                type=MetricType.STATE,
+                step_interval=10,
                 target_agent=AgentFilterConfig(agent_class=(NBSAgent,)),
                 key="depression_metric",
-                description="Extract depression metric value from NBSAgent"
+                description="Extract depression metric value from NBSAgent",
             ),
             MetricExtractorConfig(
-                type=MetricType.STATE, 
-                step_interval=10, 
+                type=MetricType.STATE,
+                step_interval=10,
                 target_agent=AgentFilterConfig(agent_class=(NBSAgent,)),
                 key="consumption_currency_metric",
-                description="Extract consumption currency metric value from NBSAgent"
+                description="Extract consumption currency metric value from NBSAgent",
             ),
             MetricExtractorConfig(
-                type=MetricType.STATE, 
-                step_interval=10, 
+                type=MetricType.STATE,
+                step_interval=10,
                 target_agent=AgentFilterConfig(agent_class=(NBSAgent,)),
                 key="income_currency_metric",
-                description="Extract income currency metric value from NBSAgent"
+                description="Extract income currency metric value from NBSAgent",
             ),
         ],
     ),
