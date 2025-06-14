@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling", "requests>=2", "cibuildwheel[uv]>=3.0.0"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
 name = "agentsociety"
-version = "1.5.0a7" # change it for each release
+version = "1.5.0a8" # change it for each release
 description = "LLM-based city environment agent building library"
 authors = [
     { name = "Yuwei Yan", email = "pinkgranite86@gmail.com" },
@@ -51,32 +51,13 @@ dependencies = [
     "json-repair>=0.46.2",
 ]
 
-
 [project.urls]
 Homepage = "https://github.com/tsinghua-fib-lab/agentsociety"
 Repository = "https://github.com/tsinghua-fib-lab/agentsociety.git"
 Issues = "https://github.com/tsinghua-fib-lab/agentsociety/issues"
 
-
 [project.scripts]
 agentsociety = "agentsociety.cli.cli:cli"
-agentsociety-sim = "agentsociety.cli.sim:agentsociety_sim"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentsociety"]
-# force include the agentsociety-sim script
-force-include = { "agentsociety/agentsociety-sim" = "agentsociety/agentsociety-sim" }
-
-[tool.hatch.build.hooks.custom]
-path = "build_hook.py"
-
-[tool.cibuildwheel]
-build = ["cp3*manylinux_x86_64", "cp3*macosx_arm64"]
-skip = ["cp38-*", "cp39-*", "cp310-*"]
-build-frontend = "build[uv]"
-
-[tool.cibuildwheel.linux]
-repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
-
-[tool.cibuildwheel.macos]
-repair-wheel-command = "delocate-wheel -w {dest_dir} {wheel}"

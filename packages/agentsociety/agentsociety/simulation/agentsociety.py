@@ -246,7 +246,7 @@ class AgentSociety:
         # Initialize the pgsql writer
         # ====================
         if self._config.env.db.enabled:
-            get_logger().info(f"Initializing database writer...")
+            get_logger().info("Initializing database writer...")
             self._database_writer = DatabaseWriter(
                 self.tenant_id,
                 self.exp_id,
@@ -254,7 +254,7 @@ class AgentSociety:
                 self._config.env.home_dir,
             )
             await self._database_writer.init()  # type: ignore
-            get_logger().info(f"Database writer initialized")
+            get_logger().info("Database writer initialized")
             # save to local
             await self._database_writer.update_exp_info(self._exp_info)
 
@@ -262,14 +262,14 @@ class AgentSociety:
             # ====================
             # Initialize the LLM
             # ====================
-            get_logger().info(f"Initializing LLM...")
+            get_logger().info("Initializing LLM...")
             self._llm = LLM(self._config.llm)
-            get_logger().info(f"LLM initialized")
+            get_logger().info("LLM initialized")
 
             # ====================
             # Initialize the environment
             # ====================
-            get_logger().info(f"Initializing environment...")
+            get_logger().info("Initializing environment...")
             self._environment = EnvironmentStarter(
                 self._config.map,
                 self._config.advanced.simulator,
@@ -282,20 +282,21 @@ class AgentSociety:
                     self.exp_id,
                     "simulator_log",
                 ),
+                self._config.env.home_dir,
             )
             await self._environment.init()
-            get_logger().info(f"Environment initialized")
+            get_logger().info("Environment initialized")
 
             # ====================
             # Initialize the messager
             # ====================
-            get_logger().info(f"Initializing messager...")
+            get_logger().info("Initializing messager...")
             if self._config.agents.supervisor is not None:
                 self._message_interceptor = MessageInterceptor(
                     self._config.llm,
                 )
             self._messager = Messager(exp_id=self.exp_id)
-            get_logger().info(f"Messager initialized")
+            get_logger().info("Messager initialized")
 
             # ======================================
             # Initialize agent groups
@@ -837,17 +838,17 @@ class AgentSociety:
                 for agent_id, (agent_class, profile) in group_filter_base.items():
                     self._filter_base[agent_id] = (agent_class, profile)
 
-            get_logger().info(f"Agent groups initialized")
+            get_logger().info("Agent groups initialized")
             # step 1 tick to make the initialization complete
             await self.environment.step(1)
-            get_logger().info(f"run 1 tick to make the initialization complete")
+            get_logger().info("run 1 tick to make the initialization complete")
 
             # ===================================
             # save the experiment info
             # ===================================
             await self._save_exp_info()
             self._save_context()
-            get_logger().info(f"Experiment info saved")
+            get_logger().info("Experiment info saved")
 
             # ===================================
             # run init functions
@@ -866,8 +867,8 @@ class AgentSociety:
             await self._save_exp_info()
 
             raise e
-        get_logger().info(f"Init functions run")
-        get_logger().info(f"Simulation initialized")
+        get_logger().info("Init functions run")
+        get_logger().info("Simulation initialized")
 
     async def close(self):
         """Close all the components"""
@@ -876,18 +877,18 @@ class AgentSociety:
         # close groups
         # ===================================
 
-        get_logger().info(f"Closing agent groups...")
+        get_logger().info("Closing agent groups...")
         close_tasks = []
         for group in self._groups.values():
             close_tasks.append(group.close())  # type:ignore
         await asyncio.gather(*close_tasks)
-        get_logger().info(f"Agent groups closed")
+        get_logger().info("Agent groups closed")
 
         if self._environment is not None:
-            get_logger().info(f"Closing environment...")
+            get_logger().info("Closing environment...")
             await self._environment.close()
             self._environment = None
-            get_logger().info(f"Environment closed")
+            get_logger().info("Environment closed")
 
     @property
     def name(self):
@@ -1204,7 +1205,7 @@ class AgentSociety:
                         f"No values found for metric extractor {metric_extractor.key} in extraction step {metric_extractor.extract_time}"
                     )
                     return
-                if type(values[0]) == float or type(values[0]) == int:
+                if isinstance(values[0], (float, int)):
                     value = values[0]
                     if len(values) > 1:
                         if metric_extractor.method == "mean":

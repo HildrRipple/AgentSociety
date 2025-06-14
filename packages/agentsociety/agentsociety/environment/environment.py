@@ -25,8 +25,9 @@ from .sim import CityClient
 from .syncer import Syncer
 from .utils import find_free_ports
 from .utils.base64 import encode_to_base64
-from .utils.const import *
+from .utils.const import POI_CATG_DICT
 from .utils.protobuf import dict2pb
+from .download_sim import download_binary
 
 __all__ = [
     "Environment",
@@ -95,8 +96,6 @@ class Environment:
         map_data: MapData,
         server_addr: Optional[str],
         environment_config: EnvironmentConfig,
-        # TEMP
-        # TODO: try to remove this
         citizen_ids: set[int] = set(),
         firm_ids: set[int] = set(),
         bank_ids: set[int] = set(),
@@ -592,6 +591,7 @@ class EnvironmentStarter(Environment):
         environment_config: EnvironmentConfig,
         s3config: S3Config,
         log_dir: str,
+        home_dir: str,
     ):
         """
         Environment config
@@ -601,11 +601,13 @@ class EnvironmentStarter(Environment):
             - `simulator_config` (SimulatorConfig): Simulator config
             - `environment_config` (EnvironmentConfig): Environment config
         """
+        self._sim_bin_path = download_binary(home_dir)
         self._map_config = map_config
         self._environment_config = environment_config
         self._sim_config = simulator_config
         self._s3config = s3config
         self._log_dir = log_dir
+        self._home_dir = home_dir
         mapdata = MapData(map_config, s3config)
 
         super().__init__(mapdata, None, environment_config)
@@ -662,7 +664,7 @@ class EnvironmentStarter(Environment):
         )
         self._sim_proc = Popen(
             [
-                "agentsociety-sim",
+                self._sim_bin_path,
                 "-config-data",
                 config_base64,
                 "-job",

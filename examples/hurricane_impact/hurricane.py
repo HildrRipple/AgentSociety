@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 import ray
-from examples.hurricane_impact.hurricane_memory_config import (
+from hurricane_memory_config import (
     memory_config_societyagent_hurrican,
 )
 
@@ -30,12 +30,12 @@ ray.init(logging_level=logging.INFO)
 config = Config(
     llm=[
         LLMConfig(
-            provider=LLMProviderType.Qwen,
-            base_url=None,
-            api_key="<YOUR-API-KEY>",
-            model="<YOUR-MODEL>",
+            provider=LLMProviderType.VLLM,
+            base_url="https://cloud.infini-ai.com/maas/v1",
+            api_key="sk-acu5ev2rhrtidz6y",
+            model="qwen2.5-14b-instruct",
             concurrency=200,
-            timeout=60,
+            timeout=30,
         )
     ],
     env=EnvConfig(
@@ -46,7 +46,7 @@ config = Config(
         ),
     ),
     map=MapConfig(
-        file_path="<MAP-FILE-PATH>",
+        file_path="/root/agentsociety/test/beijing.pb",
     ),
     agents=AgentsConfig(
         citizens=[

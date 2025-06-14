@@ -1,4 +1,3 @@
-import json
 import random
 from collections import deque
 
@@ -14,11 +13,6 @@ pareto_samples = np.random.pareto(pareto_param, size=(1000, 10))
 clipped_skills = np.minimum(pmsm, (pmsm - 1) * pareto_samples + 1)
 sorted_clipped_skills = np.sort(clipped_skills, axis=1)
 agent_skills = list(sorted_clipped_skills.mean(axis=0))
-
-import threading
-
-index_lock = threading.Lock()
-
 
 def memory_config_societyagent_hurrican(
     distributions: dict[str, Distribution],
