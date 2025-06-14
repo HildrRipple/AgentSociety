@@ -172,7 +172,6 @@ class AgentSociety:
         config: Config,
         tenant_id: str = "",
     ) -> None:
-        config.set_auto_workers()
         self._config = _set_default_agent_config(config)
         self.tenant_id = tenant_id
 
@@ -316,8 +315,6 @@ class AgentSociety:
                 defined_ids.add(next_id)
                 return next_id
 
-            group_size = self._config.advanced.group_size
-            get_logger().info(f"Initializing agent groups (size={group_size})...")
             citizen_ids = set()
             bank_ids = set()
             nbs_ids = set()
@@ -811,7 +808,7 @@ class AgentSociety:
                 government_ids=government_ids,
             )
             environment_init = self._environment.to_init_args()
-            assert group_size != "auto"
+            group_size = 100000000 # TODO: remove this
             for i in range(0, len(agents), group_size):
                 group_agents = agents[i : i + group_size]
                 group_id = str(uuid.uuid4())

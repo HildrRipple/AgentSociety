@@ -250,7 +250,7 @@ class LLM:
         - It initializes clients based on the specified request type and handles token usage and consumption reporting.
     """
 
-    def __init__(self, configs: List[LLMConfig], num_actors: int = cpu_count()):
+    def __init__(self, configs: List[LLMConfig], num_actors: int = min(cpu_count(), 8)):
         """
         Initializes the LLM instance.
 
