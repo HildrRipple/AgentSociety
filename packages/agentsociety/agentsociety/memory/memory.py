@@ -11,7 +11,7 @@ from ..logger import get_logger
 from ..memory.const import SocialRelation
 from ..utils.decorators import lock_decorator
 from ..vectorstore import VectorStore
-from .const import *
+from .const import STATE_ATTRIBUTES, PROFILE_ATTRIBUTES
 
 __all__ = [
     "KVMemory",
@@ -666,7 +666,7 @@ class Memory:
                                 )
                     except TypeError as e:
                         get_logger().warning(f"Type conversion failed for key {k}: {e}")
-                except TypeError as e:
+                except TypeError:
                     if isinstance(v, type):
                         _value = v()
                     else:
@@ -725,7 +725,7 @@ class Memory:
                             _value = [SocialRelation(**_v) for _v in v]
                         else:
                             _value = v
-                except TypeError as e:
+                except TypeError:
                     if isinstance(v, type):
                         _value = v()
                     else:

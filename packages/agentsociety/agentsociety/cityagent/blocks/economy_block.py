@@ -2,7 +2,6 @@ import numbers
 import random
 from typing import Any, Optional
 
-import json
 import json_repair
 import numpy as np
 from pydantic import Field
@@ -19,7 +18,8 @@ from ...agent import (
 from ...logger import get_logger
 from ...memory import Memory
 from ..sharing_params import SocietyAgentBlockOutput
-from .utils import *
+from .utils import clean_json_response, prettify_document
+from .utils import extract_dict_from_string
 
 WORKTIME_ESTIMATE_PROMPT = """As an intelligent agent's time estimation system, please estimate the time needed to complete the current action based on the overall plan and current intention.
 
@@ -210,11 +210,11 @@ class ConsumptionBlock(Block):
         if consumption_currency >= month_consumption:
             node_id = await self.memory.stream.add(
                 topic="economy",
-                description=f"I have passed the monthly consumption limit, so I will not consume.",
+                description="I have passed the monthly consumption limit, so I will not consume.",
             )
             return {
                 "success": False,
-                "evaluation": f"I have passed the monthly consumption limit, so I will not consume.",
+                "evaluation": "I have passed the monthly consumption limit, so I will not consume.",
                 "consumed_time": 0,
                 "node_id": node_id,
             }
@@ -378,7 +378,7 @@ class EconomyBlock(Block):
             get_logger().error(f"EconomyBlock: Error in forward: {e}")
             return self.OutputType(
                 success=False,
-                evaluation=f"Failed to forward",
+                evaluation="Failed to forward",
                 consumed_time=0,
                 node_id=None,
             )
@@ -466,7 +466,7 @@ class MonthEconomyPlanBlock(Block):
                 "consumption_propensity"
             )
             if (consumption <= 0) and (consumption_propensity > 0):
-                consumption_prompt = f"""
+                consumption_prompt = """
                             Besides, you had no consumption due to shortage of goods.
                         """
             else:
@@ -517,7 +517,7 @@ class MonthEconomyPlanBlock(Block):
                     )
                 else:
                     self.llm_error += 1
-            except:
+            except Exception:
                 self.llm_error += 1
 
             work_skill = await self.environment.economy_client.get(agent_id, "skill")
@@ -596,7 +596,7 @@ class MonthEconomyPlanBlock(Block):
                             content[k] = category2score[content[k].lower()]
                     depression = sum(list(content.values()))
                     await self.memory.status.update("depression", depression)
-                except:
+                except Exception:
                     self.llm_error += 1
 
             if self.ubi and self.forward_times >= 96 and self.forward_times % 12 == 0:

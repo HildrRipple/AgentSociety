@@ -203,7 +203,7 @@ class FindPersonBlock(Block):
             if not friends:
                 node_id = await self.memory.stream.add(
                     topic="social",
-                    description=f"I can't find any friends to contact with.",
+                    description="I can't find any friends to contact with.",
                 )
                 return {
                     "success": False,
@@ -261,7 +261,7 @@ class FindPersonBlock(Block):
                 target = index_to_id[friend_index]
                 if context is not None:
                     context["target"] = target
-            except Exception as e:
+            except Exception:
                 # If parsing fails, select the friend with the strongest relationship as the default option
                 target = (
                     max(relationships.items(), key=lambda x: x[1])[0]
@@ -286,7 +286,7 @@ class FindPersonBlock(Block):
         except Exception as e:
             node_id = await self.memory.stream.add(
                 topic="social",
-                description=f"I can't find any friends to socialize with.",
+                description="I can't find any friends to socialize with.",
             )
             return {
                 "success": False,

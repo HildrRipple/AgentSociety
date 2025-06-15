@@ -189,13 +189,7 @@ class AgentSociety:
         self._environment: Optional[EnvironmentStarter] = None
         self._message_interceptor: Optional[MessageInterceptor] = None
         self._database_writer: Optional[DatabaseWriter] = None
-        self._embedding = SparseTextEmbedding(
-            "Qdrant/bm25",
-            cache_dir=os.path.join(
-                self._config.env.home_dir, "huggingface_cache"
-            ),
-            threads=cpu_count(),
-        )
+        self._embedding = None  # Initialize as None first
         self._groups: dict[str, AgentGroup] = {}
         self._agent_ids: set[int] = set()
         self._agent_id2group: dict[int, AgentGroup] = {}
@@ -238,6 +232,37 @@ class AgentSociety:
 
         # filter base
         self._filter_base = {}
+
+    async def _init_embedding(self):
+        """Initialize embedding model with timeout."""
+        try:
+            # Create a task for embedding initialization
+            init_task = asyncio.create_task(self._init_embedding_task())
+            
+            # Wait for the task with timeout
+            try:
+                await asyncio.wait_for(init_task, timeout=120)  # 2 minutes timeout
+            except asyncio.TimeoutError:
+                get_logger().error(
+                    "Embedding model initialization timed out after 2 minutes. "
+                    "Please check your HuggingFace connection and try again."
+                )
+                raise
+            
+        except Exception as e:
+            get_logger().error(f"Failed to initialize embedding model: {str(e)}")
+            raise
+            
+    async def _init_embedding_task(self):
+        """Actual embedding initialization task."""
+        self._embedding = SparseTextEmbedding(
+            "Qdrant/bm25",
+            cache_dir=os.path.join(
+                self._config.env.home_dir, "huggingface_cache"
+            ),
+            threads=cpu_count(),
+        )
+        get_logger().info("Embedding model initialized successfully")
 
     async def init(self):
         """Initialize all the components"""
@@ -296,6 +321,14 @@ class AgentSociety:
                 )
             self._messager = Messager(exp_id=self.exp_id)
             get_logger().info("Messager initialized")
+
+            # ====================
+            # Initialize the embedding
+            # ====================
+            get_logger().info("Initializing embedding...")
+            await self._init_embedding()
+            assert self._embedding is not None, "Embedding is not initialized"
+            get_logger().info("Embedding initialized")
 
             # ======================================
             # Initialize agent groups

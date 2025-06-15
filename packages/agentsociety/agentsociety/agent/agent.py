@@ -108,7 +108,7 @@ class CitizenAgentBase(Agent):
                 _value = await status.get(_key)
                 if _value:
                     dict_person[_key] = _value
-            except KeyError as e:
+            except KeyError:
                 continue
         await simulator.add_person(dict_person)
 
@@ -193,7 +193,7 @@ class CitizenAgentBase(Agent):
                     json_dict = json_repair.loads(json_str)
                     json_str = json.dumps(json_dict, ensure_ascii=False)
                     break
-            except:
+            except Exception:
                 pass
         else:
             import traceback
@@ -235,7 +235,7 @@ class CitizenAgentBase(Agent):
             id=self.id,
             day=survey_day if survey_day is not None else day,
             t=survey_t if survey_t is not None else t,
-            survey_id=str(survey.id),
+            survey_id=survey.id,
             result=survey_response,
             created_at=date_time,
         )
@@ -400,7 +400,7 @@ class CitizenAgentBase(Agent):
         """
         try:
             content = json.dumps(message.payload, ensure_ascii=False)
-        except:
+        except Exception:
             content = str(message.payload)
         storage_dialog = StorageDialog(
             id=self.id,

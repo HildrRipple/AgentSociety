@@ -1,10 +1,8 @@
-from collections import deque
-import random
 import time
-import os
 import json
 
-import json
+from agentsociety.message import Message
+import json_repair
 from typing import Optional
 
 from pydantic import Field
@@ -12,7 +10,6 @@ from agentsociety.agent import AgentToolbox, Block, CitizenAgentBase, AgentParam
 from agentsociety.logger import get_logger
 from agentsociety.memory import Memory
 from agentsociety.survey import Survey
-from agentsociety.message import Message, MessageKind
 from .blocks import (EnvCognitionBlock, EnvNeedsBlock, EnvPlanBlock, EnvMobilityBlock, EnvEconomyBlock, EnvSocialBlock, EnvOtherBlock)
 from .blocks.needs_block import INITIAL_NEEDS_PROMPT
 from .blocks.plan_block import DETAILED_PLAN_PROMPT
@@ -40,7 +37,7 @@ def extract_json(output_str):
 
         # Convert the JSON string to a dictionary
         return json_str
-    except (ValueError, jsonc.JSONDecodeError) as e:
+    except ValueError as e:
         get_logger().warning(f"Failed to extract JSON: {e}")
         return None
 
@@ -153,22 +150,20 @@ class TrackOneEnvCitizen(CitizenAgentBase):
         )
 
         self.needs_block = EnvNeedsBlock(
-            llm=self.llm, 
-            environment=self.environment, 
+            toolbox=toolbox, 
             agent_memory=self.memory,
             initial_prompt=self.params.need_initialization_prompt,
         )
 
         self.plan_block = EnvPlanBlock(
-            llm=self.llm, 
-            environment=self.environment, 
+            toolbox=toolbox, 
             agent_memory=self.memory,
             max_plan_steps=self.params.max_plan_steps,
             detailed_plan_prompt=self.params.plan_generation_prompt,
         )
 
         self.cognition_block = EnvCognitionBlock(
-            llm=self.llm, agent_memory=self.memory, environment=self.environment
+            toolbox=toolbox, agent_memory=self.memory
         )
         self.environment_reflection_prompt = FormatPrompt(ENVIRONMENT_REFLECTION_PROMPT)
         self.step_count = -1
@@ -177,24 +172,20 @@ class TrackOneEnvCitizen(CitizenAgentBase):
         self.info_checked = {}
 
         env_mobility_block = EnvMobilityBlock(
-            llm=self.llm,
-            environment=self.environment,
+            toolbox=toolbox,
             agent_memory=self.memory,
         )
         env_economy_block = EnvEconomyBlock(
-            llm=self.llm,
-            environment=self.environment,
+            toolbox=toolbox,
             agent_memory=self.memory,
         )
         env_social_block = EnvSocialBlock(
-            llm=self.llm,
-            environment=self.environment,
+            toolbox=toolbox,
             agent_memory=self.memory,
         )
         env_social_block.set_agent(self)
         env_other_blocks = EnvOtherBlock(  
-            llm=self.llm,
-            environment=self.environment,
+            toolbox=toolbox,
             agent_memory=self.memory,
         )
         self.blocks = [env_mobility_block, env_economy_block, env_social_block, env_other_blocks]
@@ -207,13 +198,20 @@ class TrackOneEnvCitizen(CitizenAgentBase):
             position = await self.memory.status.get("position")
             aoi_id = position["aoi_position"]["aoi_id"]
             if aoi_id not in self.info_checked or self.info_checked[aoi_id] == 0:
-                await self.environment_reflection_prompt.format(self)
+                await self.environment_reflection_prompt.format(
+                    background_story=await self.memory.status.get("background_story"),
+                    environmental_attitude=await self.memory.status.get("environmental_attitude"),
+                    get_aoi_info=aoi_info,
+                )
                 reflection = await self.llm.atext_request(
                     self.environment_reflection_prompt.to_dialog(),
                 )
                 self.info_checked[aoi_id] = 10
                 await self.save_agent_thought(reflection)
-                await self.memory.stream.add_event(f"You seeing some posters about environmental protection, and you feel {reflection}")
+                await self.memory.stream.add(
+                    topic="event",
+                    description=f"You seeing some posters about environmental protection, and you feel {reflection}"
+                )
             else:
                 self.info_checked[aoi_id] -= 1
 
@@ -266,10 +264,10 @@ class TrackOneEnvCitizen(CitizenAgentBase):
                 )
                 json_str = extract_json(_response)
                 if json_str:
-                    json_dict = jsonc.loads(json_str)
+                    json_dict = json_repair.loads(json_str)
                     json_str = json.dumps(json_dict, ensure_ascii=False)
                     break
-            except:
+            except Exception:
                 pass
         else:
             import traceback
@@ -333,7 +331,7 @@ Please update your attitude towards the environmental protection based on the me
                     )
                     await self.memory.status.update("environmental_attitude", attitude)
                     self.last_attitude_update = (current_day, current_t)
-        except Exception as e:
+        except Exception:
             pass
 
     async def plan_generation(self):
@@ -409,7 +407,7 @@ Please update your attitude towards the environmental protection based on the me
         step_consumed_time = current_step["evaluation"]["consumed_time"]
         try:
             time_end_plan = step_start_time + int(step_consumed_time) * 60
-        except Exception as e:
+        except Exception:
             time_end_plan = time_now
         if time_now >= time_end_plan:
             # The previous step has been completed
@@ -447,7 +445,7 @@ Please update your attitude towards the environmental protection based on the me
                             await self.memory.stream.add_cognition_to_memory(
                                 current_plan["stream_nodes"], conclusion
                             )
-                        except Exception as e:
+                        except Exception:
                             pass
                     await self.memory.status.update("current_plan", current_plan)
                 return True
@@ -476,55 +474,57 @@ Please update your attitude towards the environmental protection based on the me
                         await self.memory.stream.add_cognition_to_memory(
                             current_plan["stream_nodes"], conclusion
                         )
-                    except Exception as e:
+                    except Exception:
                         pass
                 await self.memory.status.update("current_plan", current_plan)
                 return True
         # The previous step has not been completed
         return False
-
-    async def do_chat(self, message: Message) -> str:
+    
+    async def do_chat(self, message: Message) -> str: # type: ignore
         """Process incoming social/economic messages and generate responses."""
-        if message.kind == MessageKind.AGENT_CHAT:
-            payload = message.payload
-            sender_id = message.from_id
-            if not sender_id:
-                return ""
-            
-            if payload["type"] == "social":
-                try:
-                    # Extract basic info
-                    content = payload.get("content", None)
+        sender_id = message.from_id
+        if not sender_id:
+            return ""
+        
+        payload = message.payload
+        if payload.get("type", "social") == "social":
+            try:
+                # Extract basic info
+                content = payload.get("content", None)
 
-                    if not content:
-                        return ""
+                if not content:
+                    return ""
 
-                    # add social memory
-                    description = f"You received a message: {content}"
-                    await self.memory.stream.add_social(description=description)
-                    if self.params.enable_cognition:
-                        # update emotion
-                        await self.cognition_block.emotion_update(description)
+                # add social memory
+                description = f"You received a message: {content}"
+                await self.memory.stream.add(
+                    topic="social",
+                    description=description
+                )
+                if self.params.enable_cognition:
+                    # update emotion
+                    await self.cognition_block.emotion_update(description)
 
-                    # Get chat histories and ensure proper format
-                    if "ANNOUNCEMENT" not in content:
-                        chat_histories = await self.memory.status.get("chat_histories") or {}
-                        if not isinstance(chat_histories, dict):
-                            chat_histories = {}
+                # Get chat histories and ensure proper format
+                if "ANNOUNCEMENT" not in content:
+                    chat_histories = await self.memory.status.get("chat_histories") or {}
+                    if not isinstance(chat_histories, dict):
+                        chat_histories = {}
 
-                        # Update chat history with received message
-                        if sender_id not in chat_histories:
-                            chat_histories[sender_id] = ""
-                        if chat_histories[sender_id]:
-                            chat_histories[sender_id] += "，"
-                        chat_histories[sender_id] += f"them: {content}"
+                    # Update chat history with received message
+                    if sender_id not in chat_histories:
+                        chat_histories[sender_id] = ""
+                    if chat_histories[sender_id]:
+                        chat_histories[sender_id] += "，"
+                    chat_histories[sender_id] += f"them: {content}"
 
-                        # Get relationship score
-                        relationships = await self.memory.status.get("relationships") or {}
-                        relationship_score = relationships.get(sender_id, 50)
+                    # Get relationship score
+                    relationships = await self.memory.status.get("relationships") or {}
+                    relationship_score = relationships.get(sender_id, 50)
 
-                        # Decision prompt
-                        should_respond_prompt = f"""Based on:
+                    # Decision prompt
+                    should_respond_prompt = f"""Based on:
 - Received message: "{content}"
 - Our relationship score: {relationship_score}/100
 - My background story: {await self.memory.status.get("background_story")}
@@ -539,21 +539,21 @@ Should I respond to this message? Consider:
 
 Answer only YES or NO, in JSON format, e.g. {{"should_respond": "YES"}}"""
 
-                        should_respond = await self.llm.atext_request(
-                            dialog=[
-                                {
-                                    "role": "system",
-                                    "content": "You are helping decide whether to respond to a message.",
-                                },
-                                {"role": "user", "content": should_respond_prompt},
-                            ],
-                            response_format={"type": "json_object"},
-                        )
-                        should_respond = jsonc.loads(should_respond)["should_respond"]
-                        if should_respond == "NO":
-                            return ""
+                    should_respond = await self.llm.atext_request(
+                        dialog=[
+                            {
+                                "role": "system",
+                                "content": "You are helping decide whether to respond to a message.",
+                            },
+                            {"role": "user", "content": should_respond_prompt},
+                        ],
+                        response_format={"type": "json_object"},
+                    )
+                    should_respond = json_repair.loads(should_respond)["should_respond"] # type: ignore
+                    if should_respond == "NO":
+                        return ""
 
-                        response_prompt = f"""Based on:
+                    response_prompt = f"""Based on:
 - Received message: "{content}"
 - Our relationship score: {relationship_score}/100
 - Your background story: {await self.memory.status.get("background_story") or ""}
@@ -570,43 +570,42 @@ Generate an appropriate response that:
 
 Response should be ONLY the message text, no explanations."""
 
-                        response = await self.llm.atext_request(
-                            [
-                                {
-                                    "role": "system",
-                                    "content": "You are helping generate a chat response.",
-                                },
-                                {"role": "user", "content": response_prompt},
-                            ]
-                        )
+                    response = await self.llm.atext_request(
+                        [
+                            {
+                                "role": "system",
+                                "content": "You are helping generate a chat response.",
+                            },
+                            {"role": "user", "content": response_prompt},
+                        ]
+                    )
 
-                        if response:
-                            # Update chat history with response
-                            chat_histories[sender_id] += f", me: {response}"
-                            await self.memory.status.update("chat_histories", chat_histories)
+                    if response:
+                        # Update chat history with response
+                        chat_histories[sender_id] += f", me: {response}"
+                        await self.memory.status.update("chat_histories", chat_histories)
 
-                            await self.send_message_to_agent(sender_id, response)
-                        return response
+                        await self.send_message_to_agent(sender_id, response)
+                    return response
 
-                except Exception as e:
-                    get_logger().warning(f"Error in process_agent_chat_response: {str(e)}")
-                    return ""
-            else:
-                content = payload["content"]
-                key, value = content.split("@")
-                if "." in value:
-                    value = float(value)
-                else:
-                    value = int(value)
-                description = f"You received a economic message: Your {key} has changed from {await self.memory.status.get(key)} to {value}"
-                await self.memory.status.update(key, value)
-                await self.memory.stream.add_economy(description=description)
-                if self.params.enable_cognition:
-                    await self.cognition_block.emotion_update(description)
+            except Exception as e:
+                get_logger().warning(f"Error in process_agent_chat_response: {str(e)}")
                 return ""
-        elif message.kind == MessageKind.USER_CHAT:
-            return "AUTO RESPONSE: HELLO"
         else:
+            content = payload["content"]
+            key, value = content.split("@")
+            if "." in value:
+                value = float(value)
+            else:
+                value = int(value)
+            description = f"You received a economic message: Your {key} has changed from {await self.memory.status.get(key)} to {value}"
+            await self.memory.status.update(key, value)
+            await self.memory.stream.add(
+                topic="economy",
+                description=description
+            )
+            if self.params.enable_cognition:
+                await self.cognition_block.emotion_update(description)
             return ""
 
     async def react_to_intervention(self, intervention_message: str):
@@ -616,7 +615,8 @@ Response should be ONLY the message text, no explanations."""
             intervention_message
         )
         await self.save_agent_thought(conclusion)
-        await self.memory.stream.add_cognition(description=conclusion)
+        await self.memory.stream.add(
+            topic="cognition", description=conclusion)
         # needs
         await self.needs_block.reflect_to_intervention(
             intervention_message
@@ -650,7 +650,7 @@ Response should be ONLY the message text, no explanations."""
             dispatch_context = DotDict({"current_intention": current_step["intention"]})
             selected_block = await self.dispatcher.dispatch(dispatch_context)
             if selected_block:
-                result = await selected_block.forward(current_step, execution_context)
+                result = await selected_block.forward(current_step, execution_context) # type: ignore
                 if "message" in result:
                     await self.send_message_to_agent(result["target"], result["message"])
             else:
@@ -660,7 +660,7 @@ Response should be ONLY the message text, no explanations."""
                     "consumed_time": 0,
                     "node_id": None,
                 }
-            if result != None:
+            if result is not None:
                 current_step["evaluation"] = result
 
             # Update current_step, plan, and execution_context information

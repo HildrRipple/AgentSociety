@@ -1,7 +1,6 @@
 import random
 from typing import Any, Optional
 
-import json
 import json_repair
 from pydantic import Field
 
@@ -84,7 +83,7 @@ class SleepBlock(Block):
         )
         result = clean_json_response(result)
         node_id = await self.memory.stream.add(
-            topic="other", description=f"I slept"
+            topic="other", description="I slept"
         )
         try:
             result: Any = json_repair.loads(result)

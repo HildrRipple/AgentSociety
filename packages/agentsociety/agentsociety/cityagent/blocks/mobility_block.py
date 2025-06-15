@@ -1,8 +1,7 @@
 import math
 import random
-from typing import Any, Optional
+from typing import Optional
 
-import json
 import json_repair
 import numpy as np
 from pydantic import Field
@@ -15,8 +14,6 @@ from ...agent import (
     BlockContext,
     AgentToolbox,
 )
-from ...environment import Environment
-from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
 from ...agent.dispatcher import BlockDispatcher
@@ -310,7 +307,7 @@ class MoveBlock(Block):
         try:
             response = clean_json_response(response)
             response = json_repair.loads(response)["place_type"] # type: ignore
-        except Exception as e:
+        except Exception:
             get_logger().warning(
                 f"Place Analysis: wrong type of place, raw response: {response}"
             )
@@ -322,7 +319,7 @@ class MoveBlock(Block):
             nowPlace = await self.memory.status.get("position")
             node_id = await self.memory.stream.add(
                 topic="mobility",
-                description=f"I returned home",
+                description="I returned home",
             )
             if (
                 "aoi_position" in nowPlace
@@ -330,7 +327,7 @@ class MoveBlock(Block):
             ):
                 return {
                     "success": True,
-                    "evaluation": f"Successfully returned home (already at home)",
+                    "evaluation": "Successfully returned home (already at home)",
                     "to_place": home,
                     "consumed_time": 0,
                     "node_id": node_id,
@@ -344,7 +341,7 @@ class MoveBlock(Block):
             await self.memory.status.update("number_poi_visited", number_poi_visited)
             return {
                 "success": True,
-                "evaluation": f"Successfully returned home",
+                "evaluation": "Successfully returned home",
                 "to_place": home,
                 "consumed_time": 45,
                 "node_id": node_id,
@@ -356,7 +353,7 @@ class MoveBlock(Block):
             nowPlace = await self.memory.status.get("position")
             node_id = await self.memory.stream.add(
                 topic="mobility",
-                description=f"I went to my workplace",
+                description="I went to my workplace",
             )
             if (
                 "aoi_position" in nowPlace
@@ -364,7 +361,7 @@ class MoveBlock(Block):
             ):
                 return {
                     "success": True,
-                    "evaluation": f"Successfully reached the workplace (already at the workplace)",
+                    "evaluation": "Successfully reached the workplace (already at the workplace)",
                     "to_place": work,
                     "consumed_time": 0,
                     "node_id": node_id,
@@ -378,7 +375,7 @@ class MoveBlock(Block):
             await self.memory.status.update("number_poi_visited", number_poi_visited)
             return {
                 "success": True,
-                "evaluation": f"Successfully reached the workplace",
+                "evaluation": "Successfully reached the workplace",
                 "to_place": work,
                 "consumed_time": 45,
                 "node_id": node_id,
@@ -423,7 +420,7 @@ class MoveBlock(Block):
                 topic="mobility",
                 description=f"I went to {next_place}",
             )
-            if next_place != None:
+            if next_place is not None:
                 await self.environment.set_aoi_schedules(
                     person_id=agent_id,
                     target_positions=next_place[1],

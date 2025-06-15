@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Literal, Optional
 import uuid
 
-import ray
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select, update, text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker

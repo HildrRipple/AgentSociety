@@ -1,10 +1,6 @@
-import logging
 from typing import Any, Optional
-import json
 import json_repair
 from pydantic import Field
-from ...environment import Environment
-from ...llm import LLM
 from ...logger import get_logger
 from ...memory import Memory
 from ...agent import AgentToolbox, Block, FormatPrompt, BlockParams
@@ -183,7 +179,7 @@ class CognitionBlock(Block):
                         response: Any = json_repair.loads(json_str)
                         evaluation = False
                         break
-                except:
+                except Exception:
                     pass
             if evaluation:
                 raise Exception(f"Request for attitude:{topic} update failed")
@@ -278,7 +274,7 @@ class CognitionBlock(Block):
                     response: Any = json_repair.loads(json_str)
                     evaluation = False
                     break
-            except:
+            except Exception:
                 pass
         if evaluation:
             raise Exception("Request for cognition update failed")
@@ -401,8 +397,7 @@ class CognitionBlock(Block):
                     response: Any = json_repair.loads(json_str)
                     evaluation = False
                     break
-            except Exception as e:
-                get_logger().warning(f"Request for cognition update failed: {e}")
+            except Exception:
                 pass
         if evaluation:
             raise Exception("Request for cognition update failed")

@@ -21,7 +21,7 @@ from .sharing_params import (
     SocietyAgentBlockOutput,
     SocietyAgentContext,
 )
-from ..message import Message, MessageKind
+from ..message import Message
 
 ENVIRONMENT_REFLECTION_PROMPT = """
 You are a citizen of the city.
@@ -671,7 +671,7 @@ You can add more blocks to the citizen as you wish to adapt to the different sce
                     "consumed_time": random.randint(1, 100),
                     "node_id": None,
                 }
-            if result != None:
+            if result is not None:
                 current_step["evaluation"] = result
 
             # Update current_step, plan, and execution_context information
