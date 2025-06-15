@@ -52,7 +52,7 @@ class MessageInterceptor:
             - `LLM`: The Large Language Model instance.
         """
         if self._llm is None:
-            raise RuntimeError(f"LLM access before assignment, please `set_llm` first!")
+            raise RuntimeError("LLM access before assignment, please `set_llm` first!")
         return self._llm
 
     # Message forwarding related methods

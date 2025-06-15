@@ -1,7 +1,5 @@
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
 
 import aiohttp
 from casdoor import CasdoorSDK
@@ -106,7 +104,7 @@ async def auth_bearer_token(request: Request):
     claims = None
     try:
         claims = casdoor.sdk.parse_jwt_token(token)
-    except Exception as e:
+    except Exception:
         import traceback
 
         traceback.print_exc()

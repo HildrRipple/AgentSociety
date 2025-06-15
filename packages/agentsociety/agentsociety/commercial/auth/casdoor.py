@@ -4,8 +4,7 @@ Casdoor Authentication Provider
 Provides a unified interface for Casdoor authentication in the commercial version.
 """
 
-from typing import Dict, Any, Optional
-from fastapi import APIRouter
+from typing import Dict, Any
 from .api.auth import Casdoor, CasdoorConfig, auth_bearer_token
 from .api.login import router as login_router
 

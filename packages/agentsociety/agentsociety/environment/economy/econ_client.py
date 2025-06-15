@@ -1,7 +1,4 @@
 import asyncio
-import logging
-import re
-import time
 from collections.abc import Sequence
 from enum import Enum
 from typing import Any, Literal, Optional, Union, cast
@@ -432,10 +429,10 @@ class EconomyClient:
         """
         if isinstance(id, list):
             if not isinstance(value, list):
-                raise ValueError(f"Invalid value, the value must be a list!")
+                raise ValueError("Invalid value, the value must be a list!")
             if len(id) != len(value):
                 raise ValueError(
-                    f"Invalid ids and values, the length of ids and values must be the same!"
+                    "Invalid ids and values, the length of ids and values must be the same!"
                 )
         else:
             id = [id]

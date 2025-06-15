@@ -1,11 +1,10 @@
-from collections.abc import Awaitable, Coroutine
+from collections.abc import Awaitable
 from typing import Any, Union, cast
 
 import grpc
 from pycityproto.city.pause.v1 import pause_service_pb2 as pause_service
 from pycityproto.city.pause.v1 import pause_service_pb2_grpc as pause_grpc
 
-from ..utils.protobuf import async_parse
 
 __all__ = ["PauseService"]
 

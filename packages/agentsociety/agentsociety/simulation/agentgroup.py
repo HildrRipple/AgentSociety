@@ -81,18 +81,18 @@ class AgentGroup:
             self._group_id = group_id
             get_logger().debug(f"Set group_id: {group_id}")
             self._config = config
-            get_logger().debug(f"Config loaded")
+            get_logger().debug("Config loaded")
             self._agent_inits = agent_inits
             get_logger().debug(f"Agent inits loaded, count: {len(agent_inits)}")
             self._environment_init = environment_init
-            get_logger().debug(f"Environment init loaded")
+            get_logger().debug("Environment init loaded")
             self._database_writer = database_writer
-            get_logger().debug(f"Database writer reference set")
+            get_logger().debug("Database writer reference set")
             self._agent_config_file = agent_config_file
-            get_logger().debug(f"Agent config file loaded")
+            get_logger().debug("Agent config file loaded")
 
             self._embedding = embedding
-            get_logger().debug(f"Embedding initialized")
+            get_logger().debug("Embedding initialized")
 
             # typing definition
             self._llm = None
@@ -148,29 +148,29 @@ class AgentGroup:
         # ====================
         # Initialize LLM client
         # ====================
-        get_logger().info(f"Initializing LLM client...")
+        get_logger().info("Initializing LLM client...")
         self._llm = LLM(self._config.llm)
-        get_logger().info(f"LLM client initialized")
+        get_logger().info("LLM client initialized")
 
         # ====================
         # Initialize environment
         # ====================
-        get_logger().info(f"Initializing environment...")
+        get_logger().info("Initializing environment...")
         self._environment = Environment(**self._environment_init)
         self._environment.init()
-        get_logger().info(f"Environment initialized")
+        get_logger().info("Environment initialized")
 
         # ====================
         # Initialize messager
         # ====================
-        get_logger().info(f"Initializing messager...")
+        get_logger().info("Initializing messager...")
         self._messager = Messager(self._exp_id)
-        get_logger().info(f"Messager initialized")
+        get_logger().info("Messager initialized")
 
         # ====================================
         # Initialize the agents
         # ====================================
-        get_logger().info(f"Initializing the agents...")
+        get_logger().info("Initializing the agents...")
         agent_toolbox = AgentToolbox(
             self.llm,
             self.environment,
@@ -269,7 +269,7 @@ class AgentGroup:
             embedding_tasks.append(agent.memory.initialize_embeddings())
         await asyncio.gather(*embedding_tasks)
 
-        get_logger().info(f"Agents initialized")
+        get_logger().info("Agents initialized")
         return to_return
 
     async def close(self):

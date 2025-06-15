@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...configs import EnvConfig
 from ..models import ApiResponseWrapper
 from ..models.agent import (
     AgentDialogType,

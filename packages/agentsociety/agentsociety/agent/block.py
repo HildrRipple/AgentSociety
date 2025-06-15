@@ -107,7 +107,7 @@ class Block:
     def agent(self) -> Any:
         if self._agent is None:
             raise RuntimeError(
-                f"Agent access before assignment, please `set_agent` first!"
+                "Agent access before assignment, please `set_agent` first!"
             )
         return self._agent
 
@@ -123,7 +123,7 @@ class Block:
     def memory(self) -> Memory:
         if self._agent_memory is None:
             raise RuntimeError(
-                f"Memory access before assignment, please `set_memory` first!"
+                "Memory access before assignment, please `set_memory` first!"
             )
         return self._agent_memory
 
@@ -131,7 +131,7 @@ class Block:
     def agent_memory(self) -> Memory:
         if self._agent_memory is None:
             raise RuntimeError(
-                f"Memory access before assignment, please `set_memory` first!"
+                "Memory access before assignment, please `set_memory` first!"
             )
         return self._agent_memory
 
@@ -139,7 +139,7 @@ class Block:
     def block_memory(self) -> KVMemory:
         if self._block_memory is None:
             raise RuntimeError(
-                f"Block memory access before assignment, please `set_block_memory` first!"
+                "Block memory access before assignment, please `set_block_memory` first!"
             )
         return self._block_memory
 

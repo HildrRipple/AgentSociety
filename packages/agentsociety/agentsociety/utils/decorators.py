@@ -1,5 +1,3 @@
-import uuid
-from ..logger import get_logger
 
 __all__ = [
     "lock_decorator",
