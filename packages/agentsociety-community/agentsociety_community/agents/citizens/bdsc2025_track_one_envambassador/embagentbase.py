@@ -1,16 +1,10 @@
-from abc import abstractmethod
-from typing import List, Dict, Any, Optional
-import json
-import os
+from typing import Any, Optional
 
-import json
-from pydantic import Field
 from agentsociety.agent import CitizenAgentBase, AgentToolbox, Block, AgentParams, StatusAttribute
 from agentsociety.message import Message, MessageKind
 from agentsociety.memory import Memory
-from agentsociety.agent import register_get
 
-from .tools import Sence, Poster, Announcement, Communication, MessageProbe
+from .tools import Sense, Poster, Announcement, Communication, MessageProbe
 from .fundmanager import FundManager
 
 
@@ -69,7 +63,7 @@ class EnvAgentBase(CitizenAgentBase):
         
         # Initialize tools
         self._probe = MessageProbe(agent=self, llm=toolbox.llm)
-        self.sence = Sence(agent=self, llm=toolbox.llm, probe=self._probe)
+        self.sence = Sense(agent=self, llm=toolbox.llm, probe=self._probe)
         self.poster = Poster(agent=self, llm=toolbox.llm, probe=self._probe)
         self.announcement = Announcement(agent=self, llm=toolbox.llm, probe=self._probe)
         self.communication = Communication(agent=self, llm=toolbox.llm, probe=self._probe)
@@ -127,7 +121,7 @@ class EnvAgentBase(CitizenAgentBase):
                     if response:
                         await self.communication.sendMessage(sender_id, response)
                     return response
-                except Exception as e:
+                except Exception:
                     return ""
             else:
                 return ""

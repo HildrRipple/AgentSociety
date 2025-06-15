@@ -3,7 +3,7 @@ import random
 import time
 from typing import Any, Optional, cast
 
-from agentsociety.agent import (Agent, AgentToolbox, Block, CitizenAgentBase,
+from agentsociety.agent import (AgentToolbox, Block, CitizenAgentBase,
                                 StatusAttribute)
 from agentsociety.memory import Memory
 from agentsociety.memory.const import RelationType, SocialRelation

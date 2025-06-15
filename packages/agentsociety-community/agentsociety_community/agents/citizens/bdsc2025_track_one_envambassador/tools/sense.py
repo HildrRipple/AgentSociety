@@ -2,13 +2,13 @@
 Sence tool for the Agent Society.
 """
 
-from typing import Any, List, Optional, Union
+from typing import Optional, Union
 from agentsociety.agent import Agent
 from agentsociety.llm import LLM
 from .message_probe import MessageProbe
 
 
-class Sence:
+class Sense:
     """
     Sensing tool for agents to perceive the environment.
     

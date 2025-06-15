@@ -1,20 +1,16 @@
 import asyncio
 import random
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Optional, Tuple
 
-from agentsociety.agent import (Agent, Block, BlockContext, BlockParams,
-                                FormatPrompt)
+from agentsociety.agent import Agent, Block, BlockContext, BlockParams, FormatPrompt
+from agentsociety.agent.toolbox import AgentToolbox
 from agentsociety.environment import Environment
-from agentsociety.llm import LLM
 from agentsociety.logger import get_logger
 from agentsociety.memory import Memory
 from agentsociety.memory.const import RelationType, SocialRelation
-from pydantic import Field
 
 from ..sharing_params import EnvCitizenBlockOutput
-from .utils import TIME_ESTIMATE_PROMPT, clean_json_response
 
 
 class SocialBlockParams(BlockParams): ...
@@ -81,7 +77,7 @@ class SocialBlock(Block):
     def __init__(
         self,
         agent: Agent,
-        llm: LLM,
+        toolbox: AgentToolbox,
         max_visible_followers: int,
         max_private_chats: int,
         chat_probability: float,
@@ -102,8 +98,7 @@ class SocialBlock(Block):
             memory: The memory instance.
         """
         super().__init__(
-            llm=llm,
-            environment=environment,
+            toolbox=toolbox,
             agent_memory=memory,
             block_params=block_params,
         )

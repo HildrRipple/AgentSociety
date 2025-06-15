@@ -1,10 +1,8 @@
 import random
 import time
-from typing import Any, Optional
+from typing import Optional
 
-import json
-from agentsociety.agent import (Agent, AgentToolbox, Block, CitizenAgentBase,
-                                FormatPrompt, StatusAttribute)
+from agentsociety.agent import AgentToolbox, Block, CitizenAgentBase, StatusAttribute
 from agentsociety.logger import get_logger
 from agentsociety.memory import Memory
 from agentsociety.memory.const import RelationType, SocialRelation
@@ -12,8 +10,7 @@ from agentsociety.message import Message
 from agentsociety.survey import Survey
 
 from .blocks import SocialBlock
-from .sharing_params import (EnvCitizenBlockOutput, EnvCitizenConfig,
-                             EnvCitizenContext)
+from .sharing_params import EnvCitizenBlockOutput, EnvCitizenConfig, EnvCitizenContext
 
 
 def extract_json(output_str):
@@ -39,7 +36,7 @@ def extract_json(output_str):
 
         # Convert the JSON string to a dictionary
         return json_str
-    except (ValueError, jsonc.JSONDecodeError) as e:
+    except Exception as e:
         get_logger().warning(f"Failed to extract JSON: {e}")
         return None
 
@@ -327,7 +324,7 @@ class TrackTwoEnvCitizen(CitizenAgentBase):
         )
         self.social_block = SocialBlock(
             agent=self,
-            llm=self.llm,
+            toolbox=toolbox,
             max_visible_followers=self.params.max_visible_followers,
             max_private_chats=self.params.max_private_chats,
             chat_probability=self.params.chat_probability,
@@ -399,7 +396,7 @@ class TrackTwoEnvCitizen(CitizenAgentBase):
 
                 # add social memory
                 description = f"You received a social message: {raw_content}"
-                await self.memory.stream.add_social(description=description)
+                await self.memory.stream.add(topic="social", description=description)
             except Exception as e:
                 get_logger().warning(f"Error in process_agent_chat_response: {str(e)}")
                 return ""
@@ -407,7 +404,7 @@ class TrackTwoEnvCitizen(CitizenAgentBase):
             content = payload["content"]
             # add persuasion memory
             description = f"You received a persuasion message: {content}"
-            await self.memory.stream.add_social(description=description)
+            await self.memory.stream.add(topic="social", description=description)
             await self.social_block._add_intervention_to_history(
                 intervention_type="persuasion_received",
                 details={
