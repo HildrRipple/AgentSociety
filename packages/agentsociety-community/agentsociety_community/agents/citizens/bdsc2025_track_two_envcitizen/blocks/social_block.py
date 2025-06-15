@@ -225,7 +225,8 @@ class SocialBlock(Block):
                 self.history_summary = await self.llm.atext_request(
                     self.summary_prompt.to_dialog(),
                 )
-                await self.agent.memory.stream.add_social(
+                await self.agent.memory.stream.add(
+                    topic="social",
                     description=self.history_summary,
                 )
             self._current_messages.clear()
