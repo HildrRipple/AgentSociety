@@ -168,6 +168,7 @@ class LLMActor:
             http_client=self._http_client,
         )
         for attempt in range(retries):
+            response = None
             try:
                 response = await client.chat.completions.create(
                     model=config.model,
