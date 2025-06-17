@@ -4,24 +4,33 @@ A clear version of the simulation.
 
 import asyncio
 import inspect
-import itertools
 import json
-from multiprocessing import cpu_count
 import os
 import traceback
-import uuid
 from collections import defaultdict
+from copy import deepcopy
 from datetime import datetime, timezone
+from multiprocessing import cpu_count
 from typing import Any, Callable, Literal, Optional, Union, cast
 
-from fastembed import SparseTextEmbedding
 import yaml
+from fastembed import SparseTextEmbedding
 
-from ..agent import Agent, AgentToolbox, MemoryAttribute, SupervisorBase
+from ..agent import (
+    Agent,
+    AgentToolbox,
+    BankAgentBase,
+    CitizenAgentBase,
+    FirmAgentBase,
+    GovernmentAgentBase,
+    MemoryAttribute,
+    NBSAgentBase,
+    SupervisorBase,
+)
 from ..agent.distribution import Distribution, DistributionConfig, DistributionType
 from ..agent.memory_config_generator import (
-    MemoryConfigGenerator,
     MemoryConfig,
+    MemoryConfigGenerator,
     default_memory_config_citizen,
     default_memory_config_supervisor,
 )
@@ -40,9 +49,14 @@ from ..memory import Memory
 from ..message import Message, MessageInterceptor, MessageKind, Messager
 from ..s3 import S3Config
 from ..storage import DatabaseWriter
-from ..storage.type import StorageExpInfo, StorageGlobalPrompt, StoragePendingSurvey
+from ..storage.type import (
+    StorageExpInfo,
+    StorageGlobalPrompt,
+    StoragePendingSurvey,
+    StorageProfile,
+    StorageStatus,
+)
 from ..survey.models import Survey
-from .agentgroup import AgentGroup
 from .type import ExperimentStatus, Logs
 
 __all__ = ["AgentSociety"]
@@ -187,13 +201,13 @@ class AgentSociety:
         )
 
         # typing definition
+        self._llm: Optional[LLM] = None
         self._environment: Optional[EnvironmentStarter] = None
         self._message_interceptor: Optional[MessageInterceptor] = None
         self._database_writer: Optional[DatabaseWriter] = None
-        self._embedding = None  # Initialize as None first
-        self._groups: dict[str, AgentGroup] = {}
-        self._agent_ids: set[int] = set()
-        self._agent_id2group: dict[int, AgentGroup] = {}
+        self._embedding: Optional[SparseTextEmbedding] = None
+        self._agents: list[Agent] = []
+        self._id2agent: dict[int, Agent] = {}
         yaml_config = yaml.dump(
             self._config.model_dump(
                 exclude_defaults=True,
@@ -226,7 +240,7 @@ class AgentSociety:
             updated_at=datetime.now(timezone.utc),
         )
         self._total_steps: int = 0
-        self._messager = None
+        self._messager: Optional[Messager] = None
 
         # simulation context - for information dump
         self.context = {}
@@ -239,7 +253,7 @@ class AgentSociety:
         try:
             # Create a task for embedding initialization
             init_task = asyncio.create_task(self._init_embedding_task())
-            
+
             # Wait for the task with timeout
             try:
                 await asyncio.wait_for(init_task, timeout=120)  # 2 minutes timeout
@@ -249,18 +263,16 @@ class AgentSociety:
                     "Please check your HuggingFace connection and try again."
                 )
                 raise
-            
+
         except Exception as e:
             get_logger().error(f"Failed to initialize embedding model: {str(e)}")
             raise
-            
+
     async def _init_embedding_task(self):
         """Actual embedding initialization task."""
         self._embedding = SparseTextEmbedding(
             "Qdrant/bm25",
-            cache_dir=os.path.join(
-                self._config.env.home_dir, "huggingface_cache"
-            ),
+            cache_dir=os.path.join(self._config.env.home_dir, "huggingface_cache"),
             threads=cpu_count(),
         )
         get_logger().info("Embedding model initialized successfully")
@@ -332,7 +344,7 @@ class AgentSociety:
             get_logger().info("Embedding initialized")
 
             # ======================================
-            # Initialize agent groups
+            # Initialize agents
             # ======================================
             agents = []  # (id, agent_class, generator, memory_index)
             next_id = 1
@@ -658,7 +670,6 @@ class AgentSociety:
                     )
 
             # Supervisor
-            # ATTENTION: will not be initialized in AgentGroup
             assert (
                 len(agent_configs_from_file["supervisor"]) <= 1
             ), "only one or zero supervisor is allowed"
@@ -828,7 +839,6 @@ class AgentSociety:
             get_logger().info(
                 f"agents: len(citizens)={len(citizen_ids)}, len(firms)={len(firm_ids)}, len(banks)={len(bank_ids)}, len(nbs)={len(nbs_ids)}, len(governments)={len(government_ids)}"
             )
-            self._agent_ids = set([agent[0] for agent in agents])
             self._environment.economy_client.set_ids(
                 citizen_ids=citizen_ids,
                 firm_ids=firm_ids,
@@ -836,35 +846,113 @@ class AgentSociety:
                 nbs_ids=nbs_ids,
                 government_ids=government_ids,
             )
-            environment_init = self._environment.to_init_args()
-            group_size = 100000000 # TODO: remove this
-            for i in range(0, len(agents), group_size):
-                group_agents = agents[i : i + group_size]
-                group_id = str(uuid.uuid4())
-                self._groups[group_id] = AgentGroup(
-                    tenant_id=self.tenant_id,  # type:ignore
-                    exp_name=self.name,
-                    exp_id=self.exp_id,
-                    group_id=group_id,
-                    config=self._config,
-                    agent_inits=group_agents,
-                    environment_init=environment_init,
-                    embedding=self._embedding,
-                    database_writer=self._database_writer,
-                )
-                for agent_id, _, _, _, _, _ in group_agents:
-                    self._agent_id2group[agent_id] = self._groups[group_id]
-            get_logger().info(
-                f"groups: len(self._groups)={len(self._groups)}, waiting for groups to init..."
-            )
-            filter_base_tasks = await asyncio.gather(
-                *[group.init() for group in self._groups.values()]  # type:ignore
-            )
-            for group_filter_base in filter_base_tasks:
-                for agent_id, (agent_class, memory_config) in group_filter_base.items():
-                    self._filter_base[agent_id] = (agent_class, memory_config)
 
-            get_logger().info("Agent groups initialized")
+            # ====================================
+            # Initialize the agent objects
+            # ====================================
+            agent_toolbox = AgentToolbox(
+                self.llm,
+                self.environment,
+                self.messager,
+                self._embedding,
+                self._database_writer,
+            )
+            get_logger().info("Initializing the agents...")
+            to_return = {}
+            for agent_init in agents:
+                (
+                    id,
+                    agent_class,
+                    memory_config_generator,
+                    index_for_generator,
+                    agent_params,
+                    blocks,
+                ) = agent_init
+                memory_config = memory_config_generator.generate(index_for_generator)
+                to_return[id] = (agent_class, deepcopy(memory_config))
+
+                # Initialize Memory with the unified config
+                memory_init = Memory(
+                    environment=self.environment,
+                    embedding=self._embedding,
+                    memory_config=memory_config,
+                )
+                # # build blocks
+                if blocks is not None:
+                    blocks = [
+                        block_type(
+                            toolbox=agent_toolbox,
+                            agent_memory=memory_init,
+                            block_params=block_type.ParamsType.model_validate(
+                                block_params
+                            ),
+                        )
+                        for block_type, block_params in blocks.items()
+                    ]
+                else:
+                    blocks = None
+                # build agent
+                agent = agent_class(
+                    id=id,
+                    name=f"{agent_class.__name__}_{id}",
+                    toolbox=agent_toolbox,
+                    memory=memory_init,
+                    agent_params=agent_params,
+                    blocks=blocks,
+                )
+                self._agents.append(agent)
+                self._id2agent[id] = agent
+            get_logger().info("-----Initializing by running agent.init() ...")
+            tasks = []
+            channels = []
+            for agent in self._agents:
+                tasks.append(agent.init())
+                channels.append(f"exps:{self.exp_id}:agents:{agent.id}:*")
+            await asyncio.gather(*tasks)
+            get_logger().info("-----Initializing by exporting profiles ...")
+            profiles = []
+            for agent in self._agents:
+                profile = await agent.status.export(
+                    [
+                        "name",
+                        "gender",
+                        "age",
+                        "education",
+                        "occupation",
+                        "marriage_status",
+                        "persona",
+                        "background_story",
+                    ]
+                )
+                profile["id"] = agent.id
+                profiles.append(
+                    StorageProfile(
+                        id=agent.id,
+                        name=profile.get("name", ""),
+                        profile=json.dumps(
+                            {
+                                k: v
+                                for k, v in profile.items()
+                                if k not in {"id", "name", "social_network"}
+                            },
+                            ensure_ascii=False,
+                        ),
+                    )
+                )
+            if self._database_writer is not None:
+                await self._database_writer.write_profiles(profiles)  # type:ignore
+            get_logger().info("-----Initializing embeddings ...")
+            embedding_tasks = []
+            for agent in self._agents:
+                embedding_tasks.append(agent.memory.initialize_embeddings())
+            await asyncio.gather(*embedding_tasks)
+
+            get_logger().info("Agents initialized")
+
+            for agent_id, (agent_class, memory_config) in to_return.items():
+                self._filter_base[agent_id] = (agent_class, memory_config)
+
+            get_logger().info("Agents initialized")
             # step 1 tick to make the initialization complete
             await self.environment.step(1)
             get_logger().info("run 1 tick to make the initialization complete")
@@ -905,10 +993,10 @@ class AgentSociety:
 
         get_logger().info("Closing agent groups...")
         close_tasks = []
-        for group in self._groups.values():
-            close_tasks.append(group.close())  # type:ignore
+        for agent in self._agents:
+            close_tasks.append(agent.close())  # type:ignore
         await asyncio.gather(*close_tasks)
-        get_logger().info("Agent groups closed")
+        get_logger().info("Agents closed")
 
         if self._environment is not None:
             get_logger().info("Closing environment...")
@@ -923,6 +1011,11 @@ class AgentSociety:
     @property
     def config(self):
         return self._config
+
+    @property
+    def llm(self):
+        assert self._llm is not None, "llm is not initialized"
+        return self._llm
 
     @property
     def enable_database(self):
@@ -977,24 +1070,27 @@ class AgentSociety:
         - **Returns**:
             - Result of the gathering process as returned by each group's `gather` method.
         """
-        gather_tasks = []
-        for group in self._groups.values():
-            gather_tasks.append(
-                group.gather(content, target_agent_ids)  # type:ignore
-            )
-        results = await asyncio.gather(*gather_tasks)
+        results = {}
+        if target_agent_ids is None:
+            target_agent_ids = list(self._id2agent.keys())
+        if content == "stream_memory":
+            for agent in self._agents:
+                if agent.id in target_agent_ids:
+                    results[agent.id] = await agent.stream.get_all()
+        else:
+            for agent in self._agents:
+                if agent.id in target_agent_ids:
+                    results[agent.id] = await agent.status.get(content)
         if flatten:
             if not keep_id:
                 data_flatten = []
-                for group_data in results:
-                    for _, data in group_data.items():
-                        data_flatten.append(data)
+                for _, data in results.items():
+                    data_flatten.append(data)
                 return data_flatten
             else:
                 data_flatten = {}
-                for group_data in results:
-                    for id, data in group_data.items():
-                        data_flatten[id] = data
+                for id, data in results.items():
+                    data_flatten[id] = data
                 return data_flatten
         else:
             return results
@@ -1018,7 +1114,7 @@ class AgentSociety:
             - `List[int]`: A list of filtered agent UUIDs.
         """
         if not types and not filter_str:
-            return list(self._agent_ids)
+            return list(self._id2agent.keys())
 
         # filter by types first
         if types:
@@ -1028,7 +1124,7 @@ class AgentSociety:
                 if any(issubclass(agent_class, t) for t in types)
             ]
         else:
-            filtered_ids = list(self._agent_ids)
+            filtered_ids = list(self._id2agent.keys())
 
         # filter by filter_str
         if filter_str:
@@ -1049,12 +1145,6 @@ class AgentSociety:
             - `value` (str): The new value for the environment variable.
         """
         self.environment.update_environment(key, value)
-        await asyncio.gather(
-            *[
-                group.update_environment(key, value)  # type:ignore
-                for group in self._groups.values()
-            ]
-        )
 
     async def update(
         self,
@@ -1071,10 +1161,13 @@ class AgentSociety:
             - `target_key` (str): The key in the agent's memory to update.
             - `content` (Any): The new content to set for the target key.
         """
+        get_logger().debug(f"-----Updating {target_key} for agent {target_agent_ids}")
         tasks = []
-        for id in target_agent_ids:
-            group = self._agent_id2group[id]
-            tasks.append(group.update(id, target_key, content, query))  # type:ignore
+        for agent_id in target_agent_ids:
+            agent = self._id2agent[agent_id]
+            if query:
+                agent.gather_results[target_key] = content
+            tasks.append(agent.status.update(target_key, content))
         await asyncio.gather(*tasks)
 
     async def economy_update(
@@ -1120,28 +1213,28 @@ class AgentSociety:
         - **Returns**:
             - `dict[int, str]`: A dictionary mapping agent IDs to their survey responses.
         """
-        group_to_agent_ids = defaultdict(list)
+        survey_tasks = []
         for agent_id in agent_ids:
-            if agent_id not in self._agent_id2group:
-                continue
-            group_to_agent_ids[self._agent_id2group[agent_id]].append(agent_id)
-        tasks = []
-        for group, agent_ids in group_to_agent_ids.items():
-            tasks.append(
-                group.handle_survey(
-                    survey,
-                    agent_ids,
-                    survey_day,
-                    survey_t,
-                    is_pending_survey,
-                    pending_survey_id,
-                )  # type:ignore
-            )
-        results = await asyncio.gather(*tasks)
-        all_responses = {}
-        for result in results:
-            all_responses.update(result)
-        return all_responses
+            agent = self._id2agent[agent_id]
+            if isinstance(agent, CitizenAgentBase):
+                survey_tasks.append(
+                    agent._handle_survey_with_storage(
+                        survey,
+                        survey_day,
+                        survey_t,
+                        is_pending_survey,
+                        pending_survey_id,
+                    )
+                )
+            else:
+                get_logger().error(
+                    f"Agent {agent_id} is not a citizen agent, so skip the survey"
+                )
+        survey_responses = await asyncio.gather(*survey_tasks)
+        return {
+            agent_id: response
+            for agent_id, response in zip(agent_ids, survey_responses)
+        }
 
     async def send_interview_message(
         self,
@@ -1158,19 +1251,32 @@ class AgentSociety:
         - **Returns**:
             - None
         """
-        group_to_agent_ids = defaultdict(list)
+        day, t = self.environment.get_datetime()
+        interview_tasks = []
         for agent_id in agent_ids:
-            if agent_id not in self._agent_id2group:
-                continue
-            group_to_agent_ids[self._agent_id2group[agent_id]].append(agent_id)
-        tasks = []
-        for group, agent_ids in group_to_agent_ids.items():
-            tasks.append(group.handle_interview(question, agent_ids))  # type:ignore
-        results = await asyncio.gather(*tasks)
-        all_responses = {}
-        for result in results:
-            all_responses.update(result)
-        return all_responses
+            agent = self._id2agent[agent_id]
+            if isinstance(agent, CitizenAgentBase):
+                interview_tasks.append(
+                    agent._handle_interview_with_storage(
+                        Message(
+                            from_id=None,
+                            to_id=agent_id,
+                            payload={"content": question},
+                            kind=MessageKind.USER_CHAT,
+                            day=day,
+                            t=t,
+                        )
+                    )
+                )
+            else:
+                get_logger().error(
+                    f"Agent {agent_id} is not a citizen agent, so skip the interview"
+                )
+        interview_responses = await asyncio.gather(*interview_tasks)
+        return {
+            agent_id: response
+            for agent_id, response in zip(agent_ids, interview_responses)
+        }
 
     async def send_intervention_message(
         self, intervention_message: str, agent_ids: list[int]
@@ -1185,19 +1291,16 @@ class AgentSociety:
             - `intervention_message` (str): The content of the intervention message to send.
             - `agent_ids` (list[int]): A list of agent IDs to receive the intervention message.
         """
-        group_to_agent_ids = defaultdict(list)
+        react_tasks = []
         for agent_id in agent_ids:
-            if agent_id not in self._agent_id2group:
-                continue
-            group_to_agent_ids[self._agent_id2group[agent_id]].append(agent_id)
-        tasks = []
-        for group, agent_ids in group_to_agent_ids.items():
-            tasks.append(
-                group.react_to_intervention(
-                    intervention_message, agent_ids
-                )  # type:ignore
-            )
-        await asyncio.gather(*tasks)
+            agent = self._id2agent[agent_id]
+            if isinstance(agent, CitizenAgentBase):
+                react_tasks.append(agent.react_to_intervention(intervention_message))
+            else:
+                get_logger().error(
+                    f"Agent {agent_id} is not in the group, so skip the intervention"
+                )
+        await asyncio.gather(*react_tasks)
 
     async def extract_metric(self, metric_extractors: list[MetricExtractorConfig]):
         """
@@ -1301,6 +1404,200 @@ class AgentSociety:
             remote_path=f"exps/{self.tenant_id}/{self.exp_id}/artifacts.json",
         )
 
+    # ====================
+    # Message Handling Methods
+    # ====================
+    async def _message_dispatch(self):
+        """
+        Dispatches messages received via Message to the appropriate agents.
+        """
+        # Step 1: Fetch messages
+        messages = await self.messager.fetch_received_messages()
+        get_logger().info(f"Received {len(messages)} messages")
+
+        try:
+            # Step 2: Distribute messages to corresponding Agents
+            # Separate messages into agent messages and aoi messages
+            agent_messages = defaultdict(list)  # Dict[agent_id, list[Message]]
+            aoi_messages = []  # List[Message]
+
+            for message in messages:
+                if message.kind in [MessageKind.AGENT_CHAT, MessageKind.USER_CHAT]:
+                    agent_id = message.to_id
+                    if agent_id in self._id2agent:
+                        agent_messages[agent_id].append(message)
+                elif message.kind in [
+                    MessageKind.AOI_MESSAGE_REGISTER,
+                    MessageKind.AOI_MESSAGE_CANCEL,
+                ]:
+                    aoi_messages.append(message)
+
+            # Process agent messages in parallel for different agents
+            async def process_agent_messages(agent_id: int, messages: list[Message]):
+                agent = self._id2agent[agent_id]
+                if isinstance(agent, CitizenAgentBase):
+                    for message in messages:
+                        if message.kind == MessageKind.AGENT_CHAT:
+                            await agent._handle_agent_chat_with_storage(message)
+                        elif message.kind == MessageKind.USER_CHAT:
+                            await agent._handle_interview_with_storage(message)
+                else:
+                    get_logger().error(
+                        f"Agent {agent_id} is not a citizen agent, so skip the message dispatch"
+                    )
+
+            # Process agent messages in parallel
+            agent_tasks = [
+                process_agent_messages(agent_id, msgs)
+                for agent_id, msgs in agent_messages.items()
+            ]
+            await asyncio.gather(*agent_tasks)
+
+            # Process aoi messages
+            for message in aoi_messages:
+                agent_id = message.from_id
+                if message.kind == MessageKind.AOI_MESSAGE_REGISTER:
+                    self.environment.register_aoi_message(
+                        agent_id, message.to_id, message.payload["content"]
+                    )
+                elif message.kind == MessageKind.AOI_MESSAGE_CANCEL:
+                    self.environment.cancel_aoi_message(agent_id, message.to_id)
+        except Exception as e:
+            get_logger().error(f"Error dispatching message: {e}")
+            import traceback
+
+            get_logger().error(f"Error dispatching message: {traceback.format_exc()}")
+
+    async def _save(self, day: int, t: int):
+        """
+        Saves the current status of the agents at a given point in the simulation.
+
+        - **Args**:
+            - `day` (int): The day number in the simulation time.
+            - `t` (int): The tick or time unit in the simulation day.
+        """
+        if self._database_writer is None:
+            return
+        created_at = datetime.now(timezone.utc)
+        # =========================
+        # build statuses data
+        # =========================
+        statuses = []
+        for agent in self._agents:
+            if isinstance(agent, CitizenAgentBase):
+                position = await agent.status.get("position")
+                x = position["xy_position"]["x"]
+                y = position["xy_position"]["y"]
+                lng, lat = self.environment.projector(x, y, inverse=True)
+                if "aoi_position" in position:
+                    parent_id = position["aoi_position"]["aoi_id"]
+                elif "lane_position" in position:
+                    parent_id = position["lane_position"]["lane_id"]
+                else:
+                    parent_id = None
+                hunger_satisfaction = await agent.status.get("hunger_satisfaction", 0)
+                energy_satisfaction = await agent.status.get("energy_satisfaction", 0)
+                safety_satisfaction = await agent.status.get("safety_satisfaction", 0)
+                social_satisfaction = await agent.status.get("social_satisfaction", 0)
+                current_need = await agent.status.get("current_need", "None")
+                current_plan = await agent.status.get("current_plan", {})
+                if current_plan is not None and current_plan:
+                    intention = current_plan.get("target", "Other")
+                    step_index = current_plan.get("index", 0)
+                    action = current_plan.get("steps", [])[step_index].get(
+                        "intention", "Planning"
+                    )
+                else:
+                    intention = "Other"
+                    action = "Planning"
+                emotion = await agent.status.get("emotion", {})
+                emotion_types = await agent.status.get("emotion_types", "")
+                sadness = emotion.get("sadness", 0)
+                joy = emotion.get("joy", 0)
+                fear = emotion.get("fear", 0)
+                disgust = emotion.get("disgust", 0)
+                anger = emotion.get("anger", 0)
+                surprise = emotion.get("surprise", 0)
+                friend_ids = await agent.status.get("friends", [])
+                status = StorageStatus(
+                    id=agent.id,
+                    day=day,
+                    t=t,
+                    lng=lng,
+                    lat=lat,
+                    parent_id=parent_id,
+                    friend_ids=friend_ids,
+                    action=action,
+                    status=json.dumps(
+                        {
+                            "hungry": hunger_satisfaction,
+                            "tired": energy_satisfaction,
+                            "safe": safety_satisfaction,
+                            "social": social_satisfaction,
+                            "sadness": sadness,
+                            "joy": joy,
+                            "fear": fear,
+                            "disgust": disgust,
+                            "anger": anger,
+                            "surprise": surprise,
+                            "emotion_types": emotion_types,
+                            "current_need": current_need,
+                            "intention": intention,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    created_at=created_at,
+                )
+                statuses.append(status)
+            elif isinstance(
+                agent, (FirmAgentBase, BankAgentBase, NBSAgentBase, GovernmentAgentBase)
+            ):
+                nominal_gdp = await agent.status.get("nominal_gdp", [])
+                real_gdp = await agent.status.get("real_gdp", [])
+                unemployment = await agent.status.get("unemployment", [])
+                wages = await agent.status.get("wages", [])
+                prices = await agent.status.get("prices", [])
+                inventory = await agent.status.get("inventory", 0)
+                price = await agent.status.get("price", 0.0)
+                interest_rate = await agent.status.get("interest_rate", 0.0)
+                bracket_cutoffs = await agent.status.get("bracket_cutoffs", [])
+                bracket_rates = await agent.status.get("bracket_rates", [])
+                employees = await agent.status.get("employees", [])
+                status = StorageStatus(
+                    id=agent.id,
+                    day=day,
+                    t=t,
+                    lng=None,
+                    lat=None,
+                    parent_id=None,
+                    friend_ids=[],
+                    action="",
+                    status=json.dumps(
+                        {
+                            "nominal_gdp": nominal_gdp,
+                            "real_gdp": real_gdp,
+                            "unemployment": unemployment,
+                            "wages": wages,
+                            "prices": prices,
+                            "inventory": inventory,
+                            "price": price,
+                            "interest_rate": interest_rate,
+                            "bracket_cutoffs": bracket_cutoffs,
+                            "bracket_rates": bracket_rates,
+                            "employees": employees,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    created_at=created_at,
+                )
+                statuses.append(status)
+            else:
+                raise ValueError(f"Unknown agent type: {type(agent)}")
+        if self._database_writer is not None:
+            await self._database_writer.write_statuses(  # type:ignore
+                statuses
+            )
+
     async def delete_agents(self, target_agent_ids: list[int]):
         """
         Delete the specified agents.
@@ -1309,15 +1606,12 @@ class AgentSociety:
             - `target_agent_ids` (list[int]): The IDs of the agents to delete.
         """
         tasks = []
-        groups_to_delete = {}
-        for id in target_agent_ids:
-            group = self._agent_id2group[id]
-            if group not in groups_to_delete:
-                groups_to_delete[group] = []
-            groups_to_delete[group].append(id)
-        for group in groups_to_delete.keys():
-            tasks.append(group.delete_agents(groups_to_delete[group]))  # type:ignore
+        for agent_id in target_agent_ids:
+            agent = self._id2agent[agent_id]
+            tasks.append(agent.close())
         await asyncio.gather(*tasks)
+        for agent_id in target_agent_ids:
+            del self._id2agent[agent_id]
 
     async def next_round(self):
         """
@@ -1325,8 +1619,8 @@ class AgentSociety:
         """
         get_logger().info("Start entering the next round of the simulation")
         tasks = []
-        for group in self._groups.values():
-            tasks.append(group.reset())  # type:ignore
+        for agent in self._agents:
+            tasks.append(agent.reset())  # type:ignore
         await asyncio.gather(*tasks)
         await self.environment.step(1)
         get_logger().info("Finished entering the next round of the simulation")
@@ -1358,16 +1652,28 @@ class AgentSociety:
             get_logger().info(
                 f"Start simulation day {day} at {t}, step {self._total_steps}"
             )
-            tick = self.environment.get_tick()
-            tasks = []
-            for group in self._groups.values():
-                tasks.append(group.step(tick))  # type:ignore
-            all_results = await asyncio.gather(*tasks)
-            logs = []
-            gather_queries = []
-            for result in all_results:
-                logs.append(result[0])
-                gather_queries.append(result[1])
+            await self._message_dispatch()
+            # main agent workflow
+            tasks = [agent.run() for agent in self._agents]
+            agent_time_log = await asyncio.gather(*tasks)
+            simulator_log = (
+                self.environment.get_log_list()
+                + self.environment.economy_client.get_log_list()
+            )
+            log = Logs(
+                llm_log=self.llm.get_log_list(),
+                simulator_log=simulator_log,
+                agent_time_log=agent_time_log,
+            )
+            self.llm.clear_log_list()
+            self.environment.clear_log_list()
+            self.environment.economy_client.clear_log_list()
+
+            # gather query
+            gather_queries = {}
+            for agent in self._agents:
+                if agent.gather_query:
+                    gather_queries[agent.id] = agent.gather_query
 
             get_logger().debug(f"({day}-{t}) Finished agent forward steps")
             # ======================
@@ -1378,8 +1684,7 @@ class AgentSociety:
                 simulator_log=[],
                 agent_time_log=[],
             )
-            for log in logs:
-                all_logs.append(log)
+            all_logs.append(log)
             # ======================
             # save the experiment info
             # ======================
@@ -1403,10 +1708,7 @@ class AgentSociety:
             # ======================
             # save the simulation results
             # ======================
-            save_tasks = []
-            for group in self._groups.values():
-                save_tasks.append(group.save(day, t))  # type:ignore
-            await asyncio.gather(*save_tasks)
+            await self._save(day, t)
             # save global prompt
             await self._save_global_prompt(
                 prompt=self.environment.get_environment(),
@@ -1433,10 +1735,7 @@ class AgentSociety:
             # ======================
             # forward message
             # ======================
-            tasks = []
-            for group in self._groups.values():
-                tasks.append(group.fetch_pending_messages())  # type: ignore
-            all_messages = list(itertools.chain(*await asyncio.gather(*tasks)))
+            all_messages = await self.messager.fetch_pending_messages()
             get_logger().info(
                 f"({day}-{t}) Finished fetching pending messages. {len(all_messages)} messages fetched."
             )
@@ -1467,16 +1766,7 @@ class AgentSociety:
                     )
                 all_messages += user_messages
             # dispatch messages to each agent group based on their to_id
-            group_to_messages = defaultdict(list)
-            for message in all_messages:
-                if message.to_id is not None and message.to_id in self._agent_id2group:
-                    group_actor = self._agent_id2group[message.to_id]
-                    group_to_messages[group_actor].append(message)
-            get_logger().info(f"({day}:{t}) Finished grouping messages.")
-            tasks = []
-            for group_actor, messages in group_to_messages.items():
-                tasks.append(group_actor.set_received_messages(messages))  # type: ignore
-            await asyncio.gather(*tasks)
+            await self.messager.set_received_messages(all_messages)
             get_logger().info(f"({day}-{t}) Finished setting received messages")
             # ======================
             # handle pending surveys
@@ -1655,11 +1945,6 @@ class AgentSociety:
                 else:
                     raise ValueError(f"Unknown workflow type: {step.type}")
                 self._save_context()
-            # Finalize the agents
-            tasks = []
-            for group in self._groups.values():
-                tasks.append(group.close())  # type:ignore
-            await asyncio.gather(*tasks)
 
         except Exception as e:
             get_logger().error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")

@@ -120,7 +120,7 @@ class Messager:
 
     async def fetch_received_messages(self):
         """
-        Fetch messages from the received messages list. (Called by AgentGroup)
+        Fetch messages from the received messages list. (Called by AgentSociety)
         """
         msgs = self._received_messages
         self._received_messages = []
