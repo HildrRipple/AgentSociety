@@ -34,11 +34,11 @@ class MemoryConfig(BaseModel):
     Unified memory configuration structure that replaces the old tuple-based approach.
 
     This class consolidates all memory attributes into a single, clear structure
-    that uses StatusAttribute for consistent definition and handling.
+    that uses MemoryAttribute for consistent definition and handling.
     """
 
     attributes: dict[str, MemoryAttribute]
-    """List of all memory attributes defined using StatusAttribute"""
+    """List of all memory attributes defined using MemoryAttribute"""
 
     @staticmethod
     def from_list(attributes: list[MemoryAttribute]) -> "MemoryConfig":
@@ -46,7 +46,7 @@ class MemoryConfig(BaseModel):
 
 
 def _create_default_citizen_attributes() -> MemoryConfig:
-    """Create default citizen attributes using StatusAttribute"""
+    """Create default citizen attributes using MemoryAttribute"""
     attr_list = [
         # Profile attributes
         MemoryAttribute(
@@ -180,7 +180,7 @@ def _create_default_citizen_attributes() -> MemoryConfig:
 
 
 def _create_default_supervisor_attributes() -> MemoryConfig:
-    """Create default supervisor attributes using StatusAttribute"""
+    """Create default supervisor attributes using MemoryAttribute"""
     attr_list = [
         # TODO: add supervisor attributes
         # Profile attributes (same as citizen for now)
@@ -323,7 +323,7 @@ def default_memory_config_citizen(
 
     - **Args**:
         - `distributions` (dict[str, Distribution]): The distributions to use for sampling values.
-        - `class_config` (Optional[list[StatusAttribute]]): Additional attributes from agent class.
+        - `class_config` (Optional[list[MemoryAttribute]]): Additional attributes from agent class.
 
     - **Returns**:
         - `MemoryConfig`: Unified memory configuration.
@@ -382,7 +382,7 @@ def default_memory_config_supervisor(
 
     - **Args**:
         - `distributions` (dict[str, Distribution]): The distributions to use for sampling values.
-        - `class_config` (Optional[list[StatusAttribute]]): Additional attributes from agent class.
+        - `class_config` (Optional[list[MemoryAttribute]]): Additional attributes from agent class.
 
     - **Returns**:
         - `MemoryConfig`: Unified memory configuration.
@@ -424,7 +424,7 @@ class MemoryConfigGenerator:
 
         - **Args**:
             - `config_func` (Callable): The function to generate the memory configuration.
-            - `class_config` (Optional[list[StatusAttribute]]): Class-specific attributes.
+            - `class_config` (Optional[list[MemoryAttribute]]): Class-specific attributes.
             - `number` (Optional[int]): Number of agents to generate.
             - `file` (Optional[str]): The path to the file containing the memory configuration.
             - `distributions` (dict[str, Distribution]): The distributions to use for the memory configuration.
@@ -574,7 +574,7 @@ def _memory_config_merge(
 
     - **Description**:
         - Takes file data and merges it with the unified memory configuration.
-        - All attributes are now handled uniformly through StatusAttribute.
+        - All attributes are now handled uniformly through MemoryAttribute.
 
     - **Args**:
         - `file_data` (dict): Memory configuration data loaded from file.

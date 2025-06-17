@@ -4,11 +4,13 @@ import logging
 from typing import Any
 
 import json_repair
+from typing import Optional
 
-from agentsociety.agent import CitizenAgentBase
+from agentsociety.agent import CitizenAgentBase, Block
 from agentsociety.agent.agent_base import AgentToolbox
 from agentsociety.agent.prompt import FormatPrompt
 from agentsociety.memory import Memory
+from agentsociety.cityagent.societyagent import SocietyAgentConfig, MemoryAttribute
 
 logger = logging.getLogger(__name__)
 
@@ -44,18 +46,31 @@ What you would say (One or two sentences):
 
 
 class AgreeAgent(CitizenAgentBase):
+    StatusAttributes = [
+        MemoryAttribute(
+            name="friends",
+            type=list,
+            default_or_value=[],
+            description="agent's friends list",
+        ),
+    ]
+
     def __init__(
         self,
         id: int,
         name: str,
         toolbox: AgentToolbox,
         memory: Memory,
+        agent_params: Optional[SocietyAgentConfig] = None,
+        blocks: Optional[list[Block]] = None,
     ) -> None:
         super().__init__(
             id=id,
             name=name,
             toolbox=toolbox,
             memory=memory,
+            agent_params=agent_params,
+            blocks=blocks,
         )
         self.response_prompt = FormatPrompt(AGREE_RESPONSE_PROMPT)
         self.last_time_trigger = None
@@ -116,7 +131,7 @@ class AgreeAgent(CitizenAgentBase):
                 message_data: Any = json_repair.loads(raw_content)
                 content = message_data["content"]
                 propagation_count = message_data.get("propagation_count", 1)
-            except (TypeError, KeyError):
+            except Exception:
                 content = raw_content
                 propagation_count = 1
             if not content:
@@ -143,18 +158,31 @@ class AgreeAgent(CitizenAgentBase):
 
 
 class DisagreeAgent(CitizenAgentBase):
+    StatusAttributes = [
+        MemoryAttribute(
+            name="friends",
+            type=list,
+            default_or_value=[],
+            description="agent's friends list",
+        ),
+    ]
+
     def __init__(
         self,
         id: int,
         name: str,
         toolbox: AgentToolbox,
         memory: Memory,
+        agent_params: Optional[SocietyAgentConfig] = None,
+        blocks: Optional[list[Block]] = None,
     ) -> None:
         super().__init__(
             id=id,
             name=name,
             toolbox=toolbox,
             memory=memory,
+            agent_params=agent_params,
+            blocks=blocks,
         )
         self.response_prompt = FormatPrompt(DISAGREE_RESPONSE_PROMPT)
         self.last_time_trigger = None
@@ -215,7 +243,7 @@ class DisagreeAgent(CitizenAgentBase):
                 message_data: Any = json_repair.loads(raw_content)
                 content = message_data["content"]
                 propagation_count = message_data.get("propagation_count", 1)
-            except (TypeError, KeyError):
+            except Exception:
                 content = raw_content
                 propagation_count = 1
             if not content:
