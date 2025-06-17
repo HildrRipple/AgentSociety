@@ -296,6 +296,7 @@ class LLM:
                 base_url = "https://ark.cn-beijing.volces.com/api/v3/"
             else:
                 raise ValueError(f"Unsupported `provider` {config.provider}!")
+            config.base_url = base_url
 
         self._actors = [LLMActor.remote() for _ in range(num_actors)]
         self._lock = asyncio.Lock()
