@@ -17,7 +17,6 @@ agentsociety.webapi.models.config
 agentsociety.webapi.models._base
 agentsociety.webapi.models.experiment
 agentsociety.webapi.models.survey
-agentsociety.webapi.models.bill
 agentsociety.webapi.models.metric
 agentsociety.webapi.models.agent_profiles
 agentsociety.webapi.models.agent_template
