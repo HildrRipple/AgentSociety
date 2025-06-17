@@ -128,7 +128,7 @@ class LLMActor:
             - Attempts to send a text request up to `retries` times with exponential backoff on failure.
             - Handles different request types and manages token usage statistics.
 
-        - **Parameters**:
+        - **Args**:
             - `config`: LLM configuration.
             - `dialog`: Messages to send as part of the chat completion request.
             - `response_format`: JSON schema for the response. Default is NOT_GIVEN.
@@ -256,6 +256,7 @@ class LLM:
 
         - **Parameters**:
             - `configs`: An instance of `LLMConfig` containing configuration settings for the LLM.
+            - `num_actors` (`int`): Number of actor instances to create for parallel processing. Defaults to min(cpu_count(), 8).
         """
 
         if len(configs) == 0:
@@ -367,7 +368,7 @@ class LLM:
             - Attempts to send a text request up to `retries` times with exponential backoff on failure.
             - Handles different request types and manages token usage statistics.
 
-        - **Parameters**:
+        - **Args**:
             - `dialog`: Messages to send as part of the chat completion request.
             - `response_format`: JSON schema for the response. Default is NOT_GIVEN.
             - `temperature`: Controls randomness in the model's output. Default is 1.

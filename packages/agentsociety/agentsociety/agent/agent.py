@@ -55,6 +55,8 @@ class CitizenAgentBase(Agent):
             - `name` (`str`): The name or identifier of the agent.
             - `toolbox` (`AgentToolbox`): The toolbox of the agent.
             - `memory` (`Memory`): The memory of the agent.
+            - `agent_params` (`Optional[Any]`): Additional parameters for the agent. Defaults to None.
+            - `blocks` (`Optional[list[Block]]`): List of blocks for the agent. Defaults to None.
 
         - **Description**:
             - Initializes the CitizenAgent with the provided parameters and sets up necessary internal states.
@@ -461,9 +463,12 @@ class InstitutionAgentBase(Agent):
         Initialize a new instance of the InstitutionAgent.
 
         - **Args**:
+            - `id` (`int`): The ID of the agent.
             - `name` (`str`): The name or identifier of the agent.
             - `toolbox` (`AgentToolbox`): The toolbox of the agent.
             - `memory` (`Memory`): The memory of the agent.
+            - `agent_params` (`Optional[Any]`): Additional parameters for the agent. Defaults to None.
+            - `blocks` (`Optional[list[Block]]`): List of blocks for the agent. Defaults to None.
 
         - **Description**:
             - Initializes the InstitutionAgent with the provided parameters and sets up necessary internal states.
@@ -624,16 +629,18 @@ class SupervisorBase(Agent):
         blocks: Optional[list[Block]] = None,
     ) -> None:
         """
-        Initialize a new instance of the CitizenAgent.
+        Initialize a new instance of the SupervisorAgent.
 
         - **Args**:
             - `id` (`int`): The ID of the agent.
             - `name` (`str`): The name or identifier of the agent.
             - `toolbox` (`AgentToolbox`): The toolbox of the agent.
             - `memory` (`Memory`): The memory of the agent.
+            - `agent_params` (`Optional[Any]`): Additional parameters for the agent. Defaults to None.
+            - `blocks` (`Optional[list[Block]]`): List of blocks for the agent. Defaults to None.
 
         - **Description**:
-            - Initializes the CitizenAgent with the provided parameters and sets up necessary internal states.
+            - Initializes the SupervisorAgent with the provided parameters and sets up necessary internal states.
         """
         super().__init__(
             id=id,
@@ -667,12 +674,13 @@ class SupervisorBase(Agent):
         """
         Process and validate messages from the current round, performing validation and intervention
 
-        Args:
-            current_round_messages: List of messages for the current round, each element is a tuple of (sender_id, receiver_id, content)
+        - **Args**:
+            - `current_round_messages` (`list[Message]`): List of messages for the current round, each element is a tuple of (sender_id, receiver_id, content).
 
-        Returns:
-            validation_dict: Dictionary of message validation results, key is message tuple, value is whether validation passed
-            persuasion_messages: List of persuasion messages
+        - **Returns**:
+            - `tuple[dict[Message, bool], list[Message]]`: A tuple containing:
+                - `validation_dict`: Dictionary of message validation results, key is message tuple, value is whether validation passed.
+                - `persuasion_messages`: List of persuasion messages.
         """
         raise NotImplementedError(
             "This method `forward` should be implemented by the subclass"

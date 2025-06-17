@@ -512,12 +512,12 @@ class StreamMemory:
         """Search all memory events from today
 
         - **Args**:
-            query: Optional query text, returns all memories of the day if empty
-            topic: Optional memory topic for filtering specific types of memories
-            top_k: Number of most relevant memories to return, defaults to 100
+            - `query` (`str`): Optional query text, returns all memories of the day if empty. Defaults to "".
+            - `topic` (`Optional[str]`): Optional memory topic for filtering specific types of memories. Defaults to None.
+            - `top_k` (`int`): Number of most relevant memories to return. Defaults to 100.
 
         - **Returns**:
-            str: Formatted text of today's memories
+            - `str`: Formatted text of today's memories.
         """
         current_day, _ = self._environment.get_datetime()
         # Use the search method, setting day_range to today
