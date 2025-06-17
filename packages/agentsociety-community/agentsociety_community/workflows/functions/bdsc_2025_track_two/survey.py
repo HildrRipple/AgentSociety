@@ -82,6 +82,8 @@ def extract_survey_scores(responses: list[Any]) -> tuple[list[float], float]:
                 scores.append(float(answer["score"]))
             elif isinstance(answer, str):
                 scores.append(float(answer))
+            elif isinstance(answer, (float, int)):
+                scores.append(float(answer))
             else:
                 raise ValueError(f"Invalid answer type: {type(answer)}")
         except Exception:
