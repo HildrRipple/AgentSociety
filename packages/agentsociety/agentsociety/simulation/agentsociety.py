@@ -17,10 +17,11 @@ from typing import Any, Callable, Literal, Optional, Union, cast
 from fastembed import SparseTextEmbedding
 import yaml
 
-from ..agent import Agent, AgentToolbox, StatusAttribute, SupervisorBase
+from ..agent import Agent, AgentToolbox, MemoryAttribute, SupervisorBase
 from ..agent.distribution import Distribution, DistributionConfig, DistributionType
 from ..agent.memory_config_generator import (
     MemoryConfigGenerator,
+    MemoryConfig,
     default_memory_config_citizen,
     default_memory_config_supervisor,
 )
@@ -88,8 +89,8 @@ def _init_agent_class(agent_config: AgentConfig, s3config: S3Config):
     # memory config function
     memory_config_func = cast(
         Callable[
-            [dict[str, Distribution], Optional[list[StatusAttribute]]],
-            tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
+            [dict[str, Distribution], Optional[list[MemoryAttribute]]],
+            MemoryConfig,
         ],
         agent_config.memory_config_func,
     )
@@ -692,16 +693,11 @@ class AgentSociety:
                     ), f"id {agent_id} is already defined"
                     defined_ids.add(agent_id)
                     supervisor_ids.add(agent_id)
-                    memory_dict = generator.generate(i=0)
-                    extra_attributes = memory_dict.get("extra_attributes", {})
-                    profile = memory_dict.get("profile", {})
-                    base = memory_dict.get("base", {})
+                    memory_config = generator.generate(i=0)
                     memory_init = Memory(
                         environment=self.environment,
                         embedding=self._embedding,
-                        config=extra_attributes,
-                        profile=profile,
-                        base=base,
+                        memory_config=memory_config,
                     )
                     # build blocks
                     if agent_config.blocks is not None:
@@ -865,8 +861,8 @@ class AgentSociety:
                 *[group.init() for group in self._groups.values()]  # type:ignore
             )
             for group_filter_base in filter_base_tasks:
-                for agent_id, (agent_class, profile) in group_filter_base.items():
-                    self._filter_base[agent_id] = (agent_class, profile)
+                for agent_id, (agent_class, memory_config) in group_filter_base.items():
+                    self._filter_base[agent_id] = (agent_class, memory_config)
 
             get_logger().info("Agent groups initialized")
             # step 1 tick to make the initialization complete

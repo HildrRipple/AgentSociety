@@ -381,7 +381,7 @@ class EconomyClient:
             orig_value = original_dict[key]
             _orig_type = type(orig_value)
             _new_type = type(value)
-        except:
+        except Exception:
             type_ = type(value)
             _orig_type = type_
             _new_type = type_

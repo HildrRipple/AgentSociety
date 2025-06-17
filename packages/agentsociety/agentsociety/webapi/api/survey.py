@@ -1,4 +1,3 @@
-import select
 import uuid
 from typing import Any, Dict, List, cast
 

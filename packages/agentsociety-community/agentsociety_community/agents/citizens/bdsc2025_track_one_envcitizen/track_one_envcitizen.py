@@ -6,7 +6,7 @@ import json_repair
 from typing import Optional
 
 from pydantic import Field
-from agentsociety.agent import AgentToolbox, Block, CitizenAgentBase, AgentParams, FormatPrompt, AgentContext, DotDict, StatusAttribute
+from agentsociety.agent import AgentToolbox, Block, CitizenAgentBase, AgentParams, FormatPrompt, AgentContext, DotDict, MemoryAttribute
 from agentsociety.logger import get_logger
 from agentsociety.memory import Memory
 from agentsociety.survey import Survey
@@ -73,59 +73,59 @@ class TrackOneEnvCitizen(CitizenAgentBase):
     ParamsType = EnvSocialAgentConfig
     Context = AgentContext
     StatusAttributes = [
-        StatusAttribute(name="type",type=str,default="citizen",description="agent's type"),
-        StatusAttribute(name="environmental_attitude",type=str,default="",description="agent's attitude towards the environmental protection"),
-        StatusAttribute(name="survey_result",type=str,default="",description="agent's survey result"),
+        MemoryAttribute(name="type",type=str,default_or_value="citizen",description="agent's type"),
+        MemoryAttribute(name="environmental_attitude",type=str,default_or_value="",description="agent's attitude towards the environmental protection"),
+        MemoryAttribute(name="survey_result",type=str,default_or_value="",description="agent's survey result"),
         # Needs Model
-        StatusAttribute(name="hunger_satisfaction",type=float,default=0.9,description="agent's hunger satisfaction, 0-1"),
-        StatusAttribute(name="energy_satisfaction",type=float,default=0.9,description="agent's energy satisfaction, 0-1"),
-        StatusAttribute(name="safety_satisfaction",type=float,default=0.4,description="agent's safety satisfaction, 0-1"),
-        StatusAttribute(name="social_satisfaction",type=float,default=0.6,description="agent's social satisfaction, 0-1"),
-        StatusAttribute(name="current_need",type=str,default="none",description="agent's current need"),
+        MemoryAttribute(name="hunger_satisfaction",type=float,default_or_value=0.9,description="agent's hunger satisfaction, 0-1"),
+        MemoryAttribute(name="energy_satisfaction",type=float,default_or_value=0.9,description="agent's energy satisfaction, 0-1"),
+        MemoryAttribute(name="safety_satisfaction",type=float,default_or_value=0.4,description="agent's safety satisfaction, 0-1"),
+        MemoryAttribute(name="social_satisfaction",type=float,default_or_value=0.6,description="agent's social satisfaction, 0-1"),
+        MemoryAttribute(name="current_need",type=str,default_or_value="none",description="agent's current need"),
         # Plan Behavior Model
-        StatusAttribute(name="current_plan",type=dict,default={},description="agent's current plan"),
-        StatusAttribute(name="execution_context",type=dict,default={},description="agent's execution context"),
-        StatusAttribute(name="plan_history",type=list,default=[],description="agent's plan history"),
+        MemoryAttribute(name="current_plan",type=dict,default_or_value={},description="agent's current plan"),
+        MemoryAttribute(name="execution_context",type=dict,default_or_value={},description="agent's execution context"),
+        MemoryAttribute(name="plan_history",type=list,default_or_value=[],description="agent's plan history"),
         # cognition
-        StatusAttribute(name="emotion",type=dict,default={"sadness": 5, "joy": 5, "fear": 5, "disgust": 5, "anger": 5, "surprise": 5},description="agent's emotion, 0-10"),
-        StatusAttribute(name="attitude",type=dict,default={},description="agent's attitude"),
-        StatusAttribute(name="thought",type=str,default="Currently nothing good or bad is happening",description="agent's thought",whether_embedding=True),
-        StatusAttribute(name="emotion_types",type=str,default="Relief",description="agent's emotion types",whether_embedding=True),
+        MemoryAttribute(name="emotion",type=dict,default_or_value={"sadness": 5, "joy": 5, "fear": 5, "disgust": 5, "anger": 5, "surprise": 5},description="agent's emotion, 0-10"),
+        MemoryAttribute(name="attitude",type=dict,default_or_value={},description="agent's attitude"),
+        MemoryAttribute(name="thought",type=str,default_or_value="Currently nothing good or bad is happening",description="agent's thought",whether_embedding=True),
+        MemoryAttribute(name="emotion_types",type=str,default_or_value="Relief",description="agent's emotion types",whether_embedding=True),
         # economy
-        StatusAttribute(name="work_skill",type=float,default=0.5,description="agent's work skill, 0-1"),
-        StatusAttribute(name="tax_paid",type=float,default=0.0,description="agent's tax paid"),
-        StatusAttribute(name="consumption_currency",type=float,default=0.0,description="agent's consumption currency"),
-        StatusAttribute(name="goods_demand",type=int,default=0,description="agent's goods demand"),
-        StatusAttribute(name="goods_consumption",type=int,default=0,description="agent's goods consumption"),
-        StatusAttribute(name="work_propensity",type=float,default=0.0,description="agent's work propensity, 0-1"),
-        StatusAttribute(name="consumption_propensity",type=float,default=0.0,description="agent's consumption propensity, 0-1"),
-        StatusAttribute(name="to_consumption_currency",type=float,default=0.0,description="agent's to consumption currency"),
+        MemoryAttribute(name="work_skill",type=float,default_or_value=0.5,description="agent's work skill, 0-1"),
+        MemoryAttribute(name="tax_paid",type=float,default_or_value=0.0,description="agent's tax paid"),
+        MemoryAttribute(name="consumption_currency",type=float,default_or_value=0.0,description="agent's consumption currency"),
+        MemoryAttribute(name="goods_demand",type=int,default_or_value=0,description="agent's goods demand"),
+        MemoryAttribute(name="goods_consumption",type=int,default_or_value=0,description="agent's goods consumption"),
+        MemoryAttribute(name="work_propensity",type=float,default_or_value=0.0,description="agent's work propensity, 0-1"),
+        MemoryAttribute(name="consumption_propensity",type=float,default_or_value=0.0,description="agent's consumption propensity, 0-1"),
+        MemoryAttribute(name="to_consumption_currency",type=float,default_or_value=0.0,description="agent's to consumption currency"),
         # other
-        StatusAttribute(name="firm_id",type=int,default=0,description="agent's firm id"),
-        StatusAttribute(name="government_id",type=int,default=0,description="agent's government id"),
-        StatusAttribute(name="bank_id",type=int,default=0,description="agent's bank id"),
-        StatusAttribute(name="nbs_id",type=int,default=0,description="agent's nbs id"),
-        StatusAttribute(name="firm_forward",type=int,default=0,description="agent's firm forward"),
-        StatusAttribute(name="bank_forward",type=int,default=0,description="agent's bank forward"),
-        StatusAttribute(name="nbs_forward",type=int,default=0,description="agent's nbs forward"),
-        StatusAttribute(name="government_forward",type=int,default=0,description="agent's government forward"),
-        StatusAttribute(name="forward",type=int,default=0,description="agent's forward"),
-        StatusAttribute(name="depression",type=float,default=0.0,description="agent's depression, 0-1"),
-        StatusAttribute(name="ubi_opinion",type=list,default=[],description="agent's ubi opinion"),
-        StatusAttribute(name="working_experience",type=list,default=[],description="agent's working experience"),
-        StatusAttribute(name="work_hour_month",type=float,default=160,description="agent's work hour per month"),
-        StatusAttribute(name="work_hour_finish",type=float,default=0,description="agent's work hour finished"),
+        MemoryAttribute(name="firm_id",type=int,default_or_value=0,description="agent's firm id"),
+        MemoryAttribute(name="government_id",type=int,default_or_value=0,description="agent's government id"),
+        MemoryAttribute(name="bank_id",type=int,default_or_value=0,description="agent's bank id"),
+        MemoryAttribute(name="nbs_id",type=int,default_or_value=0,description="agent's nbs id"),
+        MemoryAttribute(name="firm_forward",type=int,default_or_value=0,description="agent's firm forward"),
+        MemoryAttribute(name="bank_forward",type=int,default_or_value=0,description="agent's bank forward"),
+        MemoryAttribute(name="nbs_forward",type=int,default_or_value=0,description="agent's nbs forward"),
+        MemoryAttribute(name="government_forward",type=int,default_or_value=0,description="agent's government forward"),
+        MemoryAttribute(name="forward",type=int,default_or_value=0,description="agent's forward"),
+        MemoryAttribute(name="depression",type=float,default_or_value=0.0,description="agent's depression, 0-1"),
+        MemoryAttribute(name="ubi_opinion",type=list,default_or_value=[],description="agent's ubi opinion"),
+        MemoryAttribute(name="working_experience",type=list,default_or_value=[],description="agent's working experience"),
+        MemoryAttribute(name="work_hour_month",type=float,default_or_value=160,description="agent's work hour per month"),
+        MemoryAttribute(name="work_hour_finish",type=float,default_or_value=0,description="agent's work hour finished"),
         # social
-        StatusAttribute(name="friends",type=list,default=[],description="agent's friends list"),
-        StatusAttribute(name="relationships",type=dict,default={},description="agent's relationship strength with each friend"),
-        StatusAttribute(name="relation_types",type=dict,default={},description="agent's relation types with each friend"),
-        StatusAttribute(name="chat_histories",type=dict,default={},description="all chat histories"),
-        StatusAttribute(name="interactions",type=dict,default={},description="all interaction records"),
+        MemoryAttribute(name="friends",type=list,default_or_value=[],description="agent's friends list"),
+        MemoryAttribute(name="relationships",type=dict,default_or_value={},description="agent's relationship strength with each friend"),
+        MemoryAttribute(name="relation_types",type=dict,default_or_value={},description="agent's relation types with each friend"),
+        MemoryAttribute(name="chat_histories",type=dict,default_or_value={},description="all chat histories"),
+        MemoryAttribute(name="interactions",type=dict,default_or_value={},description="all interaction records"),
         # mobility
-        StatusAttribute(name="number_poi_visited",type=int,default=1,description="agent's number of poi visited"),
-        StatusAttribute(name="transportation_log",type=list,default=[],description="agent's transportation log"),
-        StatusAttribute(name="logging_flag",type=bool,default=False,description="agent's logging flag"),
-        StatusAttribute(name="location_knowledge",type=dict,default={},description="agent's location knowledge"),
+        MemoryAttribute(name="number_poi_visited",type=int,default_or_value=1,description="agent's number of poi visited"),
+        MemoryAttribute(name="transportation_log",type=list,default_or_value=[],description="agent's transportation log"),
+        MemoryAttribute(name="logging_flag",type=bool,default_or_value=False,description="agent's logging flag"),
+        MemoryAttribute(name="location_knowledge",type=dict,default_or_value={},description="agent's location knowledge"),
     ]
     description: str = """The citizen agent used in the BDSC2025 competition - Track One"""
 

@@ -3,7 +3,7 @@ from collections import deque
 
 import numpy as np
 from typing import Any, Optional
-from agentsociety.agent.memory_config_generator import Distribution, MemoryT, StatusAttribute
+from agentsociety.agent.memory_config_generator import Distribution, MemoryAttribute, MemoryConfig
 
 pareto_param = 8
 payment_max_skill_multiplier_base = 950
@@ -16,7 +16,7 @@ agent_skills = list(sorted_clipped_skills.mean(axis=0))
 
 def memory_config_societyagent_hurrican(
     distributions: dict[str, Distribution],
-    class_config: Optional[list[StatusAttribute]] = None,
+    class_config: Optional[list[MemoryAttribute]] = None,
 ) -> tuple[dict[str, MemoryT], dict[str, MemoryT], dict[str, Any]]:
     EXTRA_ATTRIBUTES = {
         "type": (str, "citizen"),

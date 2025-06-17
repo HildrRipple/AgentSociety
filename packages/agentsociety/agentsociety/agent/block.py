@@ -6,6 +6,7 @@ from ..environment import Environment
 from ..llm import LLM
 from ..memory import KVMemory, Memory
 from .context import BlockContext, DotDict, auto_deepcopy_dotdict, context_to_dot_dict
+from .memory_config_generator import MemoryConfig
 from .toolbox import AgentToolbox
 
 TRIGGER_INTERVAL = 1
@@ -18,6 +19,7 @@ __all__ = [
 
 
 class BlockParams(BaseModel):
+    # TODO: unused
     block_memory: Optional[dict[str, Any]] = None
 
 
@@ -66,13 +68,12 @@ class Block:
         self.params = block_params
         for key, value in self.params.model_dump().items():
             if key == "block_memory":
-                self._block_memory = KVMemory(
-                    value,
-                    embedding=self._toolbox.embedding,
-                    should_embed_fields=set(),
-                    semantic_templates={},
-                    key2topic={},
-                )
+                # TODO: remove this after we have a better way to handle block memory
+                if isinstance(value, MemoryConfig):
+                    self._block_memory = KVMemory(
+                        value,
+                        embedding=self._toolbox.embedding,
+                    )
             else:
                 setattr(self, key, value)
 

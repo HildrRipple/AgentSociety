@@ -14,7 +14,7 @@ from ..storage import StorageDialog, StorageDialogType
 from .block import Block, BlockOutput
 from .context import AgentContext, context_to_dot_dict
 from .dispatcher import BlockDispatcher
-from .memory_config_generator import StatusAttribute
+from .memory_config_generator import MemoryAttribute
 from .toolbox import AgentToolbox
 
 __all__ = [
@@ -81,7 +81,7 @@ def extract_json(output_str):
 
         # Convert the JSON string to a dictionary
         return json_str
-    except (ValueError) as e:
+    except ValueError as e:
         get_logger().warning(f"Failed to extract JSON: {e}")
         return None
 
@@ -96,7 +96,7 @@ class Agent(ABC):
         AgentContext  # Agent Context for information retrieval
     )
     BlockOutputType: type[BlockOutput] = BlockOutput  # Block output
-    StatusAttributes: list[StatusAttribute] = []  # Memory configuration
+    StatusAttributes: list[MemoryAttribute] = []  # Memory configuration
     description: str = ""  # Agent description: How this agent works
 
     def __init__(
@@ -174,9 +174,7 @@ class Agent(ABC):
                 cls.get_functions[info["function_name"]] = info
 
     async def init(self):
-        await self._memory.status.update(
-            "id", self._id, protect_llm_read_only_fields=False
-        )
+        await self._memory.status.update("id", self._id)
 
     def __getstate__(self):
         state = self.__dict__.copy()

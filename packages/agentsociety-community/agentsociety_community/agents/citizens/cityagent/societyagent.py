@@ -11,7 +11,7 @@ from agentsociety.agent import (
     Block,
     CitizenAgentBase,
     FormatPrompt,
-    StatusAttribute,
+    MemoryAttribute,
 )
 from agentsociety.logger import get_logger
 from agentsociety.memory import Memory
@@ -44,41 +44,41 @@ class SocietyAgent(CitizenAgentBase):
     Context = SocietyAgentContext
     StatusAttributes = [
         # Needs Model
-        StatusAttribute(
+        MemoryAttribute(
             name="hunger_satisfaction",
             type=float,
-            default=0.9,
+            default_or_value=0.9,
             description="agent's hunger satisfaction, 0-1",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="energy_satisfaction",
             type=float,
-            default=0.9,
+            default_or_value=0.9,
             description="agent's energy satisfaction, 0-1",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="safety_satisfaction",
             type=float,
-            default=0.4,
+            default_or_value=0.4,
             description="agent's safety satisfaction, 0-1",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="social_satisfaction",
             type=float,
-            default=0.6,
+            default_or_value=0.6,
             description="agent's social satisfaction, 0-1",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="current_need",
             type=str,
-            default="none",
+            default_or_value="none",
             description="agent's current need",
         ),
         # cognition
-        StatusAttribute(
+        MemoryAttribute(
             name="emotion",
             type=dict,
-            default={
+            default_or_value={
                 "sadness": 5,
                 "joy": 5,
                 "fear": 5,
@@ -88,92 +88,92 @@ class SocietyAgent(CitizenAgentBase):
             },
             description="agent's emotion, 0-10",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="thought",
             type=str,
-            default="Currently nothing good or bad is happening",
+            default_or_value="Currently nothing good or bad is happening",
             description="agent's thought",
             whether_embedding=True,
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="emotion_types",
             type=str,
-            default="Relief",
+            default_or_value="Relief",
             description="agent's emotion types",
             whether_embedding=True,
         ),
-        StatusAttribute(
-            name="firm_id", type=int, default=0, description="agent's firm id"
+        MemoryAttribute(
+            name="firm_id", type=int, default_or_value=0, description="agent's firm id"
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="government_id",
             type=int,
-            default=0,
+            default_or_value=0,
             description="agent's government id",
         ),
-        StatusAttribute(
-            name="bank_id", type=int, default=0, description="agent's bank id"
+        MemoryAttribute(
+            name="bank_id", type=int, default_or_value=0, description="agent's bank id"
         ),
-        StatusAttribute(
-            name="nbs_id", type=int, default=0, description="agent's nbs id"
+        MemoryAttribute(
+            name="nbs_id", type=int, default_or_value=0, description="agent's nbs id"
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="depression",
             type=float,
-            default=0.0,
+            default_or_value=0.0,
             description="agent's depression, 0-1",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="working_experience",
             type=list,
-            default=[],
+            default_or_value=[],
             description="agent's working experience",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="work_hour_month",
             type=float,
-            default=160,
+            default_or_value=160,
             description="agent's work hour per month",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="work_hour_finish",
             type=float,
-            default=0,
+            default_or_value=0,
             description="agent's work hour finished",
         ),
         # social
-        StatusAttribute(
-            name="friends", type=list, default=[], description="agent's friends list"
+        MemoryAttribute(
+            name="friends", type=list, default_or_value=[], description="agent's friends list"
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="relationships",
             type=dict,
-            default={},
+            default_or_value={},
             description="agent's relationship strength with each friend",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="relation_types",
             type=dict,
-            default={},
+            default_or_value={},
             description="agent's relation types with each friend",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="chat_histories",
             type=dict,
-            default={},
+            default_or_value={},
             description="all chat histories",
         ),
-        StatusAttribute(
+        MemoryAttribute(
             name="interactions",
             type=dict,
-            default={},
+            default_or_value={},
             description="all interaction records",
         ),
         # mobility
-        StatusAttribute(
+        MemoryAttribute(
             name="number_poi_visited",
             type=int,
-            default=1,
+            default_or_value=1,
             description="agent's number of poi visited",
         ),
     ]

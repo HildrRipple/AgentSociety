@@ -30,12 +30,12 @@ ray.init(logging_level=logging.INFO)
 config = Config(
     llm=[
         LLMConfig(
-            provider=LLMProviderType.VLLM,
-            base_url="https://cloud.infini-ai.com/maas/v1",
-            api_key="sk-acu5ev2rhrtidz6y",
-            model="qwen2.5-14b-instruct",
+            provider=LLMProviderType.Qwen,
+            base_url=None,
+            api_key="<YOUR-API-KEY>",
+            model="<YOUR-MODEL>",
             concurrency=200,
-            timeout=30,
+            timeout=60,
         )
     ],
     env=EnvConfig(
@@ -46,7 +46,7 @@ config = Config(
         ),
     ),
     map=MapConfig(
-        file_path="/root/agentsociety/test/beijing.pb",
+        file_path="<MAP-FILE-PATH>",
     ),
     agents=AgentsConfig(
         citizens=[

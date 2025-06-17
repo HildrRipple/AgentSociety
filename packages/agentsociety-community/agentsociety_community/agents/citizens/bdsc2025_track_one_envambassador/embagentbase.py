@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from agentsociety.agent import CitizenAgentBase, AgentToolbox, Block, AgentParams, StatusAttribute
+from agentsociety.agent import CitizenAgentBase, AgentToolbox, Block, AgentParams, MemoryAttribute
 from agentsociety.message import Message, MessageKind
 from agentsociety.memory import Memory
 
@@ -27,19 +27,19 @@ class EnvAgentBase(CitizenAgentBase):
     """
     ParamsType = EnvAgentBaseConfig
     StatusAttributes = [
-        StatusAttribute(name="citizens",type=dict,default={},description="citizens' profile"),
-        StatusAttribute(name="citizen_ids",type=list,default=[],description="citizens' ids"),
-        StatusAttribute(
+        MemoryAttribute(name="citizens",type=dict,default_or_value={},description="citizens' profile"),
+        MemoryAttribute(name="citizen_ids",type=list,default_or_value=[],description="citizens' ids"),
+        MemoryAttribute(
             name="probe_logs",
             type=dict,
-            default={
+            default_or_value={
                 "message": [],
                 "poster": [],
                 "announcement": []
             },
             description="probe logs"
         ),
-        StatusAttribute(name="chat_histories",type=dict,default={},description="all chat histories"),
+        MemoryAttribute(name="chat_histories",type=dict,default_or_value={},description="all chat histories"),
     ]
     
     def __init__(

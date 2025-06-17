@@ -23,12 +23,12 @@ from .context import (
     context_to_dot_dict,
     auto_deepcopy_dotdict,
 )
-from .memory_config_generator import StatusAttribute
+from .memory_config_generator import MemoryAttribute
 
 __all__ = [
     "Agent",
     "AgentParams",
-    "StatusAttribute",
+    "MemoryAttribute",
     "CitizenAgentBase",
     "SupervisorBase",
     "AgentType",

@@ -8,10 +8,9 @@ from fastembed import SparseTextEmbedding
 
 from ..environment import Environment
 from ..logger import get_logger
-from ..memory.const import SocialRelation
 from ..utils.decorators import lock_decorator
 from ..vectorstore import VectorStore
-from .const import STATE_ATTRIBUTES, PROFILE_ATTRIBUTES
+from ..agent.memory_config_generator import MemoryConfig
 
 __all__ = [
     "KVMemory",
@@ -23,33 +22,29 @@ __all__ = [
 class KVMemory:
     def __init__(
         self,
-        init_data: dict[str, Any],
+        memory_config: MemoryConfig,
         embedding: SparseTextEmbedding,
-        should_embed_fields: set[str],
-        semantic_templates: dict[str, str],
-        key2topic: dict[str, str],
     ):
         """
-        Initialize the StatusMemory with three types of memory.
+        Initialize the KVMemory with a unified memory configuration.
 
         - **Args**:
-            - `init_data` (dict[str, Any]): The initial data to initialize the memory.
+            - `memory_config` (MemoryConfig): The unified memory configuration.
             - `embedding` (SparseTextEmbedding): The embedding object.
-            - `should_embed_fields` (set[str]): The fields that require embedding.
-            - `semantic_templates` (dict[str, str]): The semantic templates for generating embedding text.
-            - `key2topic` (dict[str, str]): The mapping of key to topic.
         """
-        self._data = init_data
+        self._memory_config = memory_config
+        self._data = {}
         self._vectorstore = VectorStore(embedding)
-        self._semantic_templates = semantic_templates
-        self._should_embed_fields = should_embed_fields
-        self._key2topic = key2topic
         self._key_to_doc_id = {}
         self._lock = asyncio.Lock()
 
+        # Initialize from memory config
+        for attr in memory_config.attributes.values():
+            # Add to init_data
+            self._data[attr.name] = deepcopy(attr.default_or_value)
+
     async def initialize_embeddings(self) -> None:
         """Initialize embeddings for all fields that require them."""
-
         # Create embeddings for each field that requires it
         documents = []
         keys = []
@@ -77,8 +72,10 @@ class KVMemory:
         """
         Generate semantic text for a given key and value.
         """
-        if key in self._semantic_templates:
-            return self._semantic_templates[key].format(value)
+        if key in self._memory_config.attributes:
+            config = self._memory_config.attributes[key]
+            if config.embedding_template:
+                return config.embedding_template.format(value)
         return f"My {key} is {value}"
 
     @lock_decorator
@@ -114,7 +111,10 @@ class KVMemory:
         return "\n".join(formatted_results)
 
     def should_embed(self, key: str) -> bool:
-        return key in self._should_embed_fields
+        return (
+            key in self._memory_config.attributes
+            and self._memory_config.attributes[key].whether_embedding
+        )
 
     @lock_decorator
     async def get(
@@ -133,10 +133,8 @@ class KVMemory:
             - `Any`: The retrieved value or the default value if the key is not found.
 
         - **Raises**:
-            - `ValueError`: If an invalid mode is provided.
             - `KeyError`: If the key is not found in any of the memory sections and no default value is provided.
         """
-
         if key in self._data:
             return deepcopy(self._data[key])
         else:
@@ -151,7 +149,6 @@ class KVMemory:
         key: Any,
         value: Any,
         mode: Union[Literal["replace"], Literal["merge"]] = "replace",
-        protect_llm_read_only_fields: bool = True,
     ) -> None:
         """
         Update a value in the memory and refresh embeddings if necessary.
@@ -160,18 +157,11 @@ class KVMemory:
             - `key` (Any): The key to update.
             - `value` (Any): The new value to set.
             - `mode` (Union[Literal["replace"], Literal["merge"]], optional): Update mode. Defaults to "replace".
-            - `protect_llm_read_only_fields` (bool, optional): Whether to protect certain fields from being updated. Defaults to True.
 
         - **Raises**:
             - `ValueError`: If an invalid update mode is provided.
             - `KeyError`: If the key is not found in any of the memory sections.
         """
-        # Check if the key is in protected fields
-        if protect_llm_read_only_fields:
-            if any(key in _attrs for _attrs in [STATE_ATTRIBUTES]):
-                get_logger().warning(f"Trying to write protected key `{key}`!")
-                return
-
         # If key doesn't exist, add it directly
         if key not in self._data:
             self._data[key] = value
@@ -255,15 +245,16 @@ class KVMemory:
             raise ValueError(f"Invalid update mode `{mode}`!")
 
     @lock_decorator
-    async def export_topic(self, topic: str) -> dict[str, Any]:
+    async def export(self, keys: list[str]) -> dict[str, Any]:
         """
-        Export the memory of a given topic.
+        Export the memory of a given keys.
         """
         result = {}
-        keys = [k for k, t in self._key2topic.items() if t == topic]
         for k in keys:
-            result[k] = deepcopy(self._data[k])
+            if k in self._data:
+                result[k] = deepcopy(self._data[k])
         return result
+
 
 @dataclass
 class MemoryNode:
@@ -271,7 +262,7 @@ class MemoryNode:
     A data class representing a memory node.
 
     - **Attributes**:
-        - `tag`: The tag associated with the memory node.
+        - `topic`: The topic associated with the memory node.
         - `day`: Day of the event or memory.
         - `t`: Time stamp or order.
         - `location`: Location where the event occurred.
@@ -297,9 +288,8 @@ class StreamMemory:
         - `_memories`: A deque to store memory nodes with a maximum length limit.
         - `_memory_id_counter`: An internal counter to generate unique IDs for each new memory node.
         - `_vectorstore`: The Faiss query object for search functionality.
-        - `_agent_id`: Identifier for the agent owning these memories.
         - `_status_memory`: The status memory object.
-        - `_simulator`: The simulator object.
+        - `_environment`: The environment object.
     """
 
     def __init__(
@@ -314,7 +304,8 @@ class StreamMemory:
 
         - **Args**:
             - `environment` (Environment): The environment object.
-            - `vectorstore` (VectorStore): The Faiss query object.
+            - `status_memory` (KVMemory): The status memory object.
+            - `embedding` (SparseTextEmbedding): The embedding object.
             - `max_len` (int): Maximum length of the deque. Default is 1000.
         """
         self._memories: deque = deque(maxlen=max_len)  # Limit the maximum storage
@@ -328,7 +319,7 @@ class StreamMemory:
         A generic method for adding a memory node and returning the memory node ID.
 
         - **Args**:
-            - `tag` (MemoryTag): The tag associated with the memory node.
+            - `topic` (str): The topic associated with the memory node.
             - `description` (str): Description of the memory.
 
         - **Returns**:
@@ -444,7 +435,7 @@ class StreamMemory:
 
         - **Args**:
             - `query` (str): The text to use for searching.
-            - `tag` (Optional[MemoryTag], optional): Filter memories by this tag. Defaults to None.
+            - `topic` (Optional[str], optional): Filter memories by this topic. Defaults to None.
             - `top_k` (int, optional): Number of top relevant memories to return. Defaults to 3.
             - `day_range` (Optional[tuple[int, int]], optional): Tuple of start and end days for filtering. Defaults to None.
             - `time_range` (Optional[tuple[int, int]], optional): Tuple of start and end times for filtering. Defaults to None.
@@ -522,7 +513,7 @@ class StreamMemory:
 
         - **Args**:
             query: Optional query text, returns all memories of the day if empty
-            tag: Optional memory tag for filtering specific types of memories
+            topic: Optional memory topic for filtering specific types of memories
             top_k: Number of most relevant memories to return, defaults to 100
 
         - **Returns**:
@@ -541,7 +532,7 @@ class StreamMemory:
         Add cognition to existing memory nodes.
 
         - **Args**:
-            - `memory_ids` (Union[int, list[int]]): ID or list of IDs of the memories to which cognition will be added.
+            - `memory_ids` (list[int]): List of IDs of the memories to which cognition will be added.
             - `cognition` (str): Description of the cognition to add.
         """
         # Find all corresponding memories
@@ -571,7 +562,7 @@ class StreamMemory:
             {
                 "id": memory.id,
                 "cognition_id": memory.cognition_id,
-                "tag": memory.tag.value,
+                "topic": memory.topic,
                 "location": memory.location,
                 "description": memory.description,
                 "day": memory.day,
@@ -583,170 +574,35 @@ class StreamMemory:
 
 class Memory:
     """
-    A class to manage different types of memory (state, profile, dynamic).
+    A class to manage different types of memory (status and stream).
 
     - **Attributes**:
-        - `_state` (`StateMemory`): Stores state-related data.
-        - `_profile` (`ProfileMemory`): Stores profile-related data.
-        - `_dynamic` (`DynamicMemory`): Stores dynamically configured data.
-
-    - **Methods**:
-        - `set_search_components`: Sets the search components for stream and status memory.
-
+        - `_status` (`KVMemory`): Stores status-related data.
+        - `_stream` (`StreamMemory`): Stores stream-related data.
     """
 
     def __init__(
         self,
         environment: Environment,
         embedding: SparseTextEmbedding,
-        config: Optional[dict[Any, Any]] = None,
-        profile: Optional[dict[Any, Any]] = None,
-        base: Optional[dict[Any, Any]] = None,
+        memory_config: MemoryConfig,
     ) -> None:
         """
-        Initializes the Memory with optional configuration.
-
-        - **Description**:
-            Sets up the memory management system by initializing different memory types (state, profile, dynamic)
-            and configuring them based on provided parameters. Also initializes watchers and locks for thread-safe operations.
+        Initializes the Memory with a unified memory configuration.
 
         - **Args**:
             - `environment` (Environment): The environment object.
-            - `vectorstore` (VectorStore): The Faiss query object.
-            - `config` (Optional[dict[Any, Any]], optional):
-                Configuration dictionary for dynamic memory, where keys are field names and values can be tuples or callables.
-                Defaults to None.
-            - `profile` (Optional[dict[Any, Any]], optional): Dictionary for profile attributes.
-                Defaults to None.
-            - `base` (Optional[dict[Any, Any]], optional): Dictionary for base attributes from City Simulator.
-                Defaults to None.
-
-        - **Returns**:
-            - `None`
+            - `embedding` (SparseTextEmbedding): The embedding object.
+            - `memory_config` (MemoryConfig): The unified memory configuration.
         """
         self._lock = asyncio.Lock()
         self._environment = environment
         self._embedding = embedding
-        self._semantic_templates: dict[str, str] = {}
-        self._should_embed_fields: set[str] = set()
 
-        init_data = {}
-        key2topic = {}
-        if config is not None:
-            for k, v in config.items():
-                try:
-                    # Handle configurations of different lengths
-                    if isinstance(v, tuple):
-                        if len(v) == 4:  # (_type, _value, enable_embedding, template)
-                            _type, _value, enable_embedding, template = v
-                            if enable_embedding:
-                                self._should_embed_fields.add(k)
-                            self._semantic_templates[k] = template
-                        elif len(v) == 3:  # (_type, _value, enable_embedding)
-                            _type, _value, enable_embedding = v
-                            if enable_embedding:
-                                self._should_embed_fields.add(k)
-                        else:  # (_type, _value)
-                            _type, _value = v
-                    else:
-                        _type = type(v)
-                        _value = v
-
-                    # Process type conversion
-                    try:
-                        if isinstance(_type, type):
-                            _value = _type(_value)
-                        else:
-                            if isinstance(_type, deque):
-                                _type.extend(_value)
-                                _value = deepcopy(_type)
-                            else:
-                                get_logger().warning(
-                                    f"type `{_type}` is not supported!"
-                                )
-                    except TypeError as e:
-                        get_logger().warning(f"Type conversion failed for key {k}: {e}")
-                except TypeError:
-                    if isinstance(v, type):
-                        _value = v()
-                    else:
-                        _value = v
-
-                if (
-                    k in PROFILE_ATTRIBUTES
-                    or k in STATE_ATTRIBUTES
-                ) and k != "id":
-                    get_logger().warning(f"key `{k}` already declared in memory!")
-                    continue
-
-                init_data[k] = deepcopy(_value)
-
-        if profile is not None:
-            for k, v in profile.items():
-                if k not in PROFILE_ATTRIBUTES:
-                    get_logger().warning(f"key `{k}` is not a correct `profile` field!")
-                    continue
-                try:
-                    # Handle configuration tuple formats
-                    if isinstance(v, tuple):
-                        if len(v) == 4:  # (_type, _value, enable_embedding, template)
-                            _type, _value, enable_embedding, template = v
-                            if enable_embedding:
-                                self._should_embed_fields.add(k)
-                            self._semantic_templates[k] = template
-                        elif len(v) == 3:  # (_type, _value, enable_embedding)
-                            _type, _value, enable_embedding = v
-                            if enable_embedding:
-                                self._should_embed_fields.add(k)
-                        else:  # (_type, _value)
-                            _type, _value = v
-
-                        # Process type conversion
-                        try:
-                            if isinstance(_type, type):
-                                _value = _type(_value)
-                            else:
-                                if k == "social_network":
-                                    _value = [SocialRelation(**_v) for _v in _value]
-                                elif isinstance(_type, deque):
-                                    _type.extend(_value)
-                                    _value = deepcopy(_type)
-                                else:
-                                    get_logger().warning(
-                                        f"[Profile] type `{_type}` is not supported!"
-                                    )
-                        except TypeError as e:
-                            get_logger().warning(
-                                f"Type conversion failed for key {k}: {e}"
-                            )
-                    else:
-                        # Maintain compatibility with simple key-value pairs
-                        if k == "social_network":
-                            _value = [SocialRelation(**_v) for _v in v]
-                        else:
-                            _value = v
-                except TypeError:
-                    if isinstance(v, type):
-                        _value = v()
-                    else:
-                        _value = v
-                init_data[k] = deepcopy(_value)
-                key2topic[k] = "profile"
-
-        if base is not None:
-            for k, v in base.items():
-                if k not in STATE_ATTRIBUTES:
-                    get_logger().warning(f"key `{k}` is not a correct `base` field!")
-                    continue
-                init_data[k] = deepcopy(v)
-
-        # Combine StatusMemory and pass embedding_fields information
+        # Initialize status memory with unified config
         self._status = KVMemory(
-            init_data=init_data,
+            memory_config=memory_config,
             embedding=self._embedding,
-            should_embed_fields=self._should_embed_fields,
-            semantic_templates=self._semantic_templates,
-            key2topic=key2topic,
         )
 
         # Add StreamMemory
@@ -770,7 +626,5 @@ class Memory:
 
         - **Description**:
             - Asynchronously initializes embeddings for the status memory component, which prepares the system for performing searches.
-
-        - **Returns**:
         """
         await self._status.initialize_embeddings()

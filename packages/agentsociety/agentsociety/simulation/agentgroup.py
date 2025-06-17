@@ -1,5 +1,6 @@
 import asyncio
 from collections import defaultdict
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Optional, Union
 
@@ -19,7 +20,7 @@ from ..agent import (
     NBSAgentBase,
 )
 from ..survey import Survey
-from ..agent.memory_config_generator import MemoryConfigGenerator
+from ..agent.memory_config_generator import MemoryConfig, MemoryConfigGenerator
 from ..configs import Config
 from ..environment import Environment
 from ..llm import LLM
@@ -142,7 +143,7 @@ class AgentGroup:
     # ====================
     # Initialization Methods
     # ====================
-    async def init(self):
+    async def init(self) -> dict[int, tuple[type[Agent], MemoryConfig]]:
         """Initialize the AgentGroupV2."""
 
         # ====================
@@ -188,23 +189,14 @@ class AgentGroup:
                 agent_params,
                 blocks,
             ) = agent_init
-            memory_dict = memory_config_generator.generate(index_for_generator)
-            extra_attributes = memory_dict.get("extra_attributes", {})
-            profile = memory_dict.get("profile", {})
-            base = memory_dict.get("base", {})
-            profile_ = {}
-            for k, v in profile.items():
-                if isinstance(v, tuple):
-                    profile_[k] = v[1]
-                else:
-                    profile_[k] = v
-            to_return[id] = (agent_class, profile_)
+            memory_config = memory_config_generator.generate(index_for_generator)
+            to_return[id] = (agent_class, deepcopy(memory_config))
+            
+            # Initialize Memory with the unified config
             memory_init = Memory(
                 environment=self.environment,
                 embedding=self._embedding,
-                config=extra_attributes,
-                profile=profile,
-                base=base,
+                memory_config=memory_config,
             )
             # # build blocks
             if blocks is not None:
@@ -243,7 +235,18 @@ class AgentGroup:
         )
         profiles = []
         for agent in self._agents:
-            profile = await agent.status.export_topic("profile")
+            profile = await agent.status.export(
+                [
+                    "name",
+                    "gender",
+                    "age",
+                    "education",
+                    "occupation",
+                    "marriage_status",
+                    "persona",
+                    "background_story",
+                ]
+            )
             profile["id"] = agent.id
             profiles.append(
                 StorageProfile(

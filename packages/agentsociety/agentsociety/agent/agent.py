@@ -103,11 +103,11 @@ class CitizenAgentBase(Agent):
         status = self.status
         dict_person = PersonService.default_person(return_dict=True)
         dict_person["id"] = self.id
-        for _key in FROM_MEMORY_KEYS:
+        for key in FROM_MEMORY_KEYS:
             try:
-                _value = await status.get(_key)
-                if _value:
-                    dict_person[_key] = _value
+                value = await status.get(key)
+                if value:
+                    dict_person[key] = value
             except KeyError:
                 continue
         await simulator.add_person(dict_person)
@@ -138,9 +138,7 @@ class CitizenAgentBase(Agent):
         resp = await self.environment.get_person(self.id)
         resp_dict = resp["person"]
         for k, v in resp_dict.get("motion", {}).items():
-            await self.status.update(
-                k, v, mode="replace", protect_llm_read_only_fields=False
-            )
+            await self.status.update(k, v, mode="replace")
 
     async def do_survey(self, survey: Survey) -> str:
         """
@@ -259,7 +257,6 @@ class CitizenAgentBase(Agent):
         await self.memory.status.update(
             "survey_responses",
             new_survey_responses,
-            protect_llm_read_only_fields=False,
         )
         return survey_response
 
@@ -371,9 +368,7 @@ class CitizenAgentBase(Agent):
         )
         # Database
         if self.database_writer is not None:
-            await self.database_writer.write_dialogs(
-                [storage_thought]
-            )
+            await self.database_writer.write_dialogs([storage_thought])
 
     async def do_chat(self, message: Message) -> str:
         """
@@ -521,7 +516,6 @@ class InstitutionAgentBase(Agent):
                     ),
                 }
             },
-            protect_llm_read_only_fields=False,
         )
         _type = None
         _status = self.status
