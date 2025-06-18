@@ -1,9 +1,4 @@
 import asyncio
-import logging
-import os
-import random
-
-import ray
 from message_agent import AgreeAgent, DisagreeAgent
 
 from agentsociety.cityagent import (
@@ -28,33 +23,6 @@ from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import DatabaseConfig
-
-ray.init(logging_level=logging.INFO)
-
-
-async def update_attitude(simulation: AgentSociety):
-    citizen_ids = await simulation.filter(types=(SocietyAgent,))
-    agree_agent_id = await simulation.filter(types=(AgreeAgent,))
-    agree_agent_id = agree_agent_id[0]
-    disagree_agent_id = await simulation.filter(types=(DisagreeAgent,))
-    disagree_agent_id = disagree_agent_id[0]
-    agree_friends = []
-    disagree_friends = []
-    for agent_id in citizen_ids:
-        if random.random() < 0.5:
-            await simulation.update(
-                [agent_id], "attitude", {"Whether to support stronger gun control?": 3}
-            )
-            disagree_friends.append(agent_id)
-        else:
-            await simulation.update(
-                [agent_id], "attitude", {"Whether to support stronger gun control?": 7}
-            )
-            agree_friends.append(agent_id)
-        # remove original social network
-        await simulation.update([agent_id], "friends", [])
-    await simulation.update([agree_agent_id], "friends", disagree_friends)
-    await simulation.update([disagree_agent_id], "friends", agree_friends)
 
 
 config = Config(
@@ -83,24 +51,23 @@ config = Config(
             AgentConfig(
                 agent_class="citizen",
                 number=100,
+                memory_from_file="./profiles/profiles.json",
             ),
             AgentConfig(
                 agent_class=AgreeAgent,
                 number=1,
+                memory_from_file="./profiles/backfiring_profile_agree_agent.json",
             ),
             AgentConfig(
                 agent_class=DisagreeAgent,
                 number=1,
+                memory_from_file="./profiles/backfiring_profile_disagree_agent.json",
             ),
         ],
     ),  # type: ignore
     exp=ExpConfig(
         name="polarization_back_firing",
         workflow=[
-            WorkflowStepConfig(
-                type=WorkflowType.FUNCTION,
-                func=update_attitude,
-            ),
             WorkflowStepConfig(
                 type=WorkflowType.SAVE_CONTEXT,
                 target_agent=AgentFilterConfig(
@@ -145,9 +112,7 @@ async def main():
         await agentsociety.run()
     finally:
         await agentsociety.close()
-    ray.shutdown()
 
 
 if __name__ == "__main__":
-    os.makedirs("exp3", exist_ok=True)
     asyncio.run(main())

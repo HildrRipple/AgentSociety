@@ -108,7 +108,7 @@ class KVMemory:
         for content, score, metadata in top_results:
             formatted_results.append(f"- {content} ")
 
-        return "\n".join(formatted_results)
+        return "Nothing" if len(formatted_results) == 0 else "\n".join(formatted_results)
 
     def should_embed(self, key: str) -> bool:
         return (
@@ -501,7 +501,7 @@ class StreamMemory:
                 f"- [{memory_topic}]: {content} [day: {memory_day}, time: {memory_time}, "
                 f"location: {memory_location}]{cognition_info}"
             )
-        return "\n".join(formatted_results)
+        return "Nothing" if len(formatted_results) == 0 else "\n".join(formatted_results)
 
     async def search_today(
         self,

@@ -1,7 +1,5 @@
 import asyncio
 
-from message_agent import AgreeAgent, DisagreeAgent
-
 from agentsociety.cityagent import (
     SocietyAgent,
     default,
@@ -25,14 +23,16 @@ from agentsociety.llm import LLMProviderType
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import DatabaseConfig
 
+from surveys import personality_survey
+
 
 config = Config(
     llm=[
         LLMConfig(
             provider=LLMProviderType.Qwen,
-            base_url=None,  
+            base_url=None,
             api_key="<YOUR-API-KEY>",
-            model="<YOUR-MODEL>",
+            model="<YOUR-MODEL>",   
             concurrency=200,
             timeout=60,
         )
@@ -52,51 +52,20 @@ config = Config(
             AgentConfig(
                 agent_class="citizen",
                 number=100,
-                memory_from_file="./profiles/profiles.json",
-            ),
-            AgentConfig(
-                agent_class=AgreeAgent,
-                number=1,
-                memory_from_file="./profiles/echo_chamber_profile_agree_agent.json",
-            ),
-            AgentConfig(
-                agent_class=DisagreeAgent,
-                number=1,
-                memory_from_file="./profiles/echo_chamber_profile_disagree_agent.json",
-            ),
+                memory_from_file="./profiles/citizen_profile.json",
+            )
         ],
     ),  # type: ignore
     exp=ExpConfig(
-        name="polarization_echo_chamber",
+        name="prospect_theory_step_one",
         workflow=[
             WorkflowStepConfig(
-                type=WorkflowType.SAVE_CONTEXT,
+                type=WorkflowType.SURVEY,
+                survey=personality_survey(),
                 target_agent=AgentFilterConfig(
-                    agent_class=(SocietyAgent,),
-                ),
-                key="attitude",
-                save_as="guncontrol_attitude_initial",
-            ),
-            WorkflowStepConfig(
-                type=WorkflowType.RUN,
-                days=3,
-            ),
-            WorkflowStepConfig(
-                type=WorkflowType.SAVE_CONTEXT,
-                target_agent=AgentFilterConfig(
-                    agent_class=(SocietyAgent,),
-                ),
-                key="attitude",
-                save_as="guncontrol_attitude_final",
-            ),
-            WorkflowStepConfig(
-                type=WorkflowType.SAVE_CONTEXT,
-                target_agent=AgentFilterConfig(
-                    agent_class=(SocietyAgent,),
-                ),
-                key="chat_histories",
-                save_as="guncontrol_chat_histories",
-            ),
+                    agent_class=(SocietyAgent,)
+                )
+            )
         ],
         environment=EnvironmentConfig(
             start_tick=6 * 60 * 60,

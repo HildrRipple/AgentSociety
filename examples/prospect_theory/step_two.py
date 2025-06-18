@@ -1,7 +1,5 @@
 import asyncio
 
-from message_agent import AgreeAgent, DisagreeAgent
-
 from agentsociety.cityagent import (
     SocietyAgent,
     default,
@@ -25,12 +23,14 @@ from agentsociety.llm import LLMProviderType
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import DatabaseConfig
 
+from surveys import happiness_survey
+
 
 config = Config(
     llm=[
         LLMConfig(
             provider=LLMProviderType.Qwen,
-            base_url=None,  
+            base_url=None,
             api_key="<YOUR-API-KEY>",
             model="<YOUR-MODEL>",
             concurrency=200,
@@ -52,50 +52,47 @@ config = Config(
             AgentConfig(
                 agent_class="citizen",
                 number=100,
-                memory_from_file="./profiles/profiles.json",
-            ),
-            AgentConfig(
-                agent_class=AgreeAgent,
-                number=1,
-                memory_from_file="./profiles/echo_chamber_profile_agree_agent.json",
-            ),
-            AgentConfig(
-                agent_class=DisagreeAgent,
-                number=1,
-                memory_from_file="./profiles/echo_chamber_profile_disagree_agent.json",
-            ),
+                memory_from_file="./profiles/citizen_profile_with_personality.json",
+            )
         ],
     ),  # type: ignore
     exp=ExpConfig(
-        name="polarization_echo_chamber",
+        name="prospect_theory_step_two",
         workflow=[
             WorkflowStepConfig(
-                type=WorkflowType.SAVE_CONTEXT,
+                type=WorkflowType.SURVEY,
+                survey=happiness_survey(),
                 target_agent=AgentFilterConfig(
-                    agent_class=(SocietyAgent,),
-                ),
-                key="attitude",
-                save_as="guncontrol_attitude_initial",
+                    agent_class=(SocietyAgent,)
+                )
             ),
             WorkflowStepConfig(
-                type=WorkflowType.RUN,
-                days=3,
+                type=WorkflowType.MESSAGE_INTERVENE,
+                target_agent=AgentFilterConfig(
+                    filter_str="${profile.personality} == '风险规避者'"
+                ),
+                intervene_message="恭喜您在最近的一次抽奖活动中获得了1000元！"
             ),
             WorkflowStepConfig(
-                type=WorkflowType.SAVE_CONTEXT,
+                type=WorkflowType.MESSAGE_INTERVENE,
                 target_agent=AgentFilterConfig(
-                    agent_class=(SocietyAgent,),
+                    filter_str="${profile.personality} == '风险寻求者 - 好运者'"
                 ),
-                key="attitude",
-                save_as="guncontrol_attitude_final",
+                intervene_message="恭喜您在最近的一次抽奖活动中获得了2500元！"
             ),
             WorkflowStepConfig(
-                type=WorkflowType.SAVE_CONTEXT,
+                type=WorkflowType.MESSAGE_INTERVENE,
                 target_agent=AgentFilterConfig(
-                    agent_class=(SocietyAgent,),
+                    filter_str="${profile.personality} == '风险寻求者 - 厄运者'"
                 ),
-                key="chat_histories",
-                save_as="guncontrol_chat_histories",
+                intervene_message="很遗憾，您在最近的一次抽奖活动中没有获得任何奖励。"
+            ),
+            WorkflowStepConfig(
+                type=WorkflowType.SURVEY,
+                survey=happiness_survey(),
+                target_agent=AgentFilterConfig(
+                    agent_class=(SocietyAgent,)
+                )
             ),
         ],
         environment=EnvironmentConfig(

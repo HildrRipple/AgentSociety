@@ -1,7 +1,4 @@
 import asyncio
-import logging
-
-import ray
 
 from agentsociety.cityagent import (
     MobilityBlock,
@@ -37,8 +34,6 @@ from agentsociety.llm import LLMProviderType
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import DatabaseConfig
 
-ray.init(logging_level=logging.INFO)
-
 
 config = Config(
     llm=[
@@ -65,7 +60,7 @@ config = Config(
         citizens=[
             AgentConfig(
                 agent_class="citizen",
-                number=1,
+                number=100,
                 blocks={
                     MobilityBlock: MobilityBlockParams(),
                     SocialBlock: SocialBlockParams(),
@@ -152,7 +147,6 @@ async def main():
         await agentsociety.run()
     finally:
         await agentsociety.close()
-    ray.shutdown()
 
 
 if __name__ == "__main__":

@@ -1,10 +1,7 @@
 import asyncio
 import copy
 import json
-import logging
 import random
-
-import ray
 
 from agentsociety.cityagent import (
     SocietyAgent,
@@ -27,8 +24,6 @@ from agentsociety.llm import LLMProviderType
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import DatabaseConfig
 
-ray.init(logging_level=logging.INFO)
-
 
 async def gather_memory(simulation: AgentSociety):
     citizen_uuids = await simulation.filter(types=(SocietyAgent,))
@@ -38,9 +33,9 @@ async def gather_memory(simulation: AgentSociety):
     memories = await simulation.gather(
         "stream_memory", citizen_uuids, flatten=True, keep_id=True
     )
-    with open(f"chat_histories.json", "w", encoding="utf-8") as f:
+    with open("chat_histories.json", "w", encoding="utf-8") as f:
         json.dump(chat_histories, f, ensure_ascii=False, indent=2)
-    with open(f"memories.json", "w", encoding="utf-8") as f:
+    with open("memories.json", "w", encoding="utf-8") as f:
         json.dump(memories, f, ensure_ascii=False, indent=2)
 
 
@@ -119,7 +114,6 @@ async def main():
         await agentsociety.run()
     finally:
         await agentsociety.close()
-    ray.shutdown()
 
 
 if __name__ == "__main__":

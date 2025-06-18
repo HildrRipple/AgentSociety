@@ -159,49 +159,99 @@ class CitizenAgentBase(Agent):
             - If the LLM client is not available, it returns a default message indicating unavailability.
             - This method can be overridden by subclasses to customize survey response generation.
         """
-        survey_prompt = survey.to_prompt()
+        survey_prompts = survey.to_prompt()
         dialog = []
 
         # Add system prompt
         system_prompt = "Please answer the survey question in first person. Follow the format requirements strictly and provide clear and specific answers (In JSON format)."
         dialog.append({"role": "system", "content": system_prompt})
 
-        # Add memory context
-        profile_and_states = await self.status.search(survey_prompt)
-        relevant_activities = await self.stream.search(survey_prompt)
+        all_responses = []
+        for survey_prompt in survey_prompts:
+            dialog = dialog[:1]
+            
+            # First, analyze what information is needed to answer this question
+            analysis_prompt = f"""If a person wants to answer this survey question, what specific questions should they ask themselves to gather the necessary information?
 
-        dialog.append(
-            {
-                "role": "system",
-                "content": f"Answer based on following profile and states:\n{profile_and_states}\n Related activities:\n{relevant_activities}",
-            }
-        )
+Please provide your analysis in the following JSON format:
 
-        # Add survey question
-        dialog.append({"role": "user", "content": survey_prompt})
+{{
+    "profile_query": "A specific question about basic profile information (e.g., 'What is my background story?', 'What is my age?', 'What is my gender?' or their combination, for example, 'What is my age and gender?')",
+    "memory_query": "A specific question about experiences, activities, preferences, or behaviors (e.g., 'What recent activities have I done?', 'What are my preferences?', 'What experiences have I had?', 'What behaviors have I shown?')"
+}}
 
-        for retry in range(10):
-            try:
-                # Use LLM to generate a response
-                # print(f"dialog: {dialog}")
-                _response = await self.llm.atext_request(
-                    dialog, response_format={"type": "json_object"}
-                )
-                # print(f"response: {_response}")
-                json_str = extract_json(_response)
-                if json_str:
-                    json_dict = json_repair.loads(json_str)
-                    json_str = json.dumps(json_dict, ensure_ascii=False)
-                    break
-            except Exception:
-                pass
-        else:
-            import traceback
+Note: profile_query should only focus on basic demographic and background information. memory_query should focus on experiences, activities, and behaviors.
 
-            traceback.print_exc()
-            get_logger().error("Failed to generate survey response")
+Question: {survey_prompt}"""
+            
+            analysis_dialog = [
+                {"role": "system", "content": "You are an expert at analyzing survey questions and determining what specific questions need to be asked to gather relevant information. Profile queries should focus on basic demographic and background information only. Memory queries should focus on experiences, activities, and behaviors. Please respond in JSON format with specific questions."},
+                {"role": "user", "content": analysis_prompt}
+            ]
+            
+            # Get analysis from LLM
+            profile_query = "What is my background story?"
+            memory_query = "What recent activities have I done?"
+            
+            for retry in range(5):
+                try:
+                    analysis_response = await self.llm.atext_request(
+                        analysis_dialog, response_format={"type": "json_object"} # type: ignore
+                    ) # type: ignore
+                    json_str = extract_json(analysis_response)
+                    if json_str:
+                        analysis_dict = json_repair.loads(json_str)
+                        profile_query = analysis_dict.get("profile_query", survey_prompt) # type: ignore
+                        memory_query = analysis_dict.get("memory_query", survey_prompt) # type: ignore
+                        break
+                except Exception as e:
+                    get_logger().warning(f"Analysis retry {retry + 1}/5 failed: {str(e)}")
+                    if retry == 4:  # Last retry
+                        get_logger().error("Failed to analyze survey question, using original question as fallback")
+            
+            # Use the analysis results as separate search queries
+            background_story = await self.status.get("background_story")
+            profile_and_states = await self.status.search(profile_query)
+            relevant_memory = await self.stream.search(memory_query)
+
+            get_logger().info(f"background_story: {background_story}\nprofile_and_states: {profile_and_states}\nrelevant_memory: {relevant_memory}")
+
+            dialog.append(
+                {
+                    "role": "system",
+                    "content": f"Answer the survey question based on following information:- My background story: {background_story}\n\n- My Profile: \n{profile_and_states}\n\n- My Related Memory: \n{relevant_memory}",
+                }
+            )
+
+            # Add survey question
+            dialog.append({"role": "user", "content": survey_prompt})
+
             json_str = ""
-        return json_str
+            for retry in range(10):
+                try:
+                    # Use LLM to generate a response
+                    # print(f"dialog: {dialog}")
+                    _response = await self.llm.atext_request(
+                        dialog, response_format={"type": "json_object"}
+                    )
+                    # print(f"response: {_response}")
+                    json_str = extract_json(_response)
+                    if json_str:
+                        json_dict = json_repair.loads(json_str)
+                        json_str = json.dumps(json_dict, ensure_ascii=False)
+                        break
+                except Exception as e:
+                    get_logger().warning(f"Retry {retry + 1}/10 failed: {str(e)}")
+                    if retry == 9:  # Last retry
+                        import traceback
+                        traceback.print_exc()
+                        get_logger().error("Failed to generate survey response after all retries")
+                        json_str = ""
+            
+            all_responses.append(json_str)
+        
+        # Return all responses as a combined JSON string
+        return json.dumps(all_responses, ensure_ascii=False)
 
     async def _handle_survey_with_storage(
         self,

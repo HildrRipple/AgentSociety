@@ -1,14 +1,6 @@
 import asyncio
-import logging
 
-import ray
-from hurricane_memory_config import (
-    memory_config_societyagent_hurrican,
-)
-
-from agentsociety.cityagent import (
-    default,
-)
+from agentsociety.cityagent import default
 from agentsociety.configs import (
     AgentsConfig,
     Config,
@@ -23,8 +15,6 @@ from agentsociety.environment import EnvironmentConfig
 from agentsociety.llm import LLMProviderType
 from agentsociety.simulation import AgentSociety
 from agentsociety.storage import DatabaseConfig
-
-ray.init(logging_level=logging.INFO)
 
 
 config = Config(
@@ -52,8 +42,7 @@ config = Config(
         citizens=[
             AgentConfig(
                 agent_class="citizen",
-                number=1000,
-                memory_config_func=memory_config_societyagent_hurrican,
+                number=100,
                 memory_from_file="profiles_hurricane.json",
             )
         ],
@@ -99,7 +88,6 @@ async def main():
         await agentsociety.run()
     finally:
         await agentsociety.close()
-    ray.shutdown()
 
 
 if __name__ == "__main__":
