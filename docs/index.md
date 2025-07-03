@@ -63,6 +63,7 @@ We welcome collaborative opportunities to advance social science research throug
 03-configurations/index
 04-experiment-design/index
 05-custom-agents/index
+06-webui-zh/index
 06-webui/index
 07-use-case/index
 08-advanced-usage/index
