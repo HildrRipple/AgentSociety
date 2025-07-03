@@ -21,13 +21,21 @@ extensions = [
     "autodoc2",
 ]
 autodoc2_packages = [
-    "../packages/agentsociety/agentsociety",
+    "../../packages/agentsociety/agentsociety",
 ]
 autodoc2_render_plugin = "myst"
 
 templates_path = ["_templates"]
 exclude_patterns = []
+language = "en"
 
+html_context = {
+    "languages": {
+        "en": "English",
+        "zh": "中文",
+    },
+    "current_language": "en",  # 或 'zh' 根据当前版本
+}
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

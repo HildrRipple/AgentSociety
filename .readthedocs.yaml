@@ -10,4 +10,12 @@ python:
     - requirements: docs/requirements.txt
 
 sphinx:
-  configuration: docs/conf.py
+  configuration: docs/en/conf.py
+  fail_on_warning: false
+
+# 多语言构建
+build:
+  jobs:
+    post_build:
+      - sphinx-build -b html docs/en/ docs/en/_build/html
+      - sphinx-build -b html docs/zh/ docs/zh/_build/html
