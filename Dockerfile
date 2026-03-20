@@ -20,16 +20,35 @@ WORKDIR /app
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
+# For RCP user/group mapping
+ARG LDAP_USERNAME=hayang
+ARG LDAP_UID=271371
+ARG LDAP_GROUPNAME=ethos
+ARG LDAP_GID=30225
+
+RUN groupadd -g ${LDAP_GID} ${LDAP_GROUPNAME}
+RUN useradd -m -u ${LDAP_UID} -g ${LDAP_GID} ${LDAP_USERNAME}
+
 # Copy dependency files
 COPY README.md LICENSE ./
 COPY pyproject.toml uv.lock ./
 COPY packages/ ./packages/
 COPY --from=builder /app/dist /app/packages/agentsociety/agentsociety/_dist
 
+COPY Baseline_test/ ./Baseline_test/
+
 # 使用清华源安装依赖
 RUN mkdir -p /etc/uv
 RUN echo "[[index]]\nurl = \"https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/\"\ndefault = true" > /etc/uv/uv.toml
 RUN uv sync --frozen --no-dev
 
+RUN mkdir -p agentsociety_data data 
+RUN chown -R ${LDAP_UID}:${LDAP_GID} /app
+
+USER ${LDAP_USERNAME} 
+
 # 使用uv venv作为默认Python环境
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/app
+
+CMD ["python", "-m", "Baseline_test.config"]

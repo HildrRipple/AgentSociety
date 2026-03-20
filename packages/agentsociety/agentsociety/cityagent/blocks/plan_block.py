@@ -13,6 +13,7 @@ The Environment will influence the choice of steps.
 
 Current weather: {weather}
 Current temperature: {temperature}
+Is it a workday: {is_workday}
 Other information: 
 -------------------------
 {other_info}
@@ -144,7 +145,97 @@ class PlanBlock(Block):
             "whatever": ["leisure and entertainment", "other", "stay at home"],
         }
 
+        # Meal tracking (same as NeedsBlock)
+        self.min_hours_between_main_meals = 3.0
+        self.max_main_meals_per_day = 3
+        self.context["meal_type"] = "none"
+
         self.context["max_plan_steps"] = max_plan_steps
+
+    def _get_current_hour(self) -> int:
+        """
+        Helper: get current hour [0, 23] from environment.
+        If parsing fails, default to 12.
+        """
+        day, current_time = self.environment.get_datetime(format_time=True)
+        try:
+            # Expected format like "Day 1, 12:00:00" or "Day 0 08:10:00"
+            time_part = current_time.split()[-1]
+            hour_str = time_part.split(":")[0]
+            return int(hour_str)
+        except Exception:
+            get_logger().warning(
+                f"Time parsing failed for {current_time}, default hour = 12"
+            )
+            return 12
+
+
+    async def _build_hungry_guidance_options(self) -> Tuple[list, str]:
+            """Generate guidance options by time and meal logging"""
+            meals_today = await self.memory.status.get("meals_today") or 0
+            last_meal_tick = await self.memory.status.get("last_meal_tick")
+            tick_now = self.environment.get_tick()
+
+            hours_since_last_meal = 999.0
+            if last_meal_tick is not None:
+                hours_since_last_meal = (tick_now - last_meal_tick) / 3600.0
+
+            
+            # Use the same robust hour parsing as other parts of the block
+            hour = self._get_current_hour()
+
+
+            def can_have_main_meal() -> bool:
+                """Check strict physical limits"""
+                if meals_today >= self.max_main_meals_per_day:
+                    return False
+                return hours_since_last_meal >= self.min_hours_between_main_meals
+
+            options: list[str] = []
+            meal_type = "snack"
+
+            # Logic: Be stricter. If I have eaten recently, I CANNOT have a main meal.
+            
+            # Breakfast: 6-10, only if 0 meals today
+            if 6 <= hour < 10 and meals_today == 0 and can_have_main_meal():
+                meal_type = "breakfast"
+                options = [
+                    "Have breakfast at home",
+                    "Have breakfast at workplace",
+                    "Quick breakfast nearby",
+                ]
+            
+            # Lunch: 11-14. 
+            # CRITICAL FIX: If I already had a meal > 10am, it was likely lunch. 
+            # Don't eat lunch again if hours_since_last_meal is small.
+            elif 11 <= hour < 14 and can_have_main_meal():
+                # If we explicitly suspect we already had lunch (e.g. meals_today==1 and it was recent), skip.
+                meal_type = "lunch"
+                options = [
+                    "Have lunch at workplace canteen",
+                    "Have lunch at a nearby restaurant",
+                    "Have lunch at home",
+                ]
+
+            # Dinner: 18-22
+            elif 18 <= hour < 22 and can_have_main_meal():
+                meal_type = "dinner"
+                options = [
+                    "Have dinner at home",
+                    "Have dinner at a restaurant",
+                ]
+
+            # Fallback to snack/drink if no main meal fits
+            if not options:
+                meal_type = "snack"
+                options = [
+                    "Drink some water",
+                    "Have a small snack",
+                    "Rest for a moment",
+                ]
+
+            self.context["meal_type"] = meal_type
+            return options, meal_type
 
     async def select_guidance(self, current_need: str) -> Optional[Tuple[dict, str]]:
         """Select optimal guidance option using Theory of Planned Behavior evaluation.
@@ -181,14 +272,50 @@ class PlanBlock(Block):
             and position_now["aoi_position"] in known_locations
         ):
             current_location = id_to_name[position_now["aoi_position"]]
+        
         day, current_time = self.environment.get_datetime(format_time=True)
-        options = self.guidance_options.get(current_need, [])
+        
+        # --- sense whether today is a workday and expose to context ---
+        raw_workday = self.environment.sense("workday")
+        
+        is_workday = True # 默认值
+        if isinstance(raw_workday, bool):
+            is_workday = raw_workday
+        elif isinstance(raw_workday, str):
+            is_workday = raw_workday.lower() in ("true", "1", "yes", "workday")
+            
+        self.context["is_workday"] = is_workday
+    
+        if current_need == "hungry":
+            options, meal_type = await self._build_hungry_guidance_options()
+        else:
+            options = self.guidance_options.get(current_need, [])
+            if len(options) == 0:
+                options = "Do things that can satisfy your needs or actions."
+
+        if not is_workday and current_need == "safe":
+            if isinstance(options, list):
+                options = [opt for opt in options if "work" not in opt.lower()]
+
+                whatever_options = self.guidance_options.get("whatever", [])
+                options.extend(whatever_options)
+                options.extend(["Go to park", "City exploration", "Visit friends"])
+
+                options = list(set(options))
+
+                if not options:
+                    options = ["Shopping", "stay at home"]
+
+
+        # options = self.guidance_options.get(current_need, [])
+
         if len(options) == 0:
             options = "Do things that can satisfy your needs or actions."
         await self.guidance_prompt.format(
             current_need=current_need,
             weather=self.environment.sense("weather"),
             temperature=self.environment.sense("temperature"),
+            is_workday=is_workday,
             other_info=self.environment.sense("other_information"),
             options=options,
             current_location=current_location,
@@ -267,11 +394,83 @@ class PlanBlock(Block):
         cognition = None
         # Step 1: Select guidance plan
         current_need = await self.memory.status.get("current_need")
+        # Special handling for night-time continuous sleep
+        if current_need == "tired":
+            hour = self._get_current_hour()
+            is_night = hour < 6 or hour >= 22  # keep in sync with NeedsBlock night definition
+            thought = await self.memory.status.get("thought")
+            thought_lower = (thought or "").lower()
+
+            # If the agent is already sleeping at night, we do not want
+            # to repeatedly generate "prepare for bed" plans.
+            if is_night and any(
+                kw in thought_lower
+                for kw in [
+                    "still sleeping",
+                    "continue sleeping",
+                    "fell asleep",
+                    "am still sleeping",
+                ]
+            ):
+                # Build a minimal "continue sleeping" plan without calling the LLM
+                steps = [
+                    {
+                        "intention": "Continue sleeping until fully rested",
+                        "type": "other",
+                        "evaluation": {"status": "pending", "details": ""},
+                    }
+                ]
+                plan = {
+                    "target": "Continue sleeping at home",
+                    "steps": steps,
+                    "index": 0,
+                    "completed": False,
+                    "failed": False,
+                    "stream_nodes": [],
+                    "guidance": None,  # No TPB evaluation for this trivial continuation
+                    "meal_type": None,
+                }
+                formated_steps = "\n".join(
+                    f"{i}. {step['intention']}" for i, step in enumerate(plan["steps"], 1)
+                )
+                formated_plan = f"""
+Overall Target: {plan['target']}
+Execution Steps:
+{formated_steps}
+                """
+                _, plan["start_time"] = self.environment.get_datetime(format_time=True)
+                await self.memory.status.update("current_plan", plan)
+                await self.memory.status.update("execution_context", {"plan": formated_plan})
+
+                # Reuse sleeping cognition if available
+                cognition = thought or "I am still sleeping and need more rest."
+                await self.memory.stream.add(
+                    topic="cognition",
+                    description=cognition,
+                )
+                return cognition
+
         select_guidance = await self.select_guidance(current_need)
         if not select_guidance:
             return None
         guidance_result, cognition = select_guidance
-        self.context["plan_target"] = guidance_result["selected_option"]
+        
+        # [MODIFIED] Distinguish between day-time nap and night-time full sleep
+        plan_target = guidance_result["selected_option"]
+        if current_need == "tired":
+            hour = self._get_current_hour()
+            if 6 <= hour < 21:
+                # Day-time tired: prefer a short nap, not "sleep for the night"
+                plan_target = "Take a short nap at home"
+            else:
+                # Late evening / night: full night sleep
+                plan_target = "Sleep at home"
+            guidance_result["selected_option"] = plan_target
+        
+
+        self.context["plan_target"] = plan_target
+
+        # self.context["plan_target"] = guidance_result["selected_option"]
 
         # Step 2: Generate detailed plan
         detailed_plan = await self.generate_detailed_plan()
@@ -293,6 +492,7 @@ class PlanBlock(Block):
             "failed": False,
             "stream_nodes": [],
             "guidance": guidance_result,  # Save the evaluation result of the plan selection
+            "meal_type": self.context.get("meal_type") if current_need == "hungry" else None, # Attempt to reduce the redudant main meal
         }
         formated_steps = "\n".join(
             [f"{i}. {step['intention']}" for i, step in enumerate(plan["steps"], 1)]

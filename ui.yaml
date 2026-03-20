@@ -1,0 +1,6 @@
+addr: 127.0.0.1:8080
+env:
+  db:
+    enabled: true
+    db_type: sqlite
+  home_dir: ./agentsociety_data

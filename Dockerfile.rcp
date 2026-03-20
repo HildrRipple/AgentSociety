@@ -1,0 +1,82 @@
+# Stage 0: build AgentSociety SIM (OSS) for Linux
+FROM golang:1.22 AS simbuilder
+
+WORKDIR /src
+
+# Clone the open-source simulator
+RUN git clone https://github.com/tsinghua-fib-lab/agentsociety-sim-oss.git .
+
+# Build a static Linux/amd64 binary
+RUN mkdir -p /out \
+ && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -o /out/agentsociety-sim-oss ./main.go
+
+# Stage 1: Build frontend 
+FROM node:20 AS builder
+
+WORKDIR /app
+
+# Use a faster npm registry mirror
+RUN npm config set registry https://registry.npmmirror.com
+
+# Install frontend dependencies
+COPY ./frontend/package.json ./frontend/package-lock.json ./
+RUN npm ci
+
+# Build frontend
+COPY ./frontend/ .
+ENV VITE_WITH_AUTH=true
+RUN npm run build
+
+
+# Stage 2: Python runtime + agentsociety 
+FROM python:3.12-slim
+
+# Basic OS dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install uv (static binary) from the official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+# Arguments provided by RCP to match your EPFL user and group
+ARG LDAP_USERNAME=hayang
+ARG LDAP_UID=271371
+ARG LDAP_GROUPNAME=ethos
+ARG LDAP_GID=30225
+
+# Create user and group that match the cluster environment
+RUN groupadd -g ${LDAP_GID} ${LDAP_GROUPNAME} \
+ && useradd -m -u ${LDAP_UID} -g ${LDAP_GID} ${LDAP_USERNAME}
+
+# Copy the entire project (pyproject, uv.lock, packages, Baseline_test, config.yaml, etc.)
+COPY . .
+RUN rm -f agentsociety_data/agentsociety-sim-oss
+RUN mkdir -p agentsociety_data data
+
+# Copy built frontend assets into the agentsociety package where the backend expects them
+COPY --from=builder /app/dist /app/packages/agentsociety/agentsociety/_dist
+
+# Configure uv to use the Tsinghua PyPI mirror
+RUN mkdir -p /etc/uv \
+ && printf "[[index]]\nurl = \"https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/\"\ndefault = true\n" > /etc/uv/uv.toml
+
+# Install all Python dependencies into /app/.venv, including the workspace package "agentsociety"
+RUN uv sync --frozen --no-dev
+
+# Create data directories and fix ownership so the non-root user can write to them
+RUN mkdir -p agentsociety_data data \
+ && chown -R ${LDAP_UID}:${LDAP_GID} /app
+
+# Run as the non-root RCP user from now on
+USER ${LDAP_USERNAME}
+
+# Use the uv virtual environment as the default Python
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/app
+
+# Default command: run your baseline config
+CMD ["python", "-m", "Baseline_test.config"]

@@ -1,0 +1,732 @@
+[
+  {
+    "id": 1,
+    "name": "Amy",
+    "gender": "Female",
+    "age": 50,
+    "education": "High School",
+    "occupation": "Full-time employment",
+    "marriage_status": "Not married",
+    "persona": null,
+    "household": {
+      "employed_persons": 2,
+      "members_total": 3,
+      "children_under_14": 1,
+      "age_of_all_members": "50.0; 45.0; 12.0",
+      "city": "Penthéréaz",
+      "postal_code": 1375,
+      "location_type": "Rural",
+      "ownership": "Tenant"
+    },
+    "energy_systems": {
+      "space_heating_energy": "Solar (thermal)",
+      "hot_water_energy": "Solar (thermal)",
+      "space_heating_system": "Boiler",
+      "heating_control": "Collective"
+    },
+    "appliances": {
+      "kettle": {
+        "count": 0,
+        "usage": null
+      },
+      "microwave": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "electric_stove": {
+        "count": 1,
+        "usage": "Daily"
+      },
+      "oven": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "dishwasher": {
+        "count": 1,
+        "usage": "Daily"
+      },
+      "vacuum_cleaner": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "washer": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "dryer": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "television": {
+        "count": 2,
+        "usage": "Daily"
+      },
+      "desktop_laptop": {
+        "count": 2,
+        "usage": "Rarely"
+      },
+      "air_conditioner": {
+        "count": 0,
+        "usage": null
+      },
+      "cooling_fans": {
+        "count": 0,
+        "usage": null
+      }
+    },
+    "shared_facilities": {
+      "washer_dryer_shared": false,
+      "fixed_time_use_washer_dryer": null
+    },
+    "activity_patterns": {
+      "weekday": {
+        "sleeping": [
+          "00:00",
+          "01:00",
+          "02:00",
+          "03:00",
+          "04:00",
+          "05:00",
+          "20:00",
+          "21:00",
+          "22:00",
+          "23:00"
+        ],
+        "cooking": [
+          "18:00",
+          "19:00"
+        ],
+        "cleaning": [
+          "10:00",
+          "11:00",
+          "12:00"
+        ],
+        "entertainment_tv_laptop": [
+          "00:00",
+          "01:00",
+          "02:00",
+          "03:00",
+          "04:00",
+          "05:00",
+          "12:00",
+          "17:00",
+          "18:00",
+          "19:00",
+          "20:00",
+          "21:00",
+          "22:00",
+          "23:00"
+        ],
+        "laundry": [
+          "18:00",
+          "19:00",
+          "20:00",
+          "21:00"
+        ],
+        "dishwashing": [
+          "18:00",
+          "19:00",
+          "20:00",
+          "21:00"
+        ],
+        "work_desktop_laptop": []
+      },
+      "weekend": {
+        "sleeping": [
+          "00:00",
+          "01:00",
+          "02:00",
+          "03:00",
+          "04:00",
+          "05:00",
+          "06:00",
+          "07:00",
+          "08:00",
+          "09:00",
+          "21:00",
+          "22:00",
+          "23:00"
+        ],
+        "cooking": [
+          "11:00",
+          "12:00",
+          "13:00",
+          "19:00",
+          "20:00"
+        ],
+        "cleaning": [
+          "10:00",
+          "11:00",
+          "12:00",
+          "13:00"
+        ],
+        "entertainment_tv_laptop": [
+          "00:00",
+          "01:00",
+          "02:00",
+          "03:00",
+          "04:00",
+          "05:00",
+          "17:00",
+          "18:00",
+          "19:00",
+          "20:00",
+          "21:00",
+          "22:00",
+          "23:00"
+        ],
+        "laundry": [
+          "10:00",
+          "11:00",
+          "12:00",
+          "13:00",
+          "14:00"
+        ],
+        "dishwashing": [
+          "18:00",
+          "19:00",
+          "20:00"
+        ],
+        "work_desktop_laptop": []
+      },
+      "weekday_weekend_difference": {
+        "sleep_not_same": true,
+        "cooking_not_same": true,
+        "cleaning_not_same": true,
+        "entertainment_not_same": true,
+        "laundry_not_same": true,
+        "dishwashing_not_same": true,
+        "work_not_same": false
+      }
+    },
+    "background_story": "Amy, 50 years old (Woman), works as Full-time employment with High school education and None marital status.\nThey live with 3 household members (children under 14: 1) in Penthéréaz (Rural, Tenant).\nSpace heating / hot water: Solar (thermal) / Solar (thermal); system: Boiler (control: Collective).\n\nOn a typical weekday, their schedule is mostly household-oriented;\nOn weekends, their weekend routine resembles weekdays;\nAppliance habits: appliance usage follows habitual patterns.\nHousehold routine: household chores follow a regular pattern.",
+    "home": 500001178,
+    "work": 500002114,
+    "income": 12500
+  },
+  {
+    "id": 2,
+    "name": "Charlie",
+    "gender": "Male",
+    "age": 53,
+    "education": "Diploma",
+    "occupation": "Part-time employment",
+    "marriage_status": "Not married",
+    "persona": null,
+    "household": {
+      "employed_persons": 1,
+      "members_total": 1,
+      "children_under_14": 0,
+      "age_of_all_members": "53.0",
+      "city": "Lausanne",
+      "postal_code": 1010,
+      "location_type": "Urban",
+      "ownership": "Tenant"
+    },
+    "energy_systems": {
+      "space_heating_energy": "Heating Oil",
+      "hot_water_energy": "Heating Oil",
+      "space_heating_system": "Boiler",
+      "heating_control": "Collective"
+    },
+    "appliances": {
+      "kettle": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "microwave": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "electric_stove": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "oven": {
+        "count": 1,
+        "usage": "Weekly"
+      },
+      "dishwasher": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "vacuum_cleaner": {
+        "count": 1,
+        "usage": "Weekly"
+      },
+      "washer": {
+        "count": 1,
+        "usage": "Weekly"
+      },
+      "dryer": {
+        "count": 1,
+        "usage": "Weekly"
+      },
+      "television": {
+        "count": 1,
+        "usage": "Daily"
+      },
+      "desktop_laptop": {
+        "count": 0,
+        "usage": null
+      },
+      "air_conditioner": {
+        "count": 0,
+        "usage": null
+      },
+      "cooling_fans": {
+        "count": 2,
+        "usage": "Daily"
+      }
+    },
+    "shared_facilities": {
+      "washer_dryer_shared": false,
+      "fixed_time_use_washer_dryer": null
+    },
+    "activity_patterns": {
+      "weekday": {
+        "sleeping": [
+          "00:00",
+          "01:00",
+          "02:00",
+          "03:00",
+          "04:00",
+          "05:00"
+        ],
+        "cooking": [
+          "20:00"
+        ],
+        "cleaning": [],
+        "entertainment_tv_laptop": [],
+        "laundry": [],
+        "dishwashing": [
+          "20:00",
+          "21:00"
+        ],
+        "work_desktop_laptop": []
+      },
+      "weekend": {
+        "sleeping": [],
+        "cooking": [],
+        "cleaning": [],
+        "entertainment_tv_laptop": [],
+        "laundry": [],
+        "dishwashing": [],
+        "work_desktop_laptop": []
+      },
+      "weekday_weekend_difference": {
+        "sleep_not_same": false,
+        "cooking_not_same": false,
+        "cleaning_not_same": false,
+        "entertainment_not_same": false,
+        "laundry_not_same": false,
+        "dishwashing_not_same": false,
+        "work_not_same": false
+      }
+    },
+    "background_story": "Charlie, 53 years old (Man), works as Part-time employment with Diploma education and None marital status.\nThey live with 1 household members (children under 14: 0) in Lausanne (Urban, Tenant).\nSpace heating / hot water: Heating Oil / Heating Oil; system: Boiler (control: Collective).\n\nOn a typical weekday, their schedule is mostly household-oriented;\nOn weekends, their weekend routine resembles weekdays;\nAppliance habits: appliance usage follows habitual patterns.\nHousehold routine: household chores follow a regular pattern.",
+    "home": 500000827,
+    "work": 500002654,
+    "income": 112500
+  },
+  {
+    "id": 3,
+    "name": "David",
+    "gender": "Male",
+    "age": 55,
+    "education": "Bachelor",
+    "occupation": "Disabled/partially disabled",
+    "marriage_status": "Not married",
+    "persona": null,
+    "household": {
+      "employed_persons": 0,
+      "members_total": 2,
+      "children_under_14": 0,
+      "age_of_all_members": "55.0; 88.0",
+      "city": "Lausanne",
+      "postal_code": 1006,
+      "location_type": "Urban",
+      "ownership": "Tenant"
+    },
+    "energy_systems": {
+      "space_heating_energy": "Heating Oil",
+      "hot_water_energy": "Electricity",
+      "space_heating_system": "Boiler",
+      "heating_control": "Collective"
+    },
+    "appliances": {
+      "kettle": {
+        "count": 1,
+        "usage": "Daily"
+      },
+      "microwave": {
+        "count": 1,
+        "usage": "Weekly"
+      },
+      "electric_stove": {
+        "count": 1,
+        "usage": "Daily"
+      },
+      "oven": {
+        "count": 2,
+        "usage": "Few times/week"
+      },
+      "dishwasher": {
+        "count": 0,
+        "usage": null
+      },
+      "vacuum_cleaner": {
+        "count": 1,
+        "usage": "Weekly"
+      },
+      "washer": {
+        "count": 1,
+        "usage": "Weekly"
+      },
+      "dryer": {
+        "count": 2,
+        "usage": "Rarely"
+      },
+      "television": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "desktop_laptop": {
+        "count": 3,
+        "usage": "Daily"
+      },
+      "air_conditioner": {
+        "count": 0,
+        "usage": null
+      },
+      "cooling_fans": {
+        "count": 0,
+        "usage": null
+      }
+    },
+    "shared_facilities": {
+      "washer_dryer_shared": false,
+      "fixed_time_use_washer_dryer": null
+    },
+    "activity_patterns": {
+      "weekday": {
+        "sleeping": [
+          "22:00"
+        ],
+        "cooking": [
+          "12:00",
+          "19:00"
+        ],
+        "cleaning": [
+          "14:00",
+          "15:00",
+          "16:00",
+          "17:00"
+        ],
+        "entertainment_tv_laptop": [
+          "09:00",
+          "10:00",
+          "11:00",
+          "14:00",
+          "15:00",
+          "16:00",
+          "17:00",
+          "18:00",
+          "19:00",
+          "20:00",
+          "21:00",
+          "22:00"
+        ],
+        "laundry": [
+          "10:00"
+        ],
+        "dishwashing": [
+          "10:00"
+        ],
+        "work_desktop_laptop": []
+      },
+      "weekend": {
+        "sleeping": [],
+        "cooking": [],
+        "cleaning": [],
+        "entertainment_tv_laptop": [
+          "20:00",
+          "21:00",
+          "22:00"
+        ],
+        "laundry": [],
+        "dishwashing": [],
+        "work_desktop_laptop": []
+      },
+      "weekday_weekend_difference": {
+        "sleep_not_same": false,
+        "cooking_not_same": false,
+        "cleaning_not_same": false,
+        "entertainment_not_same": true,
+        "laundry_not_same": false,
+        "dishwashing_not_same": false,
+        "work_not_same": false
+      }
+    },
+    "background_story": "David, 55 years old (Man), works as Disabled/partially disabled with Bachelor degree education and None marital status.\nThey live with 2 household members (children under 14: 0) in Lausanne (Urban, Tenant).\nSpace heating / hot water: Heating Oil / Electricity; system: Boiler (control: Collective).\n\nOn a typical weekday, their schedule is mostly household-oriented;\nOn weekends, their weekend routine resembles weekdays;\nAppliance habits: appliance usage follows habitual patterns.\nHousehold routine: household chores follow a regular pattern.",
+    "home": 500003748,
+    "work": 500002039,
+    "income": 62500
+  },
+  {
+    "id": 4,
+    "name": "Frank",
+    "gender": "Male",
+    "age": 82,
+    "education": "High School",
+    "occupation": "Part-time employment; Retired",
+    "marriage_status": "Not married",
+    "persona": null,
+    "household": {
+      "employed_persons": 1,
+      "members_total": 1,
+      "children_under_14": 0,
+      "age_of_all_members": "82.0",
+      "city": "Bretigny-sur-Morrens",
+      "postal_code": 1053,
+      "location_type": "Intermediate(dense peri-urban areas and rural centers)",
+      "ownership": "Tenant"
+    },
+    "energy_systems": {
+      "space_heating_energy": "Heating Oil",
+      "hot_water_energy": "Heating Oil",
+      "space_heating_system": "Boiler",
+      "heating_control": "Collective"
+    },
+    "appliances": {
+      "kettle": {
+        "count": 0,
+        "usage": null
+      },
+      "microwave": {
+        "count": 0,
+        "usage": null
+      },
+      "electric_stove": {
+        "count": 1,
+        "usage": "Daily"
+      },
+      "oven": {
+        "count": 1,
+        "usage": "Rarely"
+      },
+      "dishwasher": {
+        "count": 0,
+        "usage": null
+      },
+      "vacuum_cleaner": {
+        "count": 1,
+        "usage": "Weekly"
+      },
+      "washer": {
+        "count": 0,
+        "usage": "Weekly"
+      },
+      "dryer": {
+        "count": 0,
+        "usage": "Weekly"
+      },
+      "television": {
+        "count": 1,
+        "usage": "Daily"
+      },
+      "desktop_laptop": {
+        "count": 2,
+        "usage": "Daily"
+      },
+      "air_conditioner": {
+        "count": 0,
+        "usage": null
+      },
+      "cooling_fans": {
+        "count": 0,
+        "usage": null
+      }
+    },
+    "shared_facilities": {
+      "washer_dryer_shared": true,
+      "fixed_time_use_washer_dryer": true
+    },
+    "activity_patterns": {
+      "weekday": {
+        "sleeping": [
+          "07:00"
+        ],
+        "cooking": [],
+        "cleaning": [],
+        "entertainment_tv_laptop": [],
+        "laundry": [],
+        "dishwashing": [],
+        "work_desktop_laptop": []
+      },
+      "weekend": {
+        "sleeping": [],
+        "cooking": [],
+        "cleaning": [],
+        "entertainment_tv_laptop": [],
+        "laundry": [],
+        "dishwashing": [],
+        "work_desktop_laptop": []
+      },
+      "weekday_weekend_difference": {
+        "sleep_not_same": false,
+        "cooking_not_same": true,
+        "cleaning_not_same": false,
+        "entertainment_not_same": true,
+        "laundry_not_same": false,
+        "dishwashing_not_same": false,
+        "work_not_same": false
+      }
+    },
+    "background_story": "Frank, 82 years old (Man), works as Part-time employment; Retired with High school education and None marital status.\nThey live with 1 household members (children under 14: 0) in Bretigny-sur-Morrens (Intermediate(dense peri-urban areas and rural centers), Tenant).\nSpace heating / hot water: Heating Oil / Heating Oil; system: Boiler (control: Collective).\n\nOn a typical weekday, their schedule is mostly household-oriented;\nOn weekends, their weekend routine resembles weekdays;\nAppliance habits: appliance usage follows habitual patterns.\nHousehold routine: shared laundry facilities are used.",
+    "home": 500002659,
+    "work": 500002270,
+    "income": null
+  },
+  {
+    "id": 5,
+    "name": "Lily",
+    "gender": "Female",
+    "age": 69,
+    "education": "High School",
+    "occupation": "Retired",
+    "marriage_status": "Not married",
+    "persona": null,
+    "household": {
+      "employed_persons": 0,
+      "members_total": 1,
+      "children_under_14": 0,
+      "age_of_all_members": "69.0",
+      "city": "Lausanne Adm cant VD",
+      "postal_code": 1014,
+      "location_type": "Urban",
+      "ownership": "Tenant"
+    },
+    "energy_systems": {
+      "space_heating_energy": "Electricity",
+      "hot_water_energy": "Electricity",
+      "space_heating_system": "Electric heating",
+      "heating_control": "Individual"
+    },
+    "appliances": {
+      "kettle": {
+        "count": 1,
+        "usage": "Daily"
+      },
+      "microwave": {
+        "count": 0,
+        "usage": null
+      },
+      "electric_stove": {
+        "count": 0,
+        "usage": null
+      },
+      "oven": {
+        "count": 1,
+        "usage": "Rarely"
+      },
+      "dishwasher": {
+        "count": 0,
+        "usage": null
+      },
+      "vacuum_cleaner": {
+        "count": 1,
+        "usage": "Few times/week"
+      },
+      "washer": {
+        "count": 0,
+        "usage": "Never"
+      },
+      "dryer": {
+        "count": 0,
+        "usage": "Never"
+      },
+      "television": {
+        "count": 1,
+        "usage": "Daily"
+      },
+      "desktop_laptop": {
+        "count": 1,
+        "usage": "Daily"
+      },
+      "air_conditioner": {
+        "count": 1,
+        "usage": "Rarely"
+      },
+      "cooling_fans": {
+        "count": 1,
+        "usage": "Rarely"
+      }
+    },
+    "shared_facilities": {
+      "washer_dryer_shared": null,
+      "fixed_time_use_washer_dryer": null
+    },
+    "activity_patterns": {
+      "weekday": {
+        "sleeping": [
+          "00:00",
+          "01:00",
+          "02:00",
+          "03:00",
+          "04:00",
+          "05:00",
+          "06:00",
+          "07:00"
+        ],
+        "cooking": [
+          "12:00"
+        ],
+        "cleaning": [
+          "09:00"
+        ],
+        "entertainment_tv_laptop": [
+          "20:00",
+          "21:00",
+          "22:00",
+          "23:00"
+        ],
+        "laundry": [
+          "17:00"
+        ],
+        "dishwashing": [
+          "10:00"
+        ],
+        "work_desktop_laptop": [
+          "11:00",
+          "15:00",
+          "16:00",
+          "17:00",
+          "18:00"
+        ]
+      },
+      "weekend": {
+        "sleeping": [],
+        "cooking": [],
+        "cleaning": [],
+        "entertainment_tv_laptop": [],
+        "laundry": [],
+        "dishwashing": [],
+        "work_desktop_laptop": []
+      },
+      "weekday_weekend_difference": {
+        "sleep_not_same": false,
+        "cooking_not_same": false,
+        "cleaning_not_same": false,
+        "entertainment_not_same": false,
+        "laundry_not_same": false,
+        "dishwashing_not_same": false,
+        "work_not_same": false
+      }
+    },
+    "background_story": "Lily, 69 years old (Woman), works as Retired with High school education and None marital status.\nThey live with 1 household members (children under 14: 0) in Lausanne Adm cant VD (Urban, Tenant).\nSpace heating / hot water: Electricity / Electricity; system: Electric heating (control: Individual).\n\nOn a typical weekday, their schedule is mostly household-oriented;\nOn weekends, their weekend routine resembles weekdays;\nAppliance habits: appliance usage follows habitual patterns.\nHousehold routine: household chores follow a regular pattern.",
+    "home": 500003726,
+    "work": 500001050,
+    "income": 37500
+  }
+]

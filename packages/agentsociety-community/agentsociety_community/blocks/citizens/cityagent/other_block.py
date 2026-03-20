@@ -245,6 +245,18 @@ class OtherBlock(Block):
         # Execute the selected sub-block and get the result
         result = await selected_block.forward(context)
 
+        # Ensure consumed_time given by LLM is int
+        if isinstance(result, dict) and "consumed_time" in result:
+            ct = result["consumed_time"]
+            try:
+                ct = float(ct)
+                if ct < 0:
+                    ct = 0
+                import math
+                result["consumed_time"] = int(math.ceil(ct))
+            except (TypeError, ValueError):
+                result["consumed_time"] = 1
+
         consumption_end = self.llm.prompt_tokens_used + self.llm.completion_tokens_used
         self.token_consumption += consumption_end - consumption_start
 

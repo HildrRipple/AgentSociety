@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from .bdsc2025_track_two_rumor_spreader.rumor_spreader import RumorSpreader
     from .cityagent import SocietyAgent
     from .polarization import AgreeAgent, DisagreeAgent
+    from .cityagent import EnergyAgent
 
 
 def _import_track_one_env_citizen() -> Type[CitizenAgentBase]:
@@ -63,6 +64,11 @@ def _import_society_agent() -> Type[CitizenAgentBase]:
 
     return SocietyAgent
 
+def _import_energy_agent() -> Type[CitizenAgentBase]:
+    from .cityagent import EnergyAgent
+
+    return EnergyAgent
+
 
 def __getattr__(name: str) -> Type[CitizenAgentBase]:
     if name == "TrackOneEnvCitizen":
@@ -79,6 +85,8 @@ def __getattr__(name: str) -> Type[CitizenAgentBase]:
         return _import_polarization_agree_agent()
     if name == "DisagreeAgent":
         return _import_polarization_disagree_agent()
+    if name == "EnergyAgent":
+        return _import_energy_agent()
     raise AttributeError(f"module {__name__} has no attribute {name}")
 
 
@@ -90,6 +98,7 @@ __all__ = [
     "SocietyAgent",
     "AgreeAgent",
     "DisagreeAgent",
+    "EnergyAgent",
 ]
 
 
@@ -105,4 +114,6 @@ def get_type_to_cls_dict() -> Dict[str, Callable[[], Type[CitizenAgentBase]]]:
         "AgreeAgent": _import_polarization_agree_agent,
         "DisagreeAgent": _import_polarization_disagree_agent,
         "SocietyAgent": _import_society_agent,
+        "EnergyAgent": _import_energy_agent,
+
     }

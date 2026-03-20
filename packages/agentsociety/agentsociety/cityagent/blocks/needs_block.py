@@ -156,10 +156,10 @@ class NeedsBlock(Block):
         self.token_consumption = 0
         self.initialized = False
         self.alpha_H, self.alpha_D, self.alpha_P, self.alpha_C = (
-            0.15,
-            0.08,
-            0.05,
-            0.1,
+            0.06,
+            0.06,
+            0.02,
+            0.04,
         )  # Hunger decay rate, Energy decay rate, Safety decay rate, Social decay rate
         self.T_H, self.T_D, self.T_P, self.T_C = (
             0.2,
@@ -171,12 +171,20 @@ class NeedsBlock(Block):
         self._need_to_do = None
         # determine if the intervention need has been checked
         self._need_to_do_checked = False
+        # Meal tracking
+        self.min_hours_between_meals = 3.0  
+        self.max_meals_per_day = 3 
 
     async def reset(self):
         """Reset the needs block."""
         self._need_to_do = None
         self._need_to_do_checked = False
         self.initialized = False
+
+        # reset meal tracking in status
+        await self.memory.status.update("meals_today", 0)
+        await self.memory.status.update("last_meal_tick", None)
+
 
     async def initialize(self):
         """
@@ -194,6 +202,35 @@ class NeedsBlock(Block):
                 self.need_work = True
             else:
                 self.need_work = False
+
+            # new day: reset meal counters
+            await self.memory.status.update("meals_today", 0)
+            await self.memory.status.update("last_meal_tick", None)
+
+            # [MODIFIED] Gently reset key satisfaction levels at the start of a new day
+            # This prevents the agent from carrying extreme fatigue or hunger across days.
+            hunger = await self.memory.status.get("hunger_satisfaction")
+            energy = await self.memory.status.get("energy_satisfaction")
+
+            if hunger is None:
+                hunger = 0.6
+            if energy is None:
+                energy = 0.7
+
+            # Morning baseline: at least moderately satisfied on a normal day
+            if hunger < 0.6:
+                hunger = 0.6
+            if energy < 0.7:
+                energy = 0.7
+
+            await self.memory.status.update("hunger_satisfaction", hunger)
+            await self.memory.status.update("energy_satisfaction", energy)
+
+            # [MODIFIED] Clear residual "tired" state when a new day starts
+            current_need = await self.memory.status.get("current_need")
+            if current_need == "tired":
+                await self.memory.status.update("current_need", "whatever")
+
 
         if not self.initialized:
             await self.initial_prompt.format(context=self.context)
@@ -218,6 +255,9 @@ class NeedsBlock(Block):
                     await self.memory.status.update(
                         "social_satisfaction", satisfactions["social_satisfaction"]
                     )
+                    # initialize meal tracking status
+                    await self.memory.status.update("meals_today", 0)
+                    await self.memory.status.update("last_meal_tick", None)
                     break
                 except Exception as e:
                     get_logger().warning(f"Initial response error: {e}")
@@ -353,6 +393,106 @@ class NeedsBlock(Block):
         current_plan = await self.memory.status.get("current_plan")
         current_need = await self.memory.status.get("current_need")
 
+        profile = await self.memory.status.get("profile") or {}
+        occupation = str(profile.get("occupation", "")).lower()
+
+        # Determine day/night
+        day, seconds = self.environment.get_datetime()
+        hour = seconds // 3600
+        is_night = (hour < 6) or (hour >= 22)
+
+        # Check Workday (Alarm Logic)
+        # is_workday = True # Default fallback
+        # try:
+        #     is_workday = self.environment.sense("workday")
+        # except:
+        #     pass
+        try:
+            val = self.environment.sense("workday")
+            is_workday = bool(val) if val is not None else False
+        except:
+            get_logger().warning("Failed to sense 'workday', defaulting to False")
+            is_workday = False
+
+        # Determine whether this agent actually has a job
+        profile = await self.memory.status.get("profile") or {}
+        occupation = str(profile.get("occupation", "")).lower()
+        no_job_keywords = ["retired", "unemployed", "student", "child", "no job", "none"]
+        has_active_job = not any(k in occupation for k in no_job_keywords)
+
+        # Working hours
+        is_work_hours = is_workday and (8 <= hour < 18)
+
+        meals_today = await self.memory.status.get("meals_today") or 0
+        last_meal_tick = await self.memory.status.get("last_meal_tick")
+        tick_now = self.environment.get_tick()
+
+        hours_since_last_meal = None
+        if last_meal_tick is not None:
+            hours_since_last_meal = (tick_now - last_meal_tick) / 3600.0
+
+        can_trigger_hungry = True
+        # Not eating at night
+        if is_night:
+            can_trigger_hungry = False
+        # Not hungry if the time is too close to last main meal
+        if (
+            hours_since_last_meal is not None
+            and hours_since_last_meal < self.min_hours_between_meals
+        ):
+            can_trigger_hungry = False
+        
+        # If it's a workday morning (7-8 AM) and agent is still 'tired' (sleeping),
+        # FORCE wake up by switching need to 'hunger' (breakfast) or 'safe' (work).
+        no_job_keywords = ["retired", "unemployed", "student", "child", "no job", "none"]
+        has_active_job = not any(keyword in occupation for keyword in no_job_keywords)
+
+
+        if is_workday and has_active_job and 7 <= hour < 8:
+            if current_need == "tired" or energy_satisfaction < 0.4:
+                get_logger().info("ALARM CLOCK: Waking agent up & caffeine boost for workday!")
+
+                if energy_satisfaction < 0.65:
+                    await self.memory.status.update("energy_satisfaction", 0.65)
+                    energy_satisfaction = 0.65
+
+                new_need = "hunger" # Usually wake up to eat breakfast
+                await self.memory.status.update("current_need", new_need)
+                self.context.current_intention = "Wake up, alarm rang"
+                
+                # If there was a sleeping plan, interrupt it
+                if current_plan:
+                    await self.memory.status.update("current_plan", None)
+                
+                return "The alarm clock rang, I must get up."
+        
+        is_work_hours = is_workday and (8 <= hour < 18)
+        can_trigger_tired = True
+        
+        # Only apply 'Worker Bee' logic if agent HAS A JOB
+        # During work hours, if I have a job and energy > 0.1, I CANNOT be tired.
+        if has_active_job and is_work_hours and energy_satisfaction > 0.1:
+            can_trigger_tired = False
+
+
+        # If it's night, sleep until 95% energy. If day (nap), sleep until 60%.
+        sleep_until_threshold = 0.95 if is_night else 0.6
+        forcing_sleep = False
+        
+        # [MODIFIED] Only enforce continued sleep at night and when not extremely hungry.
+        # During the day, even if the agent is "tired", other needs (work, meals) can interrupt sleep.
+        if is_night and current_need == "tired" and energy_satisfaction < sleep_until_threshold:
+            # Continue sleeping unless starving to death
+            if hunger_satisfaction > 0.05:
+                forcing_sleep = True
+
+        # B. Night Thresholds (Soft Lock)
+        # At night, only wake up for EXTREME needs (0.05).
+        # During day, use normal thresholds (self.T_X).
+        current_hunger_threshold = 0.05 if is_night else self.T_H
+        current_social_threshold = 0.05 if is_night else self.T_C
+        current_safe_threshold = 0.05 if is_night else self.T_P
+        
         # When there's no plan, get all satisfaction values and check each need against its threshold based on priority
         if not current_plan:
             # check needs in priority order
@@ -364,20 +504,33 @@ class NeedsBlock(Block):
                 )
                 cognition = f"I need to do: {self._need_to_do}"
                 self._need_to_do_checked = True
-            elif hunger_satisfaction <= self.T_H:
+            elif forcing_sleep: #check forcing sleep
+                await self.memory.status.update("current_need", "tired")
+                self.context.current_intention = "tired"
+                cognition = "I am still sleeping and need more rest."
+            # If it's night, we get tired easier (0.4) than day (0.2)
+            elif is_night and energy_satisfaction <= 0.4: 
+                await self.memory.status.update("current_need", "tired")
+                self.context.current_intention = "tired"
+                cognition = "It is late night, I am tired."
+            elif hunger_satisfaction <= current_hunger_threshold and can_trigger_hungry:
                 await self.memory.status.update("current_need", "hungry")
                 self.context.current_intention = "hungry"
                 await self.memory.stream.add(
                     topic="cognition", description="I feel hungry"
                 )
                 cognition = "I feel hungry"
-            elif energy_satisfaction <= self.T_D:
+            elif is_workday and (self.need_work or (is_work_hours and has_active_job)) and current_need != "safe":
+                 await self.memory.status.update("current_need", "safe")
+                 self.context.current_intention = "safe"
+                 cognition = "I need to go to work."
+            elif is_night and energy_satisfaction <= self.T_D:
                 await self.memory.status.update("current_need", "tired")
                 self.context.current_intention = "tired"
                 await self.memory.stream.add(
-                    topic="cognition", description="I feel tired"
+                    topic="cognition", description="I am tired and should keep sleeping"
                 )
-                cognition = "I feel tired"
+                cognition = "I am tired and should keep sleeping"
             elif self.need_work:
                 await self.memory.status.update("current_need", "safe")
                 self.context.current_intention = "safe"
@@ -386,14 +539,14 @@ class NeedsBlock(Block):
                 )
                 cognition = "I need to work"
                 self.need_work = False
-            elif safety_satisfaction <= self.T_P:
+            elif safety_satisfaction <= current_safe_threshold:
                 await self.memory.status.update("current_need", "safe")
                 self.context.current_intention = "safe"
                 await self.memory.stream.add(
                     topic="cognition", description="I have safe needs right now"
                 )
                 cognition = "I have safe needs right now"
-            elif social_satisfaction <= self.T_C:
+            elif social_satisfaction <= current_social_threshold:
                 await self.memory.status.update("current_need", "social")
                 self.context.current_intention = "social"
                 await self.memory.stream.add(
@@ -412,7 +565,11 @@ class NeedsBlock(Block):
             # While there is an ongoing plan, only adjust for higher priority needs
             needs_changed = False
             new_need = None
-            if self._need_to_do:
+
+            # [MODIFIED] If we are forcing sleep, do NOT interrupt with other needs
+            if forcing_sleep:
+                pass # Stay on current plan (sleeping)
+            elif self._need_to_do:
                 if not self._need_to_do_checked:
                     new_need = self._need_to_do
                     needs_changed = True
@@ -421,26 +578,26 @@ class NeedsBlock(Block):
                 else:
                     cognition = f"I still need to concentrate on {self._need_to_do}"
                     pass  # still concentrate on the emergency need
-            elif hunger_satisfaction <= self.T_H and current_need not in [
+            elif hunger_satisfaction <= current_hunger_threshold and can_trigger_hungry and current_need not in [
                 "hungry",
                 "tired",
             ]:
                 new_need = "hungry"
                 needs_changed = True
-            elif energy_satisfaction <= self.T_D and current_need not in [
+            elif can_trigger_tired and energy_satisfaction <= self.T_D and current_need not in [
                 "hungry",
                 "tired",
             ]:
                 new_need = "tired"
                 needs_changed = True
-            elif safety_satisfaction <= self.T_P and current_need not in [
+            elif safety_satisfaction <= current_safe_threshold and current_need not in [
                 "hungry",
                 "tired",
                 "safe",
             ]:
                 new_need = "safe"
                 needs_changed = True
-            elif social_satisfaction <= self.T_C and current_need not in [
+            elif social_satisfaction <= current_social_threshold and current_need not in [
                 "hungry",
                 "tired",
                 "safe",
@@ -486,6 +643,13 @@ class NeedsBlock(Block):
 
         # Use LLM for evaluation
         current_need = await self.memory.status.get("current_need")
+
+        # [ADDITION] Check if the plan target implies eating explicitly to help the logic
+        is_eating_plan = "eat" in completed_plan["target"].lower() or \
+                         "lunch" in completed_plan["target"].lower() or \
+                         "dinner" in completed_plan["target"].lower() or \
+                         "breakfast" in completed_plan["target"].lower()
+        
         await self.evaluation_prompt.format(
             current_need=current_need,
             plan_target=completed_plan["target"],
@@ -513,7 +677,26 @@ class NeedsBlock(Block):
                         "social_satisfaction",
                     ]:
                         await self.memory.status.update(need_type, new_value)
-                return
+                
+                # meal logging: check if this plan counts as a main meal
+                meal_type = completed_plan.get("meal_type")
+
+                # Check if it was a main meal based on Type OR Target text
+                if meal_type in ("breakfast", "lunch", "dinner") or (is_eating_plan and "snack" not in str(meal_type)):
+                    tick_now = self.environment.get_tick()
+                    await self.memory.status.update("last_meal_tick", tick_now)
+                    
+                    meals_today = await self.memory.status.get("meals_today") or 0
+                    await self.memory.status.update("meals_today", meals_today + 1)
+
+                    # FORCE satisfy hunger if it was a main meal, regardless of what LLM said
+                    # This prevents the loop where LLM thinks "still hungry"
+                    current_hunger = await self.memory.status.get("hunger_satisfaction")
+                    if current_hunger < 0.98: # Force it high enough to survive decay for 3-4 hours
+                        await self.memory.status.update("hunger_satisfaction", 0.98)
+                        get_logger().info(f"Force updated hunger to 0.85 after meal plan: {completed_plan['target']}")
+
+                return        
             except Exception as e:
                 get_logger().warning(f"Error processing evaluation response: {str(e)}")
                 get_logger().warning(f"Original response: {response}")
